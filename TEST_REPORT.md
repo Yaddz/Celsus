@@ -10,7 +10,7 @@
 
 | Sprint | Escopo da Suite de Testes | Arquivos de Teste | Total de Casos | Passaram | Falharam | Integridade SHA-256 (`test-lock`) | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Sprint 1** | Backend Go: Parser COTAHIST, Proxy BRAPI, Taxas Macro e Endpoints REST | 5 | 9 | 0 | 9 | `LOCKED (5 arquivos)` | 🔴 Fase A Concluída (Red & Locked) |
+| **Sprint 1** | Backend Go: Parser COTAHIST, Proxy BRAPI, Taxas Macro e Endpoints REST | 5 | 9 | 9 | 0 | `VERIFIED (5 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 2** | Mobile Foundation: Componentes UI Design System e Schema SQLite/Drizzle | 3 | 12 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 | **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 5 | 24 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 3 | 14 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
@@ -25,15 +25,15 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S1-T01` | `internal/cotahist/parser_test.go` | `TestParseValidStockLine_245Bytes` | Extração exata de `DATPRE`, `CODBDI="02"`, `CODNEG`, `TPMERC="010"` e `PREULT` dividido por 100 | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🔴 RED (Stub) |
-| `S1-T02` | `internal/cotahist/parser_test.go` | `TestParseValidFIILine_CODBDI12` | Classificação correta de FII quando `CODBDI == "12"` e `TPMERC == "010"` | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🔴 RED (Stub) |
-| `S1-T03` | `internal/cotahist/parser_test.go` | `TestIgnoreHeaderTrailerAndOptions` | Ignorar `TIPREG="00"`, `"99"` e mercados de opções (`TPMERC="070"`, `"080"`) | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🔴 RED (Stub) |
-| `S1-T04` | `internal/cotahist/parser_test.go` | `TestParseZipArchiveStreaming` | Leitura de arquivo `.ZIP` contendo `COTAHIST_AXXXX.TXT` sem estourar memória | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🔴 RED (Stub) |
-| `S1-T05` | `internal/cotahist/repository_test.go` | `TestIdempotentBatchUpsert` | Reimportar o mesmo arquivo COTAHIST não duplica linhas (`INSERT OR REPLACE`) | `2b3208f456c5bbe99dc1d7357dd2805f178043a46eb8ca4d4143a7ebd82c0178` | 🔴 RED (Stub) |
-| `S1-T06` | `internal/brapi/client_test.go` | `TestFetchStockAndFIIQuotesWithCache` | Busca em lote na BRAPI e retorno do cache dentro do TTL sem nova chamada HTTP | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🔴 RED (Stub) |
-| `S1-T07` | `internal/brapi/client_test.go` | `TestFetchCryptoQuotesInBRL` | Cotação de criptomoedas (`BTC`, `ETH`) padronizada em `BRL` | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🔴 RED (Stub) |
-| `S1-T08` | `internal/macro/rates_test.go` | `TestFetchAndStoreDailyCDIAndIPCA` | Armazenamento e consulta da série histórica diária de CDI e IPCA por intervalo de datas | `575b28ebc6e03256deac947e03d67d2bfdac46debc59f6f0cb3a2a921d4f8881` | 🔴 RED (Stub) |
-| `S1-T09` | `internal/http/handlers_test.go` | `TestEndpoints_Health_Catalog_Quotes_History_Macro` | Contratos JSON e códigos HTTP (`200`, `400`) para todos os 5 endpoints `/v1/*` | `783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1` | 🔴 RED (Stub) |
+| `S1-T01` | `internal/cotahist/parser_test.go` | `TestParseValidStockLine_245Bytes` | Extração exata de `DATPRE`, `CODBDI="02"`, `CODNEG`, `TPMERC="010"` e `PREULT` dividido por 100 | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🟢 PASS (0.00s) |
+| `S1-T02` | `internal/cotahist/parser_test.go` | `TestParseValidFIILine_CODBDI12` | Classificação correta de FII quando `CODBDI == "12"` e `TPMERC == "010"` | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🟢 PASS (0.00s) |
+| `S1-T03` | `internal/cotahist/parser_test.go` | `TestIgnoreHeaderTrailerAndOptions` | Ignorar `TIPREG="00"`, `"99"` e mercados de opções (`TPMERC="070"`, `"080"`) | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🟢 PASS (0.00s) |
+| `S1-T04` | `internal/cotahist/parser_test.go` | `TestParseZipArchiveStreaming` | Leitura de arquivo `.ZIP` contendo `COTAHIST_AXXXX.TXT` sem estourar memória | `39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33` | 🟢 PASS (0.00s) |
+| `S1-T05` | `internal/cotahist/repository_test.go` | `TestIdempotentBatchUpsert` | Reimportar o mesmo arquivo COTAHIST não duplica linhas (`INSERT OR REPLACE`) | `2b3208f456c5bbe99dc1d7357dd2805f178043a46eb8ca4d4143a7ebd82c0178` | 🟢 PASS (0.00s) |
+| `S1-T06` | `internal/brapi/client_test.go` | `TestFetchStockAndFIIQuotesWithCache` | Busca em lote na BRAPI e retorno do cache dentro do TTL sem nova chamada HTTP | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🟢 PASS (0.08s) |
+| `S1-T07` | `internal/brapi/client_test.go` | `TestFetchCryptoQuotesInBRL` | Cotação de criptomoedas (`BTC`, `ETH`) padronizada em `BRL` | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🟢 PASS (0.00s) |
+| `S1-T08` | `internal/macro/rates_test.go` | `TestFetchAndStoreDailyCDIAndIPCA` | Armazenamento e consulta da série histórica diária de CDI e IPCA por intervalo de datas | `575b28ebc6e03256deac947e03d67d2bfdac46debc59f6f0cb3a2a921d4f8881` | 🟢 PASS (0.00s) |
+| `S1-T09` | `internal/http/handlers_test.go` | `TestEndpoints_Health_Catalog_Quotes_History_Macro` | Contratos JSON e códigos HTTP (`200`, `400`) para todos os 5 endpoints `/v1/*` | `783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1` | 🟢 PASS (0.05s) |
 
 ---
 
@@ -111,4 +111,51 @@
   --- FAIL: TestEndpoints_Health_Catalog_Quotes_History_Macro (handlers_test.go: 5 endpoints com 501 Not Implemented nos stubs)
   --- FAIL: TestFetchAndStoreDailyCDIAndIPCA (rates_test.go: esperava 2 observações de CDI no período, obtido 0)
   Total: 9 testes | 0 PASS | 9 FAIL (Red Phase confirmada)
+  ```
+
+### Sprint 1 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 5 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte (`go test -count=1 ./... -v`):**
+  ```text
+  === RUN   TestFetchStockAndFIIQuotesWithCache
+  --- PASS: TestFetchStockAndFIIQuotesWithCache (0.08s)
+  === RUN   TestFetchCryptoQuotesInBRL
+  --- PASS: TestFetchCryptoQuotesInBRL (0.00s)
+  PASS
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.960s
+  === RUN   TestParseValidStockLine_245Bytes
+  --- PASS: TestParseValidStockLine_245Bytes (0.00s)
+  === RUN   TestParseValidFIILine_CODBDI12
+  --- PASS: TestParseValidFIILine_CODBDI12 (0.00s)
+  === RUN   TestIgnoreHeaderTrailerAndOptions
+  --- PASS: TestIgnoreHeaderTrailerAndOptions (0.00s)
+  === RUN   TestParseZipArchiveStreaming
+  --- PASS: TestParseZipArchiveStreaming (0.00s)
+  === RUN   TestIdempotentBatchUpsert
+  --- PASS: TestIdempotentBatchUpsert (0.00s)
+  PASS
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	1.199s
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_Health
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_Health (0.03s)
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_CatalogSearch
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_CatalogSearch (0.00s)
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_Quotes
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_Quotes (0.00s)
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_History
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_History (0.00s)
+  === RUN   TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_RatesMacro
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro/Endpoint_RatesMacro (0.00s)
+  --- PASS: TestEndpoints_Health_Catalog_Quotes_History_Macro (0.05s)
+  PASS
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.229s
+  === RUN   TestFetchAndStoreDailyCDIAndIPCA
+  --- PASS: TestFetchAndStoreDailyCDIAndIPCA (0.00s)
+  PASS
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	1.189s
+  Total: 9 testes | 9 PASS | 0 FAIL (100% Green Phase aprovada)
   ```
