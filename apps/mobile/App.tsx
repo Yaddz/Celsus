@@ -45,6 +45,7 @@ import {
   PortfolioConsolidationInput,
 } from './src/domain/finance';
 import { transactionService } from './src/services/transactionService';
+import { marketSyncService } from './src/services/marketSyncService';
 import { assetRepository } from './src/repositories/assetRepository';
 import { portfolioRepository } from './src/repositories/portfolioRepository';
 
@@ -176,6 +177,9 @@ function AppContent() {
 
   useEffect(() => {
     refreshAppData();
+    marketSyncService.syncAllPortfolioTickers()
+      .then(() => refreshAppData())
+      .catch(() => {});
   }, []);
 
   const handleSimulate = () => {

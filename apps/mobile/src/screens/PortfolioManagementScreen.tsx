@@ -20,6 +20,7 @@ import {
   calculateSmartContribution,
   RebalanceAssetInput,
 } from '../domain/finance';
+import { marketApiService } from '../services/marketApi';
 
 interface PortfolioItem {
   id: string;
@@ -117,6 +118,23 @@ export const PortfolioManagementScreen: React.FC<{
     setActivePortfolioId(newPort.id);
     setNewPortfolioName('');
     setIsNewPortfolioModalOpen(false);
+  };
+
+  // Handler para busca e preenchimento automático do ativo
+  const handleTickerChange = async (text: string) => {
+    setNewTicker(text);
+    const clean = text.trim().toUpperCase();
+    if (clean.length >= 2) {
+      try {
+        const results = await marketApiService.searchCatalog(clean, selectedClassTab);
+        if (results && results.length > 0) {
+          const matched = results.find((r) => r.ticker === clean) || results[0];
+          if (matched && matched.name) {
+            setNewName(matched.name);
+          }
+        }
+      } catch {}
+    }
   };
 
   // Handler para adicionar novo ativo
@@ -431,7 +449,7 @@ export const PortfolioManagementScreen: React.FC<{
               placeholder="Ticker (ex: BBDC4, KNRI11, SOL)"
               placeholderTextColor="#666"
               value={newTicker}
-              onChangeText={setNewTicker}
+              onChangeText={handleTickerChange}
               autoCapitalize="characters"
             />
             <TextInput

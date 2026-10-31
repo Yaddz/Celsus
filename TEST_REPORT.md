@@ -16,12 +16,12 @@
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 11 | 13 | `LOCKED (21 arquivos)` | 🔒 Fase A Bloqueada (Red Phase) |
+| **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 24 | 0 | `VERIFIED (21 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S6)** | **Suíte Concluída do MVP (Backend Go + Mobile React Native/Expo)** | **18** | **116** | **116** | **0** | **`VERIFIED (18 arquivos)`** | **🟢 100% Aprovado** |
+| **TOTAL (S1–S7)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **21** | **140** | **140** | **0** | **`VERIFIED (21 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -102,9 +102,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S7-T01` | `src/services/__tests__/marketApiIntegration.test.ts` | `TestLocalBackendQuotesCatalogAndHistoryIntegration` | Integração `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com cache SQLite e fallback offline | `096d33e90c0945289147102f07fe58b8528ad17722f89bf5bfca110111a8383b` | 🟢 PASS (10/10) [Fase A Locked] |
-| `S7-T02` | `src/services/__tests__/marketSyncService.test.ts` | `TestBatchSyncPortfolioTickersAndRecalculatePatrimony` | Sincronização automática de cotações dos ativos das carteiras locais e recálculo do patrimônio | `08c78163330cd3c71aea2769eb17b7eb98b9ac592b1f196c553232de0ef5f491` | 🔴 RED (Stub Phase A - Aguardando Fase B) |
-| `S7-T03` | `internal/cotahist/seed_test.go` | `TestLocalMarketSeedBootstrap` | Seed idempotente do catálogo local (Ações, FIIs, Cripto e curvas CDI/IPCA) no backend Go | `762e1cbd2fd7a35f89d810734f141f8272b35a500398d2f90185536aded9db93` | 🔴 RED (Stub Phase A - Aguardando Fase B) |
+| `S7-T01` | `src/services/__tests__/marketApiIntegration.test.ts` | `TestLocalBackendQuotesCatalogAndHistoryIntegration` | Integração `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com cache SQLite e fallback offline | `096d33e90c0945289147102f07fe58b8528ad17722f89bf5bfca110111a8383b` | 🟢 PASS (0.01s) |
+| `S7-T02` | `src/services/__tests__/marketSyncService.test.ts` | `TestBatchSyncPortfolioTickersAndRecalculatePatrimony` | Sincronização automática de cotações dos ativos das carteiras locais e recálculo do patrimônio | `08c78163330cd3c71aea2769eb17b7eb98b9ac592b1f196c553232de0ef5f491` | 🟢 PASS (0.02s) |
+| `S7-T03` | `internal/cotahist/seed_test.go` | `TestLocalMarketSeedBootstrap` | Seed idempotente do catálogo local (Ações, FIIs, Cripto e curvas CDI/IPCA) no backend Go | `762e1cbd2fd7a35f89d810734f141f8272b35a500398d2f90185536aded9db93` | 🟢 PASS (0.00s) |
 
 ---
 
@@ -629,20 +629,20 @@
       √ should completely replace all local records when importing in RESTORE mode (2 ms)
       √ should merge records by UUID v4 without duplicating existing transactions and recalculate asset average price in MERGE mode (20 ms)
 
-  Test Suites: 13 passed, 13 total
-  Tests:       107 passed, 107 total
+  Test Suites: 15 passed, 15 total
+  Tests:       124 passed, 124 total
   Snapshots:   0 total
-  Time:        4.160 s
+  Time:        4.069 s
   ```
 - **Execução Final da Suíte Backend Go (`cd services/market-api && go test -count=1 ./... -v`):**
   ```text
-  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.365s
-  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.745s
-  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.160s
-  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.734s
-  Total Backend Go: 9 testes | 9 PASS | 0 FAIL
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.224s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.657s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.159s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.650s
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
   ```
-- **Consolidação Final do Projeto Celsus:**
-  - **18 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
-  - **116 casos de teste automatizados executados (9 em Go + 107 em TypeScript/Jest)**
-  - **100% de aprovação (116 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+- **Consolidação Final do Projeto Celsus (Sprint 7 Concluída):**
+  - **21 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **140 casos de teste automatizados executados (16 em Go + 124 em TypeScript/Jest)**
+  - **100% de aprovação (140 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
