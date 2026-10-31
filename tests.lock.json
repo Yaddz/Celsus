@@ -1,86 +1,96 @@
 ﻿{
     "protocol":  "CELSUS_IMMUTABLE_TDD_LOCK_V1",
-    "updatedAt":  "2026-10-31T02:27:12.1959058-03:00",
-    "totalLockedFiles":  16,
+    "updatedAt":  "2026-10-31T02:46:16.5618863-03:00",
+    "totalLockedFiles":  18,
     "files":  {
                   "apps/mobile/src/components/ui/__tests__/AttributeStatBar.test.tsx":  {
                                                                                             "sha256":  "065ded5b122ec8bdb02e2f2096c40d71dc7f8e836b6b667c9ffa812da85d5251",
-                                                                                            "lockedAt":  "2026-10-31T02:27:12.1647890-03:00",
+                                                                                            "lockedAt":  "2026-10-31T02:46:16.5284598-03:00",
                                                                                             "sizeBytes":  3443
                                                                                         },
                   "apps/mobile/src/db/__tests__/schema.test.ts":  {
                                                                       "sha256":  "1facc9030adfd09c3fea4bfc8ee265a78d0125f20304443390c0f9a350ce37f7",
-                                                                      "lockedAt":  "2026-10-31T02:27:12.1708107-03:00",
+                                                                      "lockedAt":  "2026-10-31T02:46:16.5340073-03:00",
                                                                       "sizeBytes":  4754
                                                                   },
                   "apps/mobile/src/domain/finance/__tests__/averagePrice.test.ts":  {
                                                                                         "sha256":  "36a6893360a57d4a6d85eaaff72476eb8acaf000182d36eefaef96e8673083ad",
-                                                                                        "lockedAt":  "2026-10-31T02:27:12.1728126-03:00",
+                                                                                        "lockedAt":  "2026-10-31T02:46:16.5355189-03:00",
                                                                                         "sizeBytes":  8279
                                                                                     },
                   "apps/mobile/src/domain/finance/__tests__/consolidatedView.test.ts":  {
                                                                                             "sha256":  "3056bc65c533bd0932779797e3c461a6f6db22acc41bd41a4ba5959129706c95",
-                                                                                            "lockedAt":  "2026-10-31T02:27:12.1748154-03:00",
+                                                                                            "lockedAt":  "2026-10-31T02:46:16.5365259-03:00",
                                                                                             "sizeBytes":  11659
                                                                                         },
                   "apps/mobile/src/domain/finance/__tests__/fixedIncome.test.ts":  {
                                                                                        "sha256":  "8d173807014ef78452c3ca4025f8ffd8f8e7459c9b036dc32f58222141d6b8a3",
-                                                                                       "lockedAt":  "2026-10-31T02:27:12.1768127-03:00",
+                                                                                       "lockedAt":  "2026-10-31T02:46:16.5389179-03:00",
                                                                                        "sizeBytes":  5174
                                                                                    },
                   "apps/mobile/src/domain/finance/__tests__/portfolioHistory.test.ts":  {
                                                                                             "sha256":  "78439b6b57a9f20e478930b347373f9ebeca871c40cffd1f0037bcf0ca26c268",
-                                                                                            "lockedAt":  "2026-10-31T02:27:12.1783158-03:00",
+                                                                                            "lockedAt":  "2026-10-31T02:46:16.5412062-03:00",
                                                                                             "sizeBytes":  11171
                                                                                         },
                   "apps/mobile/src/domain/finance/__tests__/rebalance.test.ts":  {
                                                                                      "sha256":  "be1f8b7a70668dbc39b1430a3a19bc793549205e1bcd36c191415f184f6697a4",
-                                                                                     "lockedAt":  "2026-10-31T02:27:12.1803211-03:00",
+                                                                                     "lockedAt":  "2026-10-31T02:46:16.5422079-03:00",
                                                                                      "sizeBytes":  8110
                                                                                  },
                   "apps/mobile/src/domain/finance/__tests__/weights.test.ts":  {
                                                                                    "sha256":  "df4671fcb67ff92aca272364fb28a6cd41b3ce26666e95a3ed4fe0a41a17f1af",
-                                                                                   "lockedAt":  "2026-10-31T02:27:12.1818278-03:00",
+                                                                                   "lockedAt":  "2026-10-31T02:46:16.5437164-03:00",
                                                                                    "sizeBytes":  6571
                                                                                },
+                  "apps/mobile/src/services/__tests__/backupService.test.ts":  {
+                                                                                   "sha256":  "18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90",
+                                                                                   "lockedAt":  "2026-10-31T02:46:16.5457815-03:00",
+                                                                                   "sizeBytes":  18503
+                                                                               },
+                  "apps/mobile/src/services/__tests__/privacyAndAuth.test.ts":  {
+                                                                                    "sha256":  "4d77b41c818c1aacc675bc61d2b47df079a9e4ea5e58566d95f7fec51a3afb54",
+                                                                                    "lockedAt":  "2026-10-31T02:46:16.5472890-03:00",
+                                                                                    "sizeBytes":  5488
+                                                                                },
                   "apps/mobile/src/services/__tests__/rebalanceExecution.test.ts":  {
                                                                                         "sha256":  "98cae3fc7bdc822fb608d2d87003f568dbe637eadbc87c331a4ee727023324f8",
-                                                                                        "lockedAt":  "2026-10-31T02:27:12.1833332-03:00",
+                                                                                        "lockedAt":  "2026-10-31T02:46:16.5488065-03:00",
                                                                                         "sizeBytes":  11261
                                                                                     },
                   "apps/mobile/src/services/__tests__/transactionService.test.ts":  {
                                                                                         "sha256":  "80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264",
-                                                                                        "lockedAt":  "2026-10-31T02:27:12.1853394-03:00",
+                                                                                        "lockedAt":  "2026-10-31T02:46:16.5508491-03:00",
                                                                                         "sizeBytes":  15289
                                                                                     },
                   "apps/mobile/src/theme/__tests__/tokens.test.ts":  {
                                                                          "sha256":  "fe51c89542f758616f3fd53093b0ad9a513f74f57106b240502be92a071a9355",
-                                                                         "lockedAt":  "2026-10-31T02:27:12.1868453-03:00",
+                                                                         "lockedAt":  "2026-10-31T02:46:16.5533559-03:00",
                                                                          "sizeBytes":  3952
                                                                      },
                   "services/market-api/internal/brapi/client_test.go":  {
                                                                             "sha256":  "ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac",
-                                                                            "lockedAt":  "2026-10-31T02:27:12.1883571-03:00",
+                                                                            "lockedAt":  "2026-10-31T02:46:16.5553641-03:00",
                                                                             "sizeBytes":  5055
                                                                         },
                   "services/market-api/internal/cotahist/parser_test.go":  {
                                                                                "sha256":  "39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33",
-                                                                               "lockedAt":  "2026-10-31T02:27:12.1903682-03:00",
+                                                                               "lockedAt":  "2026-10-31T02:46:16.5563650-03:00",
                                                                                "sizeBytes":  7334
                                                                            },
                   "services/market-api/internal/cotahist/repository_test.go":  {
                                                                                    "sha256":  "2b3208f456c5bbe99dc1d7357dd2805f178043a46eb8ca4d4143a7ebd82c0178",
-                                                                                   "lockedAt":  "2026-10-31T02:27:12.1923910-03:00",
+                                                                                   "lockedAt":  "2026-10-31T02:46:16.5573652-03:00",
                                                                                    "sizeBytes":  3242
                                                                                },
                   "services/market-api/internal/http/handlers_test.go":  {
                                                                              "sha256":  "783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1",
-                                                                             "lockedAt":  "2026-10-31T02:27:12.1943989-03:00",
+                                                                             "lockedAt":  "2026-10-31T02:46:16.5598800-03:00",
                                                                              "sizeBytes":  7047
                                                                          },
                   "services/market-api/internal/macro/rates_test.go":  {
                                                                            "sha256":  "575b28ebc6e03256deac947e03d67d2bfdac46debc59f6f0cb3a2a921d4f8881",
-                                                                           "lockedAt":  "2026-10-31T02:27:12.1959058-03:00",
+                                                                           "lockedAt":  "2026-10-31T02:46:16.5618863-03:00",
                                                                            "sizeBytes":  2541
                                                                        }
               }

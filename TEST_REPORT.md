@@ -15,7 +15,7 @@
 | **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 4 | 37 | 37 | 0 | `VERIFIED (12 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 3 | 15 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
+| **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 0 | 16 | `LOCKED (18 arquivos)` | 🔴 Fase A (Red & Locked) |
 
 ---
 
@@ -85,10 +85,10 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S6-T01` | `src/services/__tests__/backupService.test.ts` | `TestExportZipStructureAndManifestSHA256` | Geração do `.celsus.zip` contendo `manifest.json` + 4 CSVs com hashes SHA-256 e contagem de linhas exatos | `-` | ⏳ |
-| `S6-T02` | `src/services/__tests__/backupService.test.ts` | `TestRejectTamperedCSVOnImport` | Adulterar 1 byte em `transactions.csv` dentro do ZIP deve abortar a importação com erro de integridade `SHA-256` sem alterar o banco local | `-` | ⏳ |
-| `S6-T03` | `src/services/__tests__/backupService.test.ts` | `TestImportFullRestoreAndUUIDMerge` | Validação do modo *Restore Completo* (substitui tudo) e *Merge* (mescla por UUID v4 sem duplicar lançamentos) | `-` | ⏳ |
-| `S6-T04` | `src/services/__tests__/privacyAndAuth.test.ts` | `TestPrivacyRedactionAndBiometricLock` | Ocultação de saldos (`██████,██`) quando `isPrivacyModeEnabled=true` e disparo do bloqueio biométrico | `-` | ⏳ |
+| `S6-T01` | `src/services/__tests__/backupService.test.ts` | `TestExportZipStructureAndManifestSHA256` | Geração do `.celsus.zip` contendo `manifest.json` + 4 CSVs com hashes SHA-256 e contagem de linhas exatos | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
+| `S6-T02` | `src/services/__tests__/backupService.test.ts` | `TestRejectTamperedCSVOnImport` | Adulterar 1 byte em `transactions.csv` dentro do ZIP deve abortar a importação com erro de integridade `SHA-256` sem alterar o banco local | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
+| `S6-T03` | `src/services/__tests__/backupService.test.ts` | `TestImportFullRestoreAndUUIDMerge` | Validação do modo *Restore Completo* (substitui tudo) e *Merge* (mescla por UUID v4 sem duplicar lançamentos) | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
+| `S6-T04` | `src/services/__tests__/privacyAndAuth.test.ts` | `TestPrivacyRedactionAndBiometricLock` | Ocultação de saldos (`██████,██`) quando `isPrivacyModeEnabled=true` e disparo do bloqueio biométrico | `4d77b41c818c1aacc675bc61d2b47df079a9e4ea5e58566d95f7fec51a3afb54` | 🔴 FAIL (Stub) |
 
 ---
 
@@ -488,4 +488,42 @@
   Snapshots:   0 total
   Time:        4.794 s
   Total: 12 novos testes da Sprint 5 | 12 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+
+### Sprint 6 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 18 arquivos de teste bloqueados com `ReadOnly` e registrados em `tests.lock.json` (incluindo os 2 novos arquivos de teste da Sprint 6: `backupService.test.ts` e `privacyAndAuth.test.ts`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 18 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/services/__tests__/backupService.test.ts
+    ● S6-T01: TestExportZipStructureAndManifestSHA256
+      - should generate a valid .celsus.zip containing manifest.json and 4 CSVs with exact row counts and SHA-256 hashes (FAIL)
+      - should handle empty database snapshot with 0 rows and valid CSV headers (FAIL)
+      - should compute deterministic SHA-256 hash matching standard NIST vector (FAIL)
+    ● S6-T02: TestRejectTamperedCSVOnImport
+      - should immediately abort import with SECURITY PROTOCOL: CORRUPTED DOSSIER when 1 byte of transactions.csv is tampered, leaving local DB untouched (FAIL)
+      - should reject archive if manifest.json is missing or has unsupported schemaVersion (FAIL)
+      - should reject archive if any required CSV file declared in manifest.json is missing from the ZIP (FAIL)
+    ● S6-T03: TestImportFullRestoreAndUUIDMerge
+      - should completely replace all local records when importing in RESTORE mode (FAIL)
+      - should merge records by UUID v4 without duplicating existing transactions and recalculate asset average price in MERGE mode (FAIL)
+  FAIL src/services/__tests__/privacyAndAuth.test.ts
+    ● S6-T04: TestPrivacyRedactionAndBiometricLock
+      - should redact numeric and formatted BRL values with ██████,██ when privacy mode is enabled (FAIL)
+      - should display formatted BRL values normally when privacy mode is disabled (FAIL)
+      - should redact percentage values when privacy mode is enabled (FAIL)
+      - should toggle privacy mode state in PrivacyAndAuthService and format values accordingly (FAIL)
+      - should lock the app when biometric lock is enabled and unlock upon successful biometric authentication (FAIL)
+      - should keep app locked when biometric authentication fails or is cancelled by user (FAIL)
+      - should report biometric availability accurately when hardware or enrollment is missing (FAIL)
+      - should return failure with reason when attempting to unlock if biometrics are not enrolled on device (FAIL)
+
+  Test Suites: 2 failed, 11 passed, 13 total
+  Tests:       16 failed, 91 passed, 107 total
+  Snapshots:   0 total
+  Time:        5.101 s
+  Total: 16 novos testes da Sprint 6 | 0 PASS sob stubs | 16 FAIL (Red Phase confirmada sob stubs)
   ```
