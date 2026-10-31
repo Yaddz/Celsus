@@ -16,7 +16,12 @@
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL** | **Suíte Completa do Projeto Celsus (Backend Go + Mobile React Native/Expo)** | **18** | **116** | **116** | **0** | **`VERIFIED (18 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **TOTAL (S1–S6)** | **Suíte Concluída do MVP (Backend Go + Mobile React Native/Expo)** | **18** | **116** | **116** | **0** | **`VERIFIED (18 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -90,6 +95,57 @@
 | `S6-T02` | `src/services/__tests__/backupService.test.ts` | `TestRejectTamperedCSVOnImport` | Adulterar 1 byte em `transactions.csv` dentro do ZIP deve abortar a importação com erro de integridade `SHA-256` sem alterar o banco local | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🟢 PASS (0.01s) |
 | `S6-T03` | `src/services/__tests__/backupService.test.ts` | `TestImportFullRestoreAndUUIDMerge` | Validação do modo *Restore Completo* (substitui tudo) e *Merge* (mescla por UUID v4 sem duplicar lançamentos) | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🟢 PASS (0.02s) |
 | `S6-T04` | `src/services/__tests__/privacyAndAuth.test.ts` | `TestPrivacyRedactionAndBiometricLock` | Ocultação de saldos (`██████,██`) quando `isPrivacyModeEnabled=true` e disparo do bloqueio biométrico | `4d77b41c818c1aacc675bc61d2b47df079a9e4ea5e58566d95f7fec51a3afb54` | 🟢 PASS (0.02s) |
+
+---
+
+### 2.7. Sprint 7 — Ambiente Local Integrado, Busca Real de Tickers e Sincronização (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S7-T01` | `src/services/__tests__/marketApiIntegration.test.ts` | `TestLocalBackendQuotesCatalogAndHistoryIntegration` | Integração `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com cache SQLite e fallback offline | `PENDING (Fase A)` | ⏳ PENDING |
+| `S7-T02` | `src/services/__tests__/marketSyncService.test.ts` | `TestBatchSyncPortfolioTickersAndRecalculatePatrimony` | Sincronização automática de cotações dos ativos das carteiras locais e recálculo do patrimônio | `PENDING (Fase A)` | ⏳ PENDING |
+| `S7-T03` | `internal/cotahist/seed_test.go` | `TestLocalMarketSeedBootstrap` | Seed idempotente do catálogo local (Ações, FIIs, Cripto e curvas CDI/IPCA) no backend Go | `PENDING (Fase A)` | ⏳ PENDING |
+
+---
+
+### 2.8. Sprint 8 — Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestPortfolioPalettesAndImmutableAssetClassColors` | 4 paletas de carteira (`classic`, `harbor`, `docks`, `tribunal`) mantendo fixas as 4 cores de classes de ativos | `PENDING (Fase A)` | ⏳ PENDING |
+| `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `PENDING (Fase A)` | ⏳ PENDING |
+| `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `PENDING (Fase A)` | ⏳ PENDING |
+
+---
+
+### 2.9. Sprint 9 — Card em Pilha Interativa (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S9-T01` | `src/components/ui/__tests__/StackedWalletDeck.test.tsx` | `TestStackedWalletPullDownUpAndCornerCutout` | Puxar para baixo avança carteira, puxar para cima volta uma, cor estendida até Rentabilidade e recorte curvo `•••• 001` | `PENDING (Fase A)` | ⏳ PENDING |
+| `S9-T02` | `src/components/ui/__tests__/DotMatrixV2.test.tsx` | `TestRightToLeftColumnsRebalanceButtonAndInvestedValue` | Preenchimento em colunas da direita para a esquerda, botão Rebalancear no topo, sem `"Matriz de Pontos"` e valor aportado por classe | `PENDING (Fase A)` | ⏳ PENDING |
+| `S9-T03` | `src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx` | `TestLargerQuickActionsAndMoreTwoOptionsMenu` | Ícones/textos maiores e botão `"Mais"` exibindo as 2 opções: `Novo Aporte` e `Nova Carteira` | `PENDING (Fase A)` | ⏳ PENDING |
+| `S9-T04` | `src/screens/__tests__/HomeLayoutV2.test.tsx` | `TestHomeCleanLayoutNoSimCardAndGlobalFooter` | Remoção do card de simulação da Home, Movimentações Recentes mais acima e `FloatingBottomDock` em todas as telas | `PENDING (Fase A)` | ⏳ PENDING |
+
+---
+
+### 2.10. Sprint 10 — Tela de Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S10-T01` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `TestHollowDonutLongPressTooltipAndTapScroll` | Gráfico de pizza oco da classe: segurar na cor mostra caixa com nome do ativo; clicar na cor faz scroll até o ativo | `PENDING (Fase A)` | ⏳ PENDING |
+| `S10-T02` | `src/screens/__tests__/ClassAssetCards.test.tsx` | `TestAssetDetailInformationCards` | Exibição de Saldo Bruto, Quantidade, Preço Médio, Cotação Atual e Rentabilidade de cada ativo da classe | `PENDING (Fase A)` | ⏳ PENDING |
+| `S10-T03` | `src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx` | `TestTransactionHistoryNavigationAndDetails` | Clicar em movimentação recente abre histórico exibindo Valor Investido, Cotação, Quantidade e Data | `PENDING (Fase A)` | ⏳ PENDING |
+
+---
+
+### 2.11. Sprint 11 — Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S11-T01` | `src/domain/finance/__tests__/periodSummary.test.ts` | `TestPeriodFilteringAndSummary_5D_1M_1Y_5Y_ALL` | Cálculo da curva e resumo (Patrimônio Inicial, Aportes, Rendimentos, Patrimônio Final) para `5D`, `1M`, `1Y`, `5Y` e `ALL` | `PENDING (Fase A)` | ⏳ PENDING |
+| `S11-T02` | `src/screens/__tests__/StatisticsScreenV2.test.tsx` | `TestStatisticsNoHeaderPortfolioSelectorAndLineChart` | Sem header, seletor com nome da carteira + `"Carteiras Consolidadas"`, filtros `5 dias/Mês/Ano/5 anos/Total` e gráfico de linha | `PENDING (Fase A)` | ⏳ PENDING |
+| `S11-T03` | `src/screens/__tests__/PortfolioManagementV2.test.tsx` | `TestPortfolioManagementStackedDeckAndCleanCopy` | Sem header, seletor em pilha reaproveitado da Home e remoção de textos com cara de IA (`"NÍVEL 1"`, `"META GLOBAL Ti"`, etc.) | `PENDING (Fase A)` | ⏳ PENDING |
 
 ---
 

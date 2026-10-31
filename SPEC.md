@@ -1,8 +1,9 @@
-# CELSUS — Especificação Técnica, Arquitetura e Plano de Sprints (MVP)
+# CELSUS — Especificação Técnica, Arquitetura e Plano de Sprints (SPEC v2)
 
+> **Versão:** `v2.0` (Inclui Fundação MVP Sprints 1–6 Concluídas + Ciclo de Aperfeiçoamento e Integração Real Sprints 7–11)  
 > **Arquitetura:** Mobile Local-First (`React Native / Expo` + `SQLite`) + Market Data Engine Stateless (`Go`)  
 > **Privacidade:** 100% dos dados pessoais, carteiras e aportes armazenados exclusivamente no dispositivo do usuário.  
-> **Estética:** *WalleZ Modern Bento Layout + Paleta Celsus* ([DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md))
+> **Estética:** *Clean Bento v2 + Paletas por Carteira (`/imgsinsp`) + Inspiração XP / BTG / Pierre* ([DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md))
 
 ---
 
@@ -601,4 +602,250 @@ Passos:
 2. Rode toda a suíte de testes do projeto (Go + Mobile) até atingir 100% de aprovação.
 3. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` e consolide o relatório final em `TEST_REPORT.md`.
 4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-6): complete phase B implementation and final test report" && git push origin main`.
+```
+
+
+---
+
+## 11. Especificação da Leva de Aperfeiçoamento e Testes de Integração (SPEC v2 — Sprints 7 a 11)
+
+Após a conclusão das Sprints 1 a 6, a **SPEC v2** estabelece a preparação do ambiente local de integração real (`apps/mobile` ↔ `services/market-api`) e o aperfeiçoamento completo de UI/UX inspirado nas referências em `/imgsinsp` (*Pierre*, *XP Investimentos*, *BTG Investimentos* e *Disco Elysium Color Charts*).
+
+### 11.1. Integração Local Front-End + Back-End e Busca de Tickers
+- **Ambiente Local Unificado:**
+  - Script de inicialização (`scripts/dev-local.ps1`) e configuração automática de `EXPO_PUBLIC_MARKET_API_URL` apontando para o backend Go (`http://localhost:8080` ou IP da LAN para dispositivo físico via Expo Go).
+  - Comando/rotina de seed no backend Go (`services/market-api`) carregando amostra real do **COTAHIST B3**, curvas diárias de **CDI/IPCA** e proxy **BRAPI** (Ações, FIIs e Cripto em BRL).
+  - No app mobile, a busca de tickers (`/v1/catalog/search`), a cotação atual (`/v1/quotes`) e o preenchimento histórico (`/v1/history`) consultam o backend Go em tempo real e atualizam o cache SQLite local (`market_price_cache` e `historical_prices_local`).
+
+### 11.2. Arquitetura Visual Limpa, Header Estilo XP e Esfera Luminosa (`AmbientOrb`)
+1. **Esfera Luminosa no Topo (`AmbientOrb`):**
+   - Inspirada na iluminação atmosférica superior do app *Pierre*, renderiza uma bola difusa suave no topo da tela que reflete as cores da paleta da carteira ativa.
+2. **Header Estilo XP na Home (e Remoção Total de Headers nas Demais Telas):**
+   - **Na Home:**
+     - **Canto Esquerdo:** Avatar circular com as iniciais do usuário (ex.: `PL`) + nome (`Pedro`). Ao clicar, abre a **Página de Configurações**.
+     - **Canto Direito:** Dois botões circulares:
+       1. **Botão Globo (`language` / `public`):** Placeholder preparado para versões futuras onde o usuário alternará a visualização entre *Investimentos* e *Movimentações Bancárias*.
+       2. **Botão de Olho (`visibility` / `visibility-off`):** Alterna instantaneamente o Modo Privacidade em todo o app.
+   - **Nas demais telas (`Estatísticas`, `Carteiras`, `Detalhe da Classe`, `Histórico da Movimentação`):**
+     - **Nenhuma página possui header superior.** Os títulos pesados de topo foram removidos.
+     - O **Footer Flutuante (`FloatingBottomDock`)** permanece visível em **todas as telas**, acompanhado de transições suaves de abertura/navegação.
+
+### 11.3. Paletas por Carteira (`/imgsinsp`) + Página de Configurações (Tema Escuro / Claro)
+1. **Paletas Temáticas por Carteira:**
+   - Extraídas das 3 cartelas de cores em `/imgsinsp/disco-elysium-colors-charts` + paleta clássica Celsus (`classic`, `harbor`, `docks`, `tribunal`).
+   - Ao trocar de carteira, a cor do Card da Carteira, a Esfera Luminosa (`AmbientOrb`) e os indicadores ativos assumem a paleta daquela carteira.
+   - **Regra de Coerência:** As cores das 4 categorias de ativos (`FIXED_INCOME` `#2E4A44`, `FII` `#D5CAA8`, `STOCK` `#D96628`, `CRYPTO` `#C49A45`) permanecem **sempre fixas**, e o fundo do app permanece consistente com o tema global.
+2. **Página de Configurações (`SettingsBackupScreen` v2):**
+   - Permite alternar o **Tema do App (`Escuro` `#111315` ou `Claro` `#F4F1EA`)**.
+   - Reúne as configurações de **PIN / Biometria**, **Modo Privacidade**, **URL da API Local** e **Backup / Restauração `.celsus.zip`**.
+
+### 11.4. Card da Carteira em Pilha Interativa (`StackedWalletDeck`) e Geometria com Recorte Curvo
+1. **Gesto de Pilha Vertical (Pull Down / Pull Up):**
+   - As carteiras ficam empilhadas. **Puxar a carteira atual para baixo** executa uma animação suave trazendo a próxima carteira para o topo da pilha; **puxar para cima** volta uma carteira.
+2. **Cor Estendida + Recorte Curvo (`•••• 001`):**
+   - A cor principal da carteira se estende por todo o card, abrangendo a área inferior esquerda onde antes ficava `"DOSSIÊ CONSOLIDADO"` — que agora passa a exibir o **Nome da Carteira** e a **Rentabilidade** (`+12,4% no ano`).
+   - O canto inferior direito onde fica o código `•••• 001` mantém a cor escura do card (`#191B1D`) como um **quadrado com borda curva integrado ao formato do card** (*corner notch*).
+
+### 11.5. Reorganização da Home, Acesso Rápido Ampliado e Alocação por Categoria
+1. **Botões de Acesso Rápido (`QuickActionBentoRow` v2):**
+   - Ícones maiores (`28px`–`30px`) e textos maiores (`15px`–`16px`).
+   - O botão **Mais** apresenta um seletor com **duas opções**:
+     1. **Adicionar Novo Aporte**
+     2. **Adicionar Nova Carteira**
+2. **Limpeza e Nova Ordem na Home:**
+   - **Card de Simulação removido** da página inicial.
+   - **Card de Rebalanceamento removido** da página inicial e substituído por um **botão `"Rebalancear"` da mesma cor (`#D5CAA8`)** posicionado no cabeçalho do card de **Alocação por Categoria** (no lugar onde ficava o valor total).
+   - **Movimentações Recentes posicionadas mais acima** na Home.
+3. **Card de Alocação por Categoria (`DotMatrixAllocationCard` & `AttributeStatBar` v2):**
+   - Remove o texto `"Matriz de Pontos • 4 Classes Reais"`.
+   - Remove o texto `/ META X%` de cada categoria e exibe o **valor aportado/investido em cada classe + porcentagem atual** (ex.: `R$ 10.389,76 • 32,0%`).
+   - **Gráfico de Matriz de Pontos em Colunas da Direita para a Esquerda:** O preenchimento dos pontos ocorre **em colunas, da direita para a esquerda** (e não mais em linhas).
+
+### 11.6. Nova Tela de Detalhe da Classe (`ClassDetailScreen`) e Página de Histórico da Movimentação (`TransactionDetailHistoryScreen`)
+1. **Clique na Classe → Tela de Detalhe da Classe (`ClassDetailScreen`):**
+   - Exibe no topo um **Gráfico de Pizza Oco (Donut Chart)** mostrando a porcentagem de alocação de cada ativo dentro da classe.
+   - **Segurar em cima de uma cor (`onLongPress`):** Exibe uma caixa de texto (*tooltip*) com o **nome do ativo e sua porcentagem**.
+   - **Clicar na cor (`onPress`):** Faz **scroll automático** até o card onde está o ativo abaixo, com todas as suas informações (Saldo Bruto, Quantidade, Preço Médio, Cotação Atual e Rentabilidade, inspirado nas telas do BTG e XP).
+2. **Clique em uma Movimentação Recente → Página de Histórico da Movimentação (`TransactionDetailHistoryScreen`):**
+   - Direciona para a página de histórico/detalhe daquela movimentação, exibindo **Valor Investido, Cotação na data, Quantidade, Taxas, Tipo de Operação, Data e histórico completo do ativo**.
+
+### 11.7. Reformulação das Páginas de Estatísticas e Carteiras
+1. **Página de Estatísticas (`StatisticsScreen` v2):**
+   - **Sem header superior.**
+   - Substitui `"Dossiê Geral"` pelo **nome da carteira selecionada** + um **seletor de carteiras** que inclui todas as carteiras individuais e a opção **"Carteiras Consolidadas"**.
+   - Substitui o antigo gráfico confuso e os botões `W | M | Y` por um **Gráfico de Linha Suave com Área Sombreada (estilo BTG / Pierre)** e os filtros de período: **`5 dias` (`5D`), `Mês` (`1M`), `Ano` (`1A`), `5 anos` (`5A`) e `Total`**, acompanhado logo abaixo pelo **Card de Resumo do Período** (*Patrimônio Inicial, Aportes, Rendimentos e Patrimônio Final*).
+2. **Página de Carteiras na Navbar (`PortfolioManagementScreen` v2):**
+   - **Sem header superior.**
+   - Reaproveita o mecanismo de **mudança de carteira em pilha (`StackedWalletDeck`)** da Home.
+   - Remove todos os textos com cara de IA, descrições técnicas (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`) e sinalizadores poluídos, deixando a gestão de pesos e ativos limpa e direta.
+
+---
+
+## 12. Novas Sprints de Aperfeiçoamento e Integração (Sprints 7 a 11)
+
+Seguindo rigorosamente o protocolo **TDD Lock** ([`.agents/rules/tdd-lock.md`](file:///c:/Users/Pedro/Documents/Projetos/Celsus/.agents/rules/tdd-lock.md)), cada nova Sprint é dividida em **Fase A (Testes + Lock + Commit)** e **Fase B (Implementação + Verify + Relatório + Commit)**.
+
+---
+
+### SPRINT 7: Ambiente Local Integrado (Front + Back), Busca Real de Tickers e Sincronização de Cotações
+**Objetivo:** Preparar o ambiente local para rodar `services/market-api` (Go) + `apps/mobile` (Expo) integrados, adicionando seed local de mercado, busca ao vivo de tickers e sincronização automática de cotações dos ativos das carteiras.
+
+#### Prompt da Sprint 7 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 7 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC.md` (v2) e `TEST_REPORT.md`.
+
+1. Desbloqueie o lock (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action unlock`) e crie apenas os stubs para `marketSyncService.ts` em `apps/mobile/src/services/` e `seed.go` em `services/market-api/internal/cotahist/`.
+2. Escreva os testes da Sprint 7 (`S7-T01` a `S7-T03`):
+   - `S7-T01` (`apps/mobile/src/services/__tests__/marketApiIntegration.test.ts`): integração dos endpoints `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com atualização automática da tabela local `market_price_cache` e fallback offline.
+   - `S7-T02` (`apps/mobile/src/services/__tests__/marketSyncService.test.ts`): sincronização em lote de todos os tickers das carteiras locais com o backend Go e recálculo imediato do patrimônio com os preços de mercado atualizados.
+   - `S7-T03` (`services/market-api/internal/cotahist/seed_test.go`): bootstrap/seed automático do banco de mercado Go garantindo catálogo populado de Ações, FIIs, Cripto e curvas CDI/IPCA para teste local imediato.
+3. Bloqueie todos os testes (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-7): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 7 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 7 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` (v2).
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado.
+
+Passos:
+1. Implemente `seed.go` no backend Go (`services/market-api`) e crie o script `scripts/dev-local.ps1` para subir o servidor Go local com dados de mercado prontos e conectar o app Expo (`apps/mobile`).
+2. Implemente `marketSyncService.ts` e conecte `marketApi.ts` ao fluxo de inicialização do app e à busca de tickers ao cadastrar ativos ou lançar aportes.
+3. Rode todos os testes (`go test ./...` e `npm test --prefix apps/mobile`) até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-7): complete phase B local integration and test report" && git push origin main`.
+```
+
+---
+
+### SPRINT 8: Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, Esfera Luminosa (`AmbientOrb`), Header XP e Configurações
+**Objetivo:** Implementar as 4 paletas de carteira inspiradas em `/imgsinsp`, o seletor de Tema Escuro/Claro, a Esfera Luminosa no topo (`AmbientOrb`), o Header estilo XP na Home (com avatar p/ Configurações, placeholder de Globo e botão de Olho) e a remoção de headers nas demais páginas.
+
+#### Prompt da Sprint 8 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 8 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+1. Desbloqueie o lock (`./scripts/test-lock.ps1 -Action unlock`) e crie apenas as interfaces/stubs para `src/theme/palettes.ts`, `src/components/ui/AmbientOrb.tsx` e `src/components/ui/XpMinimalHeader.tsx`.
+2. Escreva os testes da Sprint 8 (`S8-T01` a `S8-T03`):
+   - `S8-T01` (`src/theme/__tests__/palettes.test.ts`): validação das 4 paletas de carteira (`classic`, `harbor`, `docks`, `tribunal`) extraídas de `/imgsinsp` e garantia de que as 4 cores das classes de ativos (`#2E4A44`, `#D5CAA8`, `#D96628`, `#C49A45`) permanecem fixas e imutáveis em qualquer paleta ou tema.
+   - `S8-T02` (`src/theme/__tests__/themeMode.test.ts`): alternância entre Tema Escuro (`dark`, fundo `#111315`) e Tema Claro (`light`, fundo `#F4F1EA`) na página de Configurações.
+   - `S8-T03` (`src/components/ui/__tests__/XpMinimalHeader.test.tsx`): renderização do avatar do usuário à esquerda (dispara abertura de Configurações), botão placeholder do Globo (`onGlobePress`) e botão de Olho (`onTogglePrivacy`) à direita.
+3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e atualize os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-8): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 8 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 8 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado.
+
+Passos:
+1. Implemente `src/theme/palettes.ts` (4 paletas de carteira + suporte a Tema Escuro e Claro mantendo fixas as cores dos ativos).
+2. Implemente `AmbientOrb.tsx` (a bola luminosa difusa no topo inspirada no Pierre) e `XpMinimalHeader.tsx` (avatar/nome do usuário à esquerda abrindo Configurações, ícone de Globo placeholder e ícone de Olho à direita).
+3. Atualize `SettingsBackupScreen.tsx` como Página Completa de Configurações (Seletor de Tema Escuro/Claro, PIN/Biometria, Privacidade e Backup `.celsus.zip`).
+4. Rode `npm test --prefix apps/mobile` até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+5. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-8): complete phase B palettes, light/dark theme and XP header" && git push origin main`.
+```
+
+---
+
+### SPRINT 9: Card em Pilha Interativa (`StackedWalletDeck`), Reorganização da Home e Matriz de Pontos Direita → Esquerda
+**Objetivo:** Implementar o card da carteira em pilha com gesto vertical (puxar para baixo/cima), cor estendida até a rentabilidade com recorte curvo `•••• 001`, botões rápidos maiores com menu de 2 opções no `"Mais"`, footer em todas as telas e o card de Alocação por Categoria preenchido em colunas da direita para a esquerda.
+
+#### Prompt da Sprint 9 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 9 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+1. Desbloqueie o lock (`./scripts/test-lock.ps1 -Action unlock`) e crie as assinaturas/stubs para `StackedWalletDeck.tsx` e as novas props de `DotMatrixAllocationCard.tsx`, `AttributeStatBar.tsx` e `QuickActionBentoRow`.
+2. Escreva os testes da Sprint 9 (`S9-T01` a `S9-T04`):
+   - `S9-T01` (`src/components/ui/__tests__/StackedWalletDeck.test.tsx`): ciclo de carteiras ao puxar para baixo (avança para a próxima carteira) e puxar para cima (volta uma carteira), cor estendida abrangendo a Rentabilidade e recorte quadrado curvo escuro no código `•••• 001`.
+   - `S9-T02` (`src/components/ui/__tests__/DotMatrixV2.test.tsx`): preenchimento da matriz de pontos em colunas da direita para a esquerda, ausência do texto `"Matriz de Pontos • 4 Classes Reais"`, botão `"Rebalancear"` (`#D5CAA8`) no topo do card no lugar do valor total, e exibição do valor aportado em `R$` + `%` por classe (sem `/ META` no modo v2, mantendo retrocompatibilidade com `AttributeStatBar.test.tsx`).
+   - `S9-T03` (`src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx`): ícones e textos ampliados nos 3 botões rápidos e abertura do modal com as 2 opções ao clicar em `"Mais"` (`Novo Aporte` e `Nova Carteira`).
+   - `S9-T04` (`src/screens/__tests__/HomeLayoutV2.test.tsx`): remoção do card de simulação e do card avulso de rebalanceamento da Home, Movimentações Recentes posicionadas mais acima e `FloatingBottomDock` visível em todas as telas.
+3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-9): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 9 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 9 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado (incluindo `AttributeStatBar.test.tsx` da Sprint 2).
+
+Passos:
+1. Implemente `StackedWalletDeck.tsx` e atualize `DossierCard.tsx` com suporte a gesto vertical (puxar para baixo avança a carteira, puxar para cima volta uma), cor estendida até a Rentabilidade e recorte quadrado curvo escuro integrado para o código `•••• 001`.
+2. Atualize `QuickActionBentoRow` com ícones maiores, textos maiores e o menu de 2 opções no botão `"Mais"` (`Novo Aporte` e `Nova Carteira`).
+3. Atualize `DotMatrixAllocationCard.tsx` e `AttributeStatBar.tsx` (preenchimento em colunas da direita para a esquerda, botão `"Rebalancear"` da cor `#D5CAA8` no topo direito do card, valor aportado em `R$` por classe e clique em qualquer classe).
+4. Reorganize `App.tsx` (subindo Movimentações Recentes, removendo o Card de Simulação e mantendo o `FloatingBottomDock` visível em todas as telas com animação de transição).
+5. Rode `npm test --prefix apps/mobile` até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+6. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-9): complete phase B stacked wallet card and home v2 layout" && git push origin main`.
+```
+
+---
+
+### SPRINT 10: Tela de Detalhe da Classe (Gráfico de Pizza Oco + Scroll p/ Ativo) e Página de Histórico da Movimentação
+**Objetivo:** Construir a tela de Detalhe da Classe (`ClassDetailScreen`) com gráfico de rosca interativo (segurar na cor exibe o nome do ativo; clicar na cor faz scroll até o card do ativo) e a página de Histórico/Detalhe da Movimentação (`TransactionDetailHistoryScreen`) ao clicar em qualquer movimentação recente.
+
+#### Prompt da Sprint 10 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 10 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+1. Desbloqueie o lock (`./scripts/test-lock.ps1 -Action unlock`) e crie as assinaturas/stubs para `ClassDetailScreen.tsx` e `TransactionDetailHistoryScreen.tsx` em `apps/mobile/src/screens/`.
+2. Escreva os testes da Sprint 10 (`S10-T01` a `S10-T03`):
+   - `S10-T01` (`src/screens/__tests__/ClassDetailScreen.test.tsx`): renderização do gráfico de pizza oco (Donut Chart) com as porcentagens de cada ativo da classe, exibição da caixa de texto com o nome do ativo ao segurar (`onLongPress`) em uma fatia/cor e disparo do scroll para o card do ativo ao clicar (`onPress`) na cor.
+   - `S10-T02` (`src/screens/__tests__/ClassAssetCards.test.tsx`): exibição dos cards detalhados de cada ativo da classe (Saldo Bruto, Quantidade, Preço Médio, Preço Atual e Rentabilidade) e ausência de header pesado.
+   - `S10-T03` (`src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx`): abertura ao clicar em um registro de Movimentações Recentes na Home, exibindo Valor Investido, Cotação, Quantidade, Taxas, Data e histórico completo de movimentações.
+3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-10): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 10 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 10 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado.
+
+Passos:
+1. Implemente `ClassDetailScreen.tsx` com o Gráfico de Pizza Oco (Donut Chart em SVG/View), tooltip no `onLongPress` da fatia mostrando o nome do ativo, scroll automático (`ScrollView.scrollTo`) no `onPress` da fatia até o card do ativo e cards detalhados estilo BTG/XP.
+2. Implemente `TransactionDetailHistoryScreen.tsx` exibindo Valor Investido, Cotação, Quantidade, Taxas, Preço Médio e lista histórica agrupada por data, conectando o clique de cada item do `RecentTransactionsCard` na Home.
+3. Rode `npm test --prefix apps/mobile` até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-10): complete phase B class donut screen and transaction history detail" && git push origin main`.
+```
+
+---
+
+### SPRINT 11: Página de Estatísticas v2 (`5D | Mês | Ano | 5A | Total` + Gráfico de Linha) e Limpeza da Página de Carteiras
+**Objetivo:** Reformular a página de Estatísticas (sem header, seletor com nome da carteira + opção `"Carteiras Consolidadas"`, gráfico de linha com área sombreada estilo BTG/Pierre para `5 dias`, `Mês`, `Ano`, `5 anos` e `Total` + card de resumo) e limpar a página de Carteiras da navbar (reaproveitando o card em pilha da Home e removendo textos com cara de IA).
+
+#### Prompt da Sprint 11 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 11 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+1. Desbloqueie o lock (`./scripts/test-lock.ps1 -Action unlock`) e crie as assinaturas para os filtros de período (`5D`, `1M`, `1Y`, `5Y`, `ALL`) em `portfolioHistory.ts` e para o gráfico de linha em `PatrimonyLineChartCard.tsx`.
+2. Escreva os testes da Sprint 11 (`S11-T01` a `S11-T03`):
+   - `S11-T01` (`src/domain/finance/__tests__/periodSummary.test.ts`): filtragem da série histórica e cálculo de resumo (`initialPatrimony`, `netContributions`, `yieldAmount`, `yieldPercentage`, `finalPatrimony`) para `5D` (5 dias), `1M` (Mês), `1Y` (Ano), `5Y` (5 anos) e `ALL` (Total).
+   - `S11-T02` (`src/screens/__tests__/StatisticsScreenV2.test.tsx`): ausência de header na página de Estatísticas, seletor exibindo o nome da carteira ou `"Carteiras Consolidadas"` (sem `"Dossiê Geral"`), seletores `5 dias`, `Mês`, `Ano`, `5 anos` e `Total`, gráfico de linha legível e card de resumo do período.
+   - `S11-T03` (`src/screens/__tests__/PortfolioManagementV2.test.tsx`): ausência de header, reaproveitamento do `StackedWalletDeck` para troca de carteira em pilha e remoção total de textos com cara de IA (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`).
+3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-11): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 11 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 11 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` (v2) e `DESIGN_SYSTEM.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado.
+
+Passos:
+1. Implemente o cálculo de janelas de período (`5D`, `1M`, `1Y`, `5Y`, `ALL`) em `portfolioHistory.ts` e o componente `PatrimonyLineChartCard.tsx` (gráfico de linha suave com área sombreada estilo BTG/Pierre + seletores `5 dias`, `Mês`, `Ano`, `5 anos` e `Total`).
+2. Atualize `StatisticsScreen.tsx` removendo o header, substituindo `"Dossiê Geral"` pelo nome da carteira com seletor incluindo `"Carteiras Consolidadas"`, integrando o novo gráfico de linha e o card de resumo do período.
+3. Atualize `PortfolioManagementScreen.tsx` removendo o header, integrando o `StackedWalletDeck` da Home para mudança de carteira e removendo todos os textos artificiais, descrições técnicas e sinalizadores desnecessários.
+4. Rode toda a suíte de testes (`go test ./...` e `npm test --prefix apps/mobile`) até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+5. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-11): complete phase B statistics line chart and clean portfolio screen" && git push origin main`.
 ```

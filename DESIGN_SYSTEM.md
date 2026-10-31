@@ -1,5 +1,5 @@
 ---
-name: Celsus
+name: Celsus v2
 colors:
   surface: '#121416'
   surface-dim: '#121416'
@@ -45,6 +45,11 @@ colors:
   background: '#111315'
   on-background: '#e2e2e5'
   surface-variant: '#333537'
+  light-background: '#F4F1EA'
+  light-surface: '#FFFFFF'
+  light-surface-container: '#EAE4D7'
+  light-on-surface: '#191B1D'
+  light-muted: '#6E6A63'
 typography:
   headline-xl:
     fontFamily: Space Mono
@@ -97,7 +102,7 @@ typography:
     lineHeight: 18px
   label-lg:
     fontFamily: Space Mono
-    fontSize: 14px
+    fontSize: 15px
     fontWeight: '700'
     lineHeight: 20px
     letterSpacing: 0.06em
@@ -132,96 +137,110 @@ spacing:
   space-xl: 2rem
 ---
 
-## 1. Visão Geral Visual (WalleZ Modern Bento Layout + Paleta Celsus)
+## 1. Visão Geral Visual — Celsus v2 (Clean Bento + Inspiração XP / BTG / Pierre + Paletas por Carteira)
 
-O Design System do **Celsus** combina a **paleta autoral (`#D96628`, `#2E4A44`, `#D5CAA8`, `#191B1D`, `#111315`, `#C49A45`) e a tipografia monoespaçada `Space Mono`** com um **layout mobile moderno, limpo e direto de Bento Cards arredondados, cartões empilhados, gráficos de cápsulas/matriz de pontos e barra de navegação flutuante em pílula** (estilo *WalleZ*), usando terminologia financeira clara e real.
+O Design System **Celsus v2** refina a fundação *WalleZ Modern Bento* com um visual mais limpo, fluido e interativo, inspirado nas referências em `/imgsinsp` (Pierre, XP Investimentos, BTG Investimentos e as 3 cartelas cromáticas *Disco Elysium*).
 
-### Princípios de Layout
-- **Superfícies Arredondadas e Limpas (`Soft Bento Architecture`):** Todos os cartões principais utilizam cantos generosamente arredondados (`22px` a `28px`), preenchimentos escuros suaves (`#191B1D` sobre fundo `#111315`) e espaçamento respirável (`16px`–`20px`).
-- **Contraste em Blocos de Cor (Bento Accents):** Ações primárias e cartões de destaque usam preenchimento sólido nas cores da paleta (`#D96628`, `#2E4A44` e `#D5CAA8`) com texto de alto contraste (`#111315` ou `#E6DECA`).
-- **Visualização de Dados Tátil (Cápsulas e Matriz de Pontos):** Gráficos de colunas em **pílulas/cápsulas empilhadas** (*Stacked Pill Chart*) e **matrizes de pontos circulares** (*Dot-Matrix Category Grid*) com seletores circulares `W | M | Y`.
+### Princípios Visuais do v2
+1. **Esfera Luminosa no Topo (`AmbientOrb`):** No topo da tela principal, uma esfera difusa multicamada cria uma atmosfera luminosa elegante (inspirada no app Pierre), reagindo suavemente à cor da carteira selecionada no momento.
+2. **Header Minimalista Estilo XP na Home (e Zero Header nas demais telas):**
+   - Na **Home**: Avatar circular com as iniciais do usuário + Nome à esquerda (tocar abre a **Página de Configurações**). À direita, dois botões circulares: um **ícone de Globo** (`language` / `public`, placeholder para futura alternância entre *Investimentos* e *Movimentações Bancárias*) e o **ícone de Olho** (`visibility` / `visibility-off`) para alternar o Modo Privacidade.
+   - Nas **demais páginas** (`Estatísticas`, `Carteiras`, `Detalhe da Classe`, `Histórico da Movimentação`): **nenhuma página possui header fixo de título**; a navegação é mantida pelo **Footer Flutuante (`FloatingBottomDock`) presente em todas as telas** e por transições suaves.
+3. **Coerência Cromática (Paletas por Carteira + Cores Fixas de Classes):**
+   - Cada carteira possui sua própria paleta temática (que colore o Card da Carteira, a Esfera Luminosa do topo e os acentos ativos).
+   - **As 4 classes de ativos mantêm sempre suas cores fixas** em todo o app, e o fundo respeita globalmente o **Tema Escuro (`#111315`)** ou **Tema Claro (`#F4F1EA`)** escolhido nas Configurações.
 
 ---
 
-## 2. Paleta de Cores e Categorias de Ativos
+## 2. Sistema de Cores: Classes Fixas, Paletas por Carteira e Tema Escuro/Claro
 
-### Cores Principais
-- **Primary (`#D96628`):** Usada no CTA principal, no primeiro Bento Tile de ação rápida (`Aportar`), no botão circular flutuante da barra inferior, no recorte de destaque do Hero Card e na categoria **Ações (`STOCK`)**.
-- **Secondary (`#2E4A44`):** Usada no segundo Bento Tile (`Simular`), nas cápsulas positivas dos gráficos mensais e na categoria **Renda Fixa (`FIXED_INCOME`)**. (Variante luminosa de apoio: `#AECDC5`).
-- **Tertiary (`#D5CAA8`):** Usada em banners de insight, no círculo ativo da barra de navegação inferior e na categoria **FIIs (`FII`)**.
-- **Neutral (`#191B1D`):** Superfície padrão de todos os Bento Cards, container de movimentações recentes, terceiro Bento Tile (`Mais`) e dock flutuante inferior.
-- **Background (`#111315`):** Fundo raiz de todas as telas, com brilho difuso suave (*ambient glow* em `#D96628` com `opacity: 0.12`) no topo.
-
-### Mapeamento Direto das 4 Categorias de Ativos (`ASSET_CLASS_ATTRIBUTE_MAP`)
-Sem nomes fictícios ou placeholders — cada classe usa seu nome real de mercado:
+### 2.1. Cores Imutáveis das 4 Categorias de Ativos (`ASSET_CLASS_ATTRIBUTE_MAP`)
+Independentemente da carteira selecionada ou do tema (Escuro/Claro), as 4 categorias mantêm sempre a mesma identidade cromática:
 - `FIXED_INCOME` → **Renda Fixa** (`#2E4A44`) — Tesouro Direto, CDB, LCI, LCA, Debêntures
 - `FII` → **FIIs** (`#D5CAA8`) — Fundos de Investimento Imobiliário
 - `STOCK` → **Ações** (`#D96628`) — Ações listadas na B3
 - `CRYPTO` → **Criptomoedas** (`#C49A45`) — Bitcoin, Ethereum e criptoativos
 
+### 2.2. Paletas Temáticas por Carteira (Inspiradas em `/imgsinsp`)
+Cada carteira (incluindo a visão Consolidada) recebe uma paleta temática que estiliza o **Card em Pilha (`StackedWalletDeck`)**, a **Esfera Luminosa (`AmbientOrb`)** e os destaques ativos:
+
+| ID da Paleta | Nome | Inspiração (`/imgsinsp`) | Cor Principal do Card (`cardBg`) | Cor Secundária / Orb (`orbSecondary`) | Destaque / Badge (`accent`) | Texto sobre Card (`onCard`) |
+| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| `classic` | **Celsus Terracotta** | Paleta Original Celsus | `#D96628` | `#2E4A44` | `#D5CAA8` | `#111315` |
+| `harbor` | **Porto & Containers** | `disco-elysium...a7v6mgkbkec81` | `#DB5A42` | `#4A4656` | `#F1CA78` | `#1D1B2A` |
+| `docks` | **Luzes das Docas** | `disco-elysium...lhhbfdkbkec81` | `#EF9F43` | `#5B525C` | `#EDE145` | `#1D1B27` |
+| `tribunal` | **Pátio & Ouro** | `disco-elysium...z1bl1dkbkec81` | `#F1B819` | `#535A49` | `#AC4B25` | `#222526` |
+
+> **Paleta de Fatias Internas do Gráfico de Rosca (Detalhe da Classe):** Ao abrir os ativos dentro de uma classe, as fatias do gráfico de pizza oco utilizam tons derivados das cartelas cromáticas (`#DB5A42`, `#F1CA78`, `#EDE8B8`, `#72743D`, `#D1DDF7`, `#EF9F43`, `#4A525D`, `#AC4B25`) para distinguir claramente cada ativo individual.
+
+### 2.3. Superfícies do Tema Escuro (`dark`) e Tema Claro (`light`)
+- **Tema Escuro (Padrão):**
+  - Fundo Raiz (`background`): `#111315`
+  - Superfície de Card (`surface`): `#191B1D`
+  - Superfície Secundária / Recorte (`surfaceContainer`): `#202224`
+  - Texto Primário (`onSurface`): `#E6DECA`
+  - Texto Secundário (`muted`): `#8A8A8E`
+- **Tema Claro:**
+  - Fundo Raiz (`background`): `#F4F1EA`
+  - Superfície de Card (`surface`): `#FFFFFF`
+  - Superfície Secundária / Recorte (`surfaceContainer`): `#EAE4D7`
+  - Texto Primário (`onSurface`): `#191B1D`
+  - Texto Secundário (`muted`): `#6E6A63`
+
 ---
 
-## 3. Tipografia (`Space Mono`)
+## 3. Componentes e Padrões de Interação (v2)
 
-Toda a hierarquia tipográfica utiliza **`Space Mono`** com alinhamento numérico tabular (`tabular-nums`):
-- **Saldo Principal no Hero Card (`headline-lg` / `headline-xl`):** `32px`–`36px`, `fontWeight: '600'`, alinhado à direita.
-- **Títulos de Seção e Cards (`headline-sm` / `headline-md`):** `18px`–`22px`, `fontWeight: '500'`, cor `#E6DECA`.
-- **Itens de Lista e Labels de Bento (`body-md` / `label-lg`):** `14px`–`15px`, `fontWeight: '700'` nos botões e `'400'` nos subtítulos.
-- **Subtítulos, Datas e Eixos de Gráfico (`body-sm` / `label-md`):** `12px`–`13px`, cor `#8A8A8E`.
+### 3.1. Card da Carteira em Pilha Interativa (`StackedWalletDeck` / `DossierCard` v2)
+- **Mecânica de Pilha Vertical (Pull-to-Cycle):**
+  - As carteiras ficam empilhadas fisicamente.
+  - **Puxar o card atual para baixo (Swipe Down):** uma animação suave traz a próxima carteira da pilha para o topo.
+  - **Puxar o card para cima (Swipe Up):** volta para a carteira anterior da pilha.
+- **Geometria e Cor Estendida com Recorte Curvo (`Corner Cutout`):**
+  - A cor temática da carteira (`cardBg`) preenche **todo o cartão**, estendendo-se até a base esquerda onde antes ficava `"DOSSIÊ CONSOLIDADO"`.
+  - No canto inferior esquerdo (dentro da área colorida), exibe o **Nome da Carteira** e a **Rentabilidade** (`+12,4% no ano` / `R$ +3.580,00`).
+  - No **canto inferior direito**, o código curto (`•••• 001`) permanece sobre um **quadrado da cor escura do card (`#191B1D` / `#111315`) com borda curva integrada ao formato do cartão** (*integrated corner notch*).
 
----
+### 3.2. Botões de Acesso Rápido Ampliados & Menu "Mais" (`QuickActionBentoRow` v2)
+- 3 Bento Tiles lado a lado com **ícones maiores (`28px`–`30px`)** e **texto maior (`15px`–`16px`, `fontWeight: '700'`)**:
+  1. **Aportar** (`north-east`)
+  2. **Simular** (`calculate`)
+  3. **Mais** (`add` / `grid-view`) → Ao clicar em **Mais**, abre um modal/sheet com **duas opções**:
+     - **Novo Aporte** (abre a tela de lançamento de aporte)
+     - **Nova Carteira** (abre o modal de criação de carteira com escolha de nome e paleta)
 
-## 4. Arquitetura de Telas, Ícones (Material Symbols) e Componentes
+### 3.3. Card de Alocação por Categoria (`DotMatrixAllocationCard` & `AttributeStatBar` v2)
+- **Cabeçalho do Card:**
+  - Título `"ALOCAÇÃO POR CATEGORIA"` à esquerda (**sem** o subtítulo `"Matriz de Pontos • 4 Classes Reais"`).
+  - No canto superior direito (onde antes ficava o valor total em `R$`), entra o **Botão "Rebalancear"** na cor `#D5CAA8` (`tertiary`), substituindo o antigo card avulso de rebalanceamento.
+- **Linha de Cada Categoria (`AttributeStatBar`):**
+  - À esquerda: Quadrado colorido + Nome da Categoria (`RENDA FIXA`, `FIIS`, `AÇÕES`, `CRIPTOMOEDAS`).
+  - À direita: **Valor aportado/investido na classe + Porcentagem atual** (ex.: `R$ 10.389,76 • 32,0%`), **sem** exibir `/ META X%`.
+  - **Matriz de Pontos em Colunas da Direita para a Esquerda (`DotMatrixGrid`):** Os pontos são preenchidos **coluna por coluna, partindo da direita para a esquerda**.
+  - **Interação de Clique:** Clicar em qualquer uma das 4 classes navega com animação suave para a **Tela de Detalhe da Classe (`ClassDetailScreen`)**.
 
-> **Regra de Iconografia:** É proibido o uso de emojis (`👁️`, `🎯`, `↗`, etc.) ou caracteres Unicode improvisados na interface. Todos os ícones devem utilizar **Material Symbols / Material Icons** (`@expo/vector-icons/MaterialIcons`).
+### 3.4. Tela de Detalhe da Classe (`ClassDetailScreen`)
+- **Gráfico de Pizza Oco (Donut Chart):**
+  - Exibe a participação percentual de cada ativo dentro da classe selecionada.
+  - **Segurar em cima de uma cor (`onLongPress`):** Mostra uma caixa de texto flutuante (*tooltip*) com o **nome do ativo, ticker e % de alocação**.
+  - **Clicar na cor (`onPress`):** Faz **scroll automático suave** até o card do respectivo ativo na lista abaixo.
+- **Lista de Cards de Ativos (Estilo BTG / XP):**
+  - Cada card exibe: Ticker, Nome da empresa/fundo/título, **Saldo Bruto (`R$`)**, **Quantidade**, **Preço Médio (`R$`)**, **Cotação Atual (`R$`)** e **Rentabilidade (`%` e `R$`)**.
 
-### Mapeamento Oficial de Ícones (Material Symbols / Icons)
-- **Header:**
-  - Logo Celsus: `account-balance-wallet`
-  - Modo Privacidade: `visibility` (visível) / `visibility-off` (oculto)
-- **3 Bento Tiles de Ação Rápida (`QuickActionBentoRow`):**
-  - **Aportar:** `north-east`
-  - **Simular:** `calculate` (ou `tune`)
-  - **Mais / Carteiras:** `grid-view`
-- **Categorias de Ativos (`RecentTransactionsCard` & `AttributeStatBar`):**
-  - **Renda Fixa (`FIXED_INCOME`):** `account-balance`
-  - **FIIs (`FII`):** `domain` (ou `apartment`)
-  - **Ações (`STOCK`):** `trending-up`
-  - **Criptomoedas (`CRYPTO`):** `currency-bitcoin`
-- **Barra de Navegação Flutuante (`FloatingBottomDock`):**
-  - **Início (`home`):** `home`
-  - **Análises (`stats`):** `bar-chart`
-  - **Extrato (`history`):** `receipt-long`
-  - **Carteiras (`wallets`):** `pie-chart`
-  - **Botão Circular de Ação (`+`):** `add`
+### 3.5. Movimentações Recentes e Página de Histórico/Detalhe da Movimentação (`TransactionDetailHistoryScreen`)
+- O card de **Movimentações Recentes** fica posicionado **mais acima na Home** (logo após os botões de ação rápida).
+- O antigo **Card de Simulação** é removido da Home.
+- **Clicar em qualquer registro de movimentação** direciona para a **Página de Histórico dessa Movimentação**, exibindo em destaque o **Valor Investido, Cotação executada, Quantidade, Taxas, Data e Carteira**, além da linha do tempo de operações relacionadas (estilo BTG).
 
-### 4.1. Header Minimalista
-- À esquerda: Ícone `account-balance-wallet` do **Celsus** + título `"Celsus"` e subtítulo `"GESTÃO DE CARTEIRAS"`.
-- À direita: Botão circular (`40x40px`, fundo `#191B1D`) com ícone `visibility` / `visibility-off` para alternar o **Modo Privacidade**.
+### 3.6. Página de Estatísticas (`StatisticsScreen` v2)
+- **Sem header superior.**
+- **Seletor de Carteira no Topo:** Exibe o **nome da carteira atual** com seletor permitindo alternar entre qualquer carteira individual ou a opção **"Carteiras Consolidadas"**.
+- **Gráfico de Linha com Área Sombreada (Estilo BTG / Pierre):**
+  - Seletores de período padronizados: **`5D` (5 dias), `Mês` (`1M`), `Ano` (`1A`), `5A` (5 anos) e `Total`**.
+  - Linha contínua suave com preenchimento translúcido abaixo da curva e tooltip ao tocar.
+- **Card de Resumo do Período:** Exibe **Patrimônio Inicial**, **Aportes/Movimentações**, **Rendimentos (`R$` e `%`)** e **Patrimônio Final**.
 
-### 4.2. Hero Wallet Card Empilhado (`DossierCard`)
-- **Estrutura de Profundidade:** Container principal (`borderRadius: 28px`, fundo `#191B1D`) com **2 camadas inferiores empilhadas** (`scale: 0.94` e `0.88` em `#1A1C1E` e `#151719`).
-- **Recorte Superior Bicolor:**
-  - Canto superior esquerdo com dois círculos translúcidos sobrepostos (`#D5CAA8` / `#2E4A44`).
-  - Área superior direita destacando o **Saldo Total (`R$ 32.468,00`)** em `#111315` e subtítulo `"Patrimônio Total"`.
-  - Rodapé escuro do cartão exibindo o nome da carteira à esquerda (ex.: `"CARTEIRA PRINCIPAL"`), a rentabilidade (`"+12,4% no ano"`) e o indicador curto (`"•••• 001"`) à direita.
-
-### 4.3. Linha de 3 Bento Tiles de Ação Rápida (`QuickActionBentoRow` / `DirectiveButton`)
-Três cartões quadrados arredondados (`borderRadius: 22px`, `height: 104px`, `flex: 1`, `gap: 10px`) lado a lado:
-1. **Aportar (Primary Tile):** Fundo `#D96628`, ícone Material `north-east` no topo esquerdo e texto `"Aportar"` na base esquerda em `#111315`.
-2. **Simular (Secondary Tile):** Fundo `#2E4A44`, ícone Material `calculate` no topo esquerdo e texto `"Simular"` na base esquerda em `#E6DECA`.
-3. **Mais / Carteiras (Neutral Tile):** Fundo `#191B1D`, ícone Material `grid-view` no topo esquerdo e texto `"Mais"` na base esquerda em `#E6DECA`.
-
-### 4.4. Card "Alocação por Categoria" (`AttributeStatBar`)
-- Container `#191B1D` (`borderRadius: 22px`, `padding: 16px`).
-- Topo de cada item: Quadradinho colorido da categoria + Nome real da categoria em destaque (**`RENDA FIXA`**, **`FIIS`**, **`AÇÕES`**, **`CRIPTOMOEDAS`**) à esquerda e **`Atual% / META Meta%`** à direita.
-- **Matriz de Pontos (`Dot-Matrix Grid`):** Grade de pontos circulares preenchidos de baixo para cima na cor da categoria (`#2E4A44`, `#D5CAA8`, `#D96628`, `#C49A45`) proporcionalmente ao percentual atual da carteira.
-
-### 4.5. Lista de Movimentações Recentes (`RecentTransactionsCard`)
-- Container escuro arredondado (`#191B1D`, `borderRadius: 22px`) listando cada operação com:
-  - **Avatar Circular (`44x44px`):** Fundo na cor da categoria do ativo com ícone Material da categoria (`account-balance`, `domain`, `trending-up`, `currency-bitcoin`).
-  - **Centro:** Ticker do ativo + data e tipo (`"Hoje, 14:32 • Compra"`).
-  - **Direita:** Valor formatado (`+R$ 480,00` em `#AECDC5` para compras ou `-R$ 312,00` em `#D96628` para vendas).
-
-### 4.6. Barra de Navegação Flutuante em Pílula (`FloatingBottomDock`)
-- Pílula inferior (`#191B1D`, `borderRadius: 9999px`) com 4 abas (`Início` → `home`, `Análises` → `bar-chart`, `Extrato` → `receipt-long`, `Carteiras` → `pie-chart`), destacando a aba ativa com um círculo sólido `#D5CAA8` + botão circular flutuante separado à direita (`58x58px` em `#D96628` com ícone `add`) para Novo Aporte rápido.
+### 3.7. Página de Carteiras na Navbar (`PortfolioManagementScreen` v2)
+- **Sem header superior.**
+- **Seletor de Carteira em Pilha:** Reaproveita o mesmo mecanismo de puxar o card da carteira para baixo/cima da Home (`StackedWalletDeck`).
+- **Visual Limpo (Zero Textos com cara de IA):** Remove textos como `"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"` e `"META GLOBAL Ti"`, apresentando controles diretos para metas das classes, pesos dos ativos e paleta da carteira.
