@@ -127,15 +127,30 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
   );
 };
 
-/**
- * 3 Bento Tiles de Ação Rápida lado a lado (WalleZ Modern Bento Row)
- */
-export const QuickActionBentoRow: React.FC<{
+export interface QuickActionBentoRowProps {
   onAportar?: () => void;
   onSimular?: () => void;
   onMais?: () => void;
+  onNovoAportePress?: () => void;
+  onNovaCarteiraPress?: () => void;
+  variant?: 'default' | 'v2';
   style?: StyleProp<ViewStyle>;
-}> = ({ onAportar = () => {}, onSimular = () => {}, onMais = () => {}, style }) => {
+  testID?: string;
+}
+
+/**
+ * 3 Bento Tiles de Ação Rápida lado a lado (WalleZ Modern Bento Row)
+ */
+export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
+  onAportar = () => {},
+  onSimular = () => {},
+  onMais = () => {},
+  onNovoAportePress,
+  onNovaCarteiraPress,
+  variant = 'default',
+  style,
+  testID = 'quick-action-bento-row',
+}) => {
   return (
     <View style={[styles.bentoRow, style]}>
       <DirectiveButton

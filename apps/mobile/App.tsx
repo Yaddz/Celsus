@@ -311,6 +311,7 @@ function AppContent() {
       <View style={styles.ambientGlow} />
 
       <ScrollView
+        testID="home-scroll-content"
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: Math.max(insets.bottom, 16) + 80 },
@@ -395,6 +396,7 @@ function AppContent() {
         <RecentTransactionsCard
           transactions={transactionsList}
           onViewAll={() => setIsTransactionModalOpen(true)}
+          testID="home-recent-transactions"
         />
 
         {/* 6. Simulador de Novo Aporte Integrado */}

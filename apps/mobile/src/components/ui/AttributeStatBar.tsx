@@ -17,6 +17,10 @@ export interface AttributeStatBarProps {
   targetPercentage: number;
   testID?: string;
   showDotMatrix?: boolean;
+  variant?: 'default' | 'v2';
+  marketValue?: string;
+  fillDirection?: 'left-to-right' | 'right-to-left';
+  onPress?: (assetClass: AssetClass) => void;
 }
 
 export const ASSET_CLASS_ATTRIBUTE_MAP: Record<AssetClass, CategoryConfig> = {
@@ -51,7 +55,9 @@ export const DotMatrixGrid: React.FC<{
   color: string;
   rows?: number;
   cols?: number;
-}> = ({ currentPercentage, color, rows = 4, cols = 10 }) => {
+  fillDirection?: 'left-to-right' | 'right-to-left';
+  testID?: string;
+}> = ({ currentPercentage, color, rows = 4, cols = 10, fillDirection = 'left-to-right', testID }) => {
   const totalDots = rows * cols;
   const safePercentage = Math.min(100, Math.max(0, currentPercentage));
   const activeDots = Math.round((safePercentage / 100) * totalDots);

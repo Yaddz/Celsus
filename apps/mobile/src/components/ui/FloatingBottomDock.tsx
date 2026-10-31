@@ -32,7 +32,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   onTabChange = () => {},
   onActionPress = () => {},
   style,
-  testID,
+  testID = 'floating-bottom-dock',
 }) => {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 16);
@@ -48,6 +48,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
           return (
             <TouchableOpacity
               key={tab.id}
+              testID={`dock-tab-${tab.id}`}
               activeOpacity={0.8}
               onPress={() => onTabChange(tab.id)}
               style={styles.tabButton}

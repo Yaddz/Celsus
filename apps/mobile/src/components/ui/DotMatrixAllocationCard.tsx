@@ -15,6 +15,9 @@ export interface DotMatrixAllocationCardProps {
   allocations?: CategoryAllocationData[];
   isPrivacyMode?: boolean;
   testID?: string;
+  variant?: 'default' | 'v2';
+  onRebalancePress?: () => void;
+  onClassPress?: (assetClass: AssetClass) => void;
 }
 
 const DEFAULT_ALLOCATIONS: CategoryAllocationData[] = [
