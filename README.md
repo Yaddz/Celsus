@@ -123,17 +123,17 @@ flowchart TB
 
 ---
 
-## 🎨 Design System: *Bureaucratic Brutalism*
+## 🎨 Design System: *WalleZ Modern Bento + Paleta Celsus*
 
-A interface do Celsus rejeita o visual genérico de fintechs modernas em favor de uma fusão tátil entre **Brutalismo Burocrático** e **Skeuomorfismo Pictórico** (inspirado em dossiês investigativos, livros-razão datilografados em `Space Mono` e retratos a óleo expressionistas). Veja a especificação completa em [**`DESIGN_SYSTEM.md`**](./DESIGN_SYSTEM.md).
+A interface do Celsus combina a paleta autoral terrosa/industrial e tipografia `Space Mono` com um layout moderno de **Bento Cards arredondados, Cartão de Saldo Empilhado, Gráficos de Cápsulas e Matriz de Pontos (`Dot-Matrix`)**. Veja a especificação completa em [**`DESIGN_SYSTEM.md`**](./DESIGN_SYSTEM.md).
 
-| Atributo Psicológico | Classe de Ativo no Celsus | Cor & Swatch | Papel Visual |
+| Categoria de Ativo | Código no Sistema | Cor & Swatch | Exemplos de Ativos |
 | :--- | :--- | :--- | :--- |
-| **INTELLECT** | 🏛️ **Renda Fixa** (`CDI`, `IPCA+`, `Pré`) | ![#2E4A44](https://img.shields.io/badge/-%232E4A44-2E4A44?style=flat-square) *Revachol Teal* | Reserva lógica, estabilidade e previsibilidade de caixa |
-| **PSYCHE** | 🏢 **Fundos Imobiliários** (`FII`) | ![#D5CAA8](https://img.shields.io/badge/-%23D5CAA8-D5CAA8?style=flat-square) *Aged Parchment* | Patrimônio imobiliário tangível e renda recorrente |
-| **PHYSIQUE** | ⚡ **Ações** (`STOCK`) | ![#D96628](https://img.shields.io/badge/-%23D96628-D96628?style=flat-square) *Revolutionary Amber* | Força produtiva, participação societária e crescimento |
-| **MOTORICS** | 🪙 **Criptomoedas** (`CRYPTO`) | ![#C49A45](https://img.shields.io/badge/-%23C49A45-C49A45?style=flat-square) *Oxidized Ochre* | Alta velocidade, descentralização e reflexo digital |
-| **SUBSTRATE** | 📓 **Superfícies & Dossiês** | ![#111315](https://img.shields.io/badge/-%23111315-111315?style=flat-square) ![#191B1D](https://img.shields.io/badge/-%23191B1D-191B1D?style=flat-square) | Papel carvão, sombras duras (`2px 2px 0px #000`) e miras `+` |
+| 🏛️ **Renda Fixa** | `FIXED_INCOME` | ![#2E4A44](https://img.shields.io/badge/-%232E4A44-2E4A44?style=flat-square) *Secondary Teal* | Tesouro Direto, CDB (`% CDI`), LCI/LCA, Debêntures (`IPCA+`, `Pré`) |
+| 🏢 **FIIs** | `FII` | ![#D5CAA8](https://img.shields.io/badge/-%23D5CAA8-D5CAA8?style=flat-square) *Tertiary Parchment* | Fundos de Investimento Imobiliário listados na B3 (`HGLG11`, `KNRI11`) |
+| ⚡ **Ações** | `STOCK` | ![#D96628](https://img.shields.io/badge/-%23D96628-D96628?style=flat-square) *Primary Amber* | Ações ordinárias, preferenciais e units na B3 (`PETR4`, `WEGE3`) |
+| 🪙 **Criptomoedas** | `CRYPTO` | ![#C49A45](https://img.shields.io/badge/-%23C49A45-C49A45?style=flat-square) *Ochre Gold* | Criptoativos cotados em `BRL` com até 8 casas decimais (`BTC`, `ETH`) |
+| 📓 **Superfícies** | `SURFACE` | ![#111315](https://img.shields.io/badge/-%23111315-111315?style=flat-square) ![#191B1D](https://img.shields.io/badge/-%23191B1D-191B1D?style=flat-square) | Fundo principal `#111315`, Bento Cards `#191B1D` e Dock flutuante |
 
 ---
 

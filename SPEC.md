@@ -1,23 +1,22 @@
 # CELSUS — Especificação Técnica, Arquitetura e Plano de Sprints (MVP)
 
-> **DOCKET REF:** `CELSUS-SPEC-MVP-001`  
 > **Arquitetura:** Mobile Local-First (`React Native / Expo` + `SQLite`) + Market Data Engine Stateless (`Go`)  
 > **Privacidade:** 100% dos dados pessoais, carteiras e aportes armazenados exclusivamente no dispositivo do usuário.  
-> **Estética:** *Bureaucratic Brutalism & Painterly Skeuomorphism* ([DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md))
+> **Estética:** *WalleZ Modern Bento Layout + Paleta Celsus* ([DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md))
 
 ---
 
 ## 1. Visão Geral do Produto
 
-O **Celsus** é um gestor de carteiras de investimentos mobile focado em privacidade absoluta (**100% Local-First**), alocação inteligente por metas em dois níveis e estética autoral inspirada em dossiês burocráticos e pintura expressionista (*Space Mono*, papéis envelhecidos `#D5CAA8`, carvão `#111315`, verde oxidado `#2E4A44` e âmbar `#D96628`).
+O **Celsus** é um gestor de carteiras de investimentos mobile focado em privacidade absoluta (**100% Local-First**), alocação inteligente por metas em dois níveis e interface moderna em Bento Cards com tipografia `Space Mono` e paleta autoral (`#D96628`, `#2E4A44`, `#D5CAA8`, `#191B1D`, `#111315`, `#C49A45`).
 
 ### Escopo do MVP
-1. **Múltiplas Carteiras Independentes + Visão Consolidada:** Cada carteira possui seus próprios ativos, metas de peso e histórico de transações, além de um Dossiê Consolidado na tela inicial que soma todo o patrimônio em BRL (`R$`).
-2. **4 Classes de Ativos Suportadas:**
-   - **Renda Fixa** (`FIXED_INCOME`) — Atributo visual: *Intellect* (`#2E4A44`)
-   - **Fundos Imobiliários / FIIs** (`FII`) — Atributo visual: *Psyche* (`#D5CAA8`)
-   - **Ações** (`STOCK`) — Atributo visual: *Physique* (`#D96628`)
-   - **Criptomoedas** (`CRYPTO`) — Atributo visual: *Motorics* (`#C49A45`)
+1. **Múltiplas Carteiras Independentes + Visão Consolidada:** Cada carteira possui seus próprios ativos, metas de peso e histórico de transações, além de uma Visão Consolidada na tela inicial que soma todo o patrimônio em BRL (`R$`).
+2. **4 Categorias de Ativos Suportadas:**
+   - **Renda Fixa** (`FIXED_INCOME`) — Cor da categoria: `#2E4A44`
+   - **FIIs (Fundos Imobiliários)** (`FII`) — Cor da categoria: `#D5CAA8`
+   - **Ações** (`STOCK`) — Cor da categoria: `#D96628`
+   - **Criptomoedas** (`CRYPTO`) — Cor da categoria: `#C49A45`
 3. **Pesos em 2 Níveis + Calculadora de Novo Aporte:**
    - **Nível Macro:** Meta percentual (0–100%) para cada classe de ativo dentro da carteira.
    - **Nível Micro:** Meta percentual (0–100%) para cada ativo dentro de sua classe.
@@ -340,33 +339,30 @@ celsus-dossier-20261030-2330.celsus.zip
 
 ---
 
-## 8. Mapa de Telas e UX (Bureaucratic Brutalism)
+## 8. Mapa de Telas e UX (WalleZ Modern Bento Layout + Paleta Celsus)
 
-Seguindo rigorosamente o [DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md):
+Seguindo rigorosamente o [DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md), o layout adota a arquitetura moderna de **Bento Cards arredondados (`24px`–`28px`), Cartão de Saldo Empilhado, Gráficos de Cápsulas e Matriz de Pontos (`Dot-Matrix`) e Dock Flutuante em Pílula**, mantendo a paleta Celsus (`#D96628`, `#2E4A44`, `#D5CAA8`, `#191B1D`, `#111315`, `#C49A45`) e a tipografia `Space Mono`:
 
-1. **Dossiê Geral (Home / Consolidado):**
-   - Cabeçalho tipo carimbo datilografado (`DOCKET REF: REV-PATRIMÔNIO-GERAL`) + botão de Modo Privacidade (`[EYE: REDACTED]`) e status de sincronização.
-   - Card principal em *Parchment Inset* (`#D5CAA8` com texto `#191B1D` em `Space Mono` `tnum`) mostrando **Patrimônio Bruto Total (R$)**, **Valor Investido (R$)** e **Lucro/Prejuízo Acumulado (R$ e %)**.
-   - **Gráfico de Evolução Patrimonial:** Duas linhas angulares (Patrimônio de Mercado em `#2E4A44` vs Custo Aportado em `#D5CAA8` tracejado) usando a série histórica do COTAHIST + CDI.
-   - **Lista de Carteiras (*Thought Cabinet Hexagon Specimen Cards*):** Cards com cantos chanfrados em 45°, mostrando código do dossiê, saldo atual, rentabilidade e barra de aderência à meta.
-2. **Dossiê da Carteira (Detalhes da Carteira):**
-   - **As 4 Barras Psicológicas de Atributos (Alocação Macro Atual vs Meta):**
-     - `INTELLECT` (`#2E4A44`) — **Renda Fixa:** `[||||||....] 32.0% / META 30.0%`
-     - `PSYCHE` (`#D5CAA8`) — **FIIs:** `[|||||.....] 24.5% / META 25.0%`
-     - `PHYSIQUE` (`#D96628`) — **Ações:** `[|||||||...] 33.5% / META 35.0%`
-     - `MOTORICS` (`#C49A45`) — **Criptomoedas:** `[||........] 10.0% / META 10.0%`
-   - Aba de **Ativos por Classe** (mostrando Preço Médio, Preço Atual, `% na Classe` vs `Meta na Classe`, `% na Carteira` vs `Meta Global`).
-   - Botão primário âmbar (`#D96628`, sombra sólida `2px 2px 0px #000`): **`[SIMULAR NOVO APORTE]`**.
+1. **Home (Visão Principal / Carteira Ativa ou Consolidada):**
+   - **Header Minimalista:** Ícone Material (`account-balance-wallet`) + nome/seletor da carteira à esquerda e botão circular (`#191B1D`) com ícone Material (`visibility` / `visibility-off`) de Modo Privacidade à direita (zero emojis).
+   - **Hero Wallet Card Empilhado (`DossierCard`):** Cartão arredondado (`28px`) com 2 camadas inferiores empilhadas dando profundidade física. Possui recorte superior em destaque (`#D96628` → `#D5CAA8` ou `#2E4A44` → `#AECDC5`) exibindo o **Saldo Total (`R$ 32.468,00`)** alinhado à direita, nome da carteira à esquerda e rodapé escuro com rentabilidade (`+12,4%`) e código (`•••• 001`).
+   - **Linha de 3 Bento Tiles de Ação Rápida:** Três botões quadrados arredondados (`22px`) lado a lado logo abaixo do Hero Card usando **Material Symbols / MaterialIcons**:
+     1. **Aportar:** Fundo sólido **Primary `#D96628`**, ícone Material `north-east` no topo e label na base em `#111315`.
+     2. **Simular:** Fundo sólido **Secondary `#2E4A44`**, ícone Material `calculate` no topo e label na base.
+     3. **Carteiras / Mais:** Fundo **Neutral `#191B1D`**, ícone Material `grid-view` no topo e label em `#E6DECA`.
+   - **Banner Horizontal de Insight (`SpecimenHexCard`):** Card compacto horizontal (`#D5CAA8` ou `#282A2C`, `borderRadius: 20px`) com call-to-action rápido de rebalanceamento à esquerda e mini badge de carteira à direita.
+   - **Card de Movimentações Recentes (`Recent Transactions`):** Container escuro arredondado (`#191B1D`, `24px`) com avatar circular colorido à esquerda (`44x44px`, com ícone Material da categoria: `account-balance`, `domain`, `trending-up`, `currency-bitcoin`), nome do ativo + horário ao centro e valor colorido à direita (`+R$ 467,00` em teal ou `-R$ 312,00` em âmbar/coral).
+2. **Tela de Estatísticas & Alocação (`Statistics`):**
+   - **Card 1 — Evolução Mensal em Cápsulas (`MonthlyPillChartCard`):** Seletor circular `W | M | Y` no topo direito; colunas mensais (`Jan`–`Jun`) formadas por **pílulas horizontais empilhadas** (superiores em `#2E4A44`/`#AECDC5` para patrimônio/aportes e inferiores em `#D96628`/`#FFB694` para custo/saídas) + **Tooltip escuro flutuante** ao tocar no mês.
+   - **Card 2 — Alocação por Categoria em Matriz de Pontos (`AttributeStatBar` / `DotMatrixAllocationCard`):** Exibe o saldo total no topo e grades de **pontos circulares (`Dot-Matrix Grid`)** preenchidas de baixo para cima nas cores das 4 categorias reais:
+     - **Renda Fixa** (`#2E4A44`) — `32.0% / META 30.0%`
+     - **FIIs** (`#D5CAA8`) — `24.5% / META 25.0%`
+     - **Ações** (`#D96628`) — `33.5% / META 35.0%`
+     - **Criptomoedas** (`#C49A45`) — `10.0% / META 10.0%`
 3. **Simulador de Aporte & Rebalanceamento:**
-   - Input sublinhado estilo livro-razão (`R$ ______`) com cursor piscante.
-   - Gera o relatório estilo diálogo:
-     - `"[LOGIC: EQUILIBRIUM] WEGE3 está 3.4% abaixo da meta ideal. Direcionar R$ 450,00 (11 cotas)."`
-   - Botão para converter a sugestão diretamente em lançamentos de compra (`BUY`) com 1 toque.
-4. **Livro-Razão de Movimentações (*Dialogue-Tree Ledger Entries*):**
-   - Histórico cronológico de Compras (`+`) e Vendas (`-`) conectados por linhas verticais pontilhadas em `#2E4A44`.
-   - Ao lançar um aporte em data passada para uma Ação/FII, o app consulta a cotação histórica daquela data no backend Go (COTAHIST) e já preenche o preço unitário sugerido.
-5. **Arquivo Morto & Segurança (Configurações / Backup):**
-   - Exportar Dossiê (`.celsus.zip`), Importar Dossiê (Restore ou Merge), chave de Biometria/PIN e configuração da URL do servidor Go.
+   - Input financeiro limpo em destaque (`R$ 1.000,00`) dentro de um Bento Card escuro `#191B1D` e lista de ativos recomendados com avatares circulares, quantidade sugerida de cotas/frações e botão primário arredondado em `#D96628` para confirmar os aportes em lote.
+4. **Barra de Navegação Flutuante em Pílula + Botão Circular (`FloatingBottomDock`):**
+   - Pílula inferior escura (`#191B1D`, `borderRadius: 9999px`) com 4 ícones (aba ativa destacada em círculo claro `#E6DECA`/`#D5CAA8`) + botão circular flutuante separado à direita (`56x56px` em `#D96628`) para Novo Aporte rápido.
 
 ---
 
@@ -441,8 +437,8 @@ Vamos executar a **Sprint 2 — Fase A (TDD: Especificação e Bloqueio de Teste
 
 1. Inicialize o projeto Expo com TypeScript e Jest (`jest-expo`) em `apps/mobile` e crie apenas os arquivos de tipos e stubs vazios de tema, componentes e schema do banco.
 2. Desbloqueie o lock anterior com `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action unlock`, escreva todos os testes da Sprint 2 (`S2-T01` a `S2-T03` de `TEST_REPORT.md`):
-   - `src/theme/__tests__/tokens.test.ts`: validação de todos os tokens hexadecimais (`#111315`, `#191B1D`, `#D96628`, `#2E4A44`, `#D5CAA8`, etc.) e tipografia `Space Mono`.
-   - `src/components/ui/__tests__/AttributeStatBar.test.tsx`: mapeamento das 4 classes (`FIXED_INCOME` -> Intellect, `FII` -> Psyche, `STOCK` -> Physique, `CRYPTO` -> Motorics) e renderização de `% Atual vs % Meta`.
+   - `src/theme/__tests__/tokens.test.ts`: validação de todos os tokens hexadecimais (`#111315`, `#191B1D`, `#D96628`, `#2E4A44`, `#D5CAA8`, `#C49A45`) e tipografia `Space Mono`.
+   - `src/components/ui/__tests__/AttributeStatBar.test.tsx`: mapeamento das 4 categorias reais (`FIXED_INCOME` -> `Renda Fixa`, `FII` -> `FIIs`, `STOCK` -> `Ações`, `CRYPTO` -> `Criptomoedas`) e renderização de `% Atual vs % Meta`.
    - `src/db/__tests__/schema.test.ts`: validação das 6 tabelas SQLite/Drizzle (`portfolios`, `portfolio_class_targets`, `assets`, `transactions`, `market_price_cache`, `historical_prices_local`) incluindo as colunas de Open Finance (`source`, `external_id`, `institution_id`, `last_synced_at`).
 3. Bloqueie novamente todos os testes rodando `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock` e registre os hashes `SHA-256` em `TEST_REPORT.md`.
 ```
@@ -452,12 +448,22 @@ Vamos executar a **Sprint 2 — Fase A (TDD: Especificação e Bloqueio de Teste
 Vamos executar a **Sprint 2 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC.md` e `DESIGN_SYSTEM.md`.
 
 REGRAS OBRIGATÓRIAS:
-- Você está PROIBIDO de alterar qualquer arquivo de teste (`*.test.ts`, `*.test.tsx`). Se um teste falhar, ajuste o código de produção.
+- Você está PROIBIDO de alterar qualquer arquivo de teste bloqueado (`*.test.ts`, `*.test.tsx`). Se um teste falhar, ajuste exclusivamente o código de produção.
+- Mantenha 100% a paleta de cores do Celsus (`#D96628` Primary, `#2E4A44` Secondary, `#D5CAA8` Tertiary, `#191B1D` Neutral, `#111315` Background, `#C49A45` Motorics) e a fonte `Space Mono`, mas implemente os componentes e telas seguindo o **WalleZ Modern Bento Layout** descrito em `DESIGN_SYSTEM.md`:
 
 Passos:
-1. Implemente os tokens do Design System, os componentes base (`DossierCard`, `AttributeStatBar`, `DirectiveButton`, `LedgerInput`, `SpecimenHexCard`) e o schema/migrations do `expo-sqlite` + `drizzle-orm`.
-2. Execute `npm test` em `apps/mobile` e corrija o código de produção até 100% dos testes passarem.
-3. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` e registre os resultados em `TEST_REPORT.md`.
+1. Implemente os tokens completos em `src/theme/tokens.ts` satisfazendo `tokens.test.ts`.
+2. Implemente os componentes de UI em `src/components/ui/` com visual **WalleZ Modern Bento**:
+   - `DossierCard`: Cartão de carteira empilhado (*Stacked Hero Wallet Card*) com cantos super arredondados (`borderRadius: 28`), 2 camadas inferiores empilhadas (`scale: 0.95` e `0.90` em `#1A1C1E`/`#151719`), recorte superior em destaque (`#D96628` / `#2E4A44`) exibindo o Saldo Total alinhado à direita (`R$ 32.468,00`), círculos duplos translúcidos à esquerda e rodapé escuro com titular/carteira e código (`•••• 001`).
+   - `DirectiveButton`: Suporte tanto a botões pill/arredondados quanto aos **3 Bento Tiles de Ação Rápida** lado a lado (`borderRadius: 22`, `height: 104`, ícone no topo esquerdo e label na base esquerda nas variantes Primary `#D96628`, Secondary `#2E4A44` e Neutral `#191B1D`).
+   - `AttributeStatBar`: Componente de Alocação por Categoria estilo *"Spending by Category"* do WalleZ — renderizando a **Matriz de Pontos Circulares (`Dot-Matrix Grid`)** preenchida de baixo para cima nas cores das 4 categorias (`FIXED_INCOME` -> `Renda Fixa` `#2E4A44`, `FII` -> `FIIs` `#D5CAA8`, `STOCK` -> `Ações` `#D96628`, `CRYPTO` -> `Criptomoedas` `#C49A45`) + linha de legenda com quadradinho colorido, nome real da categoria e percentuais `% Atual` e `% Meta` (satisfazendo 100% o teste bloqueado `AttributeStatBar.test.tsx`).
+   - `SpecimenHexCard`: Banner horizontal arredondado de insight/carteira (`borderRadius: 20`, fundo `#D5CAA8` ou `#282A2C`) com chamada rápida à esquerda e mini badge à direita.
+   - `LedgerInput`: Input financeiro moderno dentro de superfície arredondada `#191B1D` com tipografia `Space Mono` em destaque.
+   - `FloatingBottomDock`: Barra de navegação inferior flutuante em formato de pílula (`#191B1D`, `borderRadius: 9999`) com círculo claro (`#D5CAA8`) na aba ativa + botão de ação circular separado à direita (`56x56` em `#D96628`).
+3. Monte a tela inicial de demonstração (`App.tsx` / Home & Statistics preview) exibindo o layout completo estilo WalleZ com a paleta Celsus (Hero Card Empilhado, 3 Bento Tiles `Aportar`/`Simular`/`Mais`, Banner de Insight, Card de Movimentações Recentes com avatares circulares, Card de Alocação `Dot-Matrix` e `FloatingBottomDock`).
+4. Implemente o schema/migrations completo do `expo-sqlite` + `drizzle-orm` em `src/db/schema.ts` satisfazendo `schema.test.ts`.
+5. Execute `npm test` em `apps/mobile` e corrija o código de produção até 100% dos testes passarem.
+6. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` e registre os resultados em `TEST_REPORT.md`.
 ```
 
 ---
@@ -514,10 +520,12 @@ Vamos executar a **Sprint 4 — Fase B (Implementação TDD sob Bloqueio)** conf
 
 REGRAS OBRIGATÓRIAS:
 - Não edite nenhum arquivo de teste bloqueado.
+- Substitua TODOS os emojis e caracteres Unicode improvisados (`👁️`, `🎯`, `↗`, `⊞`, `◉`, `▲`, `▤`, `◈`) por ícones vetoriais do **Material Symbols / Material Icons** (`@expo/vector-icons/MaterialIcons`) em todos os componentes (`App.tsx`, `DirectiveButton.tsx`, `FloatingBottomDock.tsx`, `RecentTransactionsCard.tsx` e novas telas).
 
 Passos:
-1. Implemente os serviços `marketApi.ts`, `transactionService.ts`, `rebalanceExecution.ts`, a tela de Nova Movimentação, a árvore de transações (`Dialogue-Tree Ledger Entries`) e a tela do Simulador de Novo Aporte.
-2. Rode os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+1. Instale/configure `@expo/vector-icons` (`MaterialIcons`) em `apps/mobile` e substitua todos os emojis por ícones Material (`visibility`/`visibility-off`, `account-balance-wallet`, `north-east`, `calculate`, `grid-view`, `home`, `bar-chart`, `receipt-long`, `pie-chart`, `add`, `account-balance`, `domain`, `trending-up`, `currency-bitcoin`).
+2. Implemente os serviços `marketApi.ts`, `transactionService.ts`, `rebalanceExecution.ts`, a tela de Nova Movimentação, o card arredondado de **Movimentações Recentes** (estilo WalleZ com avatares circulares de `44x44` na cor e ícone Material da categoria, nome + horário e valor colorido `+R$`/`-R$` à direita) e a tela do Simulador de Novo Aporte.
+3. Rode os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
 ```
 
 ---
@@ -544,7 +552,7 @@ REGRAS OBRIGATÓRIAS:
 - Não edite nenhum arquivo de teste bloqueado.
 
 Passos:
-1. Implemente `portfolioHistory.ts`, `consolidatedView.ts` e as telas do Dossiê Consolidado (Home), Detalhes da Carteira e Detalhe do Ativo com os gráficos de Evolução Patrimonial e Alocação.
+1. Implemente `portfolioHistory.ts`, `consolidatedView.ts` e as telas de **Home (Hero Wallet Card Empilhado + 3 Bento Tiles + Movimentações Recentes)** e **Statistics (Gráfico de Cápsulas Empilhadas Mensais com seletor `W | M | Y` e Tooltip flutuante + Card de Alocação por Classe com Matriz de Pontos `Dot-Matrix` 10×10)**.
 2. Rode todos os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
 ```
 

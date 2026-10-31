@@ -11,9 +11,9 @@
 | Sprint | Escopo da Suite de Testes | Arquivos de Teste | Total de Casos | Passaram | Falharam | Integridade SHA-256 (`test-lock`) | Status |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Sprint 1** | Backend Go: Parser COTAHIST, Proxy BRAPI, Taxas Macro e Endpoints REST | 5 | 9 | 9 | 0 | `VERIFIED (5 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 2** | Mobile Foundation: Componentes UI Design System e Schema SQLite/Drizzle | 3 | 12 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
-| **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 5 | 24 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
-| **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 3 | 14 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
+| **Sprint 2** | Mobile Foundation: Componentes UI Design System e Schema SQLite/Drizzle | 3 | 22 | 22 | 0 | `VERIFIED (8 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 4 | 37 | 37 | 0 | `VERIFIED (12 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 0 | 20 | `VERIFIED (14 arquivos)` | ⏳ Red Phase (Bloqueado) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 3 | 12 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 3 | 15 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 
@@ -41,9 +41,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `DESIGN_SYSTEM.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S2-T01` | `src/theme/__tests__/tokens.test.ts` | `TestDesignSystemColorAndTypographyTokens` | Cores exatas (`#111315`, `#191B1D`, `#D96628`, `#2E4A44`, `#D5CAA8`) e `Space Mono` | `-` | ⏳ |
-| `S2-T02` | `src/components/ui/__tests__/AttributeStatBar.test.tsx` | `TestAssetClassToAttributeMapping` | Mapeamento exato: `FIXED_INCOME`->Intellect, `FII`->Psyche, `STOCK`->Physique, `CRYPTO`->Motorics | `-` | ⏳ |
-| `S2-T03` | `src/db/__tests__/schema.test.ts` | `TestSQLiteTablesAndOpenFinanceColumns` | Criação das 6 tabelas locais com UUID v4 e colunas `source`, `external_id`, `institution_id` | `-` | ⏳ |
+| `S2-T01` | `src/theme/__tests__/tokens.test.ts` | `TestDesignSystemColorAndTypographyTokens` | Cores exatas (`#111315`, `#191B1D`, `#D96628`, `#2E4A44`, `#D5CAA8`, `#C49A45`) e `Space Mono` | `fe51c89542f758616f3fd53093b0ad9a513f74f57106b240502be92a071a9355` | 🟢 PASS (0.01s) |
+| `S2-T02` | `src/components/ui/__tests__/AttributeStatBar.test.tsx` | `TestAssetClassToCategoryMapping` | Mapeamento exato das categorias reais: `FIXED_INCOME`->Renda Fixa, `FII`->FIIs, `STOCK`->Ações, `CRYPTO`->Criptomoedas | `065ded5b122ec8bdb02e2f2096c40d71dc7f8e836b6b667c9ffa812da85d5251` | 🟢 PASS (0.24s) |
+| `S2-T03` | `src/db/__tests__/schema.test.ts` | `TestSQLiteTablesAndOpenFinanceColumns` | Criação das 6 tabelas locais com UUID v4 e colunas `source`, `external_id`, `institution_id` | `1facc9030adfd09c3fea4bfc8ee265a78d0125f20304443390c0f9a350ce37f7` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -51,14 +51,14 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S3-T01` | `src/domain/finance/__tests__/weights.test.ts` | `TestTwoLevelGlobalTargetCalculation` | $T_i = (W_c \times w_{i,c}) / 100$ com validação de soma $100\%$ na classe e na carteira | `-` | ⏳ |
-| `S3-T02` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestAveragePriceOnMultipleBuysWithFees` | $PM_{\text{novo}} = (\text{Custo Anterior} + Q \times P + \text{Taxas}) / Q_{\text{total}}$ | `-` | ⏳ |
-| `S3-T03` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestSellDoesNotChangeAveragePrice` | Venda parcial mantém $PM$ intacto, reduz quantidade e calcula lucro realizado exato | `-` | ⏳ |
-| `S3-T04` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestCryptoEightDecimalPlacesPrecision` | Operações fracionadas (ex: `0.00451234 BTC`) sem erro de ponto flutuante via `decimal.js` | `-` | ⏳ |
-| `S3-T05` | `src/domain/finance/__tests__/fixedIncome.test.ts` | `TestFixedIncomeCDIPercentageCurve` | Capitalização composta diária (`110% CDI`) sobre série histórica de dias úteis | `-` | ⏳ |
-| `S3-T06` | `src/domain/finance/__tests__/fixedIncome.test.ts` | `TestFixedIncomePreAndIPCAPlusAndManualOverride` | Cálculo Pré-fixado (base 252), IPCA+ e precedência de `manual_price_override` | `-` | ⏳ |
-| `S3-T07` | `src/domain/finance/__tests__/rebalance.test.ts` | `TestSmartContributionCalculator_NoSells` | Distribuição proporcional ao déficit positivo $D_i = \max(0, V^{\text{meta}}_i - V_{\text{atual},i})$ sem sugerir venda de ativos acima da meta | `-` | ⏳ |
-| `S3-T08` | `src/domain/finance/__tests__/rebalance.test.ts` | `TestSmartContributionIntegerSharesAndCryptoFractions` | Arredondamento inteiro para Ações/FIIs e frações de 8 casas para Cripto | `-` | ⏳ |
+| `S3-T01` | `src/domain/finance/__tests__/weights.test.ts` | `TestTwoLevelGlobalTargetCalculation` | $T_i = (W_c \times w_{i,c}) / 100$ com validação de soma $100\%$ na classe e na carteira | `df4671fcb67ff92aca272364fb28a6cd41b3ce26666e95a3ed4fe0a41a17f1af` | 🟢 PASS (0.01s) |
+| `S3-T02` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestAveragePriceOnMultipleBuysWithFees` | $PM_{\text{novo}} = (\text{Custo Anterior} + Q \times P + \text{Taxas}) / Q_{\text{total}}$ | `36a6893360a57d4a6d85eaaff72476eb8acaf000182d36eefaef96e8673083ad` | 🟢 PASS (0.01s) |
+| `S3-T03` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestSellDoesNotChangeAveragePrice` | Venda parcial mantém $PM$ intacto, reduz quantidade e calcula lucro realizado exato | `36a6893360a57d4a6d85eaaff72476eb8acaf000182d36eefaef96e8673083ad` | 🟢 PASS (0.01s) |
+| `S3-T04` | `src/domain/finance/__tests__/averagePrice.test.ts` | `TestCryptoEightDecimalPlacesPrecision` | Operações fracionadas (ex: `0.00451234 BTC`) sem erro de ponto flutuante via `decimal.js` | `36a6893360a57d4a6d85eaaff72476eb8acaf000182d36eefaef96e8673083ad` | 🟢 PASS (0.01s) |
+| `S3-T05` | `src/domain/finance/__tests__/fixedIncome.test.ts` | `TestFixedIncomeCDIPercentageCurve` | Capitalização composta diária (`110% CDI`) sobre série histórica de dias úteis | `8d173807014ef78452c3ca4025f8ffd8f8e7459c9b036dc32f58222141d6b8a3` | 🟢 PASS (0.01s) |
+| `S3-T06` | `src/domain/finance/__tests__/fixedIncome.test.ts` | `TestFixedIncomePreAndIPCAPlusAndManualOverride` | Cálculo Pré-fixado (base 252), IPCA+ e precedência de `manual_price_override` | `8d173807014ef78452c3ca4025f8ffd8f8e7459c9b036dc32f58222141d6b8a3` | 🟢 PASS (0.01s) |
+| `S3-T07` | `src/domain/finance/__tests__/rebalance.test.ts` | `TestSmartContributionCalculator_NoSells` | Distribuição proporcional ao déficit positivo $D_i = \max(0, V^{\text{meta}}_i - V_{\text{atual},i})$ sem sugerir venda de ativos acima da meta | `be1f8b7a70668dbc39b1430a3a19bc793549205e1bcd36c191415f184f6697a4` | 🟢 PASS (0.01s) |
+| `S3-T08` | `src/domain/finance/__tests__/rebalance.test.ts` | `TestSmartContributionIntegerSharesAndCryptoFractions` | Arredondamento inteiro para Ações/FIIs e frações de 8 casas para Cripto | `be1f8b7a70668dbc39b1430a3a19bc793549205e1bcd36c191415f184f6697a4` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -66,9 +66,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S4-T01` | `src/services/__tests__/transactionService.test.ts` | `TestAutoFillHistoricalPriceFromCotahistOnBuy` | Busca do preço de fechamento na data selecionada para pré-preencher o aporte | `-` | ⏳ |
-| `S4-T02` | `src/services/__tests__/transactionService.test.ts` | `TestAtomicTransactionInsertAndAssetRecalculation` | Inserir compra/venda atualiza atomicamente o saldo e PM do ativo na carteira | `-` | ⏳ |
-| `S4-T03` | `src/services/__tests__/rebalanceExecution.test.ts` | `TestBatchConfirmSimulatedContributions` | Confirmar sugestões do simulador cria múltiplos lançamentos `BUY` no Livro-Razão | `-` | ⏳ |
+| `S4-T01` | `src/services/__tests__/transactionService.test.ts` | `TestAutoFillHistoricalPriceFromCotahistOnBuy` | Busca do preço de fechamento na data selecionada para pré-preencher o aporte | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | ⏳ Red Phase (Stub) |
+| `S4-T02` | `src/services/__tests__/transactionService.test.ts` | `TestAtomicTransactionInsertAndAssetRecalculation` | Inserir compra/venda atualiza atomicamente o saldo e PM do ativo na carteira | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | ⏳ Red Phase (Stub) |
+| `S4-T03` | `src/services/__tests__/rebalanceExecution.test.ts` | `TestBatchConfirmSimulatedContributions` | Confirmar sugestões do simulador cria múltiplos lançamentos `BUY` no Livro-Razão | `98cae3fc7bdc822fb608d2d87003f568dbe637eadbc87c331a4ee727023324f8` | ⏳ Red Phase (Stub) |
 
 ---
 
@@ -158,4 +158,213 @@
   PASS
   ok  	github.com/pedro/celsus/services/market-api/internal/macro	1.189s
   Total: 9 testes | 9 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+
+### Sprint 2 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 3 novos arquivos de teste React Native / Expo bloqueados com `ReadOnly` (total de 8 arquivos no repositório) e registrados em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 8 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/theme/__tests__/tokens.test.ts
+    ● S2-T01: TestDesignSystemColorAndTypographyTokens › Color Tokens Specification › should have exact primary, secondary, tertiary and neutral hex colors
+    ● S2-T01: TestDesignSystemColorAndTypographyTokens › Typography Tokens Specification › should enforce Space Mono as default font family across all variants
+  FAIL src/components/ui/__tests__/AttributeStatBar.test.tsx
+    ● S2-T02: TestAssetClassToAttributeMapping › Asset Class to Attribute Configuration Mapping › should map FIXED_INCOME to Intellect with teal #2E4A44
+    ● S2-T02: TestAssetClassToAttributeMapping › AttributeStatBar Component UI Rendering › should render FIXED_INCOME (Intellect) with current vs meta percentages
+  FAIL src/db/__tests__/schema.test.ts
+    ● S2-T03: TestSQLiteTablesAndOpenFinanceColumns › Portfolios and Targets Schema Columns › should define portfolios table with UUID primary key and docket metadata
+    ● S2-T03: TestSQLiteTablesAndOpenFinanceColumns › Assets Schema and Open Finance Columns › should define assets table with financial position, fixed income fields and Open Finance columns
+    ● S2-T03: TestSQLiteTablesAndOpenFinanceColumns › Transactions Schema and Open Finance Columns › should define transactions table with trade data, ledger notes and Open Finance deduplication columns
+
+  Test Suites: 3 failed, 3 total
+  Tests:       21 failed, 1 passed, 22 total
+  Snapshots:   0 total
+  Time:        3.837 s
+  Total: 22 testes | 1 PASS | 21 FAIL (Red Phase confirmada sob stubs)
+  ```
+
+### Sprint 2 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 8 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte (`npm test` em `apps/mobile`):**
+  ```text
+  PASS src/theme/__tests__/tokens.test.ts
+    S2-T01: TestDesignSystemColorAndTypographyTokens
+      Color Tokens Specification
+        √ should have exact primary, secondary, tertiary and neutral hex colors (5 ms)
+        √ should have exact void floor / background canvas color (1 ms)
+        √ should have exact functional modifier colors
+        √ should have exact asset class attribute colors
+        √ should export cohesive theme tokens object with colors and typography (1 ms)
+      Typography Tokens Specification
+        √ should enforce Space Mono as default font family across all variants
+        √ should have exact typographic scales and font weights (1 ms)
+  PASS src/components/ui/__tests__/AttributeStatBar.test.tsx
+    S2-T02: TestAssetClassToAttributeMapping
+      Asset Class to Attribute Configuration Mapping
+        √ should map FIXED_INCOME to Intellect with teal #2E4A44 (8 ms)
+        √ should map FII to Psyche with parchment #D5CAA8 (14 ms)
+        √ should map STOCK to Physique with amber #D96628 (3 ms)
+        √ should map CRYPTO to Motorics with ochre #C49A45 (1 ms)
+      AttributeStatBar Component UI Rendering
+        √ should render FIXED_INCOME (Intellect) with current vs meta percentages (227 ms)
+        √ should render FII (Psyche) with current vs meta percentages (4 ms)
+        √ should render STOCK (Physique) with current vs meta percentages (4 ms)
+        √ should render CRYPTO (Motorics) with current vs meta percentages (5 ms)
+  PASS src/db/__tests__/schema.test.ts
+    S2-T03: TestSQLiteTablesAndOpenFinanceColumns
+      Local SQLite Database Table Names
+        √ should define all 6 required SQLite tables with exact names (5 ms)
+      Portfolios and Targets Schema Columns
+        √ should define portfolios table with UUID primary key and docket metadata (1 ms)
+        √ should define portfolio_class_targets table with portfolio relation and target percentage (1 ms)
+      Assets Schema and Open Finance Columns
+        √ should define assets table with financial position, fixed income fields and Open Finance columns (1 ms)
+      Transactions Schema and Open Finance Columns
+        √ should define transactions table with trade data, ledger notes and Open Finance deduplication columns (2 ms)
+      Market Cache and Historical Prices Schema Columns
+        √ should define market_price_cache table for 24h ticker quotes (1 ms)
+        √ should define historical_prices_local table for local COTAHIST closing prices (1 ms)
+
+  Test Suites: 3 passed, 3 total
+  Tests:       22 passed, 22 total
+  Snapshots:   0 total
+  Time:        3.412 s
+  Total: 22 testes | 22 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+
+### Sprint 3 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 4 novos arquivos de teste React Native / TypeScript cobrindo o Motor Financeiro bloqueados com `ReadOnly` (total de 12 arquivos protegidos no repositório) e registrados em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 12 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/domain/finance/__tests__/weights.test.ts
+    ● S3-T01: TestTwoLevelGlobalTargetCalculation › Global Target Formula: Ti = (Wc * wi,c) / 100
+    ● S3-T01: TestTwoLevelGlobalTargetCalculation › Validation of Macro Class Targets (Sum = 100%)
+    ● S3-T01: TestTwoLevelGlobalTargetCalculation › Validation of Micro Asset Targets within Class (Sum = 100%)
+    ● S3-T01: TestTwoLevelGlobalTargetCalculation › Portfolio Global Targets Calculation Across All Classes
+  FAIL src/domain/finance/__tests__/averagePrice.test.ts
+    ● S3-T02: TestAveragePriceOnMultipleBuysWithFees › calculateBuyOperation, calculatePositionFromTransactions
+    ● S3-T03: TestSellDoesNotChangeAveragePrice › calculateSellOperation, position liquidation and short-selling protection
+    ● S3-T04: TestCryptoEightDecimalPlacesPrecision › 8-decimal operations via decimal.js
+  FAIL src/domain/finance/__tests__/fixedIncome.test.ts
+    ● S3-T05: TestFixedIncomeCDIPercentageCurve › calculateCDIAccrual (% CDI compounding)
+    ● S3-T06: TestFixedIncomePreAndIPCAPlusAndManualOverride › Pre-fixed (base 252), IPCA+ and manual_price_override precedence
+  FAIL src/domain/finance/__tests__/rebalance.test.ts
+    ● S3-T07: TestSmartContributionCalculator_NoSells › calculateSmartContribution (Di = max(0, Vmeta - Vcurr), zero sells)
+    ● S3-T08: TestSmartContributionIntegerSharesAndCryptoFractions › Integer shares for Stocks/FIIs, 8 decimals for Crypto, exact currency for Fixed Income
+
+  Test Suites: 4 failed, 3 passed, 7 total
+  Tests:       35 failed, 24 passed, 59 total
+  Snapshots:   0 total
+  Time:        6.738 s
+  Total: 37 novos testes da Sprint 3 | 0 PASS sob stubs | 35 FAIL (Red Phase confirmada sob stubs)
+  ```
+
+### Sprint 3 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 12 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte (`npm test --prefix apps/mobile`):**
+  ```text
+  PASS src/theme/__tests__/tokens.test.ts
+  PASS src/db/__tests__/schema.test.ts
+  PASS src/components/ui/__tests__/AttributeStatBar.test.tsx
+  PASS src/domain/finance/__tests__/weights.test.ts
+    S3-T01: TestTwoLevelGlobalTargetCalculation
+      Global Target Formula: Ti = (Wc * wi,c) / 100
+        √ should calculate exact global target for stocks with 40% class target and 25% asset target (SPEC 5.1 example) (1 ms)
+        √ should calculate exact global target for stock with 50% target within 40% class target
+        √ should calculate exact global target for fixed income with 30% class target and 60% asset target
+        √ should calculate exact global target for crypto with 10% class target and 70% asset target (1 ms)
+        √ should return 0 when class target or asset target in class is 0
+      Validation of Macro Class Targets (Sum = 100%)
+        √ should validate successfully when macro class targets sum exactly to 100% (1 ms)
+        √ should reject class targets when sum is less than 100%
+        √ should reject class targets when sum exceeds 100%
+      Validation of Micro Asset Targets within Class (Sum = 100%)
+        √ should validate successfully when micro asset targets sum to 100%
+        √ should reject micro asset targets when sum does not reach 100% (1 ms)
+        √ should reject micro asset targets when sum exceeds 100%
+      Portfolio Global Targets Calculation Across All Classes
+        √ should compute exact global targets and ensure portfolio sum equals 100% (1 ms)
+  PASS src/domain/finance/__tests__/averagePrice.test.ts
+    S3-T02: TestAveragePriceOnMultipleBuysWithFees
+      √ should calculate initial average price with transaction fees included (1 ms)
+      √ should update average price correctly over successive buy operations with brokerage fees (1 ms)
+      √ should correctly process position from an array of sequential buy transactions (1 ms)
+    S3-T03: TestSellDoesNotChangeAveragePrice
+      √ should maintain exact average price intact on partial sell and calculate exact realized gain (1 ms)
+      √ should maintain exact average price intact on sell with loss and calculate negative realized PnL
+      √ should reset average price to 0.00 when position is fully liquidated (1 ms)
+      √ should throw error when attempting to sell more than current position (no short selling) (7 ms)
+      √ should accumulate realized PnL across multiple buy and sell transactions (1 ms)
+    S3-T04: TestCryptoEightDecimalPlacesPrecision
+      √ should handle fractional crypto purchases with 8 decimal places without IEEE 754 precision errors (1 ms)
+      √ should handle fractional crypto sale with 8 decimal places and compute exact realized PnL (1 ms)
+      √ should fully liquidate crypto position to 0 with 8 decimals precision (1 ms)
+  PASS src/domain/finance/__tests__/fixedIncome.test.ts
+    S3-T05: TestFixedIncomeCDIPercentageCurve
+      √ should calculate exact daily compound accrual for 110% of CDI for a single business day (1 ms)
+      √ should calculate compound accrual across multiple business days for 100% of CDI
+      √ should calculate compound accrual for 120% of CDI over 5 business days (1 ms)
+      √ should return principal with factor 1.000000 when no business days are passed
+    S3-T06: TestFixedIncomePreAndIPCAPlusAndManualOverride
+      Pre-fixed Accrual (Base 252 Business Days)
+        √ should compute exact pre-fixed accrual for half-year (126 business days) at 12.5% a.a.
+        √ should compute exact pre-fixed accrual for full financial year (252 business days) (1 ms)
+      Hybrid IPCA + Fixed Spread Accrual
+        √ should compound accumulated IPCA variation with pro-rata fixed coupon on 252 base
+      Precedence of manual_price_override
+        √ should prioritize manual_price_override when provided, ignoring theoretical curve (1 ms)
+        √ should fall back to theoretical curve when manual_price_override is null or empty
+  PASS src/domain/finance/__tests__/rebalance.test.ts
+    S3-T07: TestSmartContributionCalculator_NoSells
+      √ should allocate 100% of contribution to underweight assets and NEVER suggest selling overweight assets (1 ms)
+      √ should proportionally distribute contribution across multiple underweight assets (1 ms)
+    S3-T08: TestSmartContributionIntegerSharesAndCryptoFractions
+      √ should round stock and FII allocations down to integer shares and report cash remainder (1 ms)
+      √ should allocate exact fractional crypto with 8 decimal places precision
+      √ should handle multi-class portfolio ensuring integer shares for stocks/FIIs, 8 decimals for crypto and monetary for fixed income (1 ms)
+
+  Test Suites: 7 passed, 7 total
+  Tests:       59 passed, 59 total
+  Snapshots:   0 total
+  Time:        5.038 s
+  Total: 37 novos testes da Sprint 3 | 37 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+
+### Sprint 4 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 2 novos arquivos de teste React Native / TypeScript cobrindo Serviços de Transações e Execução de Rebalanceamento bloqueados com `ReadOnly` (total de 14 arquivos protegidos no repositório) e registrados em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 14 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/services/__tests__/transactionService.test.ts
+    ● S4-T01: TestAutoFillHistoricalPriceFromCotahistOnBuy
+      - Not implemented: TransactionService.getAutoFillPrice (6 testes)
+    ● S4-T02: TestAtomicTransactionInsertAndAssetRecalculation
+      - Not implemented: TransactionService.executeTransaction (7 testes)
+  FAIL src/services/__tests__/rebalanceExecution.test.ts
+    ● S4-T03: TestBatchConfirmSimulatedContributions
+      - Not implemented: RebalanceExecutionService.executeBatchContributions (7 testes)
+
+  Test Suites: 2 failed, 7 passed, 9 total
+  Tests:       20 failed, 59 passed, 79 total
+  Snapshots:   0 total
+  Time:        8.039 s
+  Total: 20 novos testes da Sprint 4 | 0 PASS sob stubs | 20 FAIL (Red Phase confirmada sob stubs)
   ```

@@ -1,0 +1,13 @@
+{
+  "name": "celsus",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npx expo start apps/mobile",
+    "mobile": "npx expo start apps/mobile",
+    "test": "npm --prefix apps/mobile test",
+    "test:mobile": "npm --prefix apps/mobile test",
+    "test:market": "cd services/market-api && go test ./...",
+    "test:verify": "powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify"
+  }
+}
