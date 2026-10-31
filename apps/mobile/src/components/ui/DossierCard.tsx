@@ -212,10 +212,10 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   codeBadge: {
-    backgroundColor: '#26292C',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: borders.radiusSm,
+    backgroundColor: '#191B1D',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   accountCodeText: {
     fontFamily: typography.fontFamily,

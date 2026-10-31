@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
 
 export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO';
@@ -48,7 +48,7 @@ export const ASSET_CLASS_ATTRIBUTE_MAP: Record<AssetClass, CategoryConfig> = {
 
 /**
  * Dot-Matrix Grid de 4 linhas x 10 colunas (40 pontos).
- * Preenchimento de baixo para cima na cor da categoria.
+ * Suporta preenchimento da direita para a esquerda em colunas (v2) ou linhas (padrão).
  */
 export const DotMatrixGrid: React.FC<{
   currentPercentage: number;
@@ -63,17 +63,26 @@ export const DotMatrixGrid: React.FC<{
   const activeDots = Math.round((safePercentage / 100) * totalDots);
 
   return (
-    <View style={styles.matrixContainer}>
+    <View testID={testID} style={styles.matrixContainer}>
       {Array.from({ length: rows }).map((_, rIdx) => {
         const rowFromBottom = rows - 1 - rIdx;
         return (
           <View key={`row-${rIdx}`} style={styles.matrixRow}>
             {Array.from({ length: cols }).map((_, cIdx) => {
-              const dotIndex = rowFromBottom * cols + cIdx;
-              const isFilled = dotIndex < activeDots;
+              let isFilled = false;
+              if (fillDirection === 'right-to-left') {
+                const colFromRight = (cols - 1) - cIdx;
+                const dotSeq = colFromRight * rows + rowFromBottom;
+                isFilled = dotSeq < activeDots;
+              } else {
+                const dotIndex = rowFromBottom * cols + cIdx;
+                isFilled = dotIndex < activeDots;
+              }
+
               return (
                 <View
                   key={`dot-${rIdx}-${cIdx}`}
+                  testID={`dot-${rIdx}-${cIdx}`}
                   style={[
                     styles.dot,
                     isFilled
@@ -96,13 +105,27 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
   targetPercentage,
   testID,
   showDotMatrix = true,
+  variant = 'default',
+  marketValue,
+  fillDirection,
+  onPress,
 }) => {
   const config = ASSET_CLASS_ATTRIBUTE_MAP[assetClass];
   const safeCurrent = Math.max(0, currentPercentage);
   const safeTarget = Math.max(0, targetPercentage);
 
-  return (
-    <View testID={testID} style={styles.container}>
+  const resolvedFillDirection = fillDirection || (variant === 'v2' ? 'right-to-left' : 'left-to-right');
+
+  const formattedMarketValue = marketValue
+    ? marketValue.startsWith('R$') ? marketValue : `R$ ${marketValue}`
+    : 'R$ 0,00';
+
+  const metricsText = variant === 'v2'
+    ? `${formattedMarketValue} • ${safeCurrent.toFixed(1)}%`
+    : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`;
+
+  const content = (
+    <View style={styles.container}>
       {/* Header com Nome Real da Categoria e Percentuais */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -114,13 +137,35 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
         </View>
 
         <Text style={styles.metricsContainer}>
-          {`${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`}
+          {metricsText}
         </Text>
       </View>
 
       {showDotMatrix ? (
-        <DotMatrixGrid currentPercentage={safeCurrent} color={config.color} />
+        <DotMatrixGrid
+          currentPercentage={safeCurrent}
+          color={config.color}
+          fillDirection={resolvedFillDirection}
+        />
       ) : null}
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity
+        testID={testID}
+        activeOpacity={0.8}
+        onPress={() => onPress(assetClass)}
+      >
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <View testID={testID}>
+      {content}
     </View>
   );
 };

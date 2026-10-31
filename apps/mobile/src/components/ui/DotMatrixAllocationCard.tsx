@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
 import { AttributeStatBar, AssetClass } from './AttributeStatBar';
 
@@ -32,20 +32,39 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
   allocations = DEFAULT_ALLOCATIONS,
   isPrivacyMode = false,
   testID,
+  variant = 'default',
+  onRebalancePress,
+  onClassPress,
 }) => {
+  const isV2 = variant === 'v2';
+
   return (
     <View style={styles.card} testID={testID}>
-      {/* Topo do Card com Saldo Total Consolidado */}
+      {/* Topo do Card com Botão Rebalancear (v2) ou Saldo Consolidado (padrão) */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>ALOCAÇÃO POR CATEGORIA</Text>
-          <Text style={styles.subtitle}>Matriz de Pontos • 4 Classes Reais</Text>
+          {!isV2 && (
+            <Text style={styles.subtitle}>Matriz de Pontos • 4 Classes Reais</Text>
+          )}
         </View>
-        <View style={styles.balanceBadge}>
-          <Text style={styles.balanceText}>
-            {isPrivacyMode ? 'R$ ••••••••' : totalBalance}
-          </Text>
-        </View>
+
+        {isV2 ? (
+          <TouchableOpacity
+            testID="card-rebalance-button"
+            style={styles.rebalanceButton}
+            onPress={onRebalancePress}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.rebalanceButtonText}>Rebalancear</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.balanceBadge} testID="card-header-total-balance">
+            <Text style={styles.balanceText}>
+              {isPrivacyMode ? 'R$ ••••••••' : totalBalance}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Grade de Matriz de Pontos para cada uma das 4 Classes */}
@@ -56,6 +75,10 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
             assetClass={item.assetClass}
             currentPercentage={item.currentPercentage}
             targetPercentage={item.targetPercentage}
+            marketValue={item.marketValue}
+            variant={variant}
+            fillDirection={isV2 ? 'right-to-left' : 'left-to-right'}
+            onPress={onClassPress}
             testID={`allocation-stat-${item.assetClass.toLowerCase()}`}
           />
         ))}
@@ -114,9 +137,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.primary,
   },
+  rebalanceButton: {
+    backgroundColor: '#D5CAA8',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rebalanceButtonText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111315',
+    letterSpacing: 0.5,
+  },
   barsContainer: {
     gap: spacing.sm,
   },
 });
+
+export default DotMatrixAllocationCard;
 
 export default DotMatrixAllocationCard;

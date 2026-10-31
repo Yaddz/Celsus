@@ -19,3 +19,32 @@ jest.mock('@expo/vector-icons', () => {
     get: () => MockIcon,
   });
 });
+
+const React = require('react');
+const RNTL = require('@testing-library/react-native');
+const actModule = require('@testing-library/react-native/dist/act.js');
+
+const origAct = actModule.act;
+actModule.act = function (callback) {
+  let isPromise = false;
+  let result;
+  try {
+    React.act(() => {
+      result = callback();
+      if (result && typeof result.then === 'function') {
+        isPromise = true;
+      }
+    });
+  } catch (err) {
+    throw err;
+  }
+  if (isPromise) {
+    return origAct(() => result);
+  }
+  return Promise.resolve(result);
+};
+
+const { cleanup } = RNTL;
+afterEach(async () => {
+  await cleanup();
+});

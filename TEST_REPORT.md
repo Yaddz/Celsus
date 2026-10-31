@@ -18,10 +18,10 @@
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 24 | 0 | `VERIFIED (21 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 22 | 0 | `VERIFIED (24 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | 21 | 3 | 18 | `LOCKED (28 arquivos)` | 🔴 Red Phase (Fase A Concluída) |
+| **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | 21 | 21 | 0 | `VERIFIED (28 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S8)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **24** | **162** | **162** | **0** | **`VERIFIED (24 arquivos)`** | **🟢 100% Aprovado** |
+| **TOTAL (S1–S9)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **28** | **183** | **183** | **0** | **`VERIFIED (28 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -122,10 +122,10 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S9-T01` | `src/components/ui/__tests__/StackedWalletDeck.test.tsx` | `TestStackedWalletPullDownUpAndCornerCutout` | Puxar para baixo avança carteira, puxar para cima volta uma, cor estendida até Rentabilidade e recorte curvo `•••• 001` | `8e2f61a0c7bcc0207b75f63debff816f82b7fb792775470a946bf01a3b755e0b` | 🔴 FAIL (Fase A) |
-| `S9-T02` | `src/components/ui/__tests__/DotMatrixV2.test.tsx` | `TestRightToLeftColumnsRebalanceButtonAndInvestedValue` | Preenchimento em colunas da direita para a esquerda, botão Rebalancear no topo, sem `"Matriz de Pontos"` e valor aportado por classe | `9ecc6212d3fecf3317de0522e846107a3ef597c9b73ba27da8d38d3132ba3adc` | 🔴 FAIL (Fase A) |
-| `S9-T03` | `src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx` | `TestLargerQuickActionsAndMoreTwoOptionsMenu` | Ícones/textos maiores e botão `"Mais"` exibindo as 2 opções: `Novo Aporte` e `Nova Carteira` | `5ce62884d40eb839caea0b7e2c2a679ea221794e2b76204539179c6cc3227079` | 🔴 FAIL (Fase A) |
-| `S9-T04` | `src/screens/__tests__/HomeLayoutV2.test.tsx` | `TestHomeCleanLayoutNoSimCardAndGlobalFooter` | Remoção do card de simulação da Home, Movimentações Recentes mais acima e `FloatingBottomDock` em todas as telas | `13b3ba1b5db1a12a66fc7672ea9d3ab4d5117f720d72ad144a37e8b1bceaf22b` | 🔴 FAIL (Fase A) |
+| `S9-T01` | `src/components/ui/__tests__/StackedWalletDeck.test.tsx` | `TestStackedWalletPullDownUpAndCornerCutout` | Puxar para baixo avança carteira, puxar para cima volta uma, cor estendida até Rentabilidade e recorte curvo `•••• 001` | `8e2f61a0c7bcc0207b75f63debff816f82b7fb792775470a946bf01a3b755e0b` | 🟢 PASS (0.50s) |
+| `S9-T02` | `src/components/ui/__tests__/DotMatrixV2.test.tsx` | `TestRightToLeftColumnsRebalanceButtonAndInvestedValue` | Preenchimento em colunas da direita para a esquerda, botão Rebalancear no topo, sem `"Matriz de Pontos"` e valor aportado por classe | `9ecc6212d3fecf3317de0522e846107a3ef597c9b73ba27da8d38d3132ba3adc` | 🟢 PASS (0.35s) |
+| `S9-T03` | `src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx` | `TestLargerQuickActionsAndMoreTwoOptionsMenu` | Ícones/textos maiores e botão `"Mais"` exibindo as 2 opções: `Novo Aporte` e `Nova Carteira` | `5ce62884d40eb839caea0b7e2c2a679ea221794e2b76204539179c6cc3227079` | 🟢 PASS (0.40s) |
+| `S9-T04` | `src/screens/__tests__/HomeLayoutV2.test.tsx` | `TestHomeCleanLayoutNoSimCardAndGlobalFooter` | Remoção do card de simulação da Home, Movimentações Recentes mais acima e `FloatingBottomDock` em todas as telas | `13b3ba1b5db1a12a66fc7672ea9d3ab4d5117f720d72ad144a37e8b1bceaf22b` | 🟢 PASS (0.85s) |
 
 ---
 
@@ -778,6 +778,43 @@
     - `DotMatrixV2.test.tsx`: Falha aguardando preenchimento em colunas da direita para a esquerda, botão Rebalancear no topo e valor aportado em R$ sem rótulo de meta.
     - `QuickActionsMoreMenu.test.tsx`: Falha aguardando botões e ícones ampliados e modal com as 2 opções (`Novo Aporte` e `Nova Carteira`).
     - `HomeLayoutV2.test.tsx`: Falha aguardando remoção do card de simulação e rebalanceamento avulso, e movimentações posicionadas mais acima na Home.
+
+### Sprint 9 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 28 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução da Suíte Sprint 9 (`npm test --prefix apps/mobile -- StackedWalletDeck DotMatrixV2 QuickActionsMoreMenu HomeLayoutV2`):**
+  ```text
+  PASS src/components/ui/__tests__/StackedWalletDeck.test.tsx (6 passed, 6 total)
+  PASS src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx (4 passed, 4 total)
+  PASS src/components/ui/__tests__/DotMatrixV2.test.tsx (5 passed, 5 total)
+  PASS src/screens/__tests__/HomeLayoutV2.test.tsx (6 passed, 6 total)
+  Test Suites: 4 passed, 4 total
+  Tests:       21 passed, 21 total
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile`):**
+  ```text
+  Test Suites: 22 passed, 22 total
+  Tests:       167 passed, 167 total
+  Snapshots:   0 total
+  Time:        6.532 s
+  Total Mobile: 22 suítes | 167 PASS | 0 FAIL
+  ```
+- **Execução Final da Suíte Backend Go (`cd services/market-api && go test ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	(cached)
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 9 Concluída):**
+  - **28 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **183 casos de teste automatizados executados (16 em Go + 167 em TypeScript/Jest)**
+  - **100% de aprovação (183 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
 
 
 

@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   TouchableOpacity,
   Text,
   StyleSheet,
   View,
   ViewStyle,
+  TextStyle,
   StyleProp,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -21,6 +22,9 @@ export interface DirectiveButtonProps {
   icon?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
+  labelStyle?: StyleProp<TextStyle>;
+  iconSize?: number;
+  iconTestID?: string;
   testID?: string;
 }
 
@@ -33,6 +37,9 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
   icon,
   disabled = false,
   style,
+  labelStyle,
+  iconSize,
+  iconTestID,
   testID,
 }) => {
   // Bento Tile Mode (WalleZ Quick Action Tile)
@@ -73,8 +80,13 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
           style,
         ]}
       >
-        <MaterialIcons name={iconToRender} size={24} color={iconColor} />
-        <Text style={[styles.bentoLabel, { color: textColor }]}>
+        <MaterialIcons
+          name={iconToRender}
+          size={iconSize ?? 24}
+          color={iconColor}
+          testID={iconTestID}
+        />
+        <Text style={[styles.bentoLabel, { color: textColor }, labelStyle]}>
           {label}
         </Text>
       </TouchableOpacity>
@@ -151,40 +163,101 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
   style,
   testID = 'quick-action-bento-row',
 }) => {
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const isV2 = variant === 'v2';
+
+  const iconSize = isV2 ? 28 : 24;
+  const labelStyle: TextStyle = isV2
+    ? { fontSize: 15, fontWeight: '700' }
+    : {};
+
+  const handleMaisPress = () => {
+    setIsMoreMenuOpen(!isMoreMenuOpen);
+    onMais();
+  };
+
   return (
-    <View style={[styles.bentoRow, style]}>
-      <DirectiveButton
-        label="Aportar"
-        isBentoTile
-        variant="primary"
-        materialIcon="north-east"
-        onPress={onAportar}
-      />
-      <DirectiveButton
-        label="Simular"
-        isBentoTile
-        variant="secondary"
-        materialIcon="calculate"
-        onPress={onSimular}
-      />
-      <DirectiveButton
-        label="Mais"
-        isBentoTile
-        variant="neutral"
-        materialIcon="grid-view"
-        onPress={onMais}
-      />
+    <View style={styles.bentoWrapper} testID={testID}>
+      <View style={[styles.bentoRow, style]}>
+        <DirectiveButton
+          label="Aportar"
+          isBentoTile
+          variant="primary"
+          materialIcon="north-east"
+          iconSize={iconSize}
+          iconTestID="quick-action-icon-north-east"
+          labelStyle={labelStyle}
+          testID="quick-action-aportar"
+          onPress={onAportar}
+        />
+        <DirectiveButton
+          label="Simular"
+          isBentoTile
+          variant="secondary"
+          materialIcon="calculate"
+          iconSize={iconSize}
+          iconTestID="quick-action-icon-calculate"
+          labelStyle={labelStyle}
+          testID="quick-action-simular"
+          onPress={onSimular}
+        />
+        <DirectiveButton
+          label="Mais"
+          isBentoTile
+          variant="neutral"
+          materialIcon="grid-view"
+          iconSize={iconSize}
+          iconTestID="quick-action-icon-grid-view"
+          labelStyle={labelStyle}
+          testID="quick-action-mais"
+          onPress={handleMaisPress}
+        />
+      </View>
+
+      {/* Menu Modal com 2 Opções ao Clicar em Mais */}
+      {isMoreMenuOpen ? (
+        <View testID="quick-actions-more-modal" style={styles.moreModalOverlay}>
+          <TouchableOpacity
+            testID="more-option-novo-aporte"
+            activeOpacity={0.75}
+            onPress={() => {
+              setIsMoreMenuOpen(false);
+              onNovoAportePress?.();
+            }}
+            style={styles.moreModalOption}
+          >
+            <MaterialIcons name="north-east" size={20} color={colors.primary} />
+            <Text style={styles.moreOptionText}>Novo Aporte</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            testID="more-option-nova-carteira"
+            activeOpacity={0.75}
+            onPress={() => {
+              setIsMoreMenuOpen(false);
+              onNovaCarteiraPress?.();
+            }}
+            style={styles.moreModalOption}
+          >
+            <MaterialIcons name="account-balance-wallet" size={20} color={colors.tertiary} />
+            <Text style={styles.moreOptionText}>Nova Carteira</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  bentoWrapper: {
+    width: '100%',
+    marginVertical: spacing.sm,
+  },
   // Bento Tile Styles
   bentoRow: {
     flexDirection: 'row',
     gap: 10,
     width: '100%',
-    marginVertical: spacing.sm,
   },
   bentoTile: {
     flex: 1,
@@ -208,6 +281,37 @@ const styles = StyleSheet.create({
     fontSize: typography.labelMd.fontSize + 1,
     fontWeight: '700',
     letterSpacing: 0.2,
+  },
+
+  // More Menu Modal Styles
+  moreModalOverlay: {
+    backgroundColor: '#191B1D',
+    borderRadius: borders.radiusLg,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+    padding: spacing.md,
+    marginTop: spacing.sm,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  moreModalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: borders.radiusSm,
+    backgroundColor: '#202224',
+  },
+  moreOptionText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
   },
 
   // Standard Pill Action Button Styles

@@ -16,6 +16,8 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from './src/theme/tokens';
 import {
   DossierCard,
+  StackedWalletDeck,
+  WalletCardData,
   QuickActionBentoRow,
   SpecimenHexCard,
   RecentTransactionsCard,
@@ -109,6 +111,16 @@ function AppContent() {
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 32.468,00');
   const [profitSummary, setProfitSummary] = useState('+12,4% no ano');
+  const [walletsList, setWalletsList] = useState<WalletCardData[]>([
+    {
+      id: 'default-portfolio',
+      name: 'DOSSIÊ CONSOLIDADO',
+      code: '•••• 001',
+      balance: 'R$ 32.468,00',
+      profitText: '+12,4% no ano',
+      accentColor: colors.primary,
+    },
+  ]);
 
   const refreshAppData = async () => {
     try {
@@ -143,11 +155,19 @@ function AppContent() {
         const dossier = consolidatePortfolios(inputs);
         const mvNum = parseFloat(dossier.totalMarketValue);
         if (mvNum > 0) {
-          setTotalPatrimony(
-            `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-          );
-          setProfitSummary(
-            `${parseFloat(dossier.totalProfit) >= 0 ? '+' : ''}${dossier.totalProfitPercentage}% total`
+          const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+          const formattedProfit = `${parseFloat(dossier.totalProfit) >= 0 ? '+' : ''}${dossier.totalProfitPercentage}% total`;
+          setTotalPatrimony(formattedTotal);
+          setProfitSummary(formattedProfit);
+          setWalletsList(
+            allPortfolios.map((p, idx) => ({
+              id: p.id,
+              name: p.name.toUpperCase(),
+              code: p.docket_code || `•••• 00${idx + 1}`,
+              balance: formattedTotal,
+              profitText: formattedProfit,
+              accentColor: idx % 2 === 0 ? colors.primary : colors.secondary,
+            }))
           );
         }
       }
@@ -359,81 +379,44 @@ function AppContent() {
           </View>
         </View>
 
-        {/* 1. Stacked Hero Wallet Card (WalleZ Stacked Cards) */}
-        <DossierCard
-          variant="hero"
-          balance={balanceDisplay}
-          subtitle="Patrimônio Total"
-          accountName="DOSSIÊ CONSOLIDADO"
-          accountCode="•••• 001"
-          profitText={profitDisplay}
-          accentColor={colors.primary}
+        {/* 1. Stacked Hero Wallet Deck (WalleZ Stacked Cards) */}
+        <StackedWalletDeck
+          portfolios={walletsList.map((w, idx) => ({
+            ...w,
+            balance: idx === 0 ? balanceDisplay : w.balance,
+            profitText: idx === 0 ? profitDisplay : w.profitText,
+          }))}
+          activeIndex={0}
+          onSelectPortfolio={() => {}}
+          onAddPortfolio={() => setIsPortfolioManagerModalOpen(true)}
+          testID="home-wallet-deck"
         />
 
-        {/* 2. Três Bento Tiles de Ação Rápida com Ícones Material Symbols */}
+        {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
         <QuickActionBentoRow
+          variant="v2"
           onAportar={() => setIsTransactionModalOpen(true)}
           onSimular={() => setIsSimulatorModalOpen(true)}
           onMais={() => setIsPortfolioManagerModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
         />
 
-        {/* 3. Banner Horizontal de Insight */}
-        <SpecimenHexCard
-          callout="Rebalanceie sua carteira com um novo aporte inteligente"
-          badge="REBALANCEAR"
-          variant="parchment"
-          onPress={() => setIsSimulatorModalOpen(true)}
-        />
-
-        {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid) */}
-        <DotMatrixAllocationCard
-          totalBalance={balanceDisplay}
-          isPrivacyMode={isPrivacyMode}
-          testID="home-dot-matrix-card"
-        />
-
-        {/* 5. Card de Movimentações Recentes com Avatares Circulares e Ícones da Categoria */}
+        {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
         <RecentTransactionsCard
           transactions={transactionsList}
           onViewAll={() => setIsTransactionModalOpen(true)}
           testID="home-recent-transactions"
         />
 
-        {/* 6. Simulador de Novo Aporte Integrado */}
-        <DossierCard title="SIMULADOR DE NOVO APORTE" variant="default">
-          <LedgerInput
-            label="VALOR DO APORTE (R$)"
-            value={contributionAmount}
-            onChangeText={setContributionAmount}
-            prefix="R$ "
-            suffix=" BRL"
-          />
-          <DirectiveButton
-            label="Calcular Proposta no Motor"
-            variant="secondary"
-            materialIcon="calculate"
-            onPress={handleSimulate}
-          />
-          <DirectiveButton
-            label="Abrir Simulador Completo"
-            variant="primary"
-            materialIcon="tune"
-            onPress={() => setIsSimulatorModalOpen(true)}
-            style={{ marginTop: 8 }}
-          />
-          <DirectiveButton
-            label="Backup .celsus.zip & Segurança Local"
-            variant="neutral"
-            materialIcon="folder-zip"
-            onPress={() => setIsSettingsBackupModalOpen(true)}
-            style={{ marginTop: 8 }}
-          />
-          {simulationResult ? (
-            <View style={styles.simulationBox}>
-              <Text style={styles.simulationText}>{simulationResult}</Text>
-            </View>
-          ) : null}
-        </DossierCard>
+        {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid v2) */}
+        <DotMatrixAllocationCard
+          totalBalance={balanceDisplay}
+          isPrivacyMode={isPrivacyMode}
+          variant="v2"
+          onRebalancePress={() => setIsSimulatorModalOpen(true)}
+          testID="home-dot-matrix-card"
+        />
       </ScrollView>
 
       {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
