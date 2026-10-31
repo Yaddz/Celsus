@@ -161,15 +161,16 @@ Independentemente da carteira selecionada ou do tema (Escuro/Claro), as 4 catego
 - `STOCK` → **Ações** (`#D96628`) — Ações listadas na B3
 - `CRYPTO` → **Criptomoedas** (`#C49A45`) — Bitcoin, Ethereum e criptoativos
 
-### 2.2. Paletas Temáticas por Carteira (Inspiradas em `/imgsinsp`)
-Cada carteira (incluindo a visão Consolidada) recebe uma paleta temática que estiliza o **Card em Pilha (`StackedWalletDeck`)**, a **Esfera Luminosa (`AmbientOrb`)** e os destaques ativos:
+### 2.2. Paletas Temáticas por Carteira — Atribuição Sequencial Automática (`/imgsinsp`)
+- **Regra de Atribuição Automática:** Cada nova carteira criada recebe **automaticamente a próxima paleta da sequência** (`index % 4`: `classic` → `harbor` → `docks` → `tribunal`), sem exigir configuração manual do usuário.
+- **Aplicação Dinâmica na Troca de Carteira:** Ao puxar o card na pilha para trocar de carteira, **a cor do Card (`StackedWalletDeck`), a bola luminosa no topo (`AmbientOrb`) e os detalhes/acentos ativos da interface acompanham automaticamente a paleta da carteira ativa**, mantendo **fixas as cores das 4 classes de ativos (`#2E4A44`, `#D5CAA8`, `#D96628`, `#C49A45`) e o fundo do tema (Escuro/Claro)**.
 
-| ID da Paleta | Nome | Inspiração (`/imgsinsp`) | Cor Principal do Card (`cardBg`) | Cor Secundária / Orb (`orbSecondary`) | Destaque / Badge (`accent`) | Texto sobre Card (`onCard`) |
-| :--- | :--- | :--- | :---: | :---: | :---: | :---: |
-| `classic` | **Celsus Terracotta** | Paleta Original Celsus | `#D96628` | `#2E4A44` | `#D5CAA8` | `#111315` |
-| `harbor` | **Porto & Containers** | `disco-elysium...a7v6mgkbkec81` | `#DB5A42` | `#4A4656` | `#F1CA78` | `#1D1B2A` |
-| `docks` | **Luzes das Docas** | `disco-elysium...lhhbfdkbkec81` | `#EF9F43` | `#5B525C` | `#EDE145` | `#1D1B27` |
-| `tribunal` | **Pátio & Ouro** | `disco-elysium...z1bl1dkbkec81` | `#F1B819` | `#535A49` | `#AC4B25` | `#222526` |
+| Ordem Automática | ID da Paleta | Nome | Inspiração (`/imgsinsp`) | Cor Principal do Card (`cardBg`) | Cor Secundária / Orb (`orbSecondary`) | Destaque Ativo (`accent`) | Texto sobre Card (`onCard`) |
+| :---: | :--- | :--- | :--- | :---: | :---: | :---: | :---: |
+| **1ª** | `classic` | **Celsus Terracotta** | Paleta Original Celsus | `#D96628` | `#2E4A44` | `#D5CAA8` | `#111315` |
+| **2ª** | `harbor` | **Porto & Containers** | `disco-elysium...a7v6mgkbkec81` | `#DB5A42` | `#4A4656` | `#F1CA78` | `#1D1B2A` |
+| **3ª** | `docks` | **Luzes das Docas** | `disco-elysium...lhhbfdkbkec81` | `#EF9F43` | `#5B525C` | `#EDE145` | `#1D1B27` |
+| **4ª** | `tribunal` | **Pátio & Ouro** | `disco-elysium...z1bl1dkbkec81` | `#F1B819` | `#535A49` | `#AC4B25` | `#222526` |
 
 > **Paleta de Fatias Internas do Gráfico de Rosca (Detalhe da Classe):** Ao abrir os ativos dentro de uma classe, as fatias do gráfico de pizza oco utilizam tons derivados das cartelas cromáticas (`#DB5A42`, `#F1CA78`, `#EDE8B8`, `#72743D`, `#D1DDF7`, `#EF9F43`, `#4A525D`, `#AC4B25`) para distinguir claramente cada ativo individual.
 

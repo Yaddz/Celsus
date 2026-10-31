@@ -631,10 +631,11 @@ Após a conclusão das Sprints 1 a 6, a **SPEC v2** estabelece a preparação do
      - O **Footer Flutuante (`FloatingBottomDock`)** permanece visível em **todas as telas**, acompanhado de transições suaves de abertura/navegação.
 
 ### 11.3. Paletas por Carteira (`/imgsinsp`) + Página de Configurações (Tema Escuro / Claro)
-1. **Paletas Temáticas por Carteira:**
-   - Extraídas das 3 cartelas de cores em `/imgsinsp/disco-elysium-colors-charts` + paleta clássica Celsus (`classic`, `harbor`, `docks`, `tribunal`).
-   - Ao trocar de carteira, a cor do Card da Carteira, a Esfera Luminosa (`AmbientOrb`) e os indicadores ativos assumem a paleta daquela carteira.
-   - **Regra de Coerência:** As cores das 4 categorias de ativos (`FIXED_INCOME` `#2E4A44`, `FII` `#D5CAA8`, `STOCK` `#D96628`, `CRYPTO` `#C49A45`) permanecem **sempre fixas**, e o fundo do app permanece consistente com o tema global.
+1. **Paletas Temáticas por Carteira (Atribuição Sequencial Automática):**
+   - Extraídas das 3 cartelas de cores em `/imgsinsp/disco-elysium-colors-charts` + paleta clássica Celsus (`classic` → `harbor` → `docks` → `tribunal`).
+   - **Atribuição Automática:** Para cada nova carteira criada em sequência, o sistema atribui automaticamente uma paleta diferente em ciclo (`portfolioIndex % 4`).
+   - **Sincronização na Pilha:** Ao trocar de carteira na pilha (`StackedWalletDeck`), **a cor do Card, a bola luminosa no topo (`AmbientOrb`) e os detalhes ativos da interface acompanham automaticamente a paleta daquela carteira**.
+   - **Regra de Coerência:** As cores das 4 categorias de ativos (`FIXED_INCOME` `#2E4A44`, `FII` `#D5CAA8`, `STOCK` `#D96628`, `CRYPTO` `#C49A45`) permanecem **sempre fixas**, e o fundo do app permanece consistente com o tema global (Escuro ou Claro).
 2. **Página de Configurações (`SettingsBackupScreen` v2):**
    - Permite alternar o **Tema do App (`Escuro` `#111315` ou `Claro` `#F4F1EA`)**.
    - Reúne as configurações de **PIN / Biometria**, **Modo Privacidade**, **URL da API Local** e **Backup / Restauração `.celsus.zip`**.
@@ -728,7 +729,7 @@ Vamos executar a **Sprint 8 — Fase A (TDD: Especificação e Bloqueio de Teste
 
 1. Desbloqueie o lock (`./scripts/test-lock.ps1 -Action unlock`) e crie apenas as interfaces/stubs para `src/theme/palettes.ts`, `src/components/ui/AmbientOrb.tsx` e `src/components/ui/XpMinimalHeader.tsx`.
 2. Escreva os testes da Sprint 8 (`S8-T01` a `S8-T03`):
-   - `S8-T01` (`src/theme/__tests__/palettes.test.ts`): validação das 4 paletas de carteira (`classic`, `harbor`, `docks`, `tribunal`) extraídas de `/imgsinsp` e garantia de que as 4 cores das classes de ativos (`#2E4A44`, `#D5CAA8`, `#D96628`, `#C49A45`) permanecem fixas e imutáveis em qualquer paleta ou tema.
+   - `S8-T01` (`src/theme/__tests__/palettes.test.ts`): atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`) para cada nova carteira criada, propagação da paleta ativa para o Card, `AmbientOrb` e acentos ativos ao trocar de carteira na pilha, e garantia de que as 4 cores das classes de ativos (`#2E4A44`, `#D5CAA8`, `#D96628`, `#C49A45`) e o fundo permanecem fixos.
    - `S8-T02` (`src/theme/__tests__/themeMode.test.ts`): alternância entre Tema Escuro (`dark`, fundo `#111315`) e Tema Claro (`light`, fundo `#F4F1EA`) na página de Configurações.
    - `S8-T03` (`src/components/ui/__tests__/XpMinimalHeader.test.tsx`): renderização do avatar do usuário à esquerda (dispara abertura de Configurações), botão placeholder do Globo (`onGlobePress`) e botão de Olho (`onTogglePrivacy`) à direita.
 3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e atualize os hashes `SHA-256` em `TEST_REPORT.md`.

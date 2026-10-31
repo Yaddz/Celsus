@@ -112,7 +112,7 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestPortfolioPalettesAndImmutableAssetClassColors` | 4 paletas de carteira (`classic`, `harbor`, `docks`, `tribunal`) mantendo fixas as 4 cores de classes de ativos | `PENDING (Fase A)` | ⏳ PENDING |
+| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestAutoSequentialPortfolioPalettesAndImmutableAssetColors` | Atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`), sincronização do Card + `AmbientOrb` + acentos ativos na pilha e cores fixas das 4 classes de ativos | `PENDING (Fase A)` | ⏳ PENDING |
 | `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `PENDING (Fase A)` | ⏳ PENDING |
 | `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `PENDING (Fase A)` | ⏳ PENDING |
 
