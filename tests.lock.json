@@ -1,0 +1,32 @@
+﻿{
+    "protocol":  "CELSUS_IMMUTABLE_TDD_LOCK_V1",
+    "updatedAt":  "2026-10-31T00:04:58.7456985-03:00",
+    "totalLockedFiles":  5,
+    "files":  {
+                  "services/market-api/internal/brapi/client_test.go":  {
+                                                                            "sha256":  "ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac",
+                                                                            "lockedAt":  "2026-10-31T00:04:58.7310010-03:00",
+                                                                            "sizeBytes":  5055
+                                                                        },
+                  "services/market-api/internal/cotahist/parser_test.go":  {
+                                                                               "sha256":  "39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33",
+                                                                               "lockedAt":  "2026-10-31T00:04:58.7404718-03:00",
+                                                                               "sizeBytes":  7334
+                                                                           },
+                  "services/market-api/internal/cotahist/repository_test.go":  {
+                                                                                   "sha256":  "2b3208f456c5bbe99dc1d7357dd2805f178043a46eb8ca4d4143a7ebd82c0178",
+                                                                                   "lockedAt":  "2026-10-31T00:04:58.7424727-03:00",
+                                                                                   "sizeBytes":  3242
+                                                                               },
+                  "services/market-api/internal/http/handlers_test.go":  {
+                                                                             "sha256":  "783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1",
+                                                                             "lockedAt":  "2026-10-31T00:04:58.7436998-03:00",
+                                                                             "sizeBytes":  7047
+                                                                         },
+                  "services/market-api/internal/macro/rates_test.go":  {
+                                                                           "sha256":  "575b28ebc6e03256deac947e03d67d2bfdac46debc59f6f0cb3a2a921d4f8881",
+                                                                           "lockedAt":  "2026-10-31T00:04:58.7456985-03:00",
+                                                                           "sizeBytes":  2541
+                                                                       }
+              }
+}
