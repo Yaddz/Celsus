@@ -16,7 +16,7 @@
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 11 | 13 | `LOCKED (21 arquivos)` | 🔒 Fase A Bloqueada (Red Phase) |
 | **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
@@ -102,9 +102,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S7-T01` | `src/services/__tests__/marketApiIntegration.test.ts` | `TestLocalBackendQuotesCatalogAndHistoryIntegration` | Integração `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com cache SQLite e fallback offline | `PENDING (Fase A)` | ⏳ PENDING |
-| `S7-T02` | `src/services/__tests__/marketSyncService.test.ts` | `TestBatchSyncPortfolioTickersAndRecalculatePatrimony` | Sincronização automática de cotações dos ativos das carteiras locais e recálculo do patrimônio | `PENDING (Fase A)` | ⏳ PENDING |
-| `S7-T03` | `internal/cotahist/seed_test.go` | `TestLocalMarketSeedBootstrap` | Seed idempotente do catálogo local (Ações, FIIs, Cripto e curvas CDI/IPCA) no backend Go | `PENDING (Fase A)` | ⏳ PENDING |
+| `S7-T01` | `src/services/__tests__/marketApiIntegration.test.ts` | `TestLocalBackendQuotesCatalogAndHistoryIntegration` | Integração `/v1/health`, `/v1/catalog/search`, `/v1/quotes` e `/v1/history` com cache SQLite e fallback offline | `096d33e90c0945289147102f07fe58b8528ad17722f89bf5bfca110111a8383b` | 🟢 PASS (10/10) [Fase A Locked] |
+| `S7-T02` | `src/services/__tests__/marketSyncService.test.ts` | `TestBatchSyncPortfolioTickersAndRecalculatePatrimony` | Sincronização automática de cotações dos ativos das carteiras locais e recálculo do patrimônio | `08c78163330cd3c71aea2769eb17b7eb98b9ac592b1f196c553232de0ef5f491` | 🔴 RED (Stub Phase A - Aguardando Fase B) |
+| `S7-T03` | `internal/cotahist/seed_test.go` | `TestLocalMarketSeedBootstrap` | Seed idempotente do catálogo local (Ações, FIIs, Cripto e curvas CDI/IPCA) no backend Go | `762e1cbd2fd7a35f89d810734f141f8272b35a500398d2f90185536aded9db93` | 🔴 RED (Stub Phase A - Aguardando Fase B) |
 
 ---
 

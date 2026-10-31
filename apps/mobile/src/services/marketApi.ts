@@ -23,7 +23,14 @@ export interface MacroRateData {
   ipca?: number;
 }
 
+export interface HealthStatus {
+  status: string;
+  cotahist_last_date?: string;
+  brapi_status?: string;
+}
+
 export interface IMarketApiService {
+  checkHealth(): Promise<HealthStatus | null>;
   getHistoricalPrice(ticker: string, date: string): Promise<string | null>;
   fetchQuotes(tickers: string[]): Promise<MarketQuote[]>;
   getCachedQuote(ticker: string): Promise<MarketQuote | null>;
@@ -34,13 +41,30 @@ export interface IMarketApiService {
 
 export class MarketApiService implements IMarketApiService {
   private apiBaseUrl: string;
+  private customDb?: any;
 
-  constructor(apiBaseUrl: string = 'http://localhost:8080') {
+  constructor(apiBaseUrl: string = 'http://localhost:8080', db?: any) {
     this.apiBaseUrl = apiBaseUrl;
+    this.customDb = db;
   }
 
   protected get db() {
-    return getDatabase();
+    return this.customDb || getDatabase();
+  }
+
+  /**
+   * S7-T01: Verifica a conectividade com o backend Go (/v1/health).
+   */
+  async checkHealth(): Promise<HealthStatus | null> {
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/v1/health`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Falha de rede ou servidor offline
+    }
+    return null;
   }
 
   /**
@@ -78,9 +102,20 @@ export class MarketApiService implements IMarketApiService {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        const item = Array.isArray(data) ? data[0] : data?.history?.[0];
-        if (item && item.close_price) {
-          const closePrice = String(item.close_price);
+        let item: any = null;
+        if (Array.isArray(data)) {
+          item = data[0];
+        } else if (data?.history) {
+          if (Array.isArray(data.history)) {
+            item = data.history[0];
+          } else if (typeof data.history === 'object') {
+            const arr = data.history[normalizedTicker] || Object.values(data.history)[0];
+            item = Array.isArray(arr) ? arr[0] : arr;
+          }
+        }
+
+        if (item && (item.close_price !== undefined || item.close !== undefined)) {
+          const closePrice = String(item.close_price !== undefined ? item.close_price : item.close);
           // Salva no banco local para consultas subsequentes offline
           await this.saveHistoricalPrice(normalizedTicker, date, closePrice);
           return closePrice;
@@ -129,12 +164,20 @@ export class MarketApiService implements IMarketApiService {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        const quotes: MarketQuote[] = (data?.quotes || []).map((q: any) => ({
-          ticker: q.ticker,
-          assetClass: q.asset_class || q.assetClass || 'STOCK',
-          currentPrice: String(q.current_price || q.currentPrice || '0.00'),
-          changePercent24h: Number(q.change_percent_24h || q.changePercent24h || 0),
-          updatedAt: q.updated_at || new Date().toISOString(),
+        const rawQuotes = data?.quotes;
+        let quotesList: any[] = [];
+        if (Array.isArray(rawQuotes)) {
+          quotesList = rawQuotes;
+        } else if (rawQuotes && typeof rawQuotes === 'object') {
+          quotesList = Object.values(rawQuotes);
+        }
+
+        const quotes: MarketQuote[] = quotesList.map((q: any) => ({
+          ticker: q.ticker || q.symbol || q.coin || '',
+          assetClass: q.asset_class || q.assetClass || (q.coin ? 'CRYPTO' : 'STOCK'),
+          currentPrice: String(q.current_price || q.currentPrice || q.regularMarketPrice || q.price || '0.00'),
+          changePercent24h: Number(q.change_percent_24h || q.changePercent24h || q.regularMarketChangePercent || 0),
+          updatedAt: q.updated_at || q.updatedAt || new Date().toISOString(),
         }));
 
         // Atualiza cache local
@@ -227,7 +270,8 @@ export class MarketApiService implements IMarketApiService {
       if (assetClass) url += `&class=${assetClass}`;
       const res = await fetch(url);
       if (res.ok) {
-        return await res.json();
+        const data = await res.json();
+        return data?.results || (Array.isArray(data) ? data : []);
       }
     } catch {}
     return [];
