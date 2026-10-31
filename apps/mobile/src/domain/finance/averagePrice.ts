@@ -116,7 +116,8 @@ export function calculateSellOperation(
  * a partir do histórico completo de transações do ativo.
  */
 export function calculatePositionFromTransactions(
-  transactions: PositionTransaction[]
+  transactions: PositionTransaction[],
+  _decimalPlaces?: number
 ): PositionResult {
   let currentQty = new Decimal(0);
   let currentPM = new Decimal(0);
@@ -124,13 +125,14 @@ export function calculatePositionFromTransactions(
   let sampleInputs: Array<string | number> = [];
 
   for (const tx of transactions) {
+    const txPrice = tx.unitPrice ?? tx.price ?? 0;
     sampleInputs.push(tx.quantity);
     if (tx.type === 'BUY') {
       const buyRes = calculateBuyOperation({
         currentQuantity: currentQty.toString(),
         currentAveragePrice: currentPM.toString(),
         buyQuantity: tx.quantity,
-        buyPrice: tx.unitPrice,
+        buyPrice: txPrice,
         fees: tx.fees,
       });
       currentQty = new Decimal(buyRes.quantity);
@@ -140,7 +142,7 @@ export function calculatePositionFromTransactions(
         currentQuantity: currentQty.toString(),
         currentAveragePrice: currentPM.toString(),
         sellQuantity: tx.quantity,
-        sellPrice: tx.unitPrice,
+        sellPrice: txPrice,
         fees: tx.fees,
       });
       currentQty = new Decimal(sellRes.quantity);

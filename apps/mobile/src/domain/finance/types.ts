@@ -55,7 +55,8 @@ export interface SellOperationResult {
 export interface PositionTransaction {
   type: 'BUY' | 'SELL';
   quantity: string | number;
-  unitPrice: string | number;
+  unitPrice?: string | number;
+  price?: string | number;
   fees?: string | number;
   tradeDate?: string;
 }

@@ -25,64 +25,168 @@ export interface PrivacyAndAuthState {
   lastAuthenticatedAt: string | null;
 }
 
-/**
- * S6-T04: Formata ou redige valores monetários/percentuais quando o Modo Privacidade está ativo.
- */
-export function redactCurrencyValue(
-  _value: string | number,
-  _isPrivacyModeEnabled: boolean,
-  _options?: { includeSymbol?: boolean }
-): string {
-  throw new Error('Not implemented: redactCurrencyValue');
+const defaultBiometricProvider: BiometricAuthProvider = {
+  async hasHardwareAsync(): Promise<boolean> {
+    return true;
+  },
+  async isEnrolledAsync(): Promise<boolean> {
+    return true;
+  },
+  async authenticateAsync(): Promise<{ success: boolean; error?: string }> {
+    return { success: true };
+  },
+};
+
+function formatBrlNumber(num: number, includeSymbol: boolean): string {
+  const fixed = Math.abs(num).toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const sign = num < 0 ? '-' : '';
+  const body = `${sign}${formattedInt},${decPart}`;
+  return includeSymbol ? `R$ ${body}` : body;
 }
 
-export function redactPercentageValue(
-  _value: string | number,
-  _isPrivacyModeEnabled: boolean
+/**
+ * S6-T04: Formata ou redige valores monetários quando o Modo Privacidade está ativo.
+ */
+export function redactCurrencyValue(
+  value: string | number,
+  isPrivacyModeEnabled: boolean,
+  options?: { includeSymbol?: boolean }
 ): string {
-  throw new Error('Not implemented: redactPercentageValue');
+  const includeSymbol = options?.includeSymbol ?? true;
+
+  if (isPrivacyModeEnabled) {
+    return includeSymbol ? PRIVACY_CURRENCY_MASK : PRIVACY_MASK;
+  }
+
+  if (typeof value === 'number') {
+    return formatBrlNumber(value, includeSymbol);
+  }
+
+  const trimmed = value.trim();
+  if (!includeSymbol) {
+    return trimmed.replace(/^R\$\s*/, '');
+  }
+  return trimmed.startsWith('R$') ? trimmed : `R$ ${trimmed}`;
+}
+
+/**
+ * S6-T04: Formata ou redige valores percentuais quando o Modo Privacidade está ativo.
+ */
+export function redactPercentageValue(
+  value: string | number,
+  isPrivacyModeEnabled: boolean
+): string {
+  if (isPrivacyModeEnabled) {
+    return PRIVACY_PERCENT_MASK;
+  }
+
+  if (typeof value === 'number') {
+    const sign = value > 0 ? '+' : '';
+    return `${sign}${value.toFixed(1).replace('.', ',')}%`;
+  }
+
+  return value;
 }
 
 export class PrivacyAndAuthService {
-  constructor(_authProvider?: BiometricAuthProvider) {}
+  private state: PrivacyAndAuthState = {
+    isPrivacyModeEnabled: false,
+    isBiometricLockEnabled: false,
+    isLocked: false,
+    lastAuthenticatedAt: null,
+  };
 
-  getState(): PrivacyAndAuthState {
-    throw new Error('Not implemented: PrivacyAndAuthService.getState');
+  private authProvider: BiometricAuthProvider;
+
+  constructor(authProvider: BiometricAuthProvider = defaultBiometricProvider) {
+    this.authProvider = authProvider;
   }
 
-  setPrivacyMode(_enabled: boolean): PrivacyAndAuthState {
-    throw new Error('Not implemented: PrivacyAndAuthService.setPrivacyMode');
+  getState(): PrivacyAndAuthState {
+    return { ...this.state };
+  }
+
+  setPrivacyMode(enabled: boolean): PrivacyAndAuthState {
+    this.state.isPrivacyModeEnabled = enabled;
+    return this.getState();
   }
 
   togglePrivacyMode(): PrivacyAndAuthState {
-    throw new Error('Not implemented: PrivacyAndAuthService.togglePrivacyMode');
+    this.state.isPrivacyModeEnabled = !this.state.isPrivacyModeEnabled;
+    return this.getState();
   }
 
-  setBiometricLockEnabled(_enabled: boolean): PrivacyAndAuthState {
-    throw new Error('Not implemented: PrivacyAndAuthService.setBiometricLockEnabled');
+  setBiometricLockEnabled(enabled: boolean): PrivacyAndAuthState {
+    this.state.isBiometricLockEnabled = enabled;
+    if (!enabled) {
+      this.state.isLocked = false;
+    }
+    return this.getState();
   }
 
   lockApp(): PrivacyAndAuthState {
-    throw new Error('Not implemented: PrivacyAndAuthService.lockApp');
+    if (this.state.isBiometricLockEnabled) {
+      this.state.isLocked = true;
+    }
+    return this.getState();
   }
 
   formatValue(
-    _value: string | number,
-    _options?: { includeSymbol?: boolean }
+    value: string | number,
+    options?: { includeSymbol?: boolean }
   ): string {
-    throw new Error('Not implemented: PrivacyAndAuthService.formatValue');
+    return redactCurrencyValue(value, this.state.isPrivacyModeEnabled, options);
   }
 
-  formatPercentage(_value: string | number): string {
-    throw new Error('Not implemented: PrivacyAndAuthService.formatPercentage');
+  formatPercentage(value: string | number): string {
+    return redactPercentageValue(value, this.state.isPrivacyModeEnabled);
   }
 
   async canUseBiometrics(): Promise<boolean> {
-    throw new Error('Not implemented: PrivacyAndAuthService.canUseBiometrics');
+    const hasHardware = await this.authProvider.hasHardwareAsync();
+    if (!hasHardware) return false;
+    const isEnrolled = await this.authProvider.isEnrolledAsync();
+    return isEnrolled;
   }
 
-  async authenticateAndUnlock(_promptMessage?: string): Promise<BiometricAuthResult> {
-    throw new Error('Not implemented: PrivacyAndAuthService.authenticateAndUnlock');
+  async authenticateAndUnlock(
+    promptMessage = 'Desbloquear Dossiê Celsus'
+  ): Promise<BiometricAuthResult> {
+    const hasHardware = await this.authProvider.hasHardwareAsync();
+    if (!hasHardware) {
+      return {
+        authenticated: false,
+        reason: 'biometric_hardware_unavailable',
+      };
+    }
+
+    const isEnrolled = await this.authProvider.isEnrolledAsync();
+    if (!isEnrolled) {
+      return {
+        authenticated: false,
+        reason: 'biometrics_not_enrolled',
+      };
+    }
+
+    const result = await this.authProvider.authenticateAsync({
+      promptMessage,
+      cancelLabel: 'Cancelar',
+      fallbackLabel: 'Usar PIN',
+      disableDeviceFallback: false,
+    });
+
+    if (result.success) {
+      this.state.isLocked = false;
+      this.state.lastAuthenticatedAt = new Date().toISOString();
+      return { authenticated: true };
+    }
+
+    return {
+      authenticated: false,
+      reason: result.error || 'authentication_failed',
+    };
   }
 }
 

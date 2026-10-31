@@ -15,7 +15,8 @@
 | **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 4 | 37 | 37 | 0 | `VERIFIED (12 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 0 | 16 | `LOCKED (18 arquivos)` | 🔴 Fase A (Red & Locked) |
+| **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL** | **Suíte Completa do Projeto Celsus (Backend Go + Mobile React Native/Expo)** | **18** | **116** | **116** | **0** | **`VERIFIED (18 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -85,10 +86,10 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S6-T01` | `src/services/__tests__/backupService.test.ts` | `TestExportZipStructureAndManifestSHA256` | Geração do `.celsus.zip` contendo `manifest.json` + 4 CSVs com hashes SHA-256 e contagem de linhas exatos | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
-| `S6-T02` | `src/services/__tests__/backupService.test.ts` | `TestRejectTamperedCSVOnImport` | Adulterar 1 byte em `transactions.csv` dentro do ZIP deve abortar a importação com erro de integridade `SHA-256` sem alterar o banco local | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
-| `S6-T03` | `src/services/__tests__/backupService.test.ts` | `TestImportFullRestoreAndUUIDMerge` | Validação do modo *Restore Completo* (substitui tudo) e *Merge* (mescla por UUID v4 sem duplicar lançamentos) | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🔴 FAIL (Stub) |
-| `S6-T04` | `src/services/__tests__/privacyAndAuth.test.ts` | `TestPrivacyRedactionAndBiometricLock` | Ocultação de saldos (`██████,██`) quando `isPrivacyModeEnabled=true` e disparo do bloqueio biométrico | `4d77b41c818c1aacc675bc61d2b47df079a9e4ea5e58566d95f7fec51a3afb54` | 🔴 FAIL (Stub) |
+| `S6-T01` | `src/services/__tests__/backupService.test.ts` | `TestExportZipStructureAndManifestSHA256` | Geração do `.celsus.zip` contendo `manifest.json` + 4 CSVs com hashes SHA-256 e contagem de linhas exatos | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🟢 PASS (0.02s) |
+| `S6-T02` | `src/services/__tests__/backupService.test.ts` | `TestRejectTamperedCSVOnImport` | Adulterar 1 byte em `transactions.csv` dentro do ZIP deve abortar a importação com erro de integridade `SHA-256` sem alterar o banco local | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🟢 PASS (0.01s) |
+| `S6-T03` | `src/services/__tests__/backupService.test.ts` | `TestImportFullRestoreAndUUIDMerge` | Validação do modo *Restore Completo* (substitui tudo) e *Merge* (mescla por UUID v4 sem duplicar lançamentos) | `18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90` | 🟢 PASS (0.02s) |
+| `S6-T04` | `src/services/__tests__/privacyAndAuth.test.ts` | `TestPrivacyRedactionAndBiometricLock` | Ocultação de saldos (`██████,██`) quando `isPrivacyModeEnabled=true` e disparo do bloqueio biométrico | `4d77b41c818c1aacc675bc61d2b47df079a9e4ea5e58566d95f7fec51a3afb54` | 🟢 PASS (0.02s) |
 
 ---
 
@@ -527,3 +528,65 @@
   Time:        5.101 s
   Total: 16 novos testes da Sprint 6 | 0 PASS sob stubs | 16 FAIL (Red Phase confirmada sob stubs)
   ```
+
+### Sprint 6 — Fase B: Implementação Green Phase & Consolidação Final (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 18 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte Mobile (`npm test --prefix apps/mobile`):**
+  ```text
+  PASS src/theme/__tests__/tokens.test.ts
+  PASS src/db/__tests__/schema.test.ts
+  PASS src/components/ui/__tests__/AttributeStatBar.test.tsx
+  PASS src/domain/finance/__tests__/weights.test.ts
+  PASS src/domain/finance/__tests__/averagePrice.test.ts
+  PASS src/domain/finance/__tests__/fixedIncome.test.ts
+  PASS src/domain/finance/__tests__/rebalance.test.ts
+  PASS src/domain/finance/__tests__/portfolioHistory.test.ts
+  PASS src/domain/finance/__tests__/consolidatedView.test.ts
+  PASS src/services/__tests__/transactionService.test.ts
+  PASS src/services/__tests__/rebalanceExecution.test.ts
+  PASS src/services/__tests__/privacyAndAuth.test.ts
+    S6-T04: TestPrivacyRedactionAndBiometricLock
+      Privacy Mode Value Redaction (██████,██)
+        √ should redact numeric and formatted BRL values with ██████,██ when privacy mode is enabled (12 ms)
+        √ should display formatted BRL values normally when privacy mode is disabled (1 ms)
+        √ should redact percentage values when privacy mode is enabled (1 ms)
+        √ should toggle privacy mode state in PrivacyAndAuthService and format values accordingly (1 ms)
+      Biometric Lock & Native Authentication Trigger
+        √ should lock the app when biometric lock is enabled and unlock upon successful biometric authentication (4 ms)
+        √ should keep app locked when biometric authentication fails or is cancelled by user (1 ms)
+        √ should report biometric availability accurately when hardware or enrollment is missing
+        √ should return failure with reason when attempting to unlock if biometrics are not enrolled on device (1 ms)
+  PASS src/services/__tests__/backupService.test.ts
+    S6-T01: TestExportZipStructureAndManifestSHA256
+      √ should generate a valid .celsus.zip containing manifest.json and 4 CSVs with exact row counts and SHA-256 hashes (17 ms)
+      √ should handle empty database snapshot with 0 rows and valid CSV headers (1 ms)
+      √ should compute deterministic SHA-256 hash matching standard NIST vector
+    S6-T02: TestRejectTamperedCSVOnImport
+      √ should immediately abort import with SECURITY PROTOCOL: CORRUPTED DOSSIER when 1 byte of transactions.csv is tampered, leaving local DB untouched (4 ms)
+      √ should reject archive if manifest.json is missing or has unsupported schemaVersion (2 ms)
+      √ should reject archive if any required CSV file declared in manifest.json is missing from the ZIP (2 ms)
+    S6-T03: TestImportFullRestoreAndUUIDMerge
+      √ should completely replace all local records when importing in RESTORE mode (2 ms)
+      √ should merge records by UUID v4 without duplicating existing transactions and recalculate asset average price in MERGE mode (20 ms)
+
+  Test Suites: 13 passed, 13 total
+  Tests:       107 passed, 107 total
+  Snapshots:   0 total
+  Time:        4.160 s
+  ```
+- **Execução Final da Suíte Backend Go (`cd services/market-api && go test -count=1 ./... -v`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.365s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.745s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.160s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.734s
+  Total Backend Go: 9 testes | 9 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus:**
+  - **18 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **116 casos de teste automatizados executados (9 em Go + 107 em TypeScript/Jest)**
+  - **100% de aprovação (116 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**

@@ -31,7 +31,13 @@ import {
   TransactionScreen,
   SimulatorScreen,
   StatisticsScreen,
+  SettingsBackupScreen,
 } from './src/screens';
+import {
+  redactCurrencyValue,
+  redactPercentageValue,
+  privacyAndAuthService,
+} from './src/services/privacyAndAuth';
 import {
   calculateSmartContribution,
   RebalanceAssetInput,
@@ -96,6 +102,7 @@ function AppContent() {
   const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
+  const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
 
   // Lista de Movimentações Recentes e Saldos Consolidados
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
@@ -203,7 +210,23 @@ function AppContent() {
     );
   };
 
-  const balanceDisplay = isPrivacyMode ? 'R$ ••••••••' : totalPatrimony;
+  const balanceDisplay = redactCurrencyValue(totalPatrimony, isPrivacyMode);
+  const profitDisplay = redactPercentageValue(profitSummary, isPrivacyMode);
+
+  // Modal: Configurações / Backup (.celsus.zip) & Segurança Local
+  if (isSettingsBackupModalOpen) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="light" />
+        <SettingsBackupScreen
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
+          onClose={() => setIsSettingsBackupModalOpen(false)}
+          onDataRestored={() => refreshAppData()}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // Tela/Aba: Análises & Estatísticas
   if (activeTab === 'stats') {
@@ -302,17 +325,33 @@ function AppContent() {
             </View>
           </View>
 
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={() => setIsPrivacyMode(!isPrivacyMode)}
-            style={styles.privacyButton}
-          >
-            <MaterialIcons
-              name={isPrivacyMode ? 'visibility-off' : 'visibility'}
-              size={20}
-              color={colors.parchmentPale}
-            />
-          </TouchableOpacity>
+          <View style={styles.headerActionsRow}>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => {
+                const next = privacyAndAuthService.togglePrivacyMode();
+                setIsPrivacyMode(next.isPrivacyModeEnabled);
+              }}
+              style={styles.privacyButton}
+            >
+              <MaterialIcons
+                name={isPrivacyMode ? 'visibility-off' : 'visibility'}
+                size={20}
+                color={colors.parchmentPale}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => setIsSettingsBackupModalOpen(true)}
+              style={styles.privacyButton}
+            >
+              <MaterialIcons
+                name="security"
+                size={20}
+                color={colors.tertiary}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* 1. Stacked Hero Wallet Card (WalleZ Stacked Cards) */}
@@ -322,7 +361,7 @@ function AppContent() {
           subtitle="Patrimônio Total"
           accountName="DOSSIÊ CONSOLIDADO"
           accountCode="•••• 001"
-          profitText={isPrivacyMode ? '•••••' : profitSummary}
+          profitText={profitDisplay}
           accentColor={colors.primary}
         />
 
@@ -374,6 +413,13 @@ function AppContent() {
             variant="primary"
             materialIcon="tune"
             onPress={() => setIsSimulatorModalOpen(true)}
+            style={{ marginTop: 8 }}
+          />
+          <DirectiveButton
+            label="Backup .celsus.zip & Segurança Local"
+            variant="neutral"
+            materialIcon="folder-zip"
+            onPress={() => setIsSettingsBackupModalOpen(true)}
             style={{ marginTop: 8 }}
           />
           {simulationResult ? (
@@ -467,6 +513,11 @@ const styles = StyleSheet.create({
     borderColor: '#26292C',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  headerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   simulationBox: {
     marginTop: spacing.sm,
