@@ -380,16 +380,17 @@ flowchart LR
     D -- "SIM (100% Green)" --> F["Verificação de Integridade\n./scripts/test-lock.ps1 -Action verify\n+ Registro em TEST_REPORT.md"]
 ```
 
-### Regras de Governança TDD
+### Regras de Governança TDD e Git
 1. **Fase A (Red & Lock):** Os testes automatizados da Sprint são criados primeiro, junto apenas com as assinaturas/interfaces vazias necessárias para compilação. Em seguida, roda-se `./scripts/test-lock.ps1 -Action lock`, que grava o hash `SHA-256` de cada arquivo de teste em `tests.lock.json` e aplica permissão `ReadOnly` no sistema operacional.
 2. **Fase B (Green & Verify):** O agente implementa o código de produção até todos os testes passarem. Se um teste falhar, **o agente retorna ao código de produção e o corrige — nunca altera o teste**.
 3. **Auditoria e Relatório ([`TEST_REPORT.md`](file:///c:/Users/Pedro/Documents/Projetos/Celsus/TEST_REPORT.md)):** Ao final de cada Sprint, o comando `./scripts/test-lock.ps1 -Action verify` comprova que nenhum hash `SHA-256` de teste foi modificado, e os resultados detalhados são gravados em [`TEST_REPORT.md`](file:///c:/Users/Pedro/Documents/Projetos/Celsus/TEST_REPORT.md).
+4. **Commit Obrigatório por Fase e Sprint:** Toda Sprint e toda Fase (`Fase A` e `Fase B`) deve obrigatoriamente ser concluída com um commit Git padronizado (`test(sprint-X): lock phase A specification tests` na Fase A e `feat(sprint-X): complete phase B implementation and test report` na Fase B) e push para `origin/main`.
 
 ---
 
 ## 10. Divisão de Sprints e Prompts de Execução (Fase A + Fase B)
 
-O projeto está dividido em **6 Sprints incrementais**, cada uma com um prompt para a **Fase A (Criar e Bloquear Testes)** e um prompt para a **Fase B (Implementar Código e Gerar Relatório)**.
+O projeto está dividido em **6 Sprints incrementais**, cada uma com um prompt para a **Fase A (Criar e Bloquear Testes + Commit)** e um prompt para a **Fase B (Implementar Código, Gerar Relatório + Commit)**.
 
 ---
 
@@ -409,6 +410,7 @@ Vamos executar a **Sprint 1 — Fase A (TDD: Especificação e Bloqueio de Teste
    - `internal/http/handlers_test.go`: testes dos 5 endpoints REST (`/v1/health`, `/v1/catalog/search`, `/v1/quotes`, `/v1/history`, `/v1/rates/macro`).
 3. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock` para bloquear todos os testes com `ReadOnly` e registrar os hashes `SHA-256` em `tests.lock.json`.
 4. Atualize a tabela da Sprint 1 em `TEST_REPORT.md` com os hashes `SHA-256` gerados. Não implemente a lógica de produção ainda.
+5. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-1): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 1 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -424,12 +426,13 @@ Passos:
 2. Rode `go test ./... -v` repetidamente, ajustando a implementação até que 100% dos testes (`S1-T01` a `S1-T09`) passem.
 3. Rode `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` para comprovar que nenhum arquivo de teste foi modificado.
 4. Atualize `TEST_REPORT.md` com o status `PASS`, tempo de execução e log de saída dos testes da Sprint 1.
+5. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-1): complete phase B implementation and test report" && git push origin main`.
 ```
 
 ---
 
 ### SPRINT 2: Fundação Mobile Expo, Design System "Celsus" e Banco Local (SQLite + Drizzle)
-**Objetivo:** Criar o app React Native (Expo) em `apps/mobile`, configurar os tokens visuais e componentes do `DESIGN_SYSTEM.md` (*Bureaucratic Brutalism*, fonte `Space Mono`) e estruturar o banco local SQLite com Drizzle ORM.
+**Objetivo:** Criar o app React Native (Expo) em `apps/mobile`, configurar os tokens visuais e componentes do `DESIGN_SYSTEM.md` (*WalleZ Modern Bento*, fonte `Space Mono`) e estruturar o banco local SQLite com Drizzle ORM.
 
 #### Prompt da Sprint 2 — Fase A (Criar Testes + Bloquear)
 ```markdown
@@ -441,6 +444,7 @@ Vamos executar a **Sprint 2 — Fase A (TDD: Especificação e Bloqueio de Teste
    - `src/components/ui/__tests__/AttributeStatBar.test.tsx`: mapeamento das 4 categorias reais (`FIXED_INCOME` -> `Renda Fixa`, `FII` -> `FIIs`, `STOCK` -> `Ações`, `CRYPTO` -> `Criptomoedas`) e renderização de `% Atual vs % Meta`.
    - `src/db/__tests__/schema.test.ts`: validação das 6 tabelas SQLite/Drizzle (`portfolios`, `portfolio_class_targets`, `assets`, `transactions`, `market_price_cache`, `historical_prices_local`) incluindo as colunas de Open Finance (`source`, `external_id`, `institution_id`, `last_synced_at`).
 3. Bloqueie novamente todos os testes rodando `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock` e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-2): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 2 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -449,7 +453,7 @@ Vamos executar a **Sprint 2 — Fase B (Implementação TDD sob Bloqueio)** conf
 
 REGRAS OBRIGATÓRIAS:
 - Você está PROIBIDO de alterar qualquer arquivo de teste bloqueado (`*.test.ts`, `*.test.tsx`). Se um teste falhar, ajuste exclusivamente o código de produção.
-- Mantenha 100% a paleta de cores do Celsus (`#D96628` Primary, `#2E4A44` Secondary, `#D5CAA8` Tertiary, `#191B1D` Neutral, `#111315` Background, `#C49A45` Motorics) e a fonte `Space Mono`, mas implemente os componentes e telas seguindo o **WalleZ Modern Bento Layout** descrito em `DESIGN_SYSTEM.md`:
+- Mantenha 100% a paleta de cores do Celsus (`#D96628` Primary, `#2E4A44` Secondary, `#D5CAA8` Tertiary, `#191B1D` Neutral, `#111315` Background, `#C49A45` Crypto) e a fonte `Space Mono`, implementando os componentes e telas seguindo o **WalleZ Modern Bento Layout** descrito em `DESIGN_SYSTEM.md`:
 
 Passos:
 1. Implemente os tokens completos em `src/theme/tokens.ts` satisfazendo `tokens.test.ts`.
@@ -464,6 +468,7 @@ Passos:
 4. Implemente o schema/migrations completo do `expo-sqlite` + `drizzle-orm` em `src/db/schema.ts` satisfazendo `schema.test.ts`.
 5. Execute `npm test` em `apps/mobile` e corrija o código de produção até 100% dos testes passarem.
 6. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` e registre os resultados em `TEST_REPORT.md`.
+7. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-2): complete phase B implementation and test report" && git push origin main`.
 ```
 
 ---
@@ -482,6 +487,7 @@ Vamos executar a **Sprint 3 — Fase A (TDD: Especificação e Bloqueio de Teste
    - `fixedIncome.test.ts`: capitalização diária pós-fixada (% CDI), Pré-fixada (base 252), IPCA+ e precedência de `manual_price_override`.
    - `rebalance.test.ts`: Calculadora Inteligente de Novo Aporte ($D_i = \max(0, V^{\text{meta}}_i - V_{\text{atual},i})$) garantindo zero sugestão de venda, cotas inteiras para Ações/FIIs e frações de 8 casas para Cripto.
 3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e atualize os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-3): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 3 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -495,6 +501,7 @@ Passos:
 1. Implemente todas as funções do motor financeiro com `decimal.js`, os repositórios SQLite e as telas de Gestão de Carteiras e Ativos (com pesos em 2 níveis).
 2. Rode a suíte de testes até atingir 100% de aprovação.
 3. Valide a integridade com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-3): complete phase B implementation and test report" && git push origin main`.
 ```
 
 ---
@@ -512,6 +519,7 @@ Vamos executar a **Sprint 4 — Fase A (TDD: Especificação e Bloqueio de Teste
    - Persistência transacional de compra/venda atualizando atomicamente quantidade e preço médio do ativo.
    - Conversão em lote das sugestões do Simulador de Aporte em lançamentos `BUY` no Livro-Razão.
 3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-4): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 4 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -526,12 +534,13 @@ Passos:
 1. Instale/configure `@expo/vector-icons` (`MaterialIcons`) em `apps/mobile` e substitua todos os emojis por ícones Material (`visibility`/`visibility-off`, `account-balance-wallet`, `north-east`, `calculate`, `grid-view`, `home`, `bar-chart`, `receipt-long`, `pie-chart`, `add`, `account-balance`, `domain`, `trending-up`, `currency-bitcoin`).
 2. Implemente os serviços `marketApi.ts`, `transactionService.ts`, `rebalanceExecution.ts`, a tela de Nova Movimentação, o card arredondado de **Movimentações Recentes** (estilo WalleZ com avatares circulares de `44x44` na cor e ícone Material da categoria, nome + horário e valor colorido `+R$`/`-R$` à direita) e a tela do Simulador de Novo Aporte.
 3. Rode os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-4): complete phase B implementation and test report" && git push origin main`.
 ```
 
 ---
 
-### SPRINT 5: Dashboards (Consolidado e por Carteira) e Gráficos de Evolução Patrimonial
-**Objetivo:** Construir os gráficos de Alocação (Atual vs Meta) e de Evolução Patrimonial histórica (usando a série COTAHIST + CDI cruzada com o histórico de aportes).
+### SPRINT 5: Dashboards (Consolidado e por Carteira), Gráficos de Evolução Patrimonial e Ajuste de SafeAreaView
+**Objetivo:** Construir os gráficos de Alocação (Atual vs Meta) e de Evolução Patrimonial histórica (usando a série COTAHIST + CDI cruzada com o histórico de aportes) e corrigir o comportamento de `SafeAreaView` e insets em Android/iOS.
 
 #### Prompt da Sprint 5 — Fase A (Criar Testes + Bloquear)
 ```markdown
@@ -542,6 +551,7 @@ Vamos executar a **Sprint 5 — Fase A (TDD: Especificação e Bloqueio de Teste
    - Reconstrução exata da curva histórica `investedCapital` vs `marketValue` cruzando aportes/vendas com preços do COTAHIST e curva de Renda Fixa.
    - Consolidação precisa de múltiplas carteiras independentes no Dossiê Geral (Home).
 3. Bloqueie os testes (`./scripts/test-lock.ps1 -Action lock`) e documente os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-5): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 5 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -552,8 +562,12 @@ REGRAS OBRIGATÓRIAS:
 - Não edite nenhum arquivo de teste bloqueado.
 
 Passos:
-1. Implemente `portfolioHistory.ts`, `consolidatedView.ts` e as telas de **Home (Hero Wallet Card Empilhado + 3 Bento Tiles + Movimentações Recentes)** e **Statistics (Gráfico de Cápsulas Empilhadas Mensais com seletor `W | M | Y` e Tooltip flutuante + Card de Alocação por Classe com Matriz de Pontos `Dot-Matrix` 10×10)**.
-2. Rode todos os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+1. **Ajuste de `SafeAreaView` e Insets:**
+   - Substitua o `SafeAreaView` legado do `react-native` pelo `SafeAreaProvider`, `SafeAreaView` (`edges={['top', 'left', 'right']}`) e `useSafeAreaInsets` do pacote `react-native-safe-area-context`.
+   - Garanta que o cabeçalho superior nunca colida com a StatusBar/Notch/Dynamic Island no Android e iOS, e que a `FloatingBottomDock` respeite dinamicamente o `insets.bottom` da barra de gestos/navegação do sistema.
+2. Implemente `portfolioHistory.ts`, `consolidatedView.ts` e as telas de **Home (Hero Wallet Card Empilhado + 3 Bento Tiles + Movimentações Recentes)** e **Statistics (Gráfico de Cápsulas Empilhadas Mensais com seletor `W | M | Y` e Tooltip flutuante + Card de Alocação por Categoria com Matriz de Pontos `Dot-Matrix`)**.
+3. Rode todos os testes até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-5): complete phase B implementation, SafeAreaView fix and test report" && git push origin main`.
 ```
 
 ---
@@ -572,6 +586,7 @@ Vamos executar a **Sprint 6 — Fase A (TDD: Especificação e Bloqueio de Teste
    - Restauração completa (*Restore*) e mesclagem sem duplicação (*Merge por UUID v4*).
    - Redação de valores em Modo Privacidade (`██████,██`) e acionamento do bloqueio biométrico.
 3. Bloqueie todos os testes (`./scripts/test-lock.ps1 -Action lock`) e atualize os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-6): add and lock phase A specification tests" && git push origin main`.
 ```
 
 #### Prompt da Sprint 6 — Fase B (Implementar Código sob Bloqueio + Relatório)
@@ -582,7 +597,8 @@ REGRAS OBRIGATÓRIAS:
 - Não edite nenhum arquivo de teste bloqueado.
 
 Passos:
-1. Implemente `backupService.ts`, `privacyAndAuth.ts` e a tela de Configurações / Arquivo Morto.
+1. Implemente `backupService.ts`, `privacyAndAuth.ts` e a tela de Configurações / Backup.
 2. Rode toda a suíte de testes do projeto (Go + Mobile) até atingir 100% de aprovação.
 3. Execute `powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify` e consolide o relatório final em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-6): complete phase B implementation and final test report" && git push origin main`.
 ```

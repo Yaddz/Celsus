@@ -13,7 +13,7 @@
 | **Sprint 1** | Backend Go: Parser COTAHIST, Proxy BRAPI, Taxas Macro e Endpoints REST | 5 | 9 | 9 | 0 | `VERIFIED (5 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 2** | Mobile Foundation: Componentes UI Design System e Schema SQLite/Drizzle | 3 | 22 | 22 | 0 | `VERIFIED (8 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 4 | 37 | 37 | 0 | `VERIFIED (12 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 0 | 20 | `VERIFIED (14 arquivos)` | ⏳ Red Phase (Bloqueado) |
+| **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 3 | 12 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 3 | 15 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 
@@ -66,9 +66,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S4-T01` | `src/services/__tests__/transactionService.test.ts` | `TestAutoFillHistoricalPriceFromCotahistOnBuy` | Busca do preço de fechamento na data selecionada para pré-preencher o aporte | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | ⏳ Red Phase (Stub) |
-| `S4-T02` | `src/services/__tests__/transactionService.test.ts` | `TestAtomicTransactionInsertAndAssetRecalculation` | Inserir compra/venda atualiza atomicamente o saldo e PM do ativo na carteira | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | ⏳ Red Phase (Stub) |
-| `S4-T03` | `src/services/__tests__/rebalanceExecution.test.ts` | `TestBatchConfirmSimulatedContributions` | Confirmar sugestões do simulador cria múltiplos lançamentos `BUY` no Livro-Razão | `98cae3fc7bdc822fb608d2d87003f568dbe637eadbc87c331a4ee727023324f8` | ⏳ Red Phase (Stub) |
+| `S4-T01` | `src/services/__tests__/transactionService.test.ts` | `TestAutoFillHistoricalPriceFromCotahistOnBuy` | Busca do preço de fechamento na data selecionada para pré-preencher o aporte | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | 🟢 PASS (0.01s) |
+| `S4-T02` | `src/services/__tests__/transactionService.test.ts` | `TestAtomicTransactionInsertAndAssetRecalculation` | Inserir compra/venda atualiza atomicamente o saldo e PM do ativo na carteira | `80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264` | 🟢 PASS (0.01s) |
+| `S4-T03` | `src/services/__tests__/rebalanceExecution.test.ts` | `TestBatchConfirmSimulatedContributions` | Confirmar sugestões do simulador cria múltiplos lançamentos `BUY` no Livro-Razão | `98cae3fc7bdc822fb608d2d87003f568dbe637eadbc87c331a4ee727023324f8` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -367,4 +367,52 @@
   Snapshots:   0 total
   Time:        8.039 s
   Total: 20 novos testes da Sprint 4 | 0 PASS sob stubs | 20 FAIL (Red Phase confirmada sob stubs)
+  ```
+
+### Sprint 4 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 14 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte (`npm test --prefix apps/mobile`):**
+  ```text
+  PASS src/domain/finance/__tests__/rebalance.test.ts
+  PASS src/domain/finance/__tests__/weights.test.ts
+  PASS src/theme/__tests__/tokens.test.ts
+  PASS src/domain/finance/__tests__/fixedIncome.test.ts
+  PASS src/domain/finance/__tests__/averagePrice.test.ts
+  PASS src/db/__tests__/schema.test.ts
+  PASS src/components/ui/__tests__/AttributeStatBar.test.tsx
+  PASS src/services/__tests__/transactionService.test.ts
+    S4-T01: TestAutoFillHistoricalPriceFromCotahistOnBuy
+      √ should return historical close price when ticker and date exist in local COTAHIST (2 ms)
+      √ should normalize lowercase ticker to uppercase before looking up historical price
+      √ should fetch from remote market API and cache locally when price is not in local database
+      √ should return null when date is a non-trading day (weekend/holiday) and no quote exists
+      √ should return null when ticker is not found in market catalog or COTAHIST (1 ms)
+      √ should support FIIs and Stock tickers consistently
+    S4-T02: TestAtomicTransactionInsertAndAssetRecalculation
+      √ should execute BUY transaction and update asset quantity and average price with brokerage fees (1 ms)
+      √ should execute SELL transaction maintaining average price intact and returning realized PnL (1 ms)
+      √ should liquidate asset position when selling entire quantity and reset PM to 0.00
+      √ should reject SELL transaction when quantity exceeds current asset balance (prevent short selling) (7 ms)
+      √ should reject transaction with zero or negative quantity or price (1 ms)
+      √ should handle fractional crypto transactions with 8 decimal places precision
+      √ should throw error and perform no changes if asset does not exist (1 ms)
+  PASS src/services/__tests__/rebalanceExecution.test.ts
+    S4-T03: TestBatchConfirmSimulatedContributions
+      √ should create BUY transactions for all suggestions with positive allocation (2 ms)
+      √ should skip assets with zero suggested allocation (1 ms)
+      √ should update each asset quantity and average price after batch execution
+      √ should accept RebalanceResult suggestions with assetId mapping (executeFromSuggestions) (1 ms)
+      √ should handle empty batch or batch where all suggestions are zero allocation
+      √ should include default notes marking simulation contribution batch (1 ms)
+      √ should abort and throw error if transaction execution fails for any item in batch (1 ms)
+
+  Test Suites: 9 passed, 9 total
+  Tests:       79 passed, 79 total
+  Snapshots:   0 total
+  Time:        3.436 s
+  Total: 20 novos testes da Sprint 4 | 20 PASS | 0 FAIL (100% Green Phase aprovada)
   ```

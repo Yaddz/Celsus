@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   SafeAreaView,
   ScrollView,
@@ -8,6 +8,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from './src/theme/tokens';
 import {
   DossierCard,
@@ -21,10 +22,16 @@ import {
   DockTab,
   RecentTransactionItem,
 } from './src/components/ui';
-import { PortfolioManagementScreen } from './src/screens/PortfolioManagementScreen';
+import {
+  PortfolioManagementScreen,
+  TransactionScreen,
+  SimulatorScreen,
+} from './src/screens';
 import { calculateSmartContribution, RebalanceAssetInput } from './src/domain/finance';
+import { transactionService } from './src/services/transactionService';
+import { assetRepository } from './src/repositories/assetRepository';
 
-const SAMPLE_TRANSACTIONS: RecentTransactionItem[] = [
+const DEFAULT_TRANSACTIONS: RecentTransactionItem[] = [
   {
     id: 'tx-1',
     ticker: 'PETR4',
@@ -65,7 +72,42 @@ export default function App() {
   const [periodSelector, setPeriodSelector] = useState<'W' | 'M' | 'Y'>('M');
   const [contributionAmount, setContributionAmount] = useState('1500,00');
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
+
+  // Modais de Navegação
   const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
+
+  // Lista de Movimentações Recentes
+  const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
+
+  const refreshTransactions = async () => {
+    try {
+      const txs = await transactionService.getTransactionsByPortfolio('default-portfolio');
+      if (txs && txs.length > 0) {
+        const mapped: RecentTransactionItem[] = await Promise.all(
+          txs.slice(0, 5).map(async (t) => {
+            const asset = await assetRepository.getAssetById(t.asset_id);
+            return {
+              id: t.id,
+              ticker: asset?.ticker || 'ATIVO',
+              assetClass: (asset?.asset_class as any) || 'STOCK',
+              type: t.type as 'BUY' | 'SELL',
+              dateText: t.trade_date,
+              amountText: `R$ ${t.total_amount}`,
+            };
+          })
+        );
+        setTransactionsList(mapped);
+      }
+    } catch {
+      // Mantém lista padrão em mock
+    }
+  };
+
+  useEffect(() => {
+    refreshTransactions();
+  }, []);
 
   const handleSimulate = () => {
     const rawVal = contributionAmount.replace(/\./g, '').replace(',', '.');
@@ -102,6 +144,7 @@ export default function App() {
 
   const balanceDisplay = isPrivacyMode ? 'R$ ••••••••' : 'R$ 32.468,00';
 
+  // Modal / Tela: Carteiras & Alocação
   if (activeTab === 'wallets' || isPortfolioManagerModalOpen) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -118,7 +161,33 @@ export default function App() {
             setIsPortfolioManagerModalOpen(false);
             setActiveTab(tab);
           }}
-          onActionPress={() => alert('Novo Aporte Rápido')}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Modal / Tela: Nova Movimentação
+  if (isTransactionModalOpen) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <TransactionScreen
+          onClose={() => setIsTransactionModalOpen(false)}
+          onTransactionSuccess={() => refreshTransactions()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Modal / Tela: Simulador de Novo Aporte
+  if (isSimulatorModalOpen) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <StatusBar style="light" />
+        <SimulatorScreen
+          onClose={() => setIsSimulatorModalOpen(false)}
+          onContributionsConfirmed={() => refreshTransactions()}
         />
       </SafeAreaView>
     );
@@ -135,11 +204,11 @@ export default function App() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Minimalista (Logo Celsus + Botão de Privacidade) */}
+        {/* Header Minimalista (Logo Celsus + Botão de Privacidade com Material Icons) */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <View style={styles.headerLogoBadge}>
-              <Text style={styles.headerLogoIcon}>◈</Text>
+              <MaterialIcons name="account-balance-wallet" size={20} color={colors.primary} />
             </View>
             <View>
               <Text style={styles.brandTitle}>Celsus</Text>
@@ -152,9 +221,11 @@ export default function App() {
             onPress={() => setIsPrivacyMode(!isPrivacyMode)}
             style={styles.privacyButton}
           >
-            <Text style={styles.privacyButtonIcon}>
-              {isPrivacyMode ? '👁️‍🗨️' : '👁️'}
-            </Text>
+            <MaterialIcons
+              name={isPrivacyMode ? 'visibility-off' : 'visibility'}
+              size={20}
+              color={colors.parchmentPale}
+            />
           </TouchableOpacity>
         </View>
 
@@ -169,19 +240,19 @@ export default function App() {
           accentColor={colors.primary}
         />
 
-        {/* 2. Três Bento Tiles de Ação Rápida */}
+        {/* 2. Três Bento Tiles de Ação Rápida com Ícones Material Symbols */}
         <QuickActionBentoRow
-          onAportar={() => alert('Abrir Aporte')}
-          onSimular={handleSimulate}
+          onAportar={() => setIsTransactionModalOpen(true)}
+          onSimular={() => setIsSimulatorModalOpen(true)}
           onMais={() => setIsPortfolioManagerModalOpen(true)}
         />
 
         {/* 3. Banner Horizontal de Insight */}
         <SpecimenHexCard
-          callout="Rebalanceie sua carteira com um novo aporte inteligente →"
+          callout="Rebalanceie sua carteira com um novo aporte inteligente"
           badge="REBALANCEAR"
           variant="parchment"
-          onPress={handleSimulate}
+          onPress={() => setIsSimulatorModalOpen(true)}
         />
 
         {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid) */}
@@ -247,13 +318,13 @@ export default function App() {
           />
         </View>
 
-        {/* 5. Card de Movimentações Recentes com Avatares Circulares */}
+        {/* 5. Card de Movimentações Recentes com Avatares Circulares e Ícones da Categoria */}
         <RecentTransactionsCard
-          transactions={SAMPLE_TRANSACTIONS}
-          onViewAll={() => setActiveTab('history')}
+          transactions={transactionsList}
+          onViewAll={() => setIsTransactionModalOpen(true)}
         />
 
-        {/* 6. Simulador de Novo Aporte */}
+        {/* 6. Simulador de Novo Aporte Integrado */}
         <DossierCard title="SIMULADOR DE NOVO APORTE" variant="default">
           <LedgerInput
             label="VALOR DO APORTE (R$)"
@@ -263,9 +334,10 @@ export default function App() {
             suffix=" BRL"
           />
           <DirectiveButton
-            label="Calcular Rebalanceamento"
+            label="Abrir Simulador Completo"
             variant="primary"
-            onPress={handleSimulate}
+            materialIcon="calculate"
+            onPress={() => setIsSimulatorModalOpen(true)}
           />
           {simulationResult ? (
             <View style={styles.simulationBox}>
@@ -278,11 +350,21 @@ export default function App() {
         <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
+      {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock com Material Icons) */}
       <FloatingBottomDock
         activeTab={activeTab}
-        onTabChange={setActiveTab}
-        onActionPress={() => alert('Novo Aporte Rápido')}
+        onTabChange={(tab) => {
+          if (tab === 'wallets') {
+            setIsPortfolioManagerModalOpen(true);
+          } else if (tab === 'history') {
+            setIsTransactionModalOpen(true);
+          } else if (tab === 'stats') {
+            setIsSimulatorModalOpen(true);
+          } else {
+            setActiveTab(tab);
+          }
+        }}
+        onActionPress={() => setIsTransactionModalOpen(true)}
       />
     </SafeAreaView>
   );
@@ -330,10 +412,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  headerLogoIcon: {
-    fontSize: 16,
-    color: colors.primary,
-  },
   brandTitle: {
     fontFamily: typography.fontFamily,
     fontSize: 20,
@@ -356,9 +434,6 @@ const styles = StyleSheet.create({
     borderColor: '#26292C',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  privacyButtonIcon: {
-    fontSize: 18,
   },
   allocationContainer: {
     marginVertical: spacing.sm,

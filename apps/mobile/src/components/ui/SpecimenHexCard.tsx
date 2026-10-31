@@ -34,7 +34,7 @@ export const SpecimenHexCard: React.FC<SpecimenHexCardProps> = ({
   const badgeBg = isParchment ? 'rgba(25, 27, 29, 0.12)' : colors.oxidizedSlag;
   const badgeTextColor = isParchment ? colors.neutral : colors.tertiary;
 
-  const mainText = callout || title || 'Rebalanceie sua carteira com um novo aporte inteligente →';
+  const mainText = callout || title || 'Rebalanceie sua carteira com um novo aporte inteligente';
   const secondaryText = allocationText || code || value;
 
   const content = (
