@@ -158,5 +158,3 @@ const styles = StyleSheet.create({
 });
 
 export default DotMatrixAllocationCard;
-
-export default DotMatrixAllocationCard;
