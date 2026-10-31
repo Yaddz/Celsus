@@ -197,15 +197,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    color: colors.parchmentLight,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
     letterSpacing: 1.1,
   },
   subtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: colors.subtleText,
+    color: '#8A8A8E',
     marginTop: 2,
   },
   periodSelector: {
@@ -229,8 +229,8 @@ const styles = StyleSheet.create({
   periodText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: typography.weights.bold,
-    color: colors.subtleText,
+    fontWeight: '700',
+    color: '#8A8A8E',
   },
   periodTextActive: {
     color: colors.voidFloor,
@@ -252,13 +252,13 @@ const styles = StyleSheet.create({
   tooltipMonth: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: typography.weights.bold,
-    color: colors.parchmentLight,
+    fontWeight: '700',
+    color: colors.parchmentPale,
   },
   tooltipHighlight: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
     color: '#AECDC5',
   },
   tooltipRow: {
@@ -279,12 +279,12 @@ const styles = StyleSheet.create({
   tooltipLabel: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
-    color: colors.subtleText,
+    color: '#8A8A8E',
   },
   tooltipValue: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
     color: colors.parchmentPale,
   },
   chartContainer: {
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   columnLabel: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: colors.subtleText,
+    color: '#8A8A8E',
     marginTop: 8,
   },
   columnLabelSelected: {
-    color: colors.parchmentLight,
-    fontWeight: typography.weights.bold,
+    color: colors.parchmentPale,
+    fontWeight: '700',
   },
   legendRow: {
     flexDirection: 'row',
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
   legendText: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
-    color: colors.subtleText,
+    color: '#8A8A8E',
   },
 });
 

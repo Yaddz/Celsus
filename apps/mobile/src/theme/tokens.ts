@@ -8,6 +8,8 @@ export interface ColorTokens {
   secondaryLight?: string;
   tertiary: string;
   parchmentPale: string;
+  parchmentLight?: string;
+  subtleText?: string;
   oxidizedSlag: string;
   deficit: string;
   fixedIncome: string;
@@ -26,6 +28,20 @@ export interface TypographyVariant {
 
 export interface TypographyTokens {
   fontFamily: string;
+  sizes: {
+    title: number;
+    subtitle: number;
+    body: number;
+    caption: number;
+    [key: string]: number;
+  };
+  weights: {
+    regular: '400';
+    medium: '500';
+    semibold: '600';
+    bold: '700';
+    [key: string]: any;
+  };
   headlineXl: TypographyVariant;
   headlineLg: TypographyVariant;
   headlineMd: TypographyVariant;
@@ -75,6 +91,8 @@ export const colors: ColorTokens = {
   secondaryLight: '#AECDC5',
   tertiary: '#D5CAA8',
   parchmentPale: '#E6DECA',
+  parchmentLight: '#E6DECA',
+  subtleText: '#8A8A8E',
   oxidizedSlag: '#1B3530',
   deficit: '#B84A1C',
   fixedIncome: '#2E4A44',
@@ -85,6 +103,18 @@ export const colors: ColorTokens = {
 
 export const typography: TypographyTokens = {
   fontFamily: 'Space Mono',
+  sizes: {
+    title: 15,
+    subtitle: 11,
+    body: 13,
+    caption: 10,
+  },
+  weights: {
+    regular: '400',
+    medium: '500',
+    semibold: '600',
+    bold: '700',
+  },
   headlineXl: {
     fontFamily: 'Space Mono',
     fontSize: 40,

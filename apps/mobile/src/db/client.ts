@@ -87,7 +87,7 @@ CREATE TABLE IF NOT EXISTS historical_prices_local (
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
 let _rawSqliteDb: SQLiteDatabase | null = null;
 
-export function getDatabase(dbName: string = DATABASE_NAME) {
+export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof drizzle> {
   if (!_dbInstance) {
     try {
       _rawSqliteDb = openDatabaseSync(dbName);
@@ -98,7 +98,7 @@ export function getDatabase(dbName: string = DATABASE_NAME) {
       _dbInstance = {} as any;
     }
   }
-  return _dbInstance;
+  return _dbInstance!;
 }
 
 export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteDatabase {

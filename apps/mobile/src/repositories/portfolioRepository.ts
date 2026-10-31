@@ -72,6 +72,10 @@ export class PortfolioRepository {
       .where(eq(portfolios.is_archived, 0));
   }
 
+  async getAllPortfolios(): Promise<Portfolio[]> {
+    return this.listPortfolios(false);
+  }
+
   async getPortfolioById(id: string): Promise<Portfolio | null> {
     const rows = await this.db
       .select()

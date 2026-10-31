@@ -337,15 +337,15 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    color: colors.parchmentLight,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.parchmentPale,
     letterSpacing: 1.1,
   },
   headerSubtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: colors.subtleText,
+    color: '#8A8A8E',
     marginTop: 2,
   },
   closeButton: {
@@ -383,8 +383,8 @@ const styles = StyleSheet.create({
   filterPillText: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    fontWeight: typography.weights.bold,
-    color: colors.subtleText,
+    fontWeight: '700',
+    color: '#8A8A8E',
   },
   filterPillTextActive: {
     color: colors.voidFloor,
@@ -404,8 +404,8 @@ const styles = StyleSheet.create({
   metricsTitle: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: typography.weights.bold,
-    color: colors.subtleText,
+    fontWeight: '700',
+    color: '#8A8A8E',
     marginBottom: spacing.sm,
     letterSpacing: 1.1,
   },
@@ -425,12 +425,12 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
-    color: colors.subtleText,
+    color: '#8A8A8E',
   },
   metricValue: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
     color: colors.parchmentPale,
     marginTop: 4,
   },

@@ -86,15 +86,15 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    color: colors.parchmentLight,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
     letterSpacing: 1.1,
   },
   subtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: colors.subtleText,
+    color: '#8A8A8E',
     marginTop: 2,
   },
   balanceBadge: {
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   balanceText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: typography.weights.bold,
+    fontWeight: '700',
     color: colors.primary,
   },
   barsContainer: {

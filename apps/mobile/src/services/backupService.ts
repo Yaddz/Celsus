@@ -654,6 +654,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
 
   async replaceAll(snapshot: BackupDatabaseSnapshot): Promise<void> {
     const db = getDatabase();
+    if (!db) return;
     await db.delete(transactionsTable);
     await db.delete(assetsTable);
     await db.delete(classTargetsTable);
