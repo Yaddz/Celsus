@@ -28,46 +28,108 @@ export interface AssetClassColors {
 }
 
 export const PORTFOLIO_PALETTE_ORDER: PortfolioPaletteId[] = [
-  // Stub: to be populated in Phase B
+  'classic',
+  'harbor',
+  'docks',
+  'tribunal',
 ];
 
 export const PORTFOLIO_PALETTES: Record<PortfolioPaletteId, PortfolioPalette> = {
-  // Stub: to be populated in Phase B
-} as any;
+  classic: {
+    id: 'classic',
+    name: 'Celsus Terracotta',
+    inspiration: 'Paleta Original Celsus',
+    cardBg: '#D96628',
+    orbSecondary: '#2E4A44',
+    accent: '#D5CAA8',
+    onCard: '#111315',
+  },
+  harbor: {
+    id: 'harbor',
+    name: 'Porto & Containers',
+    inspiration: 'disco-elysium...a7v6mgkbkec81',
+    cardBg: '#DB5A42',
+    orbSecondary: '#4A4656',
+    accent: '#F1CA78',
+    onCard: '#1D1B2A',
+  },
+  docks: {
+    id: 'docks',
+    name: 'Luzes das Docas',
+    inspiration: 'disco-elysium...lhhbfdkbkec81',
+    cardBg: '#EF9F43',
+    orbSecondary: '#5B525C',
+    accent: '#EDE145',
+    onCard: '#1D1B27',
+  },
+  tribunal: {
+    id: 'tribunal',
+    name: 'Pátio & Ouro',
+    inspiration: 'disco-elysium...z1bl1dkbkec81',
+    cardBg: '#F1B819',
+    orbSecondary: '#535A49',
+    accent: '#AC4B25',
+    onCard: '#222526',
+  },
+};
 
 export const ASSET_CLASS_COLORS: AssetClassColors = {
-  // Stub: to be populated in Phase B
-} as any;
+  FIXED_INCOME: '#2E4A44',
+  FII: '#D5CAA8',
+  STOCK: '#D96628',
+  CRYPTO: '#C49A45',
+};
 
 export const THEME_COLORS: Record<ThemeMode, ThemeModeColors> = {
-  // Stub: to be populated in Phase B
-} as any;
+  dark: {
+    background: '#111315',
+    surface: '#191B1D',
+    surfaceContainer: '#202224',
+    onSurface: '#E6DECA',
+    muted: '#8A8A8E',
+  },
+  light: {
+    background: '#F4F1EA',
+    surface: '#FFFFFF',
+    surfaceContainer: '#EAE4D7',
+    onSurface: '#191B1D',
+    muted: '#6E6A63',
+  },
+};
 
 export function getPortfolioPalette(index: number): PortfolioPalette {
-  throw new Error('Not implemented: Phase B');
+  const normalizedIndex = ((index % PORTFOLIO_PALETTE_ORDER.length) + PORTFOLIO_PALETTE_ORDER.length) % PORTFOLIO_PALETTE_ORDER.length;
+  const paletteId = PORTFOLIO_PALETTE_ORDER[normalizedIndex];
+  return PORTFOLIO_PALETTES[paletteId];
 }
 
 export function getPortfolioPaletteById(id: PortfolioPaletteId): PortfolioPalette {
-  throw new Error('Not implemented: Phase B');
+  const palette = PORTFOLIO_PALETTES[id];
+  if (!palette) {
+    return PORTFOLIO_PALETTES.classic;
+  }
+  return palette;
 }
 
 export function getThemeColors(mode: ThemeMode): ThemeModeColors {
-  throw new Error('Not implemented: Phase B');
+  return THEME_COLORS[mode] || THEME_COLORS.dark;
 }
 
 export class ThemeModeService {
   private currentMode: ThemeMode = 'dark';
 
   getThemeMode(): ThemeMode {
-    throw new Error('Not implemented: Phase B');
+    return this.currentMode;
   }
 
   setThemeMode(mode: ThemeMode): ThemeMode {
-    throw new Error('Not implemented: Phase B');
+    this.currentMode = mode;
+    return this.currentMode;
   }
 
   toggleThemeMode(): ThemeMode {
-    throw new Error('Not implemented: Phase B');
+    this.currentMode = this.currentMode === 'dark' ? 'light' : 'dark';
+    return this.currentMode;
   }
 
   reset(): void {

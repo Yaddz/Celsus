@@ -1,6 +1,8 @@
 import React from 'react';
-import { View } from 'react-native';
-import { PortfolioPalette, ThemeMode } from '../../theme/palettes';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
+import { typography } from '../../theme/tokens';
 
 export interface XpMinimalHeaderProps {
   userName?: string;
@@ -14,7 +16,144 @@ export interface XpMinimalHeaderProps {
   testID?: string;
 }
 
-export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = () => {
-  // Stub: to be implemented in Phase B
-  return null;
+/**
+ * XpMinimalHeader: Header minimalista estilo XP para a Home.
+ * - Esquerda: Avatar com iniciais + Nome do usuário (abre Configurações ao tocar).
+ * - Direita: Botão de Globo (placeholder para alternância de visualização) e Botão de Olho (Modo Privacidade).
+ */
+export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
+  userName = 'Pedro',
+  userInitials = 'PL',
+  isPrivacyModeEnabled = false,
+  onAvatarPress,
+  onGlobePress,
+  onTogglePrivacy,
+  palette = PORTFOLIO_PALETTES.classic,
+  themeMode = 'dark',
+  testID = 'xp-minimal-header',
+}) => {
+  const isLight = themeMode === 'light';
+  const theme = THEME_COLORS[themeMode] || THEME_COLORS.dark;
+
+  const textColor = isLight ? '#191B1D' : '#E6DECA';
+  const buttonBg = isLight ? '#EAE4D7' : '#191B1D';
+  const iconColor = isLight ? '#191B1D' : '#D5CAA8';
+
+  return (
+    <View testID={testID} style={styles.container}>
+      {/* Canto Esquerdo: Avatar do Usuário (abre Configurações) */}
+      <TouchableOpacity
+        testID="header-avatar-button"
+        onPress={onAvatarPress}
+        activeOpacity={0.8}
+        style={styles.avatarButton}
+      >
+        <View
+          style={[
+            styles.avatarCircle,
+            {
+              backgroundColor: isLight ? '#D5CAA8' : '#202224',
+              borderColor: palette.accent,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.avatarText,
+              { color: isLight ? '#191B1D' : palette.accent },
+            ]}
+          >
+            {userInitials}
+          </Text>
+        </View>
+        <Text style={[styles.userNameText, { color: textColor }]}>
+          {userName}
+        </Text>
+      </TouchableOpacity>
+
+      {/* Canto Direito: Ações (Globo + Olho) */}
+      <View style={styles.actionsRight}>
+        {/* Botão Globo Placeholder */}
+        <TouchableOpacity
+          testID="header-globe-button"
+          onPress={onGlobePress}
+          activeOpacity={0.7}
+          style={[styles.circularButton, { backgroundColor: buttonBg }]}
+        >
+          <MaterialIcons name="language" size={20} color={iconColor} />
+        </TouchableOpacity>
+
+        {/* Botão de Olho (Privacidade) */}
+        <TouchableOpacity
+          testID="header-privacy-button"
+          onPress={onTogglePrivacy}
+          activeOpacity={0.7}
+          style={[styles.circularButton, { backgroundColor: buttonBg }]}
+        >
+          {isPrivacyModeEnabled ? (
+            <MaterialIcons
+              testID="privacy-icon-visibility-off"
+              name="visibility-off"
+              size={20}
+              color={palette.cardBg}
+            />
+          ) : (
+            <MaterialIcons
+              testID="privacy-icon-visibility"
+              name="visibility"
+              size={20}
+              color={iconColor}
+            />
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    zIndex: 10,
+  },
+  avatarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  avatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  userNameText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  actionsRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  circularButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});

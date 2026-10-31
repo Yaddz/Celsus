@@ -17,11 +17,11 @@
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 24 | 0 | `VERIFIED (21 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 0 | 22 | `VERIFIED (24 arquivos)` | 🔴 Red Phase (Fase A Bloqueada) |
+| **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 22 | 0 | `VERIFIED (24 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S8 Fase A)** | **Suíte Registrada (Backend Go + Mobile React Native/Expo)** | **24** | **162** | **140** | **22** | **`VERIFIED (24 arquivos)`** | **🔒 Testes Bloqueados (Red Phase)** |
+| **TOTAL (S1–S8)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **24** | **162** | **162** | **0** | **`VERIFIED (24 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -112,9 +112,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestAutoSequentialPortfolioPalettesAndImmutableAssetColors` | Atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`), sincronização do Card + `AmbientOrb` + acentos ativos na pilha e cores fixas das 4 classes de ativos | `00d9d27295ece1ccbd9553fbdcd821ac4fd470c7aeeed06a5a29b75ffc0baf4b` | 🔴 FAIL (Red Phase) |
-| `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `e224ae7f5e9483164e8d9a7b1554acbebdfc79ce936e60080f69b8798c615f8c` | 🔴 FAIL (Red Phase) |
-| `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `34aaad57ee512061407ed7bf0a6f19af96630d07fe1db13c19ecf071fcfe9df5` | 🔴 FAIL (Red Phase) |
+| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestAutoSequentialPortfolioPalettesAndImmutableAssetColors` | Atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`), sincronização do Card + `AmbientOrb` + acentos ativos na pilha e cores fixas das 4 classes de ativos | `00d9d27295ece1ccbd9553fbdcd821ac4fd470c7aeeed06a5a29b75ffc0baf4b` | 🟢 PASS (0.01s) |
+| `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `e224ae7f5e9483164e8d9a7b1554acbebdfc79ce936e60080f69b8798c615f8c` | 🟢 PASS (0.01s) |
+| `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `34aaad57ee512061407ed7bf0a6f19af96630d07fe1db13c19ecf071fcfe9df5` | 🟢 PASS (0.03s) |
 
 ---
 
@@ -690,4 +690,72 @@
   Time:        7.064 s
   Total: 22 novos testes da Sprint 8 | 0 PASS sob stubs | 22 FAIL (Red Phase confirmada sob stubs)
   ```
+
+### Sprint 8 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 24 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte Mobile (`npm test --prefix apps/mobile`):**
+  ```text
+  PASS src/theme/__tests__/palettes.test.ts
+    S8-T01: TestAutoSequentialPortfolioPalettesAndImmutableAssetColors
+      Official Portfolio Palettes Definition (/imgsinsp & Disco Elysium)
+        √ should declare all 4 official portfolio palettes with exact tokens (2 ms)
+        √ should retrieve palette by its valid identifier (1 ms)
+      Automatic Sequential Assignment (index % 4)
+        √ should automatically assign palettes in cyclic index % 4 order (1 ms)
+        √ should simulate sequential creation of multiple portfolios with automatic distinct palettes (1 ms)
+      Active Palette Propagation to Card, AmbientOrb and Active Accents
+        √ should propagate palette colors when active wallet in stack changes (1 ms)
+        √ should render AmbientOrb reflecting the active palette tokens (15 ms)
+      Immutability of 4 Asset Class Colors and Theme Background
+        √ should guarantee that the 4 asset class colors remain strictly fixed across all palettes (1 ms)
+        √ should keep the root background fixed to the global theme regardless of wallet palette (1 ms)
+  PASS src/components/ui/__tests__/XpMinimalHeader.test.tsx
+    S8-T03: TestXpMinimalHeaderAvatarGlobeAndEye
+      User Avatar on Left Side (Settings Trigger)
+        √ should render user avatar with initials and user name (18 ms)
+        √ should trigger onAvatarPress when user taps the avatar button (3 ms)
+      Globe Placeholder Action on Right Side
+        √ should render the globe placeholder button and trigger onGlobePress (3 ms)
+      Eye Privacy Mode Action on Right Side
+        √ should render eye button with open visibility icon when privacy is disabled (3 ms)
+        √ should render eye button with crossed visibility-off icon when privacy is enabled (3 ms)
+        √ should trigger onTogglePrivacy when user taps the eye button (2 ms)
+      Dynamic Palette and Theme Mode Integration
+        √ should render smoothly when receiving custom active wallet palette and light theme (3 ms)
+  PASS src/theme/__tests__/themeMode.test.ts
+    S8-T02: TestDarkAndLightThemeModeSwitch
+      Dark & Light Theme Mode Specification Tokens
+        √ should define exact Dark Theme tokens with background #111315 (1 ms)
+        √ should define exact Light Theme tokens with background #F4F1EA (1 ms)
+        √ should retrieve colors for requested theme mode via getThemeColors (1 ms)
+      Theme Mode Service State Transitions
+        √ should default to dark theme mode (1 ms)
+        √ should switch theme mode to light and toggle back to dark (1 ms)
+        √ should preserve immutable asset class colors across theme changes (1 ms)
+      Theme Mode Selector in Settings Screen (SettingsBackupScreen)
+        √ should render theme mode options and trigger onThemeModeChange when selected (18 ms)
+
+  Test Suites: 18 passed, 18 total
+  Tests:       146 passed, 146 total
+  Snapshots:   0 total
+  Time:        6.263 s
+  Total Mobile: 18 suítes | 146 PASS | 0 FAIL
+  ```
+- **Execução Final da Suíte Backend Go (`cd services/market-api && go test -count=1 ./... -v`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.135s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.593s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.119s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.573s
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 8 Concluída):**
+  - **24 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **162 casos de teste automatizados executados (16 em Go + 146 em TypeScript/Jest)**
+  - **100% de aprovação (162 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
 

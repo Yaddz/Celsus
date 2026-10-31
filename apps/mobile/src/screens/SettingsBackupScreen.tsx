@@ -19,7 +19,7 @@ import {
   privacyAndAuthService,
   PRIVACY_CURRENCY_MASK,
 } from '../services/privacyAndAuth';
-import { ThemeMode } from '../theme/palettes';
+import { ThemeMode, themeModeService } from '../theme/palettes';
 
 export interface SettingsBackupScreenProps {
   isPrivacyMode: boolean;
@@ -35,7 +35,20 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   onTogglePrivacyMode,
   onClose,
   onDataRestored,
+  themeMode,
+  onThemeModeChange,
 }) => {
+  const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>(
+    themeMode || themeModeService.getThemeMode()
+  );
+
+  const handleSelectThemeMode = (mode: ThemeMode) => {
+    setCurrentThemeMode(mode);
+    themeModeService.setThemeMode(mode);
+    if (onThemeModeChange) {
+      onThemeModeChange(mode);
+    }
+  };
   const [isBiometricEnabled, setIsBiometricEnabled] = useState(
     privacyAndAuthService.getState().isBiometricLockEnabled
   );
@@ -214,6 +227,71 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             <Text style={styles.statusMessage}>{statusBanner.message}</Text>
           </View>
         )}
+
+        {/* 0. Tema do Aplicativo (Escuro / Claro) */}
+        <View style={styles.bentoCard}>
+          <View style={styles.sectionTitleRow}>
+            <MaterialIcons
+              name="palette"
+              size={18}
+              color={colors.tertiary}
+            />
+            <Text style={styles.sectionLabel}>TEMA DO APLICATIVO</Text>
+          </View>
+          <Text style={styles.settingDesc}>
+            Alterne entre Tema Escuro (#111315) e Tema Claro (#F4F1EA). As 4 cores de classes de ativos permanecem fixas.
+          </Text>
+
+          <View style={styles.themeSelectorRow}>
+            <TouchableOpacity
+              testID="theme-option-dark"
+              onPress={() => handleSelectThemeMode('dark')}
+              style={[
+                styles.themeOptionButton,
+                currentThemeMode === 'dark' && styles.themeOptionActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name="dark-mode"
+                size={20}
+                color={currentThemeMode === 'dark' ? colors.primary : '#8A8C90'}
+              />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  currentThemeMode === 'dark' && styles.themeOptionTextActive,
+                ]}
+              >
+                Tema Escuro
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              testID="theme-option-light"
+              onPress={() => handleSelectThemeMode('light')}
+              style={[
+                styles.themeOptionButton,
+                currentThemeMode === 'light' && styles.themeOptionActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons
+                name="light-mode"
+                size={20}
+                color={currentThemeMode === 'light' ? colors.primary : '#8A8C90'}
+              />
+              <Text
+                style={[
+                  styles.themeOptionText,
+                  currentThemeMode === 'light' && styles.themeOptionTextActive,
+                ]}
+              >
+                Tema Claro
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* 1. Segurança Local & Privacidade */}
         <View style={styles.bentoCard}>
@@ -633,5 +711,36 @@ const styles = StyleSheet.create({
     color: '#7A7E82',
     marginTop: 2,
     lineHeight: 13,
+  },
+  themeSelectorRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+  },
+  themeOptionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#141618',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: '#2A2D30',
+  },
+  themeOptionActive: {
+    borderColor: colors.primary,
+    backgroundColor: '#241B16',
+  },
+  themeOptionText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9BA0A6',
+  },
+  themeOptionTextActive: {
+    color: colors.parchmentPale,
   },
 });
