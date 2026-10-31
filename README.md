@@ -1,73 +1,227 @@
-# CELSUS — Gestor Local-First de Carteiras de Investimentos
-
-> **DOCKET REF:** `REV-CELSUS-MVP`  
-> **Arquitetura:** Mobile 100% Local-First (`React Native / Expo` + `SQLite`) + Market Data Engine Stateless (`Go`)  
-> **Estética:** *Bureaucratic Brutalism & Painterly Skeuomorphism* ([`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md))  
-> **Metodologia:** Strict TDD com Bloqueio Criptográfico de Testes ([`TEST_REPORT.md`](./TEST_REPORT.md))
-
-O **Celsus** é um aplicativo mobile de gestão de carteiras de investimentos com foco em **privacidade absoluta**: **100% dos dados pessoais, carteiras, ativos e aportes ficam armazenados exclusivamente no dispositivo do usuário (SQLite local)**. Nenhum dado pessoal ou financeiro é salvo na nuvem.
-
----
-
-## Principais Funcionalidades (MVP)
-
-- **Múltiplas Carteiras Independentes + Dossiê Consolidado:** Crie quantas carteiras desejar (ex.: *Aposentadoria*, *Reserva*, *FIIs de Renda*), cada uma com seus próprios ativos, metas e histórico, além de uma visão consolidada do patrimônio total em `BRL (R$)`.
-- **Suporte às 4 Classes de Ativos (Mapeadas nas 4 Barras de Atributos):**
-  - **Renda Fixa (`FIXED_INCOME` / *Intellect* `#2E4A44`):** Cálculo automático por indexador (`% do CDI`, `IPCA+`, `Pré-fixado` em base 252) + opção de override manual de saldo.
-  - **Fundos Imobiliários (`FII` / *Psyche* `#D5CAA8`):** Cotações e histórico via B3 COTAHIST + BRAPI.
-  - **Ações (`STOCK` / *Physique* `#D96628`):** Cotações e histórico via B3 COTAHIST + BRAPI.
-  - **Criptomoedas (`CRYPTO` / *Motorics* `#C49A45`):** Cotações em `BRL` via BRAPI com precisão de até **8 casas decimais**.
-- **Alocação por Pesos em 2 Níveis + Simulador Inteligente de Novo Aporte:**
-  - Defina o peso **Macro** de cada classe na carteira (`0–100%`) e o peso **Micro** de cada ativo dentro de sua classe (`0–100%`).
-  - Ao informar o valor de um novo aporte em `R$`, o app calcula automaticamente quanto comprar de cada ativo que está abaixo da meta ideal (**rebalanceamento sem vendas**).
-- **Motor de Mercado Stateless em Go (`COTAHIST B3` + `BRAPI` + `BCB`):**
-  - Processa os arquivos históricos oficiais **COTAHIST** da B3 (layout posicional de 245 bytes), faz proxy/cache de cotações atuais na **BRAPI** e fornece as curvas diárias de **CDI/IPCA**.
-- **Backup e Recuperação Offline (`.celsus.zip`):**
-  - Exportação e importação em pacote `.zip` contendo CSVs legíveis (`portfolios.csv`, `class_targets.csv`, `assets.csv`, `transactions.csv`) + `manifest.json` assinado com hashes `SHA-256` para validação de integridade, suportando **Restore Completo** ou **Merge por UUID**.
-- **Preparado para Open Finance:** Modelagem local já estruturada (`source`, `external_id`, `institution_id`, `last_synced_at`) para futura integração de leitura via Open Finance.
-
----
-
-## Estrutura do Repositório
+<div align="center">
 
 ```text
-Celsus/
-├── .agents/rules/
-│   └── tdd-lock.md          # Regra de governança: TDD estrito com testes imutáveis
-├── scripts/
-│   └── test-lock.ps1        # Script de bloqueio ReadOnly + verificação SHA-256 dos testes
-├── services/
-│   └── market-api/          # Backend Stateless em Go (Parser COTAHIST B3, Proxy BRAPI, Taxas Macro)
-├── apps/
-│   └── mobile/              # App Mobile React Native (Expo, SQLite/Drizzle, NativeWind, Space Mono)
-├── DESIGN_SYSTEM.md         # Tokens de cores, tipografia Space Mono e componentes Bureaucratic Brutalism
-├── SPEC.md                  # Especificação técnica completa, fórmulas, banco de dados e Sprints
-└── TEST_REPORT.md           # Catálogo de casos de teste, hashes SHA-256 e resultados de execução
+ ██████╗███████╗██╗     ███████╗██╗   ██╗███████╗
+██╔════╝██╔════╝██║     ██╔════╝██║   ██║██╔════╝
+██║     █████╗  ██║     ███████╗██║   ██║███████╗
+██║     ██╔══╝  ██║     ╚════██║██║   ██║╚════██║
+╚██████╗███████╗███████╗███████║╚██████╔╝███████║
+ ╚═════╝╚══════╝╚══════╝╚══════╝ ╚═════╝ ╚══════╝
+      D O S S I Ê   P A T R I M O N I A L
+```
+
+### Gestor Local-First de Carteiras de Investimentos
+
+*Privacidade absoluta no dispositivo, rebalanceamento inteligente em dois níveis e estética Bureaucratic Brutalism.*
+
+[![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo_SDK_52-000020?style=for-the-badge&logo=expo&logoColor=white)](https://expo.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Go](https://img.shields.io/badge/Go_1.23+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://go.dev/)
+[![SQLite](https://img.shields.io/badge/SQLite_Local-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![Drizzle ORM](https://img.shields.io/badge/Drizzle_ORM-C5F74F?style=for-the-badge&logo=drizzle&logoColor=black)](https://orm.drizzle.team/)
+
+[![Privacy](https://img.shields.io/badge/Privacidade-100%25_Local--First-2E4A44?style=flat-square&logo=shield&logoColor=D5CAA8)](#arquitetura-local-first)
+[![Market Data](https://img.shields.io/badge/Market_Data-B3_COTAHIST_%2B_BRAPI-D96628?style=flat-square)](#motor-de-mercado-cotahist--brapi)
+[![Methodology](https://img.shields.io/badge/TDD_Protocol-SHA--256_Locked_Tests-B84A1C?style=flat-square)](#-protocolo-tdd-lock-testes-imutáveis)
+[![Design System](https://img.shields.io/badge/Aesthetics-Bureaucratic_Brutalism-D5CAA8?style=flat-square&labelColor=191B1D)](#-design-system-bureaucratic-brutalism)
+[![License](https://img.shields.io/badge/License-MIT-191B1D?style=flat-square)](./LICENSE)
+
+<p align="center">
+  <a href="#-sobre-o-projeto">Sobre</a> •
+  <a href="#-features-do-mvp">Features</a> •
+  <a href="#-arquitetura-local-first">Arquitetura</a> •
+  <a href="#-design-system-bureaucratic-brutalism">Design System</a> •
+  <a href="#-protocolo-tdd-lock-testes-imutáveis">TDD Lock</a> •
+  <a href="#-backlog--roadmap-de-sprints">Backlog & Sprints</a> •
+  <a href="#-como-executar">Como Executar</a>
+</p>
+
+</div>
+
+---
+
+## 📜 Sobre o Projeto
+
+O **Celsus** é um gestor de carteiras de investimentos mobile desenhado sob o princípio **100% Local-First**: todas as suas carteiras, metas de alocação, saldos e histórico de aportes vivem exclusivamente dentro de um banco **SQLite** no seu celular. Nenhum dado pessoal, conta ou transação é enviado ou armazenado em servidores externos.
+
+Para alimentar os gráficos de evolução patrimonial e cotações em tempo real sem comprometer a privacidade, o Celsus utiliza um **Market Data Engine Stateless em Go**, que processa os arquivos históricos oficiais **COTAHIST da B3**, faz proxy autenticado para a API da **BRAPI** e consolida as curvas diárias de **CDI e IPCA** do Banco Central.
+
+---
+
+## ✨ Features do MVP
+
+| Funcionalidade | Descrição Técnica |
+| :--- | :--- |
+| 🗂️ **Múltiplas Carteiras + Visão Consolidada** | Crie carteiras independentes (ex.: *Aposentadoria*, *Reserva*, *FIIs*) com metas próprias e acompanhe tudo somado no **Dossiê Geral** em `BRL (R$)`. |
+| ⚖️ **Alocação por Pesos em 2 Níveis** | Defina o peso **Macro** de cada classe na carteira (`0–100%`) e o peso **Micro** de cada ativo dentro da classe (`0–100%`), com cálculo automático da meta global ($T_i$). |
+| 🧮 **Calculadora Inteligente de Novo Aporte** | Ao digitar um valor em `R$`, o algoritmo distribui o aporte proporcionalmente entre os ativos mais descontados em relação à meta (**rebalanceamento sem vendas**). |
+| 📈 **4 Classes de Ativos Nativas** | Suporte completo a **Renda Fixa** (`% CDI`, `IPCA+`, `Pré` em base 252 + saldo manual), **FIIs**, **Ações** e **Criptomoedas** (até 8 casas decimais). |
+| 🏛️ **Carga Histórica B3 (`COTAHIST`) + `BRAPI`** | Preços históricos diários extraídos do arquivo posicional de 245 bytes da B3 combinados com cotações recentes via BRAPI. |
+| 📓 **Livro-Razão de Aportes e Vendas** | Cálculo automático de **Preço Médio** e **Quantidade Atual**, pré-preenchendo o preço histórico do ativo na data escolhida. |
+| 📦 **Backup Criptograficamente Verificado (`.celsus.zip`)** | Exportação/importação offline contendo CSVs editáveis (`portfolios.csv`, `class_targets.csv`, `assets.csv`, `transactions.csv`) + `manifest.json` assinado com `SHA-256` (*Restore* ou *Merge* por UUID). |
+| 🔌 **Ready for Open Finance** | Schema SQLite e arquivos de backup já preparados com `source`, `external_id`, `institution_id` e `last_synced_at`. |
+
+---
+
+## 🏗️ Arquitetura Local-First
+
+```mermaid
+flowchart TB
+    subgraph Mobile["📱 App Mobile (React Native / Expo - TypeScript)"]
+        UI["UI Bureaucratic Brutalism\n(Space Mono, Dossiers, Stat Bars)"]
+        Calc["Motor Financeiro (decimal.js)\n(Preço Médio, Rebalanceamento, Renda Fixa)"]
+        DB[("SQLite Local (Drizzle ORM)\n100% Dados do Usuário")]
+        Backup["Backup Engine (.celsus.zip)\nCSVs + manifest.json (SHA-256)"]
+        Bio["Segurança Local\n(Biometria + Modo Privacidade)"]
+
+        UI --> Calc
+        Calc --> DB
+        Backup <--> DB
+        Bio --> UI
+    end
+
+    subgraph GoBackend["⚙️ Market Data API Stateless (Go 1.23 + Chi)"]
+        API["REST API (/v1/quotes, /v1/history, /v1/rates)"]
+        Parser["Parser Posicional COTAHIST B3\n(Streaming 245 bytes/linha)"]
+        MarketDB[("SQLite Embarcado (WAL)\nApenas Série Histórica Pública")]
+        Cache["Cache TTL + Singleflight\n(Proteção de API Key BRAPI)"]
+
+        API --> MarketDB
+        API --> Cache
+        Parser --> MarketDB
+    end
+
+    subgraph External["🌐 Fontes Públicas de Mercado"]
+        B3["B3 Série Histórica\n(COTAHIST_AXXXX.ZIP)"]
+        BRAPI["BRAPI API\n(Ações, FIIs, Cripto BRL)"]
+        BCB["Banco Central SGS\n(Curvas Diárias CDI / IPCA)"]
+    end
+
+    Mobile -- "GET /v1/quotes?tickers=PETR4,BTC\n(Zero dados pessoais enviados)" --> API
+    Parser -- "Ingestão Idempotente" --> B3
+    Cache -- "Proxy c/ Token" --> BRAPI
+    Cache -- "Séries #12 e #433" --> BCB
 ```
 
 ---
 
-## Protocolo de Desenvolvimento: TDD com Testes Imutáveis (`TDD Lock`)
+## 🛠️ Stack Tecnológica
 
-Este projeto opera sob regime estrito de **TDD em 2 Fases** por Sprint:
+### Mobile (`apps/mobile`)
+![Expo](https://img.shields.io/badge/Expo_Router_v4-000020?style=flat-square&logo=expo&logoColor=white)
+![NativeWind](https://img.shields.io/badge/NativeWind_v4-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-443E38?style=flat-square&logo=react&logoColor=white)
+![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
+![Decimal.js](https://img.shields.io/badge/Decimal.js-Precisão_Financeira-2E4A44?style=flat-square)
+![Jest](https://img.shields.io/badge/Jest-C21325?style=flat-square&logo=jest&logoColor=white)
 
-1. **Fase A — Autoria e Bloqueio dos Testes (`Red & Lock`):**
-   - Todos os testes da Sprint são escritos primeiro seguindo fielmente a [`SPEC.md`](./SPEC.md).
-   - Em seguida, os arquivos de teste são bloqueados com permissão `ReadOnly` e seus hashes `SHA-256` são salvos em `tests.lock.json`:
-     ```powershell
-     powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock
-     ```
-2. **Fase B — Implementação sob Bloqueio (`Green & Verify`):**
-   - Os arquivos de teste **não podem ser alterados**. Se um teste falhar, o código de produção é ajustado até que 100% dos testes passem.
-   - Ao final da Sprint, a integridade dos testes é verificada antes de atualizar o [`TEST_REPORT.md`](./TEST_REPORT.md):
-     ```powershell
-     powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify
-     ```
+### Backend Stateless (`services/market-api`)
+![Go](https://img.shields.io/badge/Go_1.23-00ADD8?style=flat-square&logo=go&logoColor=white)
+![Chi Router](https://img.shields.io/badge/go--chi%2Fchi%2Fv5-00ADD8?style=flat-square)
+![SQLite Modernc](https://img.shields.io/badge/modernc.org%2Fsqlite-CGO_Free-003B57?style=flat-square&logo=sqlite&logoColor=white)
 
 ---
 
-## Documentação do Projeto
+## 🎨 Design System: *Bureaucratic Brutalism*
 
-- [**Especificação Técnica e Plano de Sprints (`SPEC.md`)**](./SPEC.md)
-- [**Design System & Identidade Visual (`DESIGN_SYSTEM.md`)**](./DESIGN_SYSTEM.md)
-- [**Dossiê e Relatório de Testes (`TEST_REPORT.md`)**](./TEST_REPORT.md)
+A interface do Celsus rejeita o visual genérico de fintechs modernas em favor de uma fusão tátil entre **Brutalismo Burocrático** e **Skeuomorfismo Pictórico** (inspirado em dossiês investigativos, livros-razão datilografados em `Space Mono` e retratos a óleo expressionistas). Veja a especificação completa em [**`DESIGN_SYSTEM.md`**](./DESIGN_SYSTEM.md).
+
+| Atributo Psicológico | Classe de Ativo no Celsus | Cor & Swatch | Papel Visual |
+| :--- | :--- | :--- | :--- |
+| **INTELLECT** | 🏛️ **Renda Fixa** (`CDI`, `IPCA+`, `Pré`) | ![#2E4A44](https://img.shields.io/badge/-%232E4A44-2E4A44?style=flat-square) *Revachol Teal* | Reserva lógica, estabilidade e previsibilidade de caixa |
+| **PSYCHE** | 🏢 **Fundos Imobiliários** (`FII`) | ![#D5CAA8](https://img.shields.io/badge/-%23D5CAA8-D5CAA8?style=flat-square) *Aged Parchment* | Patrimônio imobiliário tangível e renda recorrente |
+| **PHYSIQUE** | ⚡ **Ações** (`STOCK`) | ![#D96628](https://img.shields.io/badge/-%23D96628-D96628?style=flat-square) *Revolutionary Amber* | Força produtiva, participação societária e crescimento |
+| **MOTORICS** | 🪙 **Criptomoedas** (`CRYPTO`) | ![#C49A45](https://img.shields.io/badge/-%23C49A45-C49A45?style=flat-square) *Oxidized Ochre* | Alta velocidade, descentralização e reflexo digital |
+| **SUBSTRATE** | 📓 **Superfícies & Dossiês** | ![#111315](https://img.shields.io/badge/-%23111315-111315?style=flat-square) ![#191B1D](https://img.shields.io/badge/-%23191B1D-191B1D?style=flat-square) | Papel carvão, sombras duras (`2px 2px 0px #000`) e miras `+` |
+
+---
+
+## 🔒 Protocolo TDD Lock (Testes Imutáveis)
+
+Para garantir precisão matemática nas fórmulas financeiras e impedir qualquer adulteração de testes durante o desenvolvimento assistido por IA, o repositório implementa o **Protocolo TDD Lock** ([`.agents/rules/tdd-lock.md`](./.agents/rules/tdd-lock.md)):
+
+1. **Fase A (`Red & Lock`):** Todos os testes da Sprint são criados **antes** do código de produção com base na [`SPEC.md`](./SPEC.md) e trancados com permissão `ReadOnly` + hash criptográfico `SHA-256` em [`tests.lock.json`](./tests.lock.json):
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock
+   ```
+2. **Fase B (`Green & Verify`):** O código de produção é implementado. **É estritamente proibido editar qualquer arquivo de teste.** Se um teste falhar, o código de produção é corrigido até passar.
+3. **Auditoria de Integridade:** Antes de encerrar a Sprint e atualizar o [**`TEST_REPORT.md`**](./TEST_REPORT.md), o verificador valida que nenhum byte dos testes foi modificado:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify
+   ```
+
+---
+
+## 📋 Backlog & Roadmap de Sprints
+
+O acompanhamento detalhado dos casos de teste (`S1-T01` a `S6-T04`) e seus hashes `SHA-256` encontram-se em [**`TEST_REPORT.md`**](./TEST_REPORT.md).
+
+### Fase MVP (Core Local-First)
+
+- [ ] **Sprint 1 — Backend Go: Motor COTAHIST B3, Proxy BRAPI e Curvas Macro**
+  - [x] **Fase A:** Escrita e bloqueio `SHA-256` dos 18 testes unitários e de contrato (`S1-T01` a `S1-T09`)
+  - [ ] **Fase B:** Implementação do parser posicional de 245 bytes (`COTAHIST`), cliente `BRAPI` com cache TTL, curvas `CDI/IPCA` e endpoints REST `/v1/*`
+- [ ] **Sprint 2 — Fundação Mobile Expo, Design System & Banco Local (SQLite + Drizzle)**
+  - [ ] **Fase A:** Escrita e bloqueio dos testes de tokens visuais, `AttributeStatBar` e schema SQLite (`S2-T01` a `S2-T03`)
+  - [ ] **Fase B:** Configuração do Expo Router, fonte `Space Mono`, componentes *Bureaucratic Brutalism* e migrations Drizzle ORM
+- [ ] **Sprint 3 — Gestão de Carteiras, Pesos em 2 Níveis e Motor Financeiro**
+  - [ ] **Fase A:** Escrita e bloqueio dos 24 testes de cálculo de Pesos, Preço Médio, Renda Fixa e Calculadora de Aporte (`S3-T01` a `S3-T08`)
+  - [ ] **Fase B:** Implementação do motor `decimal.js`, CRUD de múltiplas carteiras e cadastro de ativos nas 4 classes
+- [ ] **Sprint 4 — Aportes Manuais, Vendas, Integração COTAHIST/BRAPI e Simulador**
+  - [ ] **Fase A:** Escrita e bloqueio dos testes de transações atômicas e auto-preenchimento histórico (`S4-T01` a `S4-T03`)
+  - [ ] **Fase B:** Lançamento de Compras/Vendas, extrato em árvore (`Dialogue-Tree Ledger`) e tela do Simulador de Novo Aporte
+- [ ] **Sprint 5 — Dashboards (Consolidado e por Carteira) e Gráficos de Evolução Patrimonial**
+  - [ ] **Fase A:** Escrita e bloqueio dos testes da curva temporal `investedCapital` vs `marketValue` (`S5-T01` e `S5-T02`)
+  - [ ] **Fase B:** Gráficos de Evolução Patrimonial (COTAHIST + CDI), Alocação Atual vs Meta e Detalhe do Ativo
+- [ ] **Sprint 6 — Backup/Restore (`.celsus.zip` com CSVs + SHA-256) e Segurança Local**
+  - [ ] **Fase A:** Escrita e bloqueio dos testes de exportação ZIP, detecção de adulteração `SHA-256`, Restore/Merge e Privacidade (`S6-T01` a `S6-T04`)
+  - [ ] **Fase B:** Serviço completo `.celsus.zip`, Modo Privacidade (`[REDACTED]`) e Bloqueio Biométrico (`expo-local-authentication`)
+
+### Pós-MVP (Roadmap Futuro)
+- [ ] 🔗 **Integração Open Finance Brasil:** Sincronização opcional de posições e aportes via conectores Open Finance usando as colunas `external_id` e `institution_id`.
+- [ ] 💰 **Dossiê de Proventos:** Controle de Dividendos, JCP e rendimentos mensais de FIIs com gráfico de *Yield on Cost (YoC)*.
+- [ ] 🧾 **Apuração Auxiliar de IR:** Relatório anual de custódia, vendas isentas (< R$ 20k em ações) e DARFs.
+
+---
+
+## 📂 Estrutura do Repositório
+
+```text
+Celsus/
+├── .agents/rules/
+│   └── tdd-lock.md                 # Regra always_on de imutabilidade dos testes
+├── scripts/
+│   └── test-lock.ps1               # CLI de bloqueio ReadOnly e auditoria SHA-256
+├── services/
+│   └── market-api/                 # Backend Stateless em Go (COTAHIST, BRAPI, BCB Macro)
+│       ├── internal/cotahist/      # Parser posicional B3 (245 bytes) + SQLite repo
+│       ├── internal/brapi/         # Proxy & Cache de cotações (Ações, FIIs, Cripto BRL)
+│       ├── internal/macro/         # Séries históricas diárias de CDI e IPCA
+│       └── internal/http/          # Roteador Chi e handlers REST (/v1/*)
+├── apps/
+│   └── mobile/                     # App React Native (Expo + TypeScript + SQLite local)
+├── DESIGN_SYSTEM.md                # Guia completo de estilo Bureaucratic Brutalism
+├── SPEC.md                         # Especificação funcional, matemática e Prompts das Sprints
+├── TEST_REPORT.md                  # Relatório oficial de execução e hashes TDD
+└── tests.lock.json                 # Manifesto criptográfico SHA-256 dos testes bloqueados
+```
+
+---
+
+## 🚀 Como Executar
+
+### 1. Verificar integridade dos testes (TDD Lock)
+```powershell
+powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action status
+powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify
+```
+
+### 2. Backend de Dados de Mercado (`services/market-api`)
+```powershell
+cd services/market-api
+go test ./... -v
+```
+
+### 3. Documentação Completa e Prompts das Sprints
+Consulte o arquivo [**`SPEC.md`**](./SPEC.md) para visualizar todas as fórmulas matemáticas, contratos JSON e os prompts prontos para cada fase das Sprints.
