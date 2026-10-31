@@ -19,12 +19,15 @@ import {
   privacyAndAuthService,
   PRIVACY_CURRENCY_MASK,
 } from '../services/privacyAndAuth';
+import { ThemeMode } from '../theme/palettes';
 
 export interface SettingsBackupScreenProps {
   isPrivacyMode: boolean;
   onTogglePrivacyMode: (enabled: boolean) => void;
   onClose?: () => void;
   onDataRestored?: () => void;
+  themeMode?: ThemeMode;
+  onThemeModeChange?: (mode: ThemeMode) => void;
 }
 
 export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({

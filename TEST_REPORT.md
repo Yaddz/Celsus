@@ -17,11 +17,11 @@
 | **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 2 | 16 | 16 | 0 | `VERIFIED (18 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 24 | 0 | `VERIFIED (21 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 0 | 22 | `VERIFIED (24 arquivos)` | 🔴 Red Phase (Fase A Bloqueada) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S7)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **21** | **140** | **140** | **0** | **`VERIFIED (21 arquivos)`** | **🟢 100% Aprovado** |
+| **TOTAL (S1–S8 Fase A)** | **Suíte Registrada (Backend Go + Mobile React Native/Expo)** | **24** | **162** | **140** | **22** | **`VERIFIED (24 arquivos)`** | **🔒 Testes Bloqueados (Red Phase)** |
 
 ---
 
@@ -112,9 +112,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestAutoSequentialPortfolioPalettesAndImmutableAssetColors` | Atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`), sincronização do Card + `AmbientOrb` + acentos ativos na pilha e cores fixas das 4 classes de ativos | `PENDING (Fase A)` | ⏳ PENDING |
-| `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `PENDING (Fase A)` | ⏳ PENDING |
-| `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `PENDING (Fase A)` | ⏳ PENDING |
+| `S8-T01` | `src/theme/__tests__/palettes.test.ts` | `TestAutoSequentialPortfolioPalettesAndImmutableAssetColors` | Atribuição sequencial automática (`index % 4`: `classic`, `harbor`, `docks`, `tribunal`), sincronização do Card + `AmbientOrb` + acentos ativos na pilha e cores fixas das 4 classes de ativos | `00d9d27295ece1ccbd9553fbdcd821ac4fd470c7aeeed06a5a29b75ffc0baf4b` | 🔴 FAIL (Red Phase) |
+| `S8-T02` | `src/theme/__tests__/themeMode.test.ts` | `TestDarkAndLightThemeModeSwitch` | Alternância entre Tema Escuro (`#111315`) e Tema Claro (`#F4F1EA`) na página de Configurações | `e224ae7f5e9483164e8d9a7b1554acbebdfc79ce936e60080f69b8798c615f8c` | 🔴 FAIL (Red Phase) |
+| `S8-T03` | `src/components/ui/__tests__/XpMinimalHeader.test.tsx` | `TestXpMinimalHeaderAvatarGlobeAndEye` | Avatar do usuário (abre Configurações), botão placeholder do Globo e botão de Olho (Modo Privacidade) | `34aaad57ee512061407ed7bf0a6f19af96630d07fe1db13c19ecf071fcfe9df5` | 🔴 FAIL (Red Phase) |
 
 ---
 
@@ -646,3 +646,48 @@
   - **21 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **140 casos de teste automatizados executados (16 em Go + 124 em TypeScript/Jest)**
   - **100% de aprovação (140 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
+### Sprint 8 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 24 arquivos de teste bloqueados com `ReadOnly` e registrados em `tests.lock.json` (incluindo os 3 novos arquivos de teste da Sprint 8: `palettes.test.ts`, `themeMode.test.ts` e `XpMinimalHeader.test.tsx`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 24 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/theme/__tests__/palettes.test.ts
+    ● S8-T01: TestAutoSequentialPortfolioPalettesAndImmutableAssetColors
+      - should declare all 4 official portfolio palettes with exact tokens (FAIL)
+      - should retrieve palette by its valid identifier (FAIL)
+      - should automatically assign palettes in cyclic index % 4 order (FAIL)
+      - should simulate sequential creation of multiple portfolios with automatic distinct palettes (FAIL)
+      - should propagate palette colors when active wallet in stack changes (FAIL)
+      - should render AmbientOrb reflecting the active palette tokens (FAIL)
+      - should guarantee that the 4 asset class colors remain strictly fixed across all palettes (FAIL)
+      - should keep the root background fixed to the global theme regardless of wallet palette (FAIL)
+  FAIL src/theme/__tests__/themeMode.test.ts
+    ● S8-T02: TestDarkAndLightThemeModeSwitch
+      - should define exact Dark Theme tokens with background #111315 (FAIL)
+      - should define exact Light Theme tokens with background #F4F1EA (FAIL)
+      - should retrieve colors for requested theme mode via getThemeColors (FAIL)
+      - should default to dark theme mode (FAIL)
+      - should switch theme mode to light and toggle back to dark (FAIL)
+      - should preserve immutable asset class colors across theme changes (FAIL)
+      - should render theme mode options and trigger onThemeModeChange when selected (FAIL)
+  FAIL src/components/ui/__tests__/XpMinimalHeader.test.tsx
+    ● S8-T03: TestXpMinimalHeaderAvatarGlobeAndEye
+      - should render user avatar with initials and user name (FAIL)
+      - should trigger onAvatarPress when user taps the avatar button (FAIL)
+      - should render the globe placeholder button and trigger onGlobePress (FAIL)
+      - should render eye button with open visibility icon when privacy is disabled (FAIL)
+      - should render eye button with crossed visibility-off icon when privacy is enabled (FAIL)
+      - should trigger onTogglePrivacy when user taps the eye button (FAIL)
+      - should render smoothly when receiving custom active wallet palette and light theme (FAIL)
+
+  Test Suites: 3 failed, 3 total
+  Tests:       22 failed, 22 total
+  Snapshots:   0 total
+  Time:        7.064 s
+  Total: 22 novos testes da Sprint 8 | 0 PASS sob stubs | 22 FAIL (Red Phase confirmada sob stubs)
+  ```
+

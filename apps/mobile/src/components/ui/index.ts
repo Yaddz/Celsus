@@ -7,3 +7,5 @@ export * from './FloatingBottomDock';
 export * from './RecentTransactionsCard';
 export * from './MonthlyPillChartCard';
 export * from './DotMatrixAllocationCard';
+export * from './AmbientOrb';
+export * from './XpMinimalHeader';
