@@ -3,3 +3,5 @@ export * from './weights';
 export * from './averagePrice';
 export * from './fixedIncome';
 export * from './rebalance';
+export * from './portfolioHistory';
+export * from './consolidatedView';
