@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import {
+  SafeAreaProvider,
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from './src/theme/tokens';
@@ -15,7 +19,7 @@ import {
   QuickActionBentoRow,
   SpecimenHexCard,
   RecentTransactionsCard,
-  AttributeStatBar,
+  DotMatrixAllocationCard,
   LedgerInput,
   DirectiveButton,
   FloatingBottomDock,
@@ -26,10 +30,17 @@ import {
   PortfolioManagementScreen,
   TransactionScreen,
   SimulatorScreen,
+  StatisticsScreen,
 } from './src/screens';
-import { calculateSmartContribution, RebalanceAssetInput } from './src/domain/finance';
+import {
+  calculateSmartContribution,
+  RebalanceAssetInput,
+  consolidatePortfolios,
+  PortfolioConsolidationInput,
+} from './src/domain/finance';
 import { transactionService } from './src/services/transactionService';
 import { assetRepository } from './src/repositories/assetRepository';
+import { portfolioRepository } from './src/repositories/portfolioRepository';
 
 const DEFAULT_TRANSACTIONS: RecentTransactionItem[] = [
   {
@@ -67,9 +78,17 @@ const DEFAULT_TRANSACTIONS: RecentTransactionItem[] = [
 ];
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
-  const [periodSelector, setPeriodSelector] = useState<'W' | 'M' | 'Y'>('M');
   const [contributionAmount, setContributionAmount] = useState('1500,00');
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
 
@@ -78,11 +97,54 @@ export default function App() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
 
-  // Lista de Movimentações Recentes
+  // Lista de Movimentações Recentes e Saldos Consolidados
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
+  const [totalPatrimony, setTotalPatrimony] = useState('R$ 32.468,00');
+  const [profitSummary, setProfitSummary] = useState('+12,4% no ano');
 
-  const refreshTransactions = async () => {
+  const refreshAppData = async () => {
     try {
+      // 1. Carrega dados consolidados das carteiras locais
+      const allPortfolios = await portfolioRepository.listPortfolios(false);
+      if (allPortfolios && allPortfolios.length > 0) {
+        const inputs: PortfolioConsolidationInput[] = await Promise.all(
+          allPortfolios.map(async (p) => {
+            const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
+            const pTargets = await portfolioRepository.getClassTargets(p.id);
+            return {
+              id: p.id,
+              name: p.name,
+              docketCode: p.docket_code,
+              isArchived: p.is_archived,
+              assets: pAssets.map((a) => ({
+                id: a.id,
+                ticker: a.ticker,
+                assetClass: a.asset_class as any,
+                quantity: a.quantity,
+                averagePrice: a.average_price,
+                currentPrice: a.manual_price_override || a.average_price,
+              })),
+              classTargets: pTargets.map((ct) => ({
+                assetClass: ct.asset_class as any,
+                targetPercentage: ct.target_percentage,
+              })),
+            };
+          })
+        );
+
+        const dossier = consolidatePortfolios(inputs);
+        const mvNum = parseFloat(dossier.totalMarketValue);
+        if (mvNum > 0) {
+          setTotalPatrimony(
+            `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+          );
+          setProfitSummary(
+            `${parseFloat(dossier.totalProfit) >= 0 ? '+' : ''}${dossier.totalProfitPercentage}% total`
+          );
+        }
+      }
+
+      // 2. Carrega movimentações recentes
       const txs = await transactionService.getTransactionsByPortfolio('default-portfolio');
       if (txs && txs.length > 0) {
         const mapped: RecentTransactionItem[] = await Promise.all(
@@ -101,19 +163,18 @@ export default function App() {
         setTransactionsList(mapped);
       }
     } catch {
-      // Mantém lista padrão em mock
+      // Fallback em caso de banco inicial
     }
   };
 
   useEffect(() => {
-    refreshTransactions();
+    refreshAppData();
   }, []);
 
   const handleSimulate = () => {
     const rawVal = contributionAmount.replace(/\./g, '').replace(',', '.');
     const numericAmount = parseFloat(rawVal) || 1500;
 
-    // Executa o motor financeiro real de rebalanceamento inteligente da Sprint 3
     const sampleAssets: RebalanceAssetInput[] = [
       { ticker: 'PETR4', assetClass: 'STOCK', currentQuantity: '200', currentPrice: '38.50', globalTargetPercentage: 35 },
       { ticker: 'HGLG11', assetClass: 'FII', currentQuantity: '45', currentPrice: '162.00', globalTargetPercentage: 25 },
@@ -142,17 +203,33 @@ export default function App() {
     );
   };
 
-  const balanceDisplay = isPrivacyMode ? 'R$ ••••••••' : 'R$ 32.468,00';
+  const balanceDisplay = isPrivacyMode ? 'R$ ••••••••' : totalPatrimony;
+
+  // Tela/Aba: Análises & Estatísticas
+  if (activeTab === 'stats') {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="light" />
+        <StatisticsScreen isPrivacyMode={isPrivacyMode} />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => setActiveTab(tab)}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+        />
+      </SafeAreaView>
+    );
+  }
 
   // Modal / Tela: Carteiras & Alocação
   if (activeTab === 'wallets' || isPortfolioManagerModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="light" />
         <PortfolioManagementScreen
           onClose={() => {
             setIsPortfolioManagerModalOpen(false);
             setActiveTab('home');
+            refreshAppData();
           }}
         />
         <FloatingBottomDock
@@ -167,41 +244,50 @@ export default function App() {
     );
   }
 
-  // Modal / Tela: Nova Movimentação
+  // Modal: Nova Movimentação
   if (isTransactionModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="light" />
         <TransactionScreen
-          onClose={() => setIsTransactionModalOpen(false)}
-          onTransactionSuccess={() => refreshTransactions()}
+          onClose={() => {
+            setIsTransactionModalOpen(false);
+            refreshAppData();
+          }}
+          onTransactionSuccess={() => refreshAppData()}
         />
       </SafeAreaView>
     );
   }
 
-  // Modal / Tela: Simulador de Novo Aporte
+  // Modal: Simulador de Novo Aporte
   if (isSimulatorModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
         <StatusBar style="light" />
         <SimulatorScreen
-          onClose={() => setIsSimulatorModalOpen(false)}
-          onContributionsConfirmed={() => refreshTransactions()}
+          onClose={() => {
+            setIsSimulatorModalOpen(false);
+            refreshAppData();
+          }}
+          onContributionsConfirmed={() => refreshAppData()}
         />
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
 
       {/* Glow de ambiente sutil no topo */}
       <View style={styles.ambientGlow} />
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(insets.bottom, 16) + 80 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header Minimalista (Logo Celsus + Botão de Privacidade com Material Icons) */}
@@ -234,9 +320,9 @@ export default function App() {
           variant="hero"
           balance={balanceDisplay}
           subtitle="Patrimônio Total"
-          accountName="CARTEIRA PRINCIPAL"
+          accountName="DOSSIÊ CONSOLIDADO"
           accountCode="•••• 001"
-          profitText={isPrivacyMode ? '•••••' : '+12,4% no ano'}
+          profitText={isPrivacyMode ? '•••••' : profitSummary}
           accentColor={colors.primary}
         />
 
@@ -256,67 +342,11 @@ export default function App() {
         />
 
         {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid) */}
-        <View style={styles.allocationContainer}>
-          <View style={styles.allocationHeaderRow}>
-            <View>
-              <Text style={styles.sectionTitle}>ALOCAÇÃO POR CATEGORIA</Text>
-              <Text style={styles.sectionSubtitle}>Distribuição Atual vs Meta</Text>
-            </View>
-
-            {/* Seletor W | M | Y */}
-            <View style={styles.periodPill}>
-              {(['W', 'M', 'Y'] as const).map((p) => {
-                const isSelected = p === periodSelector;
-                return (
-                  <TouchableOpacity
-                    key={p}
-                    activeOpacity={0.7}
-                    onPress={() => setPeriodSelector(p)}
-                    style={[
-                      styles.periodOption,
-                      isSelected && styles.periodOptionSelected,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.periodText,
-                        isSelected && styles.periodTextSelected,
-                      ]}
-                    >
-                      {p}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* As 4 Categorias com Matriz de Pontos */}
-          <AttributeStatBar
-            assetClass="FIXED_INCOME"
-            currentPercentage={32.0}
-            targetPercentage={30.0}
-            testID="stat-bar-fixed-income"
-          />
-          <AttributeStatBar
-            assetClass="FII"
-            currentPercentage={24.5}
-            targetPercentage={25.0}
-            testID="stat-bar-fii"
-          />
-          <AttributeStatBar
-            assetClass="STOCK"
-            currentPercentage={33.5}
-            targetPercentage={35.0}
-            testID="stat-bar-stock"
-          />
-          <AttributeStatBar
-            assetClass="CRYPTO"
-            currentPercentage={10.0}
-            targetPercentage={10.0}
-            testID="stat-bar-crypto"
-          />
-        </View>
+        <DotMatrixAllocationCard
+          totalBalance={balanceDisplay}
+          isPrivacyMode={isPrivacyMode}
+          testID="home-dot-matrix-card"
+        />
 
         {/* 5. Card de Movimentações Recentes com Avatares Circulares e Ícones da Categoria */}
         <RecentTransactionsCard
@@ -334,10 +364,17 @@ export default function App() {
             suffix=" BRL"
           />
           <DirectiveButton
+            label="Calcular Proposta no Motor"
+            variant="secondary"
+            materialIcon="calculate"
+            onPress={handleSimulate}
+          />
+          <DirectiveButton
             label="Abrir Simulador Completo"
             variant="primary"
-            materialIcon="calculate"
+            materialIcon="tune"
             onPress={() => setIsSimulatorModalOpen(true)}
+            style={{ marginTop: 8 }}
           />
           {simulationResult ? (
             <View style={styles.simulationBox}>
@@ -345,21 +382,18 @@ export default function App() {
             </View>
           ) : null}
         </DossierCard>
-
-        {/* Espaçador para o Dock Flutuante */}
-        <View style={{ height: 90 }} />
       </ScrollView>
 
-      {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock com Material Icons) */}
+      {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
       <FloatingBottomDock
         activeTab={activeTab}
         onTabChange={(tab) => {
           if (tab === 'wallets') {
-            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
           } else if (tab === 'history') {
             setIsTransactionModalOpen(true);
           } else if (tab === 'stats') {
-            setIsSimulatorModalOpen(true);
+            setActiveTab('stats');
           } else {
             setActiveTab(tab);
           }
@@ -387,8 +421,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: spacing.margin,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.xs,
   },
   header: {
     flexDirection: 'row',
@@ -434,54 +467,6 @@ const styles = StyleSheet.create({
     borderColor: '#26292C',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  allocationContainer: {
-    marginVertical: spacing.sm,
-  },
-  allocationHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: spacing.xs + 2,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.headlineSm.fontSize - 2,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-    letterSpacing: 0.5,
-  },
-  sectionSubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    color: '#8A8A8E',
-    marginTop: 1,
-  },
-  periodPill: {
-    flexDirection: 'row',
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusPill,
-    padding: 3,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-  },
-  periodOption: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: borders.radiusPill,
-  },
-  periodOptionSelected: {
-    backgroundColor: colors.tertiary,
-  },
-  periodText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#8A8A8E',
-  },
-  periodTextSelected: {
-    color: colors.voidFloor,
   },
   simulationBox: {
     marginTop: spacing.sm,

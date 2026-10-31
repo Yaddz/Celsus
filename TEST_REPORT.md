@@ -14,7 +14,7 @@
 | **Sprint 2** | Mobile Foundation: Componentes UI Design System e Schema SQLite/Drizzle | 3 | 22 | 22 | 0 | `VERIFIED (8 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 3** | Motor Financeiro: Pesos 2 Níveis, Preço Médio, Renda Fixa e Calculadora de Aporte | 4 | 37 | 37 | 0 | `VERIFIED (12 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 4** | Fluxo de Transações (`BUY`/`SELL`), Cache Histórico e Simulador de Rebalanceamento | 2 | 20 | 20 | 0 | `VERIFIED (14 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 0 | 12 | `LOCKED (16 arquivos)` | 🔒 Fase A Bloqueada (Red Phase) |
+| **Sprint 5** | Série Temporal de Evolução Patrimonial e Cálculos de Rentabilidade/Alocação | 2 | 12 | 12 | 0 | `VERIFIED (16 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 6** | Backup `.celsus.zip` (CSVs + `manifest.json` SHA-256), Restore/Merge e Privacidade | 3 | 15 | 0 | 0 | `PENDENTE FASE A` | ⏳ Aguardando |
 
 ---
@@ -76,8 +76,8 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S5-T01` | `src/domain/finance/__tests__/portfolioHistory.test.ts` | `TestDailyPatrimonyEvolutionCurve` | Cruzamento de transações passadas com preços COTAHIST + curva Renda Fixa gerando `investedCapital` vs `marketValue` | `78439b6b57a9f20e478930b347373f9ebeca871c40cffd1f0037bcf0ca26c268` | 🔴 FAIL (Red Phase) |
-| `S5-T02` | `src/domain/finance/__tests__/consolidatedView.test.ts` | `TestMultiPortfolioConsolidation` | Soma isolada por carteira vs consolidação patrimonial total em BRL na Home | `3056bc65c533bd0932779797e3c461a6f6db22acc41bd41a4ba5959129706c95` | 🔴 FAIL (Red Phase) |
+| `S5-T01` | `src/domain/finance/__tests__/portfolioHistory.test.ts` | `TestDailyPatrimonyEvolutionCurve` | Cruzamento de transações passadas com preços COTAHIST + curva Renda Fixa gerando `investedCapital` vs `marketValue` | `78439b6b57a9f20e478930b347373f9ebeca871c40cffd1f0037bcf0ca26c268` | 🟢 PASS (0.01s) |
+| `S5-T02` | `src/domain/finance/__tests__/consolidatedView.test.ts` | `TestMultiPortfolioConsolidation` | Soma isolada por carteira vs consolidação patrimonial total em BRL na Home | `3056bc65c533bd0932779797e3c461a6f6db22acc41bd41a4ba5959129706c95` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -447,4 +447,45 @@
   Snapshots:   0 total
   Time:        4.091 s
   Total: 12 novos testes da Sprint 5 | 0 PASS sob stubs | 12 FAIL (Red Phase confirmada sob stubs)
+  ```
+
+### Sprint 5 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 16 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Final da Suíte (`npm test --prefix apps/mobile`):**
+  ```text
+  PASS src/domain/finance/__tests__/weights.test.ts
+  PASS src/domain/finance/__tests__/averagePrice.test.ts
+  PASS src/domain/finance/__tests__/fixedIncome.test.ts
+  PASS src/domain/finance/__tests__/rebalance.test.ts
+  PASS src/domain/finance/__tests__/portfolioHistory.test.ts
+    S5-T01: TestDailyPatrimonyEvolutionCurve
+      √ should reconstruct daily curve accurately crossing stock buy transactions with COTAHIST quotes (1 ms)
+      √ should combine COTAHIST equity quotes with Fixed Income daily CDI and PRE accrual curves (1 ms)
+      √ should adjust invested capital and market value correctly when SELL operations occur (1 ms)
+      √ should prioritize manualPriceOverride in Fixed Income assets over theoretical indexer calculation
+      √ should carry forward the latest available closing price during weekends or non-trading days (1 ms)
+      √ should aggregate daily points into monthly pill capsules for the statistics dashboard
+  PASS src/theme/__tests__/tokens.test.ts
+  PASS src/domain/finance/__tests__/consolidatedView.test.ts
+    S5-T02: TestMultiPortfolioConsolidation
+      √ should accurately consolidate multiple independent portfolios into a unified dossier (1 ms)
+      √ should maintain strict financial isolation between independent portfolios (1 ms)
+      √ should aggregate identical tickers across portfolios into consolidated holdings (1 ms)
+      √ should exclude archived portfolios from default consolidated view while counting them (1 ms)
+      √ should compute consolidated asset class allocation and portfolio-weighted target percentages (1 ms)
+      √ should gracefully handle empty portfolios or portfolios with zero assets without errors
+  PASS src/db/__tests__/schema.test.ts
+  PASS src/components/ui/__tests__/AttributeStatBar.test.tsx
+  PASS src/services/__tests__/rebalanceExecution.test.ts
+  PASS src/services/__tests__/transactionService.test.ts
+
+  Test Suites: 11 passed, 11 total
+  Tests:       91 passed, 91 total
+  Snapshots:   0 total
+  Time:        4.794 s
+  Total: 12 novos testes da Sprint 5 | 12 PASS | 0 FAIL (100% Green Phase aprovada)
   ```

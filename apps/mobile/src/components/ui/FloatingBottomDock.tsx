@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, borders } from '../../theme/tokens';
 
@@ -33,8 +34,11 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   style,
   testID,
 }) => {
+  const insets = useSafeAreaInsets();
+  const bottomPadding = Math.max(insets.bottom, 16);
+
   return (
-    <View style={[styles.wrapper, style]} testID={testID}>
+    <View style={[styles.wrapper, { paddingBottom: bottomPadding }, style]} testID={testID}>
       {/* Pílula de Navegação */}
       <View style={styles.pillContainer}>
         {TABS.map((tab) => {
