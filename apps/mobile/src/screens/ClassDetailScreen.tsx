@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from '../theme/tokens';
 import { AssetClass, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui/AttributeStatBar';
+import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 
 export interface ClassAssetDetailItem {
   id: string;
@@ -192,6 +193,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   assets,
   isPrivacyMode = false,
   onClose = () => {},
+  onAssetPress,
   testID = 'class-detail-screen',
   themeMode = 'dark',
 }) => {
@@ -213,35 +215,20 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   const [activeTooltipAsset, setActiveTooltipAsset] = useState<ClassAssetDetailItem | null>(null);
   const [cardPositions, setCardPositions] = useState<Record<string, number>>({});
 
-  const handleSlicePress = (asset: ClassAssetDetailItem, index: number) => {
-    const targetY = cardPositions[asset.ticker] ?? (320 + index * 180);
-    scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
-  };
-
-  const handleSliceLongPress = (asset: ClassAssetDetailItem) => {
+  const handleSlicePress = (asset: ClassAssetDetailItem) => {
     setActiveTooltipAsset(asset);
   };
 
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
-      {/* Topo Limpo Minimalista (Sem Header Pesado) */}
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
-        <TouchableOpacity
-          testID="btn-close-class-detail"
-          onPress={onClose}
-          style={[styles.backButton, isLight && styles.backButtonLight]}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="arrow-back" size={22} color={isLight ? '#111315' : colors.parchmentPale} />
-        </TouchableOpacity>
-
-        <View style={[styles.titleBadge, isLight && styles.titleBadgeLight]}>
-          <View style={[styles.classColorDot, { backgroundColor: classConfig.color }]} />
-          <Text style={[styles.classTitleText, isLight && styles.classTitleTextLight]}>{title.toUpperCase()}</Text>
-        </View>
-
-        <View style={{ width: 40 }} />
-      </View>
+      {/* Header Minimalista XP Padronizado */}
+      <XpMinimalHeader
+        onBack={onClose}
+        title={title}
+        subtitle={`${assetList.length} ${assetList.length === 1 ? 'ativo' : 'ativos'}`}
+        isPrivacyModeEnabled={isPrivacyMode}
+        themeMode={themeMode}
+      />
 
       <ScrollView
         ref={scrollViewRef}
@@ -275,9 +262,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                     key={`bar-${asset.id || asset.ticker}`}
                     testID={`donut-slice-${asset.ticker}`}
                     activeOpacity={0.8}
-                    onPress={() => handleSlicePress(asset, idx)}
-                    onLongPress={() => handleSliceLongPress(asset)}
-                    delayLongPress={200}
+                    onPress={() => handleSlicePress(asset)}
                     style={[
                       styles.donutSegmentBar,
                       {
@@ -291,7 +276,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
             </View>
           </View>
 
-          {/* Tooltip Flutuante disparado no onLongPress */}
+          {/* Tooltip Flutuante disparado no clique simples da fatia */}
           {activeTooltipAsset && (
             <View testID="donut-tooltip" style={[styles.tooltipBox, isLight && styles.tooltipBoxLight]}>
               <View style={styles.tooltipHeader}>
@@ -313,15 +298,25 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                   {activeTooltipAsset.currentAllocationPercentage.toFixed(1)}%
                 </Text>
               </View>
-              <Text style={[styles.tooltipName, isLight && styles.tooltipNameLight]}>{activeTooltipAsset.name}</Text>
-              <Text style={[styles.tooltipHint, isLight && styles.tooltipHintLight]}>Toque para rolar até o ativo</Text>
+              <TouchableOpacity
+                testID="donut-tooltip-scroll-btn"
+                activeOpacity={0.7}
+                onPress={() => {
+                  const idx = assetList.findIndex((a) => a.ticker === activeTooltipAsset.ticker);
+                  const targetY = cardPositions[activeTooltipAsset.ticker] ?? (320 + idx * 180);
+                  scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
+                }}
+              >
+                <Text style={[styles.tooltipName, isLight && styles.tooltipNameLight]}>{activeTooltipAsset.name}</Text>
+              </TouchableOpacity>
+              <Text style={[styles.tooltipHint, isLight && styles.tooltipHintLight]}>Toque no nome para rolar até o ativo</Text>
             </View>
           )}
 
           {/* Legenda com Fatias e Porcentagens */}
           <View style={styles.legendContainer}>
-            {assetList.map((asset, idx) => {
-              const color = asset.sliceColor || DONUT_SLICE_COLORS[idx % DONUT_SLICE_COLORS.length];
+            {assetList.map((asset) => {
+              const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
               const isSelected = activeTooltipAsset?.ticker === asset.ticker;
               const pctText = isSelected ? 'Ativo' : `${asset.currentAllocationPercentage.toFixed(1)}%`;
 
@@ -329,8 +324,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                 <TouchableOpacity
                   key={`legend-${asset.id || asset.ticker}`}
                   activeOpacity={0.7}
-                  onPress={() => handleSlicePress(asset, idx)}
-                  onLongPress={() => handleSliceLongPress(asset)}
+                  onPress={() => handleSlicePress(asset)}
                   style={[styles.legendItem, isLight && styles.legendItemLight]}
                 >
                   <View style={[styles.legendDot, { backgroundColor: color }]} />
@@ -356,9 +350,11 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
             const nameDisplay = isSelected ? 'Ativo em destaque' : asset.name;
 
             return (
-              <View
+              <TouchableOpacity
                 key={asset.id || asset.ticker}
                 testID={`asset-card-${asset.ticker}`}
+                activeOpacity={0.8}
+                onPress={() => onAssetPress?.(asset.id || asset.ticker)}
                 onLayout={(e) => {
                   const y = e.nativeEvent.layout.y;
                   setCardPositions((prev) => ({ ...prev, [asset.ticker]: y }));
@@ -446,7 +442,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                     )}
                   </View>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>

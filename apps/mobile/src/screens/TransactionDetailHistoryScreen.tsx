@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from '../theme/tokens';
 import { AssetClass, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui/AttributeStatBar';
+import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 
 export interface TransactionDetailData {
   id: string;
@@ -122,24 +123,14 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
-      {/* Topo Limpo Minimalista (Zero Header Pesado) */}
-      <View style={[styles.topBar, isLight && styles.topBarLight, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
-        <TouchableOpacity
-          testID="btn-close-tx-detail"
-          onPress={onClose}
-          style={[styles.backButton, isLight && styles.backButtonLight]}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="arrow-back" size={22} color={isLight ? '#111315' : colors.parchmentPale} />
-        </TouchableOpacity>
-
-        <View style={[styles.tickerBadge, isLight && styles.tickerBadgeLight]}>
-          <View style={[styles.classDot, { backgroundColor: classConfig.color }]} />
-          <Text style={[styles.tickerBadgeText, isLight && styles.tickerBadgeTextLight]}>• {tx.ticker}</Text>
-        </View>
-
-        <View style={{ width: 40 }} />
-      </View>
+      {/* Header Minimalista XP Padronizado */}
+      <XpMinimalHeader
+        onBack={onClose}
+        title="Detalhes da Operação"
+        subtitle={tx.assetName || classConfig.name}
+        isPrivacyModeEnabled={isPrivacyMode}
+        themeMode={themeMode}
+      />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

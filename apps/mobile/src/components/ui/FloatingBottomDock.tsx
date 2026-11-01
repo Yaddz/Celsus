@@ -7,8 +7,7 @@ import {
   StyleProp,
   ViewStyle,
   Animated,
-  Modal,
-  TouchableWithoutFeedback,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -58,16 +57,30 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
 
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const toggleSheet = () => {
     const nextState = !isSheetOpen;
     setIsSheetOpen(nextState);
 
-    Animated.spring(rotateAnim, {
-      toValue: nextState ? 1 : 0,
-      useNativeDriver: true,
-      friction: 6,
-    }).start();
+    Animated.parallel([
+      Animated.spring(rotateAnim, {
+        toValue: nextState ? 1 : 0,
+        useNativeDriver: true,
+        friction: 6,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: nextState ? 0 : 20,
+        useNativeDriver: true,
+        friction: 6,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: nextState ? 1 : 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     // Se não houver callbacks específicos de opções, delega para onActionPress
     if (!onNovoAportePress && !onNovaCarteiraPress && !onAdicionarAtivoPress) {
@@ -77,11 +90,32 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
 
   const closeSheet = () => {
     setIsSheetOpen(false);
-    Animated.spring(rotateAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      friction: 6,
-    }).start();
+    Animated.parallel([
+      Animated.spring(rotateAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 6,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 20,
+        useNativeDriver: true,
+        friction: 6,
+      }),
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const handleTabPress = (tabId: DockTab) => {
+    if (isSheetOpen) closeSheet();
+    if (tabId === 'history') {
+      Alert.alert('Funcionalidade em desenvolvimento');
+      return;
+    }
+    onTabChange(tabId);
   };
 
   const rotation = rotateAnim.interpolate({
@@ -90,155 +124,115 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   });
 
   return (
-    <>
-      <View
-        style={[styles.wrapper, { paddingBottom: bottomPadding }, style]}
-        testID={testID}
-        pointerEvents="box-none"
-      >
-        {/* Pílula de Navegação Opaca Flutuante */}
-        <View style={[styles.pillContainer, isLight && styles.pillContainerLight]}>
-          {TABS.map((tab) => {
-            const isActive = tab.id === activeTab;
-            const iconColor = isActive
-              ? (isLight ? '#FFFFFF' : colors.voidFloor)
-              : (isLight ? '#6E6A63' : colors.parchmentPale);
-
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                testID={`dock-tab-${tab.id}`}
-                activeOpacity={0.8}
-                onPress={() => onTabChange(tab.id)}
-                style={styles.tabButton}
-              >
-                <View
-                  style={[
-                    styles.tabIconCircle,
-                    isActive && (isLight ? styles.activeTabIconCircleLight : styles.activeTabIconCircle),
-                  ]}
-                >
-                  <MaterialIcons name={tab.iconName} size={22} color={iconColor} />
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Botão de Ação Circular Separado (WalleZ Quick Action + Rotação 45°) */}
-        <TouchableOpacity
-          testID="floating-dock-action-button"
-          activeOpacity={0.85}
-          onPress={toggleSheet}
-          style={styles.actionButton}
+    <View
+      style={[styles.wrapper, { paddingBottom: bottomPadding }, style]}
+      testID={testID}
+      pointerEvents="box-none"
+    >
+      {/* Speed-Dial Stack flutuante inline diretamente acima do botão + (SEM Modal) */}
+      {isSheetOpen && (
+        <Animated.View
+          testID="fab-speed-dial-stack"
+          style={[
+            styles.speedDialStack,
+            isLight && styles.speedDialStackLight,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
         >
-          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-            <MaterialIcons name="add" size={28} color="#FFFFFF" />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
+          {/* Opção 1: Nova Carteira */}
+          <TouchableOpacity
+            testID="fab-action-nova-carteira"
+            activeOpacity={0.8}
+            style={[styles.speedDialBtn, isLight && styles.speedDialBtnLight]}
+            onPress={() => {
+              closeSheet();
+              onNovaCarteiraPress?.();
+            }}
+          >
+            <MaterialIcons name="account-balance-wallet" size={20} color={colors.tertiary} />
+            <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
+              Nova Carteira
+            </Text>
+          </TouchableOpacity>
 
-      {/* Action Sheet Fluido com as 3 Opções (Sprint 13/14) */}
-      <Modal
-        visible={isSheetOpen && (!!onNovoAportePress || !!onNovaCarteiraPress || !!onAdicionarAtivoPress)}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSheet}
-      >
-        <TouchableWithoutFeedback onPress={closeSheet}>
-          <View style={styles.sheetBackdrop}>
-            <TouchableWithoutFeedback>
+          {/* Opção 2: Adicionar Ativo */}
+          <TouchableOpacity
+            testID="fab-action-adicionar-ativo"
+            activeOpacity={0.8}
+            style={[styles.speedDialBtn, isLight && styles.speedDialBtnLight]}
+            onPress={() => {
+              closeSheet();
+              onAdicionarAtivoPress?.();
+            }}
+          >
+            <MaterialIcons name="playlist-add" size={20} color={colors.secondary} />
+            <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
+              Adicionar Ativo
+            </Text>
+          </TouchableOpacity>
+
+          {/* Opção 3: Nova Movimentação */}
+          <TouchableOpacity
+            testID="fab-action-novo-aporte"
+            activeOpacity={0.8}
+            style={[styles.speedDialBtn, isLight && styles.speedDialBtnLight]}
+            onPress={() => {
+              closeSheet();
+              (onNovoAportePress || onActionPress)?.();
+            }}
+          >
+            <MaterialIcons name="north-east" size={20} color={colors.primary} />
+            <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
+              Nova Movimentação
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      {/* Pílula de Navegação Opaca Flutuante */}
+      <View style={[styles.pillContainer, isLight && styles.pillContainerLight]}>
+        {TABS.map((tab) => {
+          const isActive = tab.id === activeTab;
+          const iconColor = isActive
+            ? (isLight ? '#FFFFFF' : colors.voidFloor)
+            : (isLight ? '#6E6A63' : colors.parchmentPale);
+
+          return (
+            <TouchableOpacity
+              key={tab.id}
+              testID={`dock-tab-${tab.id}`}
+              activeOpacity={0.8}
+              onPress={() => handleTabPress(tab.id)}
+              style={styles.tabButton}
+            >
               <View
                 style={[
-                  styles.sheetContainer,
-                  isLight && styles.sheetContainerLight,
-                  { paddingBottom: bottomPadding + 80 },
+                  styles.tabIconCircle,
+                  isActive && (isLight ? styles.activeTabIconCircleLight : styles.activeTabIconCircle),
                 ]}
               >
-                {/* Drag handle sutil */}
-                <View style={[styles.dragHandle, isLight && styles.dragHandleLight]} />
-
-                <Text style={[styles.sheetTitle, isLight && styles.sheetTitleLight]}>
-                  Ações Rápidas
-                </Text>
-
-                {/* Opção 1: Nova Movimentação */}
-                <TouchableOpacity
-                  testID="dock-sheet-nova-movimentacao"
-                  activeOpacity={0.75}
-                  style={[styles.sheetOption, isLight && styles.sheetOptionLight]}
-                  onPress={() => {
-                    closeSheet();
-                    (onNovoAportePress || onActionPress)?.();
-                  }}
-                >
-                  <View style={[styles.sheetIconCircle, { backgroundColor: colors.primary }]}>
-                    <MaterialIcons name="north-east" size={20} color="#FFFFFF" />
-                  </View>
-                  <View style={styles.sheetTextCol}>
-                    <Text style={[styles.sheetOptionLabel, isLight && styles.sheetOptionLabelLight]}>
-                      Nova Movimentação
-                    </Text>
-                    <Text style={[styles.sheetOptionSub, isLight && styles.sheetOptionSubLight]}>
-                      Registrar compra ou venda de ativos
-                    </Text>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color={isLight ? '#8A8A8E' : '#55585C'} />
-                </TouchableOpacity>
-
-                {/* Opção 2: Nova Carteira */}
-                <TouchableOpacity
-                  testID="dock-sheet-nova-carteira"
-                  activeOpacity={0.75}
-                  style={[styles.sheetOption, isLight && styles.sheetOptionLight]}
-                  onPress={() => {
-                    closeSheet();
-                    onNovaCarteiraPress?.();
-                  }}
-                >
-                  <View style={[styles.sheetIconCircle, { backgroundColor: colors.tertiary }]}>
-                    <MaterialIcons name="account-balance-wallet" size={20} color="#111315" />
-                  </View>
-                  <View style={styles.sheetTextCol}>
-                    <Text style={[styles.sheetOptionLabel, isLight && styles.sheetOptionLabelLight]}>
-                      Nova Carteira
-                    </Text>
-                    <Text style={[styles.sheetOptionSub, isLight && styles.sheetOptionSubLight]}>
-                      Criar nova carteira com paleta dedicada
-                    </Text>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color={isLight ? '#8A8A8E' : '#55585C'} />
-                </TouchableOpacity>
-
-                {/* Opção 3: Adicionar Ativo */}
-                <TouchableOpacity
-                  testID="dock-sheet-adicionar-ativo"
-                  activeOpacity={0.75}
-                  style={[styles.sheetOption, isLight && styles.sheetOptionLight]}
-                  onPress={() => {
-                    closeSheet();
-                    onAdicionarAtivoPress?.();
-                  }}
-                >
-                  <View style={[styles.sheetIconCircle, { backgroundColor: colors.secondary }]}>
-                    <MaterialIcons name="add-chart" size={20} color={colors.parchmentPale} />
-                  </View>
-                  <View style={styles.sheetTextCol}>
-                    <Text style={[styles.sheetOptionLabel, isLight && styles.sheetOptionLabelLight]}>
-                      Adicionar Ativo
-                    </Text>
-                    <Text style={[styles.sheetOptionSub, isLight && styles.sheetOptionSubLight]}>
-                      Vincular novo ativo ou ticker à carteira
-                    </Text>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color={isLight ? '#8A8A8E' : '#55585C'} />
-                </TouchableOpacity>
+                <MaterialIcons name={tab.iconName} size={22} color={iconColor} />
               </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Botão de Ação Circular Separado (WalleZ Quick Action + Rotação 45°) */}
+      <TouchableOpacity
+        testID="floating-dock-action-button"
+        activeOpacity={0.85}
+        onPress={toggleSheet}
+        style={styles.actionButton}
+      >
+        <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+          <MaterialIcons name="add" size={28} color="#FFFFFF" />
+        </Animated.View>
+      </TouchableOpacity>
+    </View>
   );
 };
 
@@ -318,6 +312,45 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.45,
     shadowRadius: 8,
     elevation: 6,
+  },
+  speedDialStack: {
+    position: 'absolute',
+    bottom: 76,
+    right: 16,
+    alignItems: 'flex-end',
+    gap: 10,
+    zIndex: 100,
+  },
+  speedDialStackLight: {},
+  speedDialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#1E2124',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    borderWidth: borders.hairline,
+    borderColor: '#2D3135',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  speedDialBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowOpacity: 0.12,
+  },
+  speedDialLabel: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#E6DECA',
+  },
+  speedDialLabelLight: {
+    color: '#111315',
   },
   // Sheet Styles
   sheetBackdrop: {

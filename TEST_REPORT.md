@@ -23,8 +23,8 @@
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | 27 | 27 | 0 | `VERIFIED (34 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 14 | 0 | `VERIFIED (36 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 16** | Refatoração Módulos 1 e 2: Stacked Hero Wallet Deck (Notch, Quinas Retas, Blur Orgânico, Z-Index, Empty/Add States) & Gráficos Left-to-Right | 1 (+1 mod) | 9 | 9 | 0 | `VERIFIED (37 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 5 | 12 | `VERIFIED (38 arquivos)` | 🟡 Fase A Concluída (Red Phase & Locked) |
-| **TOTAL (S1–S17)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **38** | **255** | **243** | **12** | **`VERIFIED (38 arquivos)`** | **🟡 Fase A Concluída (38 arquivos bloqueados sob SHA-256)** |
+| **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 17 | 0 | `VERIFIED (38 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S17)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **38** | **254** | **254** | **0** | **`VERIFIED (38 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -182,20 +182,20 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `REFACTORING_SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S17-T01` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir XpMinimalHeader com botão voltar em TransactionDetailHistoryScreen e remover indicador • PETR4` | Header padronizado `XpMinimalHeader` com `onBack`, botão voltar `header-back-button` e remoção do badge avulso `• PETR4` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T02` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar XpMinimalHeader em ClassDetailScreen com suporte a onBack` | Presença de `XpMinimalHeader` em `ClassDetailScreen` com chamada de `onClose` via botão voltar | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T03` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar XpMinimalHeader em StatisticsScreen e PortfolioManagementScreen` | Padronização global do header XP em todas as telas | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T04` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `XpMinimalHeader deve renderizar avatar quando onBack não for informado e botão voltar quando onBack for informado` | Contrato visual e funcional de `XpMinimalHeader` alternando entre Avatar e Back Button | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.05s) |
-| `S17-T05` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar o Donut Chart circular oco e não possuir onLongPress nas fatias` | Donut Chart circular com anel oco e remoção completa de `onLongPress` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.02s) |
-| `S17-T06` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve abrir tooltip de resumo no onPress simples da fatia` | Clique simples (`fireEvent.press`) na fatia abre o card flutuante `donut-tooltip` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T07` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve executar scrollTo suave ao clicar no botão/nome do ativo no tooltip de resumo` | Clique no nome (`donut-tooltip-scroll-btn`) dispara scroll suave até o ativo | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T08` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve disparar onAssetPress ao clicar no card do ativo na listagem` | Toque no card do ativo (`asset-card-*`) navega para a tela de detalhes disparando `onAssetPress` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T09` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir speed-dial stack acima do botão + na FloatingBottomDock sem abrir Modal` | Botão `+` rotaciona e abre container flutuante `fab-speed-dial-stack` sem modal | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T10` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir aviso "Funcionalidade em desenvolvimento" ao clicar no Globo, Bento Mais e 3º ícone da Navbar` | Interceptação de Globo, Mais e Extrato da dock com aviso de funcionalidade em desenvolvimento | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T11` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve redirecionar "Ver tudo >" de Movimentações Recentes para all-transactions-screen e não abrir tela de criar transação` | Redirecionamento de `"Ver tudo >"` para `all-transactions-screen` em vez de tela de criar transação | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🔴 FAIL (Fase A) |
-| `S17-T12` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `Tooltip no Clique Simples da Fatia (onPress) e Ausência de onLongPress` | Atualização do comportamento de abertura de resumo por clique simples e remoção de `onLongPress` | `84a6f12a0e3cfa5d1cf56d6c1e8377bdcbedee7b8f93fa38719506971b0c370f` | 🔴 FAIL (Fase A) |
-| `S17-T13` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `Scroll ao Clicar no Nome do Ativo no Resumo` | Disparo de `scrollTo` via `donut-tooltip-scroll-btn` no resumo flutuante | `84a6f12a0e3cfa5d1cf56d6c1e8377bdcbedee7b8f93fa38719506971b0c370f` | 🔴 FAIL (Fase A) |
-| `S17-T14` | `src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx` | `Mais Button Interception with Development Notice` | Clique em Mais bloqueia abertura de modal e exibe aviso de desenvolvimento | `046ed479531cebe9d4d1e96bd84f3e93bdb66186aa656c27ec4d939b6fff14af` | 🔴 FAIL (Fase A) |
+| `S17-T01` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir XpMinimalHeader com botão voltar em TransactionDetailHistoryScreen e remover indicador • PETR4` | Header padronizado `XpMinimalHeader` com `onBack`, botão voltar `header-back-button` e remoção do badge avulso `• PETR4` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.36s) |
+| `S17-T02` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar XpMinimalHeader em ClassDetailScreen com suporte a onBack` | Presença de `XpMinimalHeader` em `ClassDetailScreen` com chamada de `onClose` via botão voltar | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.03s) |
+| `S17-T03` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar XpMinimalHeader em StatisticsScreen e PortfolioManagementScreen` | Padronização global do header XP em todas as telas | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.37s) |
+| `S17-T04` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `XpMinimalHeader deve renderizar avatar quando onBack não for informado e botão voltar quando onBack for informado` | Contrato visual e funcional de `XpMinimalHeader` alternando entre Avatar e Back Button | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.01s) |
+| `S17-T05` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve renderizar o Donut Chart circular oco e não possuir onLongPress nas fatias` | Donut Chart circular com anel oco e remoção completa de `onLongPress` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.01s) |
+| `S17-T06` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve abrir tooltip de resumo no onPress simples da fatia` | Clique simples (`fireEvent.press`) na fatia abre o card flutuante `donut-tooltip` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.02s) |
+| `S17-T07` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve executar scrollTo suave ao clicar no botão/nome do ativo no tooltip de resumo` | Clique no nome (`donut-tooltip-scroll-btn`) dispara scroll suave até o ativo | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.02s) |
+| `S17-T08` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve disparar onAssetPress ao clicar no card do ativo na listagem` | Toque no card do ativo (`asset-card-*`) navega para a tela de detalhes disparando `onAssetPress` | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.01s) |
+| `S17-T09` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir speed-dial stack acima do botão + na FloatingBottomDock sem abrir Modal` | Botão `+` rotaciona e abre container flutuante `fab-speed-dial-stack` sem modal | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.14s) |
+| `S17-T10` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve exibir aviso "Funcionalidade em desenvolvimento" ao clicar no Globo, Bento Mais e 3º ícone da Navbar` | Interceptação de Globo, Mais e Extrato da dock com aviso de funcionalidade em desenvolvimento | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.11s) |
+| `S17-T11` | `src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `deve redirecionar "Ver tudo >" de Movimentações Recentes para all-transactions-screen e não abrir tela de criar transação` | Redirecionamento de `"Ver tudo >"` para `all-transactions-screen` em vez de tela de criar transação | `601633098e5b7a2ae973e673a457f81be483eb3c77768751a9c6581ce62bd560` | 🟢 PASS (0.06s) |
+| `S17-T12` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `Tooltip no Clique Simples da Fatia (onPress) e Ausência de onLongPress` | Atualização do comportamento de abertura de resumo por clique simples e remoção de `onLongPress` | `84a6f12a0e3cfa5d1cf56d6c1e8377bdcbedee7b8f93fa38719506971b0c370f` | 🟢 PASS (0.05s) |
+| `S17-T13` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `Scroll ao Clicar no Nome do Ativo no Resumo` | Disparo de `scrollTo` via `donut-tooltip-scroll-btn` no resumo flutuante | `84a6f12a0e3cfa5d1cf56d6c1e8377bdcbedee7b8f93fa38719506971b0c370f` | 🟢 PASS (0.03s) |
+| `S17-T14` | `src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx` | `Mais Button Interception with Development Notice` | Clique em Mais bloqueia abertura de modal e exibe aviso de desenvolvimento | `046ed479531cebe9d4d1e96bd84f3e93bdb66186aa656c27ec4d939b6fff14af` | 🟢 PASS (0.03s) |
 
 ---
 
@@ -1168,6 +1168,57 @@
     ```
   - Total da Sprint 17 em Red Phase: 17 casos | 5 PASS | 12 FAIL (Fase A Red Phase confirmada).
   - Total Geral do Projeto Celsus: 38 arquivos de teste bloqueados | 255 casos de teste automatizados (243 PASS / 12 FAIL aguardando Fase B).
+
+---
+
+### Sprint 17 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 38 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Padronização Global do `XpMinimalHeader` e Remoção do Indicador `• PETR4`:**
+     - Integrado `XpMinimalHeader` com suporte a `onBack` e `title`/`subtitle` em `TransactionDetailHistoryScreen.tsx`, removendo o badge avulso `• PETR4` do topo.
+     - Padronizado `XpMinimalHeader` em `ClassDetailScreen.tsx`, `StatisticsScreen.tsx`, `PortfolioManagementScreen.tsx` e `AllTransactionsScreen.tsx`.
+  2. **Donut Chart Circular Interativo e Remoção de `onLongPress` (`ClassDetailScreen.tsx`):**
+     - Gráfico Donut circular com anel oco central mantendo suporte a fatias proporcionais.
+     - Remoção completa de eventos `onLongPress` das fatias e da legenda.
+     - Abertura do card flutuante de resumo (`donut-tooltip`) ao clicar na fatia (`onPress`).
+     - Scroll suave até o ativo ao tocar no nome do ativo no card flutuante (`donut-tooltip-scroll-btn`).
+     - Navegação para a tela de detalhes do ativo ao tocar no card da listagem (`asset-card-*` via `onAssetPress`).
+  3. **Speed-Dial Inline na Navbar e Interceptação de Botões em Desenvolvimento:**
+     - Botão circular `+` da `FloatingBottomDock` rotaciona 45° (`×`) e exibe diretamente acima dele o stack vertical `fab-speed-dial-stack` com animação spring e os botões `fab-action-nova-carteira`, `fab-action-adicionar-ativo` e `fab-action-novo-aporte` (sem utilizar `<Modal>`).
+     - Interceptação com o aviso `"Funcionalidade em desenvolvimento"` no botão Globo do header (`header-globe-button`), no Bento "Mais" (`quick-action-mais`) e no 3º ícone da Navbar (`dock-tab-history`).
+     - Redirecionamento do botão `"Ver tudo >"` em Movimentações Recentes para a tela de Extrato Completo (`AllTransactionsScreen` / `all-transactions-screen`).
+- **Execução da Suíte da Sprint 17 (`npm test --prefix apps/mobile -- Sprint17HeaderDonutAndRoutes ClassDetailScreen QuickActionsMoreMenu`):**
+  ```text
+  PASS src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx (11 passed, 11 total)
+  PASS src/screens/__tests__/ClassDetailScreen.test.tsx (4 passed, 4 total)
+  PASS src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx (2 passed, 2 total)
+  Test Suites: 3 passed, 3 total
+  Tests:       17 passed, 17 total
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 32 passed, 32 total
+  Tests:       238 passed, 238 total
+  Snapshots:   0 total
+  Time:        14.988 s
+  Total Mobile: 32 suítes | 238 PASS | 0 FAIL
+  ```
+- **Execução Completa da Suíte Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.221s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.644s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.126s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.626s
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 17 Concluída):**
+  - **38 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **254 casos de teste automatizados executados (16 em Go + 238 em TypeScript/Jest)**
+  - **100% de aprovação (254 PASS / 0 FAIL) sob regime estrito de TDD Lock**
 
 
 

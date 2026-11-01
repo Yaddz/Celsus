@@ -6,6 +6,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -38,6 +39,7 @@ import {
   SettingsBackupScreen,
   ClassDetailScreen,
   TransactionDetailHistoryScreen,
+  AllTransactionsScreen,
 } from './src/screens';
 import {
   redactCurrencyValue,
@@ -125,6 +127,7 @@ function AppContent() {
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
+  const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
 
   // Lista de Movimentações Recentes e Saldos Consolidados
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
@@ -477,6 +480,50 @@ function AppContent() {
     );
   }
 
+  // Tela: Extrato Completo de Movimentações (AllTransactionsScreen)
+  if (isAllTransactionsModalOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <AllTransactionsScreen
+          transactions={transactionsList}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          onClose={() => setIsAllTransactionsModalOpen(false)}
+          onSelectTransaction={(tx) => {
+            setIsAllTransactionsModalOpen(false);
+            setSelectedRecentTransaction(tx);
+          }}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setIsAllTransactionsModalOpen(false);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
+          themeMode={themeMode}
+        />
+      </SafeAreaView>
+    );
+  }
+
   // Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
   if (selectedClassDetail) {
     return (
@@ -564,7 +611,7 @@ function AppContent() {
             userInitials="PL"
             isPrivacyModeEnabled={isPrivacyMode}
             onAvatarPress={() => setIsSettingsBackupModalOpen(true)}
-            onGlobePress={() => {}}
+            onGlobePress={() => Alert.alert('Funcionalidade em desenvolvimento')}
             onTogglePrivacy={() => {
               const next = privacyAndAuthService.togglePrivacyMode();
               setIsPrivacyMode(next.isPrivacyModeEnabled);
@@ -590,7 +637,7 @@ function AppContent() {
             variant="v2"
             onAportar={() => setIsTransactionModalOpen(true)}
             onSimular={() => setIsSimulatorModalOpen(true)}
-            onMais={() => setIsPortfolioManagerModalOpen(true)}
+            onMais={() => Alert.alert('Funcionalidade em desenvolvimento')}
             onNovoAportePress={() => setIsTransactionModalOpen(true)}
             onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
             themeMode={themeMode}
@@ -602,7 +649,7 @@ function AppContent() {
               ...tx,
               amountText: isPrivacyMode ? PRIVACY_ASTERISK_MASK : tx.amountText,
             }))}
-            onViewAll={() => setIsTransactionModalOpen(true)}
+            onViewAll={() => setIsAllTransactionsModalOpen(true)}
             onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
             themeMode={themeMode}
             testID="home-recent-transactions"
@@ -628,7 +675,7 @@ function AppContent() {
           if (tab === 'wallets') {
             setActiveTab('wallets');
           } else if (tab === 'history') {
-            setIsTransactionModalOpen(true);
+            Alert.alert('Funcionalidade em desenvolvimento');
           } else if (tab === 'stats') {
             setActiveTab('stats');
           } else {

@@ -14,6 +14,7 @@ import {
   DotMatrixAllocationCard,
   PatrimonyLineChartCard,
   TimePeriod,
+  XpMinimalHeader,
 } from '../components/ui';
 import {
   HistoricalPricePoint,
@@ -189,7 +190,12 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     : undefined;
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight, { paddingTop: insets.top + spacing.xs }]}>
+    <View style={[styles.container, isLight && styles.containerLight]}>
+      <XpMinimalHeader
+        title="Análises"
+        isPrivacyModeEnabled={isPrivacyMode}
+        themeMode={themeMode}
+      />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Seletor de Carteira: Carteiras Consolidadas ou individuais */}
         <ScrollView

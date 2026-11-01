@@ -7,6 +7,7 @@ import {
   ViewStyle,
   TextStyle,
   StyleProp,
+  Alert,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
@@ -182,7 +183,7 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
     : {};
 
   const handleMaisPress = () => {
-    setIsMoreMenuOpen(!isMoreMenuOpen);
+    Alert.alert('Funcionalidade em desenvolvimento');
     onMais();
   };
 
@@ -226,53 +227,6 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           themeMode={themeMode}
         />
       </View>
-
-      {/* Menu Modal com 2 Opções ao Clicar em Mais */}
-      {isMoreMenuOpen ? (
-        <View
-          testID="quick-actions-more-modal"
-          style={[
-            styles.moreModalOverlay,
-            isLight && styles.moreModalOverlayLight,
-          ]}
-        >
-          <TouchableOpacity
-            testID="more-option-novo-aporte"
-            activeOpacity={0.75}
-            onPress={() => {
-              setIsMoreMenuOpen(false);
-              onNovoAportePress?.();
-            }}
-            style={[
-              styles.moreModalOption,
-              isLight && styles.moreModalOptionLight,
-            ]}
-          >
-            <MaterialIcons name="north-east" size={20} color={colors.primary} />
-            <Text style={[styles.moreOptionText, isLight && styles.moreOptionTextLight]}>
-              Novo Aporte
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            testID="more-option-nova-carteira"
-            activeOpacity={0.75}
-            onPress={() => {
-              setIsMoreMenuOpen(false);
-              onNovaCarteiraPress?.();
-            }}
-            style={[
-              styles.moreModalOption,
-              isLight && styles.moreModalOptionLight,
-            ]}
-          >
-            <MaterialIcons name="account-balance-wallet" size={20} color={colors.tertiary} />
-            <Text style={[styles.moreOptionText, isLight && styles.moreOptionTextLight]}>
-              Nova Carteira
-            </Text>
-          </TouchableOpacity>
-        </View>
-      ) : null}
     </View>
   );
 };

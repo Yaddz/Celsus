@@ -19,7 +19,7 @@ import {
   validateClassTargets,
   validateAssetTargetsInClass,
 } from '../domain/finance';
-import { StackedWalletDeck, StackedWalletItem } from '../components/ui';
+import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader } from '../components/ui';
 import { marketApiService } from '../services/marketApi';
 
 interface PortfolioItem {
@@ -218,7 +218,13 @@ export const PortfolioManagementScreen: React.FC<{
   });
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight, { paddingTop: insets.top + spacing.xs }]}>
+    <View style={[styles.container, isLight && styles.containerLight]}>
+      <XpMinimalHeader
+        title="Carteiras"
+        onBack={onClose}
+        isPrivacyModeEnabled={isPrivacyMode}
+        themeMode={themeMode}
+      />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* 1. StackedWalletDeck da Home reaproveitado para troca de carteira */}
         <StackedWalletDeck
