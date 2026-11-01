@@ -1,0 +1,9 @@
+{
+  "name": "celsus-market",
+  "platforms": ["android"],
+  "android": {
+    "modules": [
+      "expo.modules.celsusmarket.CelsusMarketModule"
+    ]
+  }
+}

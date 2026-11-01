@@ -1,0 +1,1 @@
+C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\src\main\java\expo\modules\celsusmarket\CelsusMarketModule.kt
