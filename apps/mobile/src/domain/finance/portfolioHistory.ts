@@ -337,8 +337,37 @@ export function filterCurveByPeriod(
   period: PeriodFilter,
   referenceDate?: string
 ): HistoricalPricePoint[] {
-  // Stub para a Fase A
-  return [];
+  if (!curve || curve.length === 0) {
+    return [];
+  }
+
+  if (period === 'ALL') {
+    return [...curve];
+  }
+
+  const sortedCurve = [...curve].sort((a, b) => a.date.localeCompare(b.date));
+  const refDateStr = referenceDate || sortedCurve[sortedCurve.length - 1].date;
+  const refDate = new Date(refDateStr + 'T00:00:00Z');
+
+  const cutoffDate = new Date(refDate);
+
+  switch (period) {
+    case '5D':
+      cutoffDate.setUTCDate(cutoffDate.getUTCDate() - 5);
+      break;
+    case '1M':
+      cutoffDate.setUTCMonth(cutoffDate.getUTCMonth() - 1);
+      break;
+    case '1Y':
+      cutoffDate.setUTCFullYear(cutoffDate.getUTCFullYear() - 1);
+      break;
+    case '5Y':
+      cutoffDate.setUTCFullYear(cutoffDate.getUTCFullYear() - 5);
+      break;
+  }
+
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+  return sortedCurve.filter((p) => p.date >= cutoffStr && p.date <= refDateStr);
 }
 
 /**
@@ -349,13 +378,64 @@ export function calculatePeriodSummary(
   curve: HistoricalPricePoint[],
   transactions?: HistoricalTransactionInput[]
 ): PeriodSummary {
-  // Stub para a Fase A
+  if (!curve || curve.length === 0) {
+    return {
+      initialPatrimony: '0.00',
+      netContributions: '0.00',
+      yieldAmount: '0.00',
+      yieldPercentage: '0.00',
+      finalPatrimony: '0.00',
+    };
+  }
+
+  const sortedCurve = [...curve].sort((a, b) => a.date.localeCompare(b.date));
+  const firstPoint = sortedCurve[0];
+  const lastPoint = sortedCurve[sortedCurve.length - 1];
+
+  const initialPatrimony = new Decimal(firstPoint.marketValue);
+  const finalPatrimony = new Decimal(lastPoint.marketValue);
+
+  let netContributions = new Decimal(0);
+
+  if (transactions && transactions.length > 0) {
+    const startDate = firstPoint.date;
+    const endDate = lastPoint.date;
+
+    const periodTxs = transactions.filter(
+      (tx) => tx.tradeDate >= startDate && tx.tradeDate <= endDate
+    );
+
+    for (const tx of periodTxs) {
+      const qty = new Decimal(tx.quantity);
+      const price = new Decimal(tx.unitPrice);
+      const fees = new Decimal(tx.fees || 0);
+
+      if (tx.type === 'BUY') {
+        netContributions = netContributions.plus(qty.mul(price).plus(fees));
+      } else if (tx.type === 'SELL') {
+        netContributions = netContributions.minus(qty.mul(price).minus(fees));
+      }
+    }
+  } else {
+    const initialInvested = new Decimal(firstPoint.investedCapital);
+    const finalInvested = new Decimal(lastPoint.investedCapital);
+    netContributions = finalInvested.minus(initialInvested);
+  }
+
+  const yieldAmount = finalPatrimony.minus(initialPatrimony).minus(netContributions);
+
+  const baseCapital = initialPatrimony.plus(netContributions.gt(0) ? netContributions : new Decimal(0));
+  const yieldPercentage = baseCapital.gt(0)
+    ? yieldAmount.div(baseCapital).mul(100)
+    : new Decimal(0);
+
   return {
-    initialPatrimony: '0.00',
-    netContributions: '0.00',
-    yieldAmount: '0.00',
-    yieldPercentage: '0.00',
-    finalPatrimony: '0.00',
+    initialPatrimony: initialPatrimony.toFixed(2),
+    netContributions: netContributions.toFixed(2),
+    yieldAmount: yieldAmount.toFixed(2),
+    yieldPercentage: yieldPercentage.toFixed(2),
+    finalPatrimony: finalPatrimony.toFixed(2),
   };
 }
+
 

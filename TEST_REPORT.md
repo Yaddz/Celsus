@@ -888,6 +888,42 @@
     - `PortfolioManagementV2.test.tsx`: 4 testes falham sob stubs aguardando reaproveitamento do `StackedWalletDeck` e remoção de textos artificiais com cara de IA (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`).
   - Total da Sprint 11 em Red Phase: 27 testes | 4 PASS | 23 FAIL.
 
+### Sprint 11 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 34 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução da Suíte Sprint 11 (`npm test --prefix apps/mobile -- periodSummary StatisticsScreenV2 PortfolioManagementV2`):**
+  ```text
+  PASS src/domain/finance/__tests__/periodSummary.test.ts (12 passed, 12 total)
+  PASS src/screens/__tests__/StatisticsScreenV2.test.tsx (8 passed, 8 total)
+  PASS src/screens/__tests__/PortfolioManagementV2.test.tsx (7 passed, 7 total)
+  Test Suites: 3 passed, 3 total
+  Tests:       27 passed, 27 total
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile`):**
+  ```text
+  Test Suites: 28 passed, 28 total
+  Tests:       205 passed, 205 total
+  Snapshots:   0 total
+  Time:        7.228 s
+  Total Mobile: 28 suítes | 205 PASS | 0 FAIL
+  ```
+- **Execução Final da Suíte Backend Go (`cd services/market-api && go test ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	(cached)
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 11 Concluída):**
+  - **34 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **221 casos de teste automatizados executados (16 em Go + 205 em TypeScript/Jest)**
+  - **100% de aprovação (221 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
+
 
 
 

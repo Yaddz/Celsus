@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,19 +7,19 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, borders } from '../theme/tokens';
+import { colors, typography, borders, spacing } from '../theme/tokens';
+import { getPortfolioPalette } from '../theme/palettes';
 import {
   AssetClass,
   ClassTarget,
   calculateGlobalTarget,
   validateClassTargets,
   validateAssetTargetsInClass,
-  calculateSmartContribution,
-  RebalanceAssetInput,
 } from '../domain/finance';
+import { StackedWalletDeck, StackedWalletItem } from '../components/ui';
 import { marketApiService } from '../services/marketApi';
 
 interface PortfolioItem {
@@ -41,16 +41,19 @@ interface AssetItem {
 export const PortfolioManagementScreen: React.FC<{
   onClose?: () => void;
 }> = ({ onClose }) => {
+  const insets = useSafeAreaInsets();
+
   // 1. Estado de Carteiras
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([
     { id: 'port-1', name: 'Carteira Principal', docketCode: '•••• 001' },
     { id: 'port-2', name: 'Reserva & Oportunidade', docketCode: '•••• 002' },
   ]);
   const [activePortfolioId, setActivePortfolioId] = useState('port-1');
+  const [activeIndex, setActiveIndex] = useState(0);
   const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState('');
 
-  // 2. Nível 1: Metas Macro por Classe (Wc)
+  // 2. Metas Macro por Classe
   const [classTargets, setClassTargets] = useState<ClassTarget[]>([
     { assetClass: 'FIXED_INCOME', targetPercentage: 30 },
     { assetClass: 'FII', targetPercentage: 20 },
@@ -58,7 +61,7 @@ export const PortfolioManagementScreen: React.FC<{
     { assetClass: 'CRYPTO', targetPercentage: 10 },
   ]);
 
-  // 3. Nível 2: Ativos e Metas Micro (wi,c)
+  // 3. Ativos e Metas na Classe
   const [selectedClassTab, setSelectedClassTab] = useState<AssetClass>('STOCK');
   const [assets, setAssets] = useState<AssetItem[]>([
     // STOCK (40% macro)
@@ -90,7 +93,6 @@ export const PortfolioManagementScreen: React.FC<{
     currentClassAssets.map((a) => ({ targetPercentageInClass: a.targetInClass }))
   );
 
-  const activePortfolio = portfolios.find((p) => p.id === activePortfolioId) || portfolios[0];
   const currentClassTarget = classTargets.find((c) => c.assetClass === selectedClassTab)?.targetPercentage || 0;
 
   // Handlers para ajustar % da Classe
@@ -116,6 +118,7 @@ export const PortfolioManagementScreen: React.FC<{
     };
     setPortfolios([...portfolios, newPort]);
     setActivePortfolioId(newPort.id);
+    setActiveIndex(portfolios.length);
     setNewPortfolioName('');
     setIsNewPortfolioModalOpen(false);
   };
@@ -152,10 +155,11 @@ export const PortfolioManagementScreen: React.FC<{
     setAssets([...assets, newAsset]);
     setNewTicker('');
     setNewName('');
+    setNewTargetInClass('25');
     setIsAddAssetModalOpen(false);
   };
 
-  // Handler para atualizar meta micro de um ativo
+  // Handler para ajustar peso de um ativo
   const handleUpdateAssetTarget = (assetId: string, delta: number) => {
     setAssets((prev) =>
       prev.map((a) => {
@@ -171,11 +175,11 @@ export const PortfolioManagementScreen: React.FC<{
   const getClassColor = (c: AssetClass) => {
     switch (c) {
       case 'FIXED_INCOME':
-        return colors.fixedIncome;
+        return colors.secondary;
       case 'FII':
-        return colors.fii;
+        return colors.tertiary;
       case 'STOCK':
-        return colors.stock;
+        return colors.primary;
       case 'CRYPTO':
         return colors.crypto;
     }
@@ -194,66 +198,51 @@ export const PortfolioManagementScreen: React.FC<{
     }
   };
 
+  // Mapeamento dos portfolios para o StackedWalletDeck
+  const deckPortfolios: StackedWalletItem[] = portfolios.map((p, idx) => {
+    const palette = getPortfolioPalette(idx);
+    return {
+      id: p.id,
+      name: p.name,
+      docketCode: `REV-CART-00${idx + 1}`,
+      accountCode: p.docketCode,
+      balance: 'R$ 32.468,00',
+      subtitle: 'Patrimônio Total',
+      profitText: '+12,4% no ano',
+      accentColor: palette.primary,
+      paletteId: palette.id,
+    };
+  });
+
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>CARTEIRAS & ALOCAÇÃO</Text>
-          <Text style={styles.headerSubtitle}>SISTEMA DE PESOS EM 2 NÍVEIS</Text>
-        </View>
-        {onClose && (
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
-          </TouchableOpacity>
-        )}
-      </View>
-
+    <View style={[styles.container, { paddingTop: insets.top + spacing.xs }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Seletor de Carteira Ativa */}
-        <View style={styles.cardSection}>
-          <Text style={styles.sectionLabel}>CARTEIRA ATIVA</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.portfolioScroll}>
-            {portfolios.map((p) => {
-              const isSelected = p.id === activePortfolioId;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  activeOpacity={0.8}
-                  onPress={() => setActivePortfolioId(p.id)}
-                  style={[styles.portfolioChip, isSelected && styles.portfolioChipActive]}
-                >
-                  <MaterialIcons
-                    name="account-balance-wallet"
-                    size={16}
-                    color={isSelected ? colors.voidFloor : colors.tertiary}
-                    style={{ marginRight: 6 }}
-                  />
-                  <View>
-                    <Text style={[styles.portfolioChipName, isSelected && styles.portfolioChipNameActive]}>
-                      {p.name}
-                    </Text>
-                    <Text style={styles.portfolioChipDocket}>{p.docketCode}</Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setIsNewPortfolioModalOpen(true)}
-              style={styles.addPortfolioChip}
-            >
-              <Text style={styles.addPortfolioIcon}>+</Text>
-              <Text style={styles.addPortfolioText}>Nova Carteira</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+        {/* 1. StackedWalletDeck da Home reaproveitado para troca de carteira */}
+        <StackedWalletDeck
+          portfolios={deckPortfolios}
+          activeIndex={activeIndex}
+          onPortfolioChange={(idx, item) => {
+            setActiveIndex(idx);
+            setActivePortfolioId(item.id);
+          }}
+          testID="stacked-wallet-deck"
+        />
 
-        {/* Nível 1: Metas Macro por Classe */}
+        {/* Botão de adicionar nova carteira */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => setIsNewPortfolioModalOpen(true)}
+          style={styles.addPortfolioBtn}
+        >
+          <MaterialIcons name="add" size={18} color={colors.primary} />
+          <Text style={styles.addPortfolioBtnText}>Adicionar Nova Carteira</Text>
+        </TouchableOpacity>
+
+        {/* 2. Metas por Classe */}
         <View style={styles.cardSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionLabel}>NÍVEL 1: METAS MACRO (Wc)</Text>
+              <Text style={styles.sectionLabel}>Metas por Classe</Text>
               <Text style={styles.sectionHelper}>Alocação ideal entre classes na carteira</Text>
             </View>
             <View
@@ -305,13 +294,13 @@ export const PortfolioManagementScreen: React.FC<{
           </View>
         </View>
 
-        {/* Nível 2: Metas Micro por Ativo na Classe */}
+        {/* 3. Ativos e Metas na Classe */}
         <View style={styles.cardSection}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionLabel}>NÍVEL 2: METAS MICRO (wi,c)</Text>
+              <Text style={styles.sectionLabel}>Ativos na Categoria</Text>
               <Text style={styles.sectionHelper}>
-                Ativos em {getClassName(selectedClassTab)} (Classe: {currentClassTarget}%)
+                Ativos em {getClassName(selectedClassTab)} (Meta: {currentClassTarget}%)
               </Text>
             </View>
             <View
@@ -356,7 +345,7 @@ export const PortfolioManagementScreen: React.FC<{
             })}
           </View>
 
-          {/* Lista de Ativos com Meta Micro e Global Ti */}
+          {/* Lista de Ativos */}
           <View style={styles.assetsList}>
             {currentClassAssets.map((asset) => {
               const globalTarget = calculateGlobalTarget(currentClassTarget, asset.targetInClass);
@@ -370,7 +359,7 @@ export const PortfolioManagementScreen: React.FC<{
                       <Text style={styles.assetName}>{asset.name}</Text>
                     </View>
                     <View style={styles.globalBadge}>
-                      <Text style={styles.globalBadgeLabel}>META GLOBAL Ti</Text>
+                      <Text style={styles.globalBadgeLabel}>Meta Geral</Text>
                       <Text style={[styles.globalBadgeValue, { color }]}>{globalTarget.toFixed(1)}%</Text>
                     </View>
                   </View>
@@ -407,6 +396,8 @@ export const PortfolioManagementScreen: React.FC<{
             </TouchableOpacity>
           </View>
         </View>
+
+        <View style={{ height: 60 }} />
       </ScrollView>
 
       {/* Modal: Nova Carteira */}
@@ -491,45 +482,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.voidFloor,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#26292C',
-  },
-  headerTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-  },
-  headerSubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 10,
-    color: '#8A8C90',
-    letterSpacing: 1,
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.neutral,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    color: colors.parchmentPale,
-    fontSize: 16,
-    fontWeight: '700',
-  },
   scrollContent: {
     padding: 16,
     gap: 16,
     paddingBottom: 40,
+  },
+  addPortfolioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16181A',
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#26292C',
+    borderStyle: 'dashed',
+    gap: 8,
+    marginTop: -4,
+  },
+  addPortfolioBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.parchmentPale,
+    fontWeight: '600',
   },
   cardSection: {
     backgroundColor: colors.neutral,
@@ -578,68 +553,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: colors.parchmentPale,
-  },
-  portfolioScroll: {
-    marginTop: 10,
-  },
-  portfolioChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#202224',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 16,
-    marginRight: 10,
-    borderWidth: borders.hairline,
-    borderColor: '#303336',
-    gap: 8,
-  },
-  portfolioChipActive: {
-    borderColor: colors.primary,
-    backgroundColor: '#2A1F18',
-  },
-  portfolioChipIcon: {
-    fontSize: 16,
-    color: '#888',
-  },
-  portfolioChipIconActive: {
-    color: colors.primary,
-  },
-  portfolioChipName: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#CCC',
-  },
-  portfolioChipNameActive: {
-    color: colors.parchmentPale,
-  },
-  portfolioChipDocket: {
-    fontFamily: typography.fontFamily,
-    fontSize: 9,
-    color: '#777',
-  },
-  addPortfolioChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#16181A',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#303336',
-    borderStyle: 'dashed',
-    gap: 6,
-  },
-  addPortfolioIcon: {
-    fontSize: 16,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  addPortfolioText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#AAA',
   },
   macroGrid: {
     flexDirection: 'row',
@@ -748,23 +661,23 @@ const styles = StyleSheet.create({
   },
   globalBadgeLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 8,
-    color: '#888',
-    letterSpacing: 0.5,
+    fontSize: 9,
+    color: '#8A8C90',
+    marginBottom: 2,
   },
   globalBadgeValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
   },
   assetTargetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 8,
     paddingTop: 8,
     borderTopWidth: borders.hairline,
-    borderTopColor: '#2B2E31',
+    borderTopColor: '#2D3033',
   },
   targetInClassLabel: {
     fontFamily: typography.fontFamily,
@@ -772,32 +685,32 @@ const styles = StyleSheet.create({
     color: '#AAA',
   },
   microStepBtn: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
     backgroundColor: '#16181A',
     borderWidth: borders.hairline,
     borderColor: '#383C40',
+    alignItems: 'center',
   },
   addAssetBtn: {
     backgroundColor: '#181A1C',
-    borderRadius: 14,
+    borderRadius: 16,
     paddingVertical: 12,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#33373B',
-    borderStyle: 'dashed',
-    marginTop: 6,
+    borderWidth: borders.hairline,
+    borderColor: '#2D3033',
+    marginTop: 4,
   },
   addAssetBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -808,61 +721,63 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
     borderWidth: borders.hairline,
-    borderColor: '#33373B',
+    borderColor: '#303336',
   },
   modalTitle: {
     fontFamily: typography.fontFamily,
     fontSize: 14,
     fontWeight: '700',
-    color: colors.primary,
+    color: colors.parchmentPale,
   },
   modalSubtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: '#888',
-    marginBottom: 14,
+    color: '#8A8C90',
+    marginTop: 2,
+    marginBottom: 16,
   },
   modalInput: {
-    backgroundColor: '#202224',
+    backgroundColor: '#121416',
     borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
+    color: colors.parchmentPale,
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    color: colors.parchmentPale,
     borderWidth: borders.hairline,
-    borderColor: '#33373B',
+    borderColor: '#282A2C',
     marginBottom: 10,
   },
   modalButtonsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 6,
+    marginTop: 10,
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#26282B',
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#202224',
     alignItems: 'center',
   },
   modalCancelText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
     color: '#AAA',
+    fontWeight: '600',
   },
   modalConfirmBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 14,
     backgroundColor: colors.primary,
     alignItems: 'center',
   },
   modalConfirmText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: '700',
     color: colors.voidFloor,
+    fontWeight: '700',
   },
 });
 

@@ -7,15 +7,27 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from '../theme/tokens';
 import {
-  MonthlyPillChartCard,
   DotMatrixAllocationCard,
+  PatrimonyLineChartCard,
   TimePeriod,
 } from '../components/ui';
-import { MonthlyPillPoint, calculateMonthlyAggregatedPills, calculateDailyPatrimonyCurve } from '../domain/finance/portfolioHistory';
-import { consolidatePortfolios, ConsolidatedDossierResult, PortfolioConsolidationInput } from '../domain/finance/consolidatedView';
+import {
+  HistoricalPricePoint,
+  HistoricalTransactionInput,
+  PeriodFilter,
+  filterCurveByPeriod,
+  calculatePeriodSummary,
+  calculateDailyPatrimonyCurve,
+} from '../domain/finance/portfolioHistory';
+import {
+  consolidatePortfolios,
+  ConsolidatedDossierResult,
+  PortfolioConsolidationInput,
+} from '../domain/finance/consolidatedView';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
@@ -25,15 +37,26 @@ export interface StatisticsScreenProps {
   isPrivacyMode?: boolean;
 }
 
+const DEFAULT_SAMPLE_CURVE: HistoricalPricePoint[] = [
+  { date: '2026-01-01', investedCapital: '20000.00', marketValue: '20000.00', profit: '0.00', profitPercentage: '0.00' },
+  { date: '2026-02-01', investedCapital: '25000.00', marketValue: '26200.00', profit: '1200.00', profitPercentage: '4.80' },
+  { date: '2026-03-01', investedCapital: '28000.00', marketValue: '30100.00', profit: '2100.00', profitPercentage: '7.50' },
+  { date: '2026-04-01', investedCapital: '30000.00', marketValue: '32500.00', profit: '2500.00', profitPercentage: '8.33' },
+  { date: '2026-05-01', investedCapital: '32000.00', marketValue: '34200.00', profit: '2200.00', profitPercentage: '6.88' },
+  { date: '2026-06-01', investedCapital: '32000.00', marketValue: '35468.00', profit: '3468.00', profitPercentage: '10.84' },
+];
+
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
 }) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('M');
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('all'); // 'all' = Consolidado
+  const insets = useSafeAreaInsets();
+  const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<PeriodFilter>('ALL');
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('all'); // 'all' = Carteiras Consolidadas
   const [loading, setLoading] = useState(true);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedDossierResult | null>(null);
-  const [monthlyPills, setMonthlyPills] = useState<MonthlyPillPoint[]>([]);
+  const [dailyCurve, setDailyCurve] = useState<HistoricalPricePoint[]>(DEFAULT_SAMPLE_CURVE);
+  const [transactionsList, setTransactionsList] = useState<HistoricalTransactionInput[]>([]);
   const [portfoliosList, setPortfoliosList] = useState<Array<{ id: string; name: string }>>([]);
 
   const loadData = async () => {
@@ -69,14 +92,12 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         })
       );
 
-      // Consolidação de todas as carteiras via consolidatedView
       const dossier = consolidatePortfolios(consolidationInputs);
       setConsolidatedData(dossier);
 
-      // Reconstrução de série histórica / cápsulas mensais
-      // Coleta ativos e transações da carteira selecionada ou de todas
-      let targetAssets = [];
-      let targetTxs = [];
+      // Coleta ativos e transações da carteira selecionada ou consolidadas
+      let targetAssets: any[] = [];
+      let targetTxs: any[] = [];
 
       for (const p of allPortfolios) {
         if (selectedPortfolioId === 'all' || p.id === selectedPortfolioId) {
@@ -88,6 +109,17 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
       }
 
       if (targetTxs.length > 0) {
+        const mappedTxs: HistoricalTransactionInput[] = targetTxs.map((t) => ({
+          id: t.id,
+          assetId: t.asset_id,
+          type: t.type as any,
+          tradeDate: t.trade_date,
+          quantity: t.quantity,
+          unitPrice: t.unit_price,
+          fees: t.fees,
+        }));
+        setTransactionsList(mappedTxs);
+
         const curve = calculateDailyPatrimonyCurve({
           assets: targetAssets.map((a) => ({
             id: a.id,
@@ -97,35 +129,15 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
             rfRate: a.rf_rate,
             manualPriceOverride: a.manual_price_override,
           })),
-          transactions: targetTxs.map((t) => ({
-            id: t.id,
-            assetId: t.asset_id,
-            type: t.type as any,
-            tradeDate: t.trade_date,
-            quantity: t.quantity,
-            unitPrice: t.unit_price,
-            fees: t.fees,
-          })),
+          transactions: mappedTxs,
         });
 
-        const pills = calculateMonthlyAggregatedPills(
-          curve,
-          targetTxs.map((t) => ({
-            assetId: t.asset_id,
-            type: t.type as any,
-            tradeDate: t.trade_date,
-            quantity: t.quantity,
-            unitPrice: t.unit_price,
-            fees: t.fees,
-          }))
-        );
-
-        if (pills.length > 0) {
-          setMonthlyPills(pills);
+        if (curve && curve.length > 0) {
+          setDailyCurve(curve);
         }
       }
     } catch {
-      // Se der erro ao carregar do banco local (ex: tabela vazia), usa os dados calculados padrão
+      // Se houver erro ou dados vazios, mantém curva e dados padrão
     } finally {
       setLoading(false);
     }
@@ -134,6 +146,11 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   useEffect(() => {
     loadData();
   }, [selectedPortfolioId]);
+
+  // Filtragem da série histórica e cálculo do resumo financeiro
+  const filteredCurve = filterCurveByPeriod(dailyCurve, selectedPeriodFilter);
+  const activeCurve = filteredCurve.length > 0 ? filteredCurve : dailyCurve;
+  const periodSummary = calculatePeriodSummary(activeCurve, transactionsList);
 
   const totalBalanceStr = consolidatedData
     ? `R$ ${parseFloat(consolidatedData.totalMarketValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
@@ -169,32 +186,9 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     : undefined;
 
   return (
-    <View style={styles.container}>
-      {/* Header Superior */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <View style={styles.headerIconBadge}>
-            <MaterialIcons name="bar-chart" size={22} color={colors.secondary} />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>ESTATÍSTICAS & ANÁLISES</Text>
-            <Text style={styles.headerSubtitle}>Evolução Temporal • Dossiê Consolidado</Text>
-          </View>
-        </View>
-
-        {onClose ? (
-          <TouchableOpacity
-            activeOpacity={0.75}
-            onPress={onClose}
-            style={styles.closeButton}
-          >
-            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
-          </TouchableOpacity>
-        ) : null}
-      </View>
-
+    <View style={[styles.container, { paddingTop: insets.top + spacing.xs }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Seletor de Carteira ou Consolidado */}
+        {/* Seletor de Carteira: Carteiras Consolidadas ou individuais */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -214,7 +208,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
                 selectedPortfolioId === 'all' && styles.filterPillTextActive,
               ]}
             >
-              Dossiê Geral (Consolidado)
+              Carteiras Consolidadas
             </Text>
           </TouchableOpacity>
 
@@ -246,13 +240,14 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           </View>
         ) : null}
 
-        {/* 1. Gráfico de Cápsulas Empilhadas Mensais */}
-        <MonthlyPillChartCard
-          pills={monthlyPills.length > 0 ? monthlyPills : undefined}
-          selectedPeriod={selectedPeriod}
-          onPeriodChange={setSelectedPeriod}
+        {/* 1. Gráfico de Linha Suave com Sombra e Card de Resumo do Período */}
+        <PatrimonyLineChartCard
+          curve={activeCurve}
+          selectedPeriod={selectedPeriodFilter}
+          onPeriodChange={setSelectedPeriodFilter}
+          summary={periodSummary}
           isPrivacyMode={isPrivacyMode}
-          testID="monthly-pill-chart-card"
+          testID="patrimony-line-chart-card"
         />
 
         {/* 2. Card de Alocação por Categoria com Matriz de Pontos */}
@@ -310,63 +305,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.voidFloor,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#25282B',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  headerIconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#191B1D',
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-    letterSpacing: 1.1,
-  },
-  headerSubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#8A8A8E',
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.neutral,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-  },
   scrollContent: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.xs,
   },
   filterScroll: {
     flexDirection: 'row',
     gap: 8,
     paddingVertical: spacing.xs,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   filterPill: {
     paddingHorizontal: 14,
