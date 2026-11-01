@@ -29,7 +29,8 @@
 | **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 0 | 7 | `VERIFIED (42 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
-| **TOTAL (S1–S22)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **42** | **296** | **289** | **7** | **`VERIFIED (42 arquivos)`** | **⏳ 289 PASS / 7 Red Phase** |
+| **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 0 | 10 | `VERIFIED (43 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
+| **TOTAL (S1–S23)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **43** | **306** | **289** | **17** | **`VERIFIED (43 arquivos)`** | **⏳ 289 PASS / 17 Red Phase** |
 
 ---
 
@@ -278,6 +279,16 @@
 | `S22-T05` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchMacroRatesJSON` | Sincronização incremental e consulta de séries macro CDI (#12) e IPCA (#433) do BCB SGS | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
 | `S22-T06` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetCorporateEventsJSON` | Consulta de eventos corporativos (splits, dividendos) salvos em SQLite | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
 | `S22-T07` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_IngestCotahistZipJSON` | Ingestão de arquivo .ZIP local B3 COTAHIST com filtragem por tickers permitidos | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+
+---
+
+### 2.20. Sprint 23 — Expo Module Nativo Android (`celsus-market`), Integração Direta em `MarketApiService` e Cache 15m TTL
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S23-T01` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Zero HTTP / Invocação Direta da Bridge Nativa` | `MarketApiService` delega `fetchQuotes`, `getHistoricalPrice`, `searchCatalog`, `fetchMacroRates` e `checkHealth` para `nativeBridge` sem chamar `global.fetch` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | ❌ FAIL (Red Phase) |
+| `S23-T02` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Cache SQLite com TTL de 15 Minutos e Force Refresh` | Cotações com `updated_at` < 15 min retornadas do SQLite com `isStale: false`; `updated_at` >= 15 min ou `forceRefresh: true` acionam `nativeBridge.fetchQuotes` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | ❌ FAIL (Red Phase) |
+| `S23-T03` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Fallback Offline / Stale e Sanitização de Ticker (.SA)` | Se a rede/bridge falhar, retorna cotação do SQLite com `isStale: true` e preserva `updatedAt` original intacto; sanitiza tickers removendo qualquer sufixo `.SA` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | ❌ FAIL (Red Phase) |
 
 ---
 
@@ -1643,6 +1654,45 @@
   ```
 - **Total da Sprint 22 em Red Phase:** 7 novos casos | 0 PASS | 7 FAIL (Fase A Red Phase confirmada).
 - **Total Geral do Projeto Celsus:** 42 arquivos de teste bloqueados | 296 casos de teste automatizados (289 PASS / 7 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 23 — Fase A: Autoria e Bloqueio dos Testes do Expo Module Nativo e Cache TTL (`Sprint23NativeMarketBridgeAndTTL.test.ts`) (2026-11-01)
+- **Status do Bloqueio:** 43 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json` (incluindo o novo arquivo de teste `apps/mobile/src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action lock` / `verify`):**
+  ```text
+  [TDD LOCK] 43 arquivo(s) de teste bloqueado(s) com ReadOnly e registrados em tests.lock.json.
+  [TDD VERIFIED] Integridade de todos os 43 arquivos de teste confirmada via SHA-256.
+  ```
+- **Arquivo de Teste Criado e Bloqueado:**
+  - `apps/mobile/src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts`: `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6`
+- **Execução dos Testes da Sprint 23 sob Stubs (Red Phase Confirmada no Jest):**
+  ```text
+  FAIL src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts
+    Sprint 23: Native Market Bridge and 15-Minute TTL Cache Specification
+      S23-T01: Zero HTTP / Direct Native Bridge Invocation
+        × should delegate fetchQuotes to nativeBridge without calling global.fetch (7 ms)
+        × should delegate getHistoricalPrice to nativeBridge when not in local COTAHIST and not call global.fetch (8 ms)
+        × should delegate searchCatalog to nativeBridge and return formatted results without global.fetch (2 ms)
+        × should delegate fetchMacroRates to nativeBridge and return parsed rates without global.fetch (1 ms)
+        × should delegate checkHealth to nativeBridge and parse engine health without global.fetch (1 ms)
+      S23-T02: 15-Minute TTL Cache and Force Refresh Specification
+        × should return quotes from SQLite cache with isStale: false if updated within 15 minutes without calling nativeBridge (1 ms)
+        × should refresh quote from nativeBridge if cached quote is older than 15 minutes (TTL expired)
+        × should bypass valid cache and query nativeBridge when forceRefresh: true is set (1 ms)
+      S23-T03: Stale Offline Fallback & Suffix Sanitization (.SA)
+        × should return stale cached quote marked with isStale: true and original updatedAt when native bridge fails (1 ms)
+        × should sanitize ticker by stripping any .SA suffix returned by Yahoo/Bridge (2 ms)
+
+  Test Suites: 1 failed, 1 total
+  Tests:       10 failed, 10 total
+  Snapshots:   0 total
+  Time:        4.705 s
+  Ran all test suites matching src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts.
+  ```
+- **Total da Sprint 23 em Red Phase:** 10 novos casos | 0 PASS | 10 FAIL (Fase A Red Phase confirmada).
+- **Total Geral do Projeto Celsus:** 43 arquivos de teste bloqueados | 306 casos de teste automatizados (289 PASS / 17 FAIL aguardando implementação da Fase B).
+
 
 
 

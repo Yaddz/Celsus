@@ -1,6 +1,7 @@
 import { getDatabase } from '../db/client';
 import { marketPriceCache, historicalPricesLocal, MarketPriceCache, HistoricalPriceLocal } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { CelsusMarketModule, INativeMarketBridge } from '../../modules/celsus-market';
 
 export interface MarketQuote {
   ticker: string;
@@ -8,6 +9,8 @@ export interface MarketQuote {
   currentPrice: string;
   changePercent24h: number;
   updatedAt: string;
+  isStale?: boolean;
+  source?: string;
 }
 
 export interface HistoricalPriceData {
@@ -27,25 +30,44 @@ export interface HealthStatus {
   status: string;
   cotahist_last_date?: string;
   brapi_status?: string;
+  provider?: string;
+}
+
+export interface FetchQuotesOptions {
+  forceRefresh?: boolean;
 }
 
 export interface IMarketApiService {
   checkHealth(): Promise<HealthStatus | null>;
   getHistoricalPrice(ticker: string, date: string): Promise<string | null>;
-  fetchQuotes(tickers: string[]): Promise<MarketQuote[]>;
+  fetchQuotes(tickers: string[], options?: FetchQuotesOptions): Promise<MarketQuote[]>;
   getCachedQuote(ticker: string): Promise<MarketQuote | null>;
   saveHistoricalPrice(ticker: string, date: string, closePrice: string): Promise<void>;
   searchCatalog(query: string, assetClass?: string): Promise<any[]>;
   fetchMacroRates(from: string): Promise<MacroRateData[]>;
+  getCorporateEvents?(tickers: string[], fromDate: string): Promise<any[]>;
+  ingestCotahistZip?(zipPath: string, allowedTickers?: string[]): Promise<any>;
 }
 
 export class MarketApiService implements IMarketApiService {
   private apiBaseUrl: string;
   private customDb?: any;
+  protected nativeBridge?: INativeMarketBridge | null;
 
-  constructor(apiBaseUrl: string = 'http://localhost:8080', db?: any) {
-    this.apiBaseUrl = apiBaseUrl;
-    this.customDb = db;
+  constructor(
+    apiBaseUrlOrBridge: string | INativeMarketBridge | null = 'http://localhost:8080',
+    db?: any,
+    nativeBridge?: INativeMarketBridge | null
+  ) {
+    if (typeof apiBaseUrlOrBridge === 'string') {
+      this.apiBaseUrl = apiBaseUrlOrBridge;
+      this.customDb = db;
+      this.nativeBridge = nativeBridge !== undefined ? nativeBridge : CelsusMarketModule;
+    } else {
+      this.nativeBridge = apiBaseUrlOrBridge !== undefined ? apiBaseUrlOrBridge : CelsusMarketModule;
+      this.customDb = db;
+      this.apiBaseUrl = 'http://localhost:8080';
+    }
   }
 
   protected get db() {
@@ -153,9 +175,9 @@ export class MarketApiService implements IMarketApiService {
   }
 
   /**
-   * Busca cotações atuais de múltiplos tickers na API de mercado (/v1/quotes).
+   * Busca cotações atuais de múltiplos tickers na API de mercado (/v1/quotes ou NativeBridge).
    */
-  async fetchQuotes(tickers: string[]): Promise<MarketQuote[]> {
+  async fetchQuotes(tickers: string[], options?: FetchQuotesOptions): Promise<MarketQuote[]> {
     if (!tickers || tickers.length === 0) return [];
 
     const normalizedTickers = tickers.map((t) => t.trim().toUpperCase());
@@ -289,6 +311,20 @@ export class MarketApiService implements IMarketApiService {
       }
     } catch {}
     return [];
+  }
+
+  /**
+   * Obtém eventos corporativos (splits, grupamentos e dividendos) de tickers.
+   */
+  async getCorporateEvents(tickers: string[], fromDate: string): Promise<any[]> {
+    return [];
+  }
+
+  /**
+   * Ingestão de arquivo COTAHIST .ZIP via bridge nativa.
+   */
+  async ingestCotahistZip(zipPath: string, allowedTickers?: string[]): Promise<any> {
+    return null;
   }
 }
 
