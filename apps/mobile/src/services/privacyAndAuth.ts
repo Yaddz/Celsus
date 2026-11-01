@@ -1,6 +1,20 @@
 export const PRIVACY_MASK = '██████,██';
 export const PRIVACY_CURRENCY_MASK = 'R$ ██████,██';
 export const PRIVACY_PERCENT_MASK = '████%';
+export const PRIVACY_ASTERISK_MASK = '*******';
+
+/**
+ * S12: Redige valores substituindo por asteriscos quando o Modo Privacidade está ativo.
+ */
+export function redactWithAsterisks(
+  value: string | number,
+  isPrivacyModeEnabled: boolean
+): string {
+  if (isPrivacyModeEnabled) {
+    return PRIVACY_ASTERISK_MASK;
+  }
+  return typeof value === 'number' ? String(value) : value;
+}
 
 export interface BiometricAuthProvider {
   hasHardwareAsync(): Promise<boolean>;

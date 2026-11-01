@@ -28,6 +28,10 @@ export interface SettingsBackupScreenProps {
   onDataRestored?: () => void;
   themeMode?: ThemeMode;
   onThemeModeChange?: (mode: ThemeMode) => void;
+  userName?: string;
+  userInitials?: string;
+  investorProfile?: string;
+  mainPortfolioName?: string;
 }
 
 export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
@@ -37,6 +41,10 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   onDataRestored,
   themeMode,
   onThemeModeChange,
+  userName = 'Pedro',
+  userInitials = 'PL',
+  investorProfile = 'Moderado',
+  mainPortfolioName = 'Carteira Principal',
 }) => {
   const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>(
     themeMode || themeModeService.getThemeMode()

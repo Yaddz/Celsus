@@ -209,4 +209,16 @@ export const tokens: ThemeTokens = {
   borders,
 };
 
+export const LIGHT_THEME_TOKENS = {
+  backgroundPrimary: '#F4F1EA',
+  cardBackground: '#FFFFFF',
+  textPrimary: '#111315',
+};
+
+export const DARK_THEME_TOKENS = {
+  backgroundPrimary: '#111315',
+  cardBackground: '#191B1D',
+  textPrimary: '#E6DECA',
+};
+
 export default tokens;

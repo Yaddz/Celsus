@@ -20,8 +20,9 @@
 | **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 22 | 0 | `VERIFIED (24 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | 21 | 21 | 0 | `VERIFIED (28 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | 11 | 11 | 0 | `VERIFIED (31 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S10)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **31** | **194** | **194** | **0** | **`VERIFIED (31 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | 27 | 27 | 0 | `VERIFIED (34 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 5 | 9 | `VERIFIED (36 arquivos)` | 🔴 Red Phase (Fase A Bloqueada) |
+| **TOTAL (S1–S12)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **36** | **235** | **226** | **9** | **`VERIFIED (36 arquivos)`** | **🔒 Fase A Bloqueada (TDD Lock)** |
 
 ---
 
@@ -143,9 +144,18 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S11-T01` | `src/domain/finance/__tests__/periodSummary.test.ts` | `TestPeriodFilteringAndSummary_5D_1M_1Y_5Y_ALL` | Cálculo da curva e resumo (Patrimônio Inicial, Aportes, Rendimentos, Patrimônio Final) para `5D`, `1M`, `1Y`, `5Y` e `ALL` | `PENDING (Fase A)` | ⏳ PENDING |
-| `S11-T02` | `src/screens/__tests__/StatisticsScreenV2.test.tsx` | `TestStatisticsNoHeaderPortfolioSelectorAndLineChart` | Sem header, seletor com nome da carteira + `"Carteiras Consolidadas"`, filtros `5 dias/Mês/Ano/5 anos/Total` e gráfico de linha | `PENDING (Fase A)` | ⏳ PENDING |
-| `S11-T03` | `src/screens/__tests__/PortfolioManagementV2.test.tsx` | `TestPortfolioManagementStackedDeckAndCleanCopy` | Sem header, seletor em pilha reaproveitado da Home e remoção de textos com cara de IA (`"NÍVEL 1"`, `"META GLOBAL Ti"`, etc.) | `PENDING (Fase A)` | ⏳ PENDING |
+| `S11-T01` | `src/domain/finance/__tests__/periodSummary.test.ts` | `TestPeriodFilteringAndSummary_5D_1M_1Y_5Y_ALL` | Cálculo da curva e resumo (Patrimônio Inicial, Aportes, Rendimentos, Patrimônio Final) para `5D`, `1M`, `1Y`, `5Y` e `ALL` | `86632148d54ba60ae1eabc11daa3725530b096da910bc3e769139c204e458418` | 🟢 PASS (0.01s) |
+| `S11-T02` | `src/screens/__tests__/StatisticsScreenV2.test.tsx` | `TestStatisticsNoHeaderPortfolioSelectorAndLineChart` | Sem header, seletor com nome da carteira + `"Carteiras Consolidadas"`, filtros `5 dias/Mês/Ano/5 anos/Total` e gráfico de linha | `8177d41c9aab6c62fb532e2609a405bdfa84f26af3f5db1eaef2855370e402a1` | 🟢 PASS (0.32s) |
+| `S11-T03` | `src/screens/__tests__/PortfolioManagementV2.test.tsx` | `TestPortfolioManagementStackedDeckAndCleanCopy` | Sem header, seletor em pilha reaproveitado da Home e remoção de textos com cara de IA (`"NÍVEL 1"`, `"META GLOBAL Ti"`, etc.) | `d3ae56140c31b61208eb3348e045fb84a39b0e153baa21e0a6c7e82048775552` | 🟢 PASS (0.28s) |
+
+---
+
+### 2.12. Sprint 12 — Header XP, Modal Perfil & Configurações, Remoção Global de Headers, Tema Claro e Máscara `*******` (`SPEC v2`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC_V2.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S12-T01` | `src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx` | `TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal` | Header minimalista XP + AmbientOrb na Home (sem "GESTÃO DE CARTEIRAS"), Modal Perfil & Configurações ao tocar no avatar, e remoção global de `<View style={styles.header}>` em Settings, Transaction e Simulator | `86acd61bf5252b223df2b8742f9442dc90898ba84ccf7085208616120882ebd2` | 🔴 Red Phase (Fase A) |
+| `S12-T02` | `src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts` | `TestPrivacyAsteriskMaskAndLightThemeTokens` | Máscara `PRIVACY_ASTERISK_MASK = '*******'`, `redactWithAsterisks` com retrocompatibilidade, ocultação na Home e tokens do Tema Claro (`#F4F1EA`, `#FFFFFF`, `#111315`) | `f159879f60aa0fb50010c0f2ef32e36188400873d4501cbca8c89ffb610bf8dd` | 🔴 Red Phase (Fase A) |
 
 ---
 
@@ -922,6 +932,24 @@
   - **34 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **221 casos de teste automatizados executados (16 em Go + 205 em TypeScript/Jest)**
   - **100% de aprovação (221 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
+---
+
+### Sprint 12 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 36 arquivos de teste bloqueados com `ReadOnly` e registrados em `tests.lock.json` (2 novos arquivos criados para a Sprint 12).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 36 arquivos de teste confirmada via SHA-256.
+  ```
+- **Hashes SHA-256 dos Novos Testes Bloqueados:**
+  - `apps/mobile/src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx`: `86acd61bf5252b223df2b8742f9442dc90898ba84ccf7085208616120882ebd2`
+  - `apps/mobile/src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts`: `f159879f60aa0fb50010c0f2ef32e36188400873d4501cbca8c89ffb610bf8dd`
+- **Execução Inicial dos Testes sob Stubs (Red Phase confirmada no Jest):**
+  - Execução dos testes da Sprint 12 sob stubs vazios de compilação:
+    - `Sprint12HeaderAndProfile.test.tsx`: 7 testes falham sob stubs aguardando a integração do `XpMinimalHeader` e `AmbientOrb` na Home de `App.tsx`, a remoção do cabeçalho `"GESTÃO DE CARTEIRAS"`, a abertura do Modal de Perfil & Configurações pelo avatar e a remoção dos blocos `<View style={styles.header}>` de `SettingsBackupScreen`, `TransactionScreen` e `SimulatorScreen`.
+    - `Sprint12PrivacyAndLightTheme.test.ts`: 5 testes unitários passam (`PRIVACY_ASTERISK_MASK = '*******'`, `redactWithAsterisks`, compatibilidade com `redactCurrencyValue`, e definição de `LIGHT_THEME_TOKENS`) e 2 testes de integração falham aguardando a conexão da máscara de asteriscos e do Tema Claro (`#F4F1EA`) na árvore de componentes de `App.tsx`.
+  - Total da Sprint 12 em Red Phase: 14 testes | 5 PASS | 9 FAIL.
+  - Total Global do Projeto Celsus: 36 arquivos protegidos | 235 testes | 226 PASS | 9 FAIL.
 
 
 

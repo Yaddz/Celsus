@@ -97,6 +97,18 @@ export const THEME_COLORS: Record<ThemeMode, ThemeModeColors> = {
   },
 };
 
+export const LIGHT_THEME_TOKENS = {
+  backgroundPrimary: '#F4F1EA',
+  cardBackground: '#FFFFFF',
+  textPrimary: '#111315',
+};
+
+export const DARK_THEME_TOKENS = {
+  backgroundPrimary: '#111315',
+  cardBackground: '#191B1D',
+  textPrimary: '#E6DECA',
+};
+
 export function getPortfolioPalette(index: number): PortfolioPalette {
   const normalizedIndex = ((index % PORTFOLIO_PALETTE_ORDER.length) + PORTFOLIO_PALETTE_ORDER.length) % PORTFOLIO_PALETTE_ORDER.length;
   const paletteId = PORTFOLIO_PALETTE_ORDER[normalizedIndex];
