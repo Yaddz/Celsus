@@ -267,7 +267,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
                 <Text style={styles.metricLabel}>Capital Aportado</Text>
                 <Text style={styles.metricValue}>
                   {isPrivacyMode
-                    ? 'R$ ••••••••'
+                    ? '*******'
                     : `R$ ${parseFloat(consolidatedData.totalInvestedCapital).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </Text>
               </View>
@@ -285,7 +285,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
                   ]}
                 >
                   {isPrivacyMode
-                    ? '••••••'
+                    ? '*******'
                     : `${parseFloat(consolidatedData.totalProfit) >= 0 ? '+' : ''}R$ ${parseFloat(consolidatedData.totalProfit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${consolidatedData.totalProfitPercentage}%)`}
                 </Text>
               </View>

@@ -170,36 +170,36 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
     }
   };
 
-  return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerTitleRow}>
-          <View style={styles.headerIconBadge}>
-            <MaterialIcons name="security" size={18} color={colors.primary} />
-          </View>
-          <View>
-            <Text style={styles.headerTitle}>SEGURANÇA & BACKUP</Text>
-            <Text style={styles.headerSubtitle}>
-              100% LOCAL-FIRST • .CELSUS.ZIP SHA-256
-            </Text>
-          </View>
-        </View>
-        {onClose && (
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeBtn}
-            testID="close-settings-btn"
-          >
-            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
-          </TouchableOpacity>
-        )}
-      </View>
+  const isLight = currentThemeMode === 'light';
 
+  return (
+    <View style={[styles.container, isLight && styles.containerLight]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Card de Perfil do Investidor (XP Style) */}
+        <View testID="investor-profile-card" style={[styles.profileCard, isLight && styles.profileCardLight]}>
+          <View style={styles.profileHeaderRow}>
+            <View style={[styles.avatarCircle, isLight && styles.avatarCircleLight]}>
+              <Text style={[styles.avatarText, isLight && styles.avatarTextLight]}>{userInitials}</Text>
+            </View>
+            <View style={styles.profileInfoCol}>
+              <Text style={[styles.profileName, isLight && styles.profileNameLight]}>{userName}</Text>
+              <Text style={styles.profileMeta}>Perfil: {investorProfile}</Text>
+              <Text style={styles.profilePortfolio}>{mainPortfolioName}</Text>
+            </View>
+            {onClose && (
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.closeBtn, isLight && styles.closeBtnLight]}
+                testID="close-settings-btn"
+              >
+                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
         {/* Status Banner */}
         {statusBanner && (
           <View
@@ -340,6 +340,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               </Text>
             </View>
             <Switch
+              testID="biometric-switch"
               value={isBiometricEnabled}
               onValueChange={handleToggleBiometrics}
               trackColor={{ false: '#2A2D30', true: colors.secondary }}
@@ -381,6 +382,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
 
           <View style={{ marginTop: 12 }}>
             <DirectiveButton
+              testID="export-dossier-btn"
               label="Exportar Backup .celsus.zip"
               variant="primary"
               materialIcon="file-download"
@@ -522,43 +524,72 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.voidFloor,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.margin,
-    paddingTop: 12,
-    paddingBottom: 12,
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#26292C',
+  containerLight: {
+    backgroundColor: '#F4F1EA',
   },
-  headerTitleRow: {
+  profileCard: {
+    backgroundColor: '#191B1D',
+    borderRadius: borders.radiusLg,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+    padding: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  profileCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  profileHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.md,
   },
-  headerIconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.neutral,
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#202224',
+    borderWidth: 1.5,
+    borderColor: colors.tertiary,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: borders.hairline,
-    borderColor: '#303336',
   },
-  headerTitle: {
+  avatarCircleLight: {
+    backgroundColor: '#EAE4D7',
+    borderColor: colors.primary,
+  },
+  avatarText: {
     fontFamily: typography.fontFamily,
-    fontSize: 15,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.tertiary,
+  },
+  avatarTextLight: {
+    color: colors.primary,
+  },
+  profileInfoCol: {
+    flex: 1,
+  },
+  profileName: {
+    fontFamily: typography.fontFamily,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.parchmentPale,
   },
-  headerSubtitle: {
+  profileNameLight: {
+    color: '#111315',
+  },
+  profileMeta: {
     fontFamily: typography.fontFamily,
-    fontSize: 9,
-    color: colors.secondary,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    fontSize: 12,
+    color: '#AECDC5',
+    marginTop: 2,
+  },
+  profilePortfolio: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8A8E',
+    marginTop: 2,
   },
   closeBtn: {
     width: 36,
@@ -567,6 +598,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  closeBtnLight: {
+    backgroundColor: '#EAE4D7',
   },
   scrollContent: {
     padding: spacing.margin,

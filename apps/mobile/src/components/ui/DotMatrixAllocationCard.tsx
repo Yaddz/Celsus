@@ -79,6 +79,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
             variant={variant}
             fillDirection={isV2 ? 'right-to-left' : 'left-to-right'}
             onPress={onClassPress}
+            isPrivacyMode={isPrivacyMode}
             testID={`allocation-stat-${item.assetClass.toLowerCase()}`}
           />
         ))}

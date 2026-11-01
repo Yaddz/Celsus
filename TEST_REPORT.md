@@ -21,8 +21,8 @@
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | 21 | 21 | 0 | `VERIFIED (28 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | 11 | 11 | 0 | `VERIFIED (31 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | 27 | 27 | 0 | `VERIFIED (34 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 5 | 9 | `VERIFIED (36 arquivos)` | 🔴 Red Phase (Fase A Bloqueada) |
-| **TOTAL (S1–S12)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **36** | **235** | **226** | **9** | **`VERIFIED (36 arquivos)`** | **🔒 Fase A Bloqueada (TDD Lock)** |
+| **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 14 | 0 | `VERIFIED (36 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S12)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **36** | **235** | **235** | **0** | **`VERIFIED (36 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -154,8 +154,8 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC_V2.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S12-T01` | `src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx` | `TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal` | Header minimalista XP + AmbientOrb na Home (sem "GESTÃO DE CARTEIRAS"), Modal Perfil & Configurações ao tocar no avatar, e remoção global de `<View style={styles.header}>` em Settings, Transaction e Simulator | `86acd61bf5252b223df2b8742f9442dc90898ba84ccf7085208616120882ebd2` | 🔴 Red Phase (Fase A) |
-| `S12-T02` | `src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts` | `TestPrivacyAsteriskMaskAndLightThemeTokens` | Máscara `PRIVACY_ASTERISK_MASK = '*******'`, `redactWithAsterisks` com retrocompatibilidade, ocultação na Home e tokens do Tema Claro (`#F4F1EA`, `#FFFFFF`, `#111315`) | `f159879f60aa0fb50010c0f2ef32e36188400873d4501cbca8c89ffb610bf8dd` | 🔴 Red Phase (Fase A) |
+| `S12-T01` | `src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx` | `TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal` | Header minimalista XP + AmbientOrb na Home (sem "GESTÃO DE CARTEIRAS"), Modal Perfil & Configurações ao tocar no avatar, e remoção global de `<View style={styles.header}>` em Settings, Transaction e Simulator | `86acd61bf5252b223df2b8742f9442dc90898ba84ccf7085208616120882ebd2` | 🟢 PASS (0.35s) |
+| `S12-T02` | `src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts` | `TestPrivacyAsteriskMaskAndLightThemeTokens` | Máscara `PRIVACY_ASTERISK_MASK = '*******'`, `redactWithAsterisks` com retrocompatibilidade, ocultação na Home e tokens do Tema Claro (`#F4F1EA`, `#FFFFFF`, `#111315`) | `f159879f60aa0fb50010c0f2ef32e36188400873d4501cbca8c89ffb610bf8dd` | 🟢 PASS (0.12s) |
 
 ---
 
@@ -950,6 +950,40 @@
     - `Sprint12PrivacyAndLightTheme.test.ts`: 5 testes unitários passam (`PRIVACY_ASTERISK_MASK = '*******'`, `redactWithAsterisks`, compatibilidade com `redactCurrencyValue`, e definição de `LIGHT_THEME_TOKENS`) e 2 testes de integração falham aguardando a conexão da máscara de asteriscos e do Tema Claro (`#F4F1EA`) na árvore de componentes de `App.tsx`.
   - Total da Sprint 12 em Red Phase: 14 testes | 5 PASS | 9 FAIL.
   - Total Global do Projeto Celsus: 36 arquivos protegidos | 235 testes | 226 PASS | 9 FAIL.
+
+### Sprint 12 — Fase B: Implementação Green Phase & Auditoria (2026-10-31)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 36 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução da Suíte Sprint 12 (`npm test --prefix apps/mobile -- Sprint12HeaderAndProfile Sprint12PrivacyAndLightTheme`):**
+  ```text
+  PASS src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts (7 passed, 7 total)
+  PASS src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx (7 passed, 7 total)
+  Test Suites: 2 passed, 2 total
+  Tests:       14 passed, 14 total
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile`):**
+  ```text
+  Test Suites: 30 passed, 30 total
+  Tests:       219 passed, 219 total
+  Snapshots:   0 total
+  Time:        16.853 s
+  Total Mobile: 30 suítes | 219 PASS | 0 FAIL
+  ```
+- **Execução Final da Suíte Backend Go (`cd services/market-api && go test ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	(cached)
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 12 Concluída):**
+  - **36 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **235 casos de teste automatizados executados (16 em Go + 219 em TypeScript/Jest)**
+  - **100% de aprovação (235 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
 
 
 

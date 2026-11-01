@@ -40,7 +40,8 @@ interface AssetItem {
 
 export const PortfolioManagementScreen: React.FC<{
   onClose?: () => void;
-}> = ({ onClose }) => {
+  isPrivacyMode?: boolean;
+}> = ({ onClose, isPrivacyMode = false }) => {
   const insets = useSafeAreaInsets();
 
   // 1. Estado de Carteiras
@@ -206,9 +207,9 @@ export const PortfolioManagementScreen: React.FC<{
       name: p.name,
       docketCode: `REV-CART-00${idx + 1}`,
       accountCode: p.docketCode,
-      balance: 'R$ 32.468,00',
+      balance: isPrivacyMode ? '*******' : 'R$ 32.468,00',
       subtitle: 'Patrimônio Total',
-      profitText: '+12,4% no ano',
+      profitText: isPrivacyMode ? '*******' : '+12,4% no ano',
       accentColor: palette.primary,
       paletteId: palette.id,
     };

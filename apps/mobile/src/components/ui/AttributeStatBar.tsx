@@ -21,6 +21,7 @@ export interface AttributeStatBarProps {
   marketValue?: string;
   fillDirection?: 'left-to-right' | 'right-to-left';
   onPress?: (assetClass: AssetClass) => void;
+  isPrivacyMode?: boolean;
 }
 
 export const ASSET_CLASS_ATTRIBUTE_MAP: Record<AssetClass, CategoryConfig> = {
@@ -109,6 +110,7 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
   marketValue,
   fillDirection,
   onPress,
+  isPrivacyMode = false,
 }) => {
   const config = ASSET_CLASS_ATTRIBUTE_MAP[assetClass];
   const safeCurrent = Math.max(0, currentPercentage);
@@ -121,8 +123,8 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
     : 'R$ 0,00';
 
   const metricsText = variant === 'v2'
-    ? `${formattedMarketValue} • ${safeCurrent.toFixed(1)}%`
-    : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`;
+    ? (isPrivacyMode ? '*******' : `${formattedMarketValue} • ${safeCurrent.toFixed(1)}%`)
+    : (isPrivacyMode ? '*******' : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`);
 
   const content = (
     <View style={styles.container}>

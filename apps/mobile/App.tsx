@@ -28,6 +28,8 @@ import {
   FloatingBottomDock,
   DockTab,
   RecentTransactionItem,
+  XpMinimalHeader,
+  AmbientOrb,
 } from './src/components/ui';
 import { AssetClass } from './src/components/ui/AttributeStatBar';
 import {
@@ -42,8 +44,16 @@ import {
 import {
   redactCurrencyValue,
   redactPercentageValue,
+  redactWithAsterisks,
+  PRIVACY_ASTERISK_MASK,
   privacyAndAuthService,
 } from './src/services/privacyAndAuth';
+import {
+  getPortfolioPalette,
+  themeModeService,
+  ThemeMode,
+  LIGHT_THEME_TOKENS,
+} from './src/theme/palettes';
 import {
   calculateSmartContribution,
   RebalanceAssetInput,
@@ -102,8 +112,13 @@ function AppContent() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [themeMode, setThemeMode] = useState<ThemeMode>(themeModeService.getThemeMode());
+  const [activeWalletIndex, setActiveWalletIndex] = useState(0);
   const [contributionAmount, setContributionAmount] = useState('1500,00');
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
+
+  const activePalette = getPortfolioPalette(activeWalletIndex);
+  const isLight = themeMode === 'light';
 
   // Modais de Navegação
   const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(false);
@@ -240,19 +255,35 @@ function AppContent() {
     );
   };
 
-  const balanceDisplay = redactCurrencyValue(totalPatrimony, isPrivacyMode);
-  const profitDisplay = redactPercentageValue(profitSummary, isPrivacyMode);
+  const balanceDisplay = redactWithAsterisks(totalPatrimony, isPrivacyMode);
+  const profitDisplay = redactWithAsterisks(profitSummary, isPrivacyMode);
 
-  // Modal: Configurações / Backup (.celsus.zip) & Segurança Local
+  // Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
   if (isSettingsBackupModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        testID="profile-settings-modal"
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <SettingsBackupScreen
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
           onClose={() => setIsSettingsBackupModalOpen(false)}
           onDataRestored={() => refreshAppData()}
+          themeMode={themeMode}
+          onThemeModeChange={(mode) => {
+            setThemeMode(mode);
+            themeModeService.setThemeMode(mode);
+          }}
         />
       </SafeAreaView>
     );
@@ -261,8 +292,18 @@ function AppContent() {
   // Tela/Aba: Análises & Estatísticas
   if (activeTab === 'stats') {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <StatisticsScreen isPrivacyMode={isPrivacyMode} />
         <FloatingBottomDock
           activeTab={activeTab}
@@ -276,9 +317,20 @@ function AppContent() {
   // Modal / Tela: Carteiras & Alocação
   if (activeTab === 'wallets' || isPortfolioManagerModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <PortfolioManagementScreen
+          isPrivacyMode={isPrivacyMode}
           onClose={() => {
             setIsPortfolioManagerModalOpen(false);
             setActiveTab('home');
@@ -300,8 +352,18 @@ function AppContent() {
   // Modal: Nova Movimentação
   if (isTransactionModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <TransactionScreen
           onClose={() => {
             setIsTransactionModalOpen(false);
@@ -316,8 +378,18 @@ function AppContent() {
   // Modal: Simulador de Novo Aporte
   if (isSimulatorModalOpen) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <SimulatorScreen
           onClose={() => {
             setIsSimulatorModalOpen(false);
@@ -332,8 +404,18 @@ function AppContent() {
   // Tela: Detalhe / Histórico da Movimentação
   if (selectedRecentTransaction) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <TransactionDetailHistoryScreen
           transaction={{
             id: selectedRecentTransaction.id,
@@ -342,7 +424,7 @@ function AppContent() {
             assetClass: selectedRecentTransaction.assetClass,
             type: selectedRecentTransaction.type,
             tradeDate: '2026-10-31',
-            investedAmount: selectedRecentTransaction.amountText,
+            investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
             unitPrice: 'R$ 35,00',
             quantity: '42',
             fees: 'R$ 5,00',
@@ -366,8 +448,18 @@ function AppContent() {
   // Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
   if (selectedClassDetail) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
         <ClassDetailScreen
           assetClass={selectedClassDetail}
           isPrivacyMode={isPrivacyMode}
@@ -386,102 +478,105 @@ function AppContent() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      <StatusBar style="light" />
-
-      {/* Glow de ambiente sutil no topo */}
-      <View style={styles.ambientGlow} />
-
-      <ScrollView
-        testID="home-scroll-content"
-        contentContainerStyle={[
-          styles.scrollContent,
-          { paddingBottom: Math.max(insets.bottom, 16) + 80 },
+    <SafeAreaView
+      style={[
+        styles.safeArea,
+        {
+          backgroundColor: isLight
+            ? LIGHT_THEME_TOKENS.backgroundPrimary
+            : colors.voidFloor,
+        },
+      ]}
+      edges={['top', 'left', 'right']}
+    >
+      <View
+        testID="home-screen-root"
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
         ]}
-        showsVerticalScrollIndicator={false}
       >
-        {/* Header Minimalista (Logo Celsus + Botão de Privacidade com Material Icons) */}
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.headerLogoBadge}>
-              <MaterialIcons name="account-balance-wallet" size={20} color={colors.primary} />
-            </View>
-            <View>
-              <Text style={styles.brandTitle}>Celsus</Text>
-              <Text style={styles.docketSubtitle}>GESTÃO DE CARTEIRAS</Text>
-            </View>
-          </View>
+        <StatusBar style={isLight ? 'dark' : 'light'} />
 
-          <View style={styles.headerActionsRow}>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => {
-                const next = privacyAndAuthService.togglePrivacyMode();
-                setIsPrivacyMode(next.isPrivacyModeEnabled);
-              }}
-              style={styles.privacyButton}
-            >
-              <MaterialIcons
-                name={isPrivacyMode ? 'visibility-off' : 'visibility'}
-                size={20}
-                color={colors.parchmentPale}
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.75}
-              onPress={() => setIsSettingsBackupModalOpen(true)}
-              style={styles.privacyButton}
-            >
-              <MaterialIcons
-                name="security"
-                size={20}
-                color={colors.tertiary}
-              />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* 1. Stacked Hero Wallet Deck (WalleZ Stacked Cards) */}
-        <StackedWalletDeck
-          portfolios={walletsList.map((w, idx) => ({
-            ...w,
-            balance: idx === 0 ? balanceDisplay : w.balance,
-            profitText: idx === 0 ? profitDisplay : w.profitText,
-          }))}
-          activeIndex={0}
-          onSelectPortfolio={() => {}}
-          onAddPortfolio={() => setIsPortfolioManagerModalOpen(true)}
-          testID="home-wallet-deck"
+        {/* Esfera luminosa difusa no topo sincronizada com a paleta da carteira ativa */}
+        <AmbientOrb
+          testID="ambient-orb"
+          palette={activePalette}
+          themeMode={themeMode}
         />
 
-        {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
-        <QuickActionBentoRow
-          variant="v2"
-          onAportar={() => setIsTransactionModalOpen(true)}
-          onSimular={() => setIsSimulatorModalOpen(true)}
-          onMais={() => setIsPortfolioManagerModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
-          onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
-        />
+        <ScrollView
+          testID="home-scroll-content"
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: Math.max(insets.bottom, 16) + 80 },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Minimalista XP (Avatar + Nome na esquerda, Globo + Olho na direita) */}
+          <XpMinimalHeader
+            testID="xp-minimal-header"
+            userName="Pedro"
+            userInitials="PL"
+            isPrivacyModeEnabled={isPrivacyMode}
+            onAvatarPress={() => setIsSettingsBackupModalOpen(true)}
+            onGlobePress={() => {}}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            palette={activePalette}
+            themeMode={themeMode}
+          />
 
-        {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
-        <RecentTransactionsCard
-          transactions={transactionsList}
-          onViewAll={() => setIsTransactionModalOpen(true)}
-          onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
-          testID="home-recent-transactions"
-        />
+          {/* 1. Stacked Hero Wallet Deck (WalleZ Stacked Cards) */}
+          <StackedWalletDeck
+            portfolios={walletsList.map((w, idx) => ({
+              ...w,
+              balance: isPrivacyMode ? PRIVACY_ASTERISK_MASK : (idx === 0 ? balanceDisplay : w.balance),
+              profitText: isPrivacyMode ? PRIVACY_ASTERISK_MASK : (idx === 0 ? profitDisplay : w.profitText),
+            }))}
+            activeIndex={activeWalletIndex}
+            onPortfolioChange={(idx) => setActiveWalletIndex(idx)}
+            testID="home-wallet-deck"
+          />
 
-        {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid v2) */}
-        <DotMatrixAllocationCard
-          totalBalance={balanceDisplay}
-          isPrivacyMode={isPrivacyMode}
-          variant="v2"
-          onRebalancePress={() => setIsSimulatorModalOpen(true)}
-          onClassPress={(cls) => setSelectedClassDetail(cls)}
-          testID="home-dot-matrix-card"
-        />
-      </ScrollView>
+          {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
+          <QuickActionBentoRow
+            variant="v2"
+            onAportar={() => setIsTransactionModalOpen(true)}
+            onSimular={() => setIsSimulatorModalOpen(true)}
+            onMais={() => setIsPortfolioManagerModalOpen(true)}
+            onNovoAportePress={() => setIsTransactionModalOpen(true)}
+            onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
+          />
+
+          {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
+          <RecentTransactionsCard
+            transactions={transactionsList.map((tx) => ({
+              ...tx,
+              amountText: isPrivacyMode ? PRIVACY_ASTERISK_MASK : tx.amountText,
+            }))}
+            onViewAll={() => setIsTransactionModalOpen(true)}
+            onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
+            testID="home-recent-transactions"
+          />
+
+          {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid v2) */}
+          <DotMatrixAllocationCard
+            totalBalance={balanceDisplay}
+            isPrivacyMode={isPrivacyMode}
+            variant="v2"
+            onRebalancePress={() => setIsSimulatorModalOpen(true)}
+            onClassPress={(cls) => setSelectedClassDetail(cls)}
+            testID="home-dot-matrix-card"
+          />
+        </ScrollView>
+      </View>
 
       {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
       <FloatingBottomDock

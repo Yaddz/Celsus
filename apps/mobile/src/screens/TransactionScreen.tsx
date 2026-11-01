@@ -186,16 +186,14 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>NOVA MOVIMENTAÇÃO</Text>
-          <Text style={styles.headerSubtitle}>LIVRO-RAZÃO TRANSACIONAL</Text>
+      {/* Top Close Action (sem header) */}
+      {onClose && (
+        <View style={styles.topActionsRow}>
+          <TouchableOpacity onPress={onClose} style={styles.closeBtn} testID="close-transaction-btn">
+            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-          <MaterialIcons name="close" size={22} color={colors.parchmentPale} />
-        </TouchableOpacity>
-      </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Seletor Tipo: COMPRA vs VENDA */}
@@ -440,28 +438,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.voidFloor,
   },
-  header: {
+  topActionsRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#26292C',
-  },
-  headerTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.headlineSm.fontSize,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-  },
-  headerSubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    color: colors.primary,
-    marginTop: 2,
-    letterSpacing: 0.5,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   closeBtn: {
     padding: spacing.xs,
