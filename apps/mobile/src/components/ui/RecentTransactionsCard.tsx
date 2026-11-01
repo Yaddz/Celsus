@@ -16,6 +16,7 @@ export interface RecentTransactionItem {
 export interface RecentTransactionsCardProps {
   transactions: RecentTransactionItem[];
   onViewAll?: () => void;
+  onSelectTransaction?: (tx: RecentTransactionItem) => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
@@ -30,6 +31,7 @@ const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.gly
 export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
   transactions,
   onViewAll = () => {},
+  onSelectTransaction,
   style,
   testID,
 }) => {
@@ -62,8 +64,11 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
             const isLast = idx === transactions.length - 1;
 
             return (
-              <View
+              <TouchableOpacity
                 key={tx.id}
+                testID={`recent-tx-row-${tx.ticker}`}
+                activeOpacity={0.7}
+                onPress={() => onSelectTransaction?.(tx)}
                 style={[styles.txRow, !isLast && styles.txBorderBottom]}
               >
                 {/* Avatar Circular 44x44 com cor e ícone da categoria */}
@@ -95,7 +100,7 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                     {isBuy ? `+${tx.amountText}` : `-${tx.amountText}`}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           })
         )}

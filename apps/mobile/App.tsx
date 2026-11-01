@@ -29,12 +29,15 @@ import {
   DockTab,
   RecentTransactionItem,
 } from './src/components/ui';
+import { AssetClass } from './src/components/ui/AttributeStatBar';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
   SimulatorScreen,
   StatisticsScreen,
   SettingsBackupScreen,
+  ClassDetailScreen,
+  TransactionDetailHistoryScreen,
 } from './src/screens';
 import {
   redactCurrencyValue,
@@ -107,6 +110,8 @@ function AppContent() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
+  const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
+  const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
 
   // Lista de Movimentações Recentes e Saldos Consolidados
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(DEFAULT_TRANSACTIONS);
@@ -324,6 +329,62 @@ function AppContent() {
     );
   }
 
+  // Tela: Detalhe / Histórico da Movimentação
+  if (selectedRecentTransaction) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="light" />
+        <TransactionDetailHistoryScreen
+          transaction={{
+            id: selectedRecentTransaction.id,
+            ticker: selectedRecentTransaction.ticker,
+            assetName: selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : `${selectedRecentTransaction.ticker} Ativo`,
+            assetClass: selectedRecentTransaction.assetClass,
+            type: selectedRecentTransaction.type,
+            tradeDate: '2026-10-31',
+            investedAmount: selectedRecentTransaction.amountText,
+            unitPrice: 'R$ 35,00',
+            quantity: '42',
+            fees: 'R$ 5,00',
+            portfolioName: 'Carteira Principal',
+          }}
+          isPrivacyMode={isPrivacyMode}
+          onClose={() => setSelectedRecentTransaction(null)}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setSelectedRecentTransaction(null);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
+  if (selectedClassDetail) {
+    return (
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        <StatusBar style="light" />
+        <ClassDetailScreen
+          assetClass={selectedClassDetail}
+          isPrivacyMode={isPrivacyMode}
+          onClose={() => setSelectedClassDetail(null)}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setSelectedClassDetail(null);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+        />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
       <StatusBar style="light" />
@@ -407,6 +468,7 @@ function AppContent() {
         <RecentTransactionsCard
           transactions={transactionsList}
           onViewAll={() => setIsTransactionModalOpen(true)}
+          onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
           testID="home-recent-transactions"
         />
 
@@ -416,6 +478,7 @@ function AppContent() {
           isPrivacyMode={isPrivacyMode}
           variant="v2"
           onRebalancePress={() => setIsSimulatorModalOpen(true)}
+          onClassPress={(cls) => setSelectedClassDetail(cls)}
           testID="home-dot-matrix-card"
         />
       </ScrollView>
