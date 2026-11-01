@@ -38,11 +38,23 @@ interface AssetItem {
   price: string;
 }
 
-export const PortfolioManagementScreen: React.FC<{
+export interface PortfolioManagementScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
   themeMode?: 'dark' | 'light';
-}> = ({ onClose, isPrivacyMode = false, themeMode = 'dark' }) => {
+  initialClassTargets?: ClassTarget[];
+  initialAssets?: AssetItem[];
+  testID?: string;
+}
+
+export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps> = ({
+  onClose,
+  isPrivacyMode = false,
+  themeMode = 'dark',
+  initialClassTargets,
+  initialAssets,
+  testID,
+}) => {
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
 
