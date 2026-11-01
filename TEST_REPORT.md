@@ -27,8 +27,8 @@
 | **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 0 | 4 | `VERIFIED (41 arquivos)` | 🔴 Fase A (Red Phase & Locked) |
-| **TOTAL (S1–S21)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **289** | **285** | **4** | **`VERIFIED (41 arquivos)`** | **🟡 Em Desenvolvimento (Fase A Red)** |
+| **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S21)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **289** | **289** | **0** | **`VERIFIED (41 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -259,10 +259,10 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S21-T01` | `internal/cotahist/repository_test.go` | `TestUpsertQuotes_PrecedenceCotahistOverYahoo` | Precedência estrita `COTAHIST > YAHOO` em `(ticker, trade_date)` preservando `close_price` nominal e `source`, permitindo preenchimento de `adj_close` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
-| `S21-T02` | `internal/cotahist/repository_test.go` | `TestParseZIPFiltered_OnlyAllowedTickers` | Leitura streaming filtrada de arquivos `COTAHIST.ZIP` emitindo apenas tickers informados na carteira | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
-| `S21-T03` | `internal/cotahist/repository_test.go` | `TestCorporateEvents_SaveAndQuery` | Persistência e consulta por período de eventos corporativos de splits/inplits e dividendos em `corporate_events` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
-| `S21-T04` | `internal/cotahist/seed_test.go` | `TestProductionSeed_LicensingCompliance` | Licenciamento em produção: `SeedProductionCatalogAndMacro` popula `catalog_assets` e séries BCB com ZERO cotações pré-gravadas em `historical_quotes` | `98b0125a649b2170d84700a16dfd6357dfedb8a57eee07b610ff797834ad033f` | 🔴 FAIL (Red Phase) |
+| `S21-T01` | `internal/cotahist/repository_test.go` | `TestUpsertQuotes_PrecedenceCotahistOverYahoo` | Precedência estrita `COTAHIST > YAHOO` em `(ticker, trade_date)` preservando `close_price` nominal e `source`, permitindo preenchimento de `adj_close` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🟢 PASS (0.00s) |
+| `S21-T02` | `internal/cotahist/repository_test.go` | `TestParseZIPFiltered_OnlyAllowedTickers` | Leitura streaming filtrada de arquivos `COTAHIST.ZIP` emitindo apenas tickers informados na carteira | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🟢 PASS (0.00s) |
+| `S21-T03` | `internal/cotahist/repository_test.go` | `TestCorporateEvents_SaveAndQuery` | Persistência e consulta por período de eventos corporativos de splits/inplits e dividendos em `corporate_events` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🟢 PASS (0.00s) |
+| `S21-T04` | `internal/cotahist/seed_test.go` | `TestProductionSeed_LicensingCompliance` | Licenciamento em produção: `SeedProductionCatalogAndMacro` popula `catalog_assets` e séries BCB com ZERO cotações pré-gravadas em `historical_quotes` | `98b0125a649b2170d84700a16dfd6357dfedb8a57eee07b610ff797834ad033f` | 🟢 PASS (0.00s) |
 
 ---
 
@@ -1540,6 +1540,54 @@
   ```
 - **Total da Sprint 21 em Red Phase:** 4 novos casos | 0 PASS | 4 FAIL (Fase A Red Phase confirmada).
 - **Total Geral do Projeto Celsus:** 41 arquivos de teste bloqueados | 289 casos de teste automatizados (285 PASS / 4 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 21 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 41 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Evolução do Schema SQLite (`internal/cotahist/repository.go`):**
+     - Adicionadas as colunas `adj_close REAL` e `source TEXT NOT NULL DEFAULT 'COTAHIST'` na tabela `historical_quotes` com migração idempotente.
+     - Criada a tabela `corporate_events` com chave primária `(ticker, event_type, event_date)` e índice composto `(ticker, event_date)` para persistir desdobramentos (`SPLIT`) e dividendos (`DIVIDEND`).
+     - Criada a tabela `catalog_assets` com chave primária `ticker` e índices por `ticker` e `asset_class`.
+  2. **Regra de Precedência Estrita (`COTAHIST > YAHOO`):**
+     - Implementada a query `INSERT INTO historical_quotes ... ON CONFLICT(ticker, trade_date) DO UPDATE`.
+     - Preserva os preços nominais (`close_price`, `open`, `high`, `low`, `volume`) e a origem (`source`) quando o registro existente é de fonte `'COTAHIST'` e a nova entrada é de `'YAHOO'`.
+     - Permite o preenchimento/atualização de `adj_close` vindo do Yahoo mesmo em registros COTAHIST.
+     - Atualiza normalmente registros `'YAHOO'` por outros `'YAHOO'` e promove de `'YAHOO'` para `'COTAHIST'`.
+  3. **Leitura Streaming Filtrada de COTAHIST (`cotahist.go`):**
+     - Implementado `ParseZIPFiltered(r, size, allowedTickers, handleQuote)` com filtragem case-insensitive por `map[string]struct{}`.
+     - Garante que apenas os tickers presentes na carteira do investidor sejam emitidos e processados em memória.
+  4. **Licenciamento e Compliance de Produção (`catalog_seed.go`):**
+     - Criada a função `SeedProductionCatalogAndMacro` populando exclusivamente o cadastro público em `catalog_assets` e as séries abertas do BCB SGS (`#12` CDI e `#433` IPCA).
+     - Deixa a tabela `historical_quotes` com exatamente 0 cotações pré-gravadas em produção, atendendo estritamente aos termos de licenciamento.
+     - Mantido `SeedMarketData` intacto para os testes legados.
+- **Execução da Suíte Backend Go (`cd services/market-api && go test -count=1 -v ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.575s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	1.103s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.221s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.186s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	1.357s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Execução da Suíte Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 34 passed, 34 total
+  Tests:       264 passed, 264 total
+  Snapshots:   0 total
+  Time:        33.174 s
+  Total Mobile: 34 suítes | 264 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 21 Concluída):**
+  - **41 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **289 casos de teste automatizados executados (25 em Go + 264 em TypeScript/Jest)**
+  - **100% de aprovação (289 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
 
 
 

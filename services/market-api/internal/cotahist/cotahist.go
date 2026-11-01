@@ -204,8 +204,43 @@ func (p *Parser) ParseZip(r io.ReaderAt, size int64, handleQuote func(q Quote) e
 // but only invokes handleQuote for tickers present in allowedTickers (case-insensitive).
 // If allowedTickers is empty, all quotes are emitted.
 func (p *Parser) ParseZIPFiltered(r io.ReaderAt, size int64, allowedTickers []string, handleQuote func(q Quote) error) error {
-	// Stub for Phase A Red Phase
-	return fmt.Errorf("ParseZIPFiltered not implemented")
+	filterMap := make(map[string]struct{}, len(allowedTickers))
+	for _, t := range allowedTickers {
+		clean := strings.ToUpper(strings.TrimSpace(t))
+		if clean != "" {
+			filterMap[clean] = struct{}{}
+		}
+	}
+
+	zr, err := zip.NewReader(r, size)
+	if err != nil {
+		return fmt.Errorf("falha ao abrir zip: %w", err)
+	}
+
+	for _, file := range zr.File {
+		upperName := strings.ToUpper(file.Name)
+		if strings.Contains(upperName, "COTAHIST") || strings.HasSuffix(upperName, ".TXT") {
+			rc, err := file.Open()
+			if err != nil {
+				return fmt.Errorf("falha ao abrir arquivo %s no zip: %w", file.Name, err)
+			}
+			err = p.ParseReader(rc, func(q Quote) error {
+				if len(filterMap) > 0 {
+					cleanTicker := strings.ToUpper(strings.TrimSpace(q.Ticker))
+					if _, ok := filterMap[cleanTicker]; !ok {
+						return nil
+					}
+				}
+				return handleQuote(q)
+			})
+			_ = rc.Close()
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 // Repository defines data access for COTAHIST historical quotes, corporate events and catalog.
