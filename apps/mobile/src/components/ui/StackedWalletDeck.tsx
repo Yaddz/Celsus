@@ -570,25 +570,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     zIndex: 10,
   },
-  // Concordâncias côncavas com raio invertido
+  // Concordâncias côncavas ocultadas para manter quinas limpas
   filletTopContainer: {
     position: 'absolute',
     top: -14,
     right: 0,
-    width: 14,
-    height: 14,
+    width: 0,
+    height: 0,
+    opacity: 0,
   },
   filletLeftContainer: {
     position: 'absolute',
     bottom: 0,
     left: -14,
-    width: 14,
-    height: 14,
+    width: 0,
+    height: 0,
+    opacity: 0,
   },
   filletInnerCurve: {
-    width: 14,
-    height: 14,
-    borderBottomRightRadius: 14,
+    width: 0,
+    height: 0,
+    opacity: 0,
   },
   portfolioNameText: {
     fontFamily: typography.fontFamily,

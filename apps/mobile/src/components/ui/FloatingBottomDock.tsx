@@ -152,10 +152,12 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
               onNovaCarteiraPress?.();
             }}
           >
-            <MaterialIcons name="account-balance-wallet" size={20} color={colors.tertiary} />
             <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
               Nova Carteira
             </Text>
+            <View style={[styles.speedDialIconCircle, isLight && styles.speedDialIconCircleLight]}>
+              <MaterialIcons name="account-balance-wallet" size={18} color={colors.tertiary} />
+            </View>
           </TouchableOpacity>
 
           {/* Opção 2: Adicionar Ativo */}
@@ -168,10 +170,12 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
               onAdicionarAtivoPress?.();
             }}
           >
-            <MaterialIcons name="playlist-add" size={20} color={colors.secondary} />
             <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
               Adicionar Ativo
             </Text>
+            <View style={[styles.speedDialIconCircle, isLight && styles.speedDialIconCircleLight]}>
+              <MaterialIcons name="playlist-add" size={18} color={colors.secondary} />
+            </View>
           </TouchableOpacity>
 
           {/* Opção 3: Nova Movimentação */}
@@ -184,10 +188,12 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
               (onNovoAportePress || onActionPress)?.();
             }}
           >
-            <MaterialIcons name="north-east" size={20} color={colors.primary} />
             <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>
               Nova Movimentação
             </Text>
+            <View style={[styles.speedDialIconCircle, isLight && styles.speedDialIconCircleLight]}>
+              <MaterialIcons name="north-east" size={18} color={colors.primary} />
+            </View>
           </TouchableOpacity>
         </Animated.View>
       )}
@@ -315,20 +321,22 @@ const styles = StyleSheet.create({
   },
   speedDialStack: {
     position: 'absolute',
-    bottom: 76,
-    right: 16,
+    bottom: 86,
+    right: 18,
     alignItems: 'flex-end',
-    gap: 10,
+    gap: 12,
     zIndex: 100,
   },
   speedDialStackLight: {},
   speedDialBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
     gap: 10,
     backgroundColor: '#1E2124',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 8,
+    paddingLeft: 16,
+    paddingRight: 8,
     borderRadius: 24,
     borderWidth: borders.hairline,
     borderColor: '#2D3135',
@@ -342,6 +350,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderColor: '#EAE4D7',
     shadowOpacity: 0.12,
+  },
+  speedDialIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#272A2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  speedDialIconCircleLight: {
+    backgroundColor: '#F3EFE6',
   },
   speedDialLabel: {
     fontFamily: typography.fontFamily,

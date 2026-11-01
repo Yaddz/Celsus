@@ -215,6 +215,56 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   const [activeTooltipAsset, setActiveTooltipAsset] = useState<ClassAssetDetailItem | null>(null);
   const [cardPositions, setCardPositions] = useState<Record<string, number>>({});
 
+  // Segmentos radiais para o gráfico circular Donut (72 divisões a 360°)
+  const assetSlicesData = React.useMemo(() => {
+    const TOTAL_DONUT_SEGMENTS = 72;
+    const totalAlloc =
+      assetList.reduce((acc, a) => acc + (a.currentAllocationPercentage || 0), 0) || 100;
+
+    let currentSegmentIndex = 0;
+    return assetList.map((asset, idx) => {
+      const share = (asset.currentAllocationPercentage || 0) / totalAlloc;
+      const count =
+        idx === assetList.length - 1
+          ? Math.max(1, TOTAL_DONUT_SEGMENTS - currentSegmentIndex)
+          : Math.max(2, Math.round(share * TOTAL_DONUT_SEGMENTS));
+
+      const sliceSegments: Array<{ segX: number; segY: number; rotate: number }> = [];
+      for (let i = 0; i < count && currentSegmentIndex < TOTAL_DONUT_SEGMENTS; i++) {
+        const segK = currentSegmentIndex;
+        // Início no topo do círculo (-90 graus / 12 horas)
+        const angleDeg = -90 + (segK + 0.5) * (360 / TOTAL_DONUT_SEGMENTS);
+        const angleRad = (angleDeg * Math.PI) / 180;
+        const radius = 83;
+        const cx = 100 + radius * Math.cos(angleRad);
+        const cy = 100 + radius * Math.sin(angleRad);
+
+        sliceSegments.push({
+          segX: cx - 4.5,
+          segY: cy - 16,
+          rotate: angleDeg + 90,
+        });
+        currentSegmentIndex++;
+      }
+
+      const color = asset.sliceColor || DONUT_SLICE_COLORS[idx % DONUT_SLICE_COLORS.length];
+      const minX = Math.max(0, Math.min(...sliceSegments.map((s) => s.segX)) - 4);
+      const minY = Math.max(0, Math.min(...sliceSegments.map((s) => s.segY)) - 4);
+      const maxX = Math.min(200, Math.max(...sliceSegments.map((s) => s.segX + 9)) + 4);
+      const maxY = Math.min(200, Math.max(...sliceSegments.map((s) => s.segY + 32)) + 4);
+
+      return {
+        asset,
+        color,
+        segments: sliceSegments,
+        minX,
+        minY,
+        width: Math.max(20, maxX - minX),
+        height: Math.max(20, maxY - minY),
+      };
+    });
+  }, [assetList]);
+
   const handleSlicePress = (asset: ClassAssetDetailItem) => {
     setActiveTooltipAsset(asset);
   };
@@ -241,38 +291,61 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         {/* Gráfico de Pizza Oco (Hollow Donut Chart) */}
         <View testID="class-donut-chart" style={[styles.donutCard, isLight && styles.donutCardLight]}>
           <View style={styles.donutVisualArea}>
-            {/* Anel Oco Central */}
-            <View style={[styles.donutHoleContainer, isLight && styles.donutHoleContainerLight]}>
-              <View style={styles.donutCenterCircle}>
-                <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>{title}</Text>
-                <Text style={[styles.donutCenterTotal, isLight && styles.donutCenterTotalLight]}>
-                  {assetList.length} {assetList.length === 1 ? 'ativo' : 'ativos'}
-                </Text>
-              </View>
-            </View>
+            <View style={styles.donutRingContainer}>
+              {/* Pista de Fundo do Donut */}
+              <View style={[styles.donutTrackCircle, isLight && styles.donutTrackCircleLight]} />
 
-            {/* Fatias e Fita Circular do Donut */}
-            <View style={styles.donutSegmentsRow}>
-              {assetList.map((asset, idx) => {
-                const color = asset.sliceColor || DONUT_SLICE_COLORS[idx % DONUT_SLICE_COLORS.length];
-                const flexShare = Math.max(1, Math.round(asset.currentAllocationPercentage));
-
+              {/* Fatias Circulares do Donut Chart */}
+              {assetSlicesData.map((sliceData) => {
+                const isSelected = activeTooltipAsset?.ticker === sliceData.asset.ticker;
                 return (
                   <TouchableOpacity
-                    key={`bar-${asset.id || asset.ticker}`}
-                    testID={`donut-slice-${asset.ticker}`}
-                    activeOpacity={0.8}
-                    onPress={() => handleSlicePress(asset)}
+                    key={`donut-slice-${sliceData.asset.id || sliceData.asset.ticker}`}
+                    testID={`donut-slice-${sliceData.asset.ticker}`}
+                    activeOpacity={0.75}
+                    onPress={() => handleSlicePress(sliceData.asset)}
                     style={[
-                      styles.donutSegmentBar,
+                      styles.donutSliceHitArea,
                       {
-                        backgroundColor: color,
-                        flex: flexShare,
+                        left: sliceData.minX,
+                        top: sliceData.minY,
+                        width: sliceData.width,
+                        height: sliceData.height,
+                        zIndex: isSelected ? 12 : 5,
                       },
                     ]}
-                  />
+                  >
+                    {sliceData.segments.map((seg, sIdx) => (
+                      <View
+                        key={`seg-${sliceData.asset.ticker}-${sIdx}`}
+                        style={[
+                          styles.donutSegmentArc,
+                          {
+                            left: seg.segX - sliceData.minX,
+                            top: seg.segY - sliceData.minY,
+                            backgroundColor: sliceData.color,
+                            transform: [{ rotate: `${seg.rotate}deg` }],
+                            opacity: isSelected ? 1 : 0.94,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </TouchableOpacity>
                 );
               })}
+
+              {/* Anel Oco Central (Hole) com Informações da Classe */}
+              <View
+                style={[styles.donutHoleContainer, isLight && styles.donutHoleContainerLight]}
+                pointerEvents="none"
+              >
+                <View style={styles.donutCenterCircle}>
+                  <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>{title}</Text>
+                  <Text style={[styles.donutCenterTotal, isLight && styles.donutCenterTotalLight]}>
+                    {assetList.length} {assetList.length === 1 ? 'ativo' : 'ativos'}
+                  </Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -514,16 +587,44 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: spacing.md,
   },
+  donutRingContainer: {
+    width: 200,
+    height: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: spacing.xs,
+  },
+  donutTrackCircle: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 32,
+    borderColor: '#1E2124',
+  },
+  donutTrackCircleLight: {
+    borderColor: '#F3EFE6',
+  },
+  donutSliceHitArea: {
+    position: 'absolute',
+  },
+  donutSegmentArc: {
+    position: 'absolute',
+    width: 9,
+    height: 32,
+    borderRadius: 2,
+  },
   donutHoleContainer: {
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    borderWidth: 10,
-    borderColor: '#222528',
+    width: 132,
+    height: 132,
+    borderRadius: 66,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.voidFloor,
-    marginBottom: spacing.md,
+    zIndex: 10,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
   },
   donutCenterCircle: {
     alignItems: 'center',
@@ -540,18 +641,6 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm.fontSize - 1,
     color: '#8A8A8E',
     marginTop: 2,
-  },
-  donutSegmentsRow: {
-    flexDirection: 'row',
-    width: '100%',
-    height: 14,
-    borderRadius: 7,
-    overflow: 'hidden',
-    backgroundColor: '#26292C',
-  },
-  donutSegmentBar: {
-    height: '100%',
-    minWidth: 12,
   },
   tooltipBox: {
     backgroundColor: '#202224',
