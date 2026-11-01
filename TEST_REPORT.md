@@ -28,7 +28,8 @@
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S21)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **289** | **289** | **0** | **`VERIFIED (41 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 0 | 7 | `VERIFIED (42 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
+| **TOTAL (S1–S22)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **42** | **296** | **289** | **7** | **`VERIFIED (42 arquivos)`** | **⏳ 289 PASS / 7 Red Phase** |
 
 ---
 
@@ -263,6 +264,20 @@
 | `S21-T02` | `internal/cotahist/repository_test.go` | `TestParseZIPFiltered_OnlyAllowedTickers` | Leitura streaming filtrada de arquivos `COTAHIST.ZIP` emitindo apenas tickers informados na carteira | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🟢 PASS (0.00s) |
 | `S21-T03` | `internal/cotahist/repository_test.go` | `TestCorporateEvents_SaveAndQuery` | Persistência e consulta por período de eventos corporativos de splits/inplits e dividendos em `corporate_events` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🟢 PASS (0.00s) |
 | `S21-T04` | `internal/cotahist/seed_test.go` | `TestProductionSeed_LicensingCompliance` | Licenciamento em produção: `SeedProductionCatalogAndMacro` popula `catalog_assets` e séries BCB com ZERO cotações pré-gravadas em `historical_quotes` | `98b0125a649b2170d84700a16dfd6357dfedb8a57eee07b610ff797834ad033f` | 🟢 PASS (0.00s) |
+
+---
+
+### 2.19. Sprint 22 — Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S22-T01` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_InitAndSearchCatalogOffline` | Inicialização SQLite com catálogo público e busca offline instantânea (< 100ms) sem rede | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T02` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchQuotesJSON_TTLAndStaleFallback` | Cache SQLite com TTL de 15 minutos, forceRefresh e fallback gracioso offline com `is_stale: true` | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T03` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetHistoricalPriceJSON_OnDemandSync` | Sincronização sob demanda do Yahoo preservando close_price nominal e adj_close | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T04` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_CheckHealthJSON` | CheckHealthJSON retorna status ok, provider YAHOO e formato JSON válido | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T05` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchMacroRatesJSON` | Sincronização incremental e consulta de séries macro CDI (#12) e IPCA (#433) do BCB SGS | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T06` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetCorporateEventsJSON` | Consulta de eventos corporativos (splits, dividendos) salvos em SQLite | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T07` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_IngestCotahistZipJSON` | Ingestão de arquivo .ZIP local B3 COTAHIST com filtragem por tickers permitidos | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
 
 ---
 
@@ -1587,6 +1602,48 @@
   - **41 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **289 casos de teste automatizados executados (25 em Go + 264 em TypeScript/Jest)**
   - **100% de aprovação (289 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
+---
+
+### Sprint 22 — Fase A: Autoria e Bloqueio dos Testes da Fachada Mobile Go (`pkg/mobilebridge`) (2026-11-01)
+- **Status do Bloqueio:** 42 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json` (incluindo o novo arquivo de teste `services/market-api/pkg/mobilebridge/bridge_test.go`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action lock` / `verify`):**
+  ```text
+  [TDD LOCK] 42 arquivo(s) de teste bloqueado(s) com ReadOnly e registrados em tests.lock.json.
+  [TDD VERIFIED] Integridade de todos os 42 arquivos de teste confirmada via SHA-256.
+  ```
+- **Arquivo de Teste Criado e Bloqueado:**
+  - `services/market-api/pkg/mobilebridge/bridge_test.go`: `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc`
+- **Execução dos Testes da Sprint 22 sob Stubs (Red Phase Confirmada no Go test):**
+  ```text
+  === RUN   TestBridge_InitAndSearchCatalogOffline
+      bridge_test.go:43: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_InitAndSearchCatalogOffline (0.00s)
+  === RUN   TestBridge_FetchQuotesJSON_TTLAndStaleFallback
+      bridge_test.go:138: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_FetchQuotesJSON_TTLAndStaleFallback (0.00s)
+  === RUN   TestBridge_GetHistoricalPriceJSON_OnDemandSync
+      bridge_test.go:267: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_GetHistoricalPriceJSON_OnDemandSync (0.00s)
+  === RUN   TestBridge_CheckHealthJSON
+      bridge_test.go:364: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_CheckHealthJSON
+      bridge_test.go:364: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_CheckHealthJSON (0.00s)
+  === RUN   TestBridge_FetchMacroRatesJSON
+      bridge_test.go:397: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_FetchMacroRatesJSON (0.00s)
+  === RUN   TestBridge_GetCorporateEventsJSON
+      bridge_test.go:428: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_GetCorporateEventsJSON (0.00s)
+  === RUN   TestBridge_IngestCotahistZipJSON
+      bridge_test.go:517: InitEngine failed: InitEngine not implemented
+  --- FAIL: TestBridge_IngestCotahistZipJSON (0.00s)
+  FAIL	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	1.052s
+  ```
+- **Total da Sprint 22 em Red Phase:** 7 novos casos | 0 PASS | 7 FAIL (Fase A Red Phase confirmada).
+- **Total Geral do Projeto Celsus:** 42 arquivos de teste bloqueados | 296 casos de teste automatizados (289 PASS / 7 FAIL aguardando implementação da Fase B).
+
 
 
 
