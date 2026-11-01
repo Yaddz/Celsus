@@ -41,8 +41,10 @@ interface AssetItem {
 export const PortfolioManagementScreen: React.FC<{
   onClose?: () => void;
   isPrivacyMode?: boolean;
-}> = ({ onClose, isPrivacyMode = false }) => {
+  themeMode?: 'dark' | 'light';
+}> = ({ onClose, isPrivacyMode = false, themeMode = 'dark' }) => {
   const insets = useSafeAreaInsets();
+  const isLight = themeMode === 'light';
 
   // 1. Estado de Carteiras
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>([
@@ -216,12 +218,13 @@ export const PortfolioManagementScreen: React.FC<{
   });
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.xs }]}>
+    <View style={[styles.container, isLight && styles.containerLight, { paddingTop: insets.top + spacing.xs }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* 1. StackedWalletDeck da Home reaproveitado para troca de carteira */}
         <StackedWalletDeck
           portfolios={deckPortfolios}
           activeIndex={activeIndex}
+          themeMode={themeMode}
           onPortfolioChange={(idx, item) => {
             setActiveIndex(idx);
             setActivePortfolioId(item.id);
@@ -233,18 +236,18 @@ export const PortfolioManagementScreen: React.FC<{
         <TouchableOpacity
           activeOpacity={0.8}
           onPress={() => setIsNewPortfolioModalOpen(true)}
-          style={styles.addPortfolioBtn}
+          style={[styles.addPortfolioBtn, isLight && styles.addPortfolioBtnLight]}
         >
           <MaterialIcons name="add" size={18} color={colors.primary} />
-          <Text style={styles.addPortfolioBtnText}>Adicionar Nova Carteira</Text>
+          <Text style={[styles.addPortfolioBtnText, isLight && styles.addPortfolioBtnTextLight]}>Adicionar Nova Carteira</Text>
         </TouchableOpacity>
 
         {/* 2. Metas por Classe */}
-        <View style={styles.cardSection}>
+        <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionLabel}>Metas por Classe</Text>
-              <Text style={styles.sectionHelper}>Alocação ideal entre classes na carteira</Text>
+              <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>Metas por Classe</Text>
+              <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>Alocação ideal entre classes na carteira</Text>
             </View>
             <View
               style={[
@@ -256,7 +259,7 @@ export const PortfolioManagementScreen: React.FC<{
                 <MaterialIcons
                   name={macroValidation.isValid ? 'check-circle' : 'warning'}
                   size={14}
-                  color={macroValidation.isValid ? '#AECDC5' : colors.primary}
+                  color={macroValidation.isValid ? (isLight ? '#2E4A44' : '#AECDC5') : colors.primary}
                 />
                 <Text style={styles.validationBadgeText}>
                   {macroValidation.sum}% {macroValidation.isValid ? 'OK' : 'AJUSTE P/ 100%'}
@@ -269,22 +272,22 @@ export const PortfolioManagementScreen: React.FC<{
             {classTargets.map((ct) => {
               const color = getClassColor(ct.assetClass);
               return (
-                <View key={ct.assetClass} style={styles.macroCard}>
+                <View key={ct.assetClass} style={[styles.macroCard, isLight && styles.macroCardLight]}>
                   <View style={styles.macroCardHeader}>
                     <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
-                    <Text style={styles.macroClassName}>{getClassName(ct.assetClass)}</Text>
+                    <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>{getClassName(ct.assetClass)}</Text>
                   </View>
                   <Text style={[styles.macroValue, { color }]}>{ct.targetPercentage}%</Text>
                   <View style={styles.stepButtonsRow}>
                     <TouchableOpacity
                       onPress={() => handleAdjustClassTarget(ct.assetClass, -5)}
-                      style={styles.stepBtn}
+                      style={[styles.stepBtn, isLight && styles.stepBtnLight]}
                     >
-                      <Text style={styles.stepBtnText}>-5%</Text>
+                      <Text style={[styles.stepBtnText, isLight && styles.stepBtnTextLight]}>-5%</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleAdjustClassTarget(ct.assetClass, +5)}
-                      style={[styles.stepBtn, { borderColor: color }]}
+                      style={[styles.stepBtn, isLight && styles.stepBtnLight, { borderColor: color }]}
                     >
                       <Text style={[styles.stepBtnText, { color }]}>+5%</Text>
                     </TouchableOpacity>
@@ -296,11 +299,11 @@ export const PortfolioManagementScreen: React.FC<{
         </View>
 
         {/* 3. Ativos e Metas na Classe */}
-        <View style={styles.cardSection}>
+        <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
           <View style={styles.sectionHeaderRow}>
             <View>
-              <Text style={styles.sectionLabel}>Ativos na Categoria</Text>
-              <Text style={styles.sectionHelper}>
+              <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>Ativos na Categoria</Text>
+              <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>
                 Ativos em {getClassName(selectedClassTab)} (Meta: {currentClassTarget}%)
               </Text>
             </View>
@@ -314,7 +317,7 @@ export const PortfolioManagementScreen: React.FC<{
                 <MaterialIcons
                   name={microValidation.isValid ? 'check-circle' : 'warning'}
                   size={14}
-                  color={microValidation.isValid ? '#AECDC5' : colors.primary}
+                  color={microValidation.isValid ? (isLight ? '#2E4A44' : '#AECDC5') : colors.primary}
                 />
                 <Text style={styles.validationBadgeText}>
                   {microValidation.sum}% {microValidation.isValid ? 'OK' : 'AJUSTE'}
@@ -335,10 +338,11 @@ export const PortfolioManagementScreen: React.FC<{
                   onPress={() => setSelectedClassTab(c)}
                   style={[
                     styles.classTab,
-                    isTabActive && { borderColor: col, backgroundColor: '#202224' },
+                    isLight && styles.classTabLight,
+                    isTabActive && { borderColor: col, backgroundColor: isLight ? '#F0ECE1' : '#202224' },
                   ]}
                 >
-                  <Text style={[styles.classTabText, isTabActive && { color: col, fontWeight: '700' }]}>
+                  <Text style={[styles.classTabText, isLight && styles.classTabTextLight, isTabActive && { color: col, fontWeight: '700' }]}>
                     {getClassName(c)}
                   </Text>
                 </TouchableOpacity>
@@ -353,32 +357,32 @@ export const PortfolioManagementScreen: React.FC<{
               const color = getClassColor(asset.assetClass);
 
               return (
-                <View key={asset.id} style={styles.assetCard}>
+                <View key={asset.id} style={[styles.assetCard, isLight && styles.assetCardLight]}>
                   <View style={styles.assetInfoRow}>
                     <View>
-                      <Text style={styles.assetTicker}>{asset.ticker}</Text>
-                      <Text style={styles.assetName}>{asset.name}</Text>
+                      <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>{asset.ticker}</Text>
+                      <Text style={[styles.assetName, isLight && styles.assetNameLight]}>{asset.name}</Text>
                     </View>
-                    <View style={styles.globalBadge}>
-                      <Text style={styles.globalBadgeLabel}>Meta Geral</Text>
+                    <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
+                      <Text style={[styles.globalBadgeLabel, isLight && styles.globalBadgeLabelLight]}>Meta Geral</Text>
                       <Text style={[styles.globalBadgeValue, { color }]}>{globalTarget.toFixed(1)}%</Text>
                     </View>
                   </View>
 
-                  <View style={styles.assetTargetRow}>
-                    <Text style={styles.targetInClassLabel}>
-                      Peso na Classe: <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>{asset.targetInClass}%</Text>
+                  <View style={[styles.assetTargetRow, isLight && styles.assetTargetRowLight]}>
+                    <Text style={[styles.targetInClassLabel, isLight && styles.targetInClassLabelLight]}>
+                      Peso na Classe: <Text style={{ color: isLight ? '#111315' : '#FFFFFF', fontWeight: '700' }}>{asset.targetInClass}%</Text>
                     </Text>
                     <View style={styles.stepButtonsRow}>
                       <TouchableOpacity
                         onPress={() => handleUpdateAssetTarget(asset.id, -5)}
-                        style={styles.microStepBtn}
+                        style={[styles.microStepBtn, isLight && styles.microStepBtnLight]}
                       >
-                        <Text style={styles.stepBtnText}>-5%</Text>
+                        <Text style={[styles.stepBtnText, isLight && styles.stepBtnTextLight]}>-5%</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
                         onPress={() => handleUpdateAssetTarget(asset.id, +5)}
-                        style={[styles.microStepBtn, { borderColor: color }]}
+                        style={[styles.microStepBtn, isLight && styles.microStepBtnLight, { borderColor: color }]}
                       >
                         <Text style={[styles.stepBtnText, { color }]}>+5%</Text>
                       </TouchableOpacity>
@@ -391,7 +395,7 @@ export const PortfolioManagementScreen: React.FC<{
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={() => setIsAddAssetModalOpen(true)}
-              style={styles.addAssetBtn}
+              style={[styles.addAssetBtn, isLight && styles.addAssetBtnLight]}
             >
               <Text style={styles.addAssetBtnText}>+ Adicionar Ativo em {getClassName(selectedClassTab)}</Text>
             </TouchableOpacity>
@@ -404,22 +408,22 @@ export const PortfolioManagementScreen: React.FC<{
       {/* Modal: Nova Carteira */}
       <Modal visible={isNewPortfolioModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>CRIAR NOVA CARTEIRA</Text>
-            <Text style={styles.modalSubtitle}>Informe o nome ou finalidade do Dossiê</Text>
+          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
+            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>CRIAR NOVA CARTEIRA</Text>
+            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>Informe o nome ou finalidade do Dossiê</Text>
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Ex: Aposentadoria, Férias, Reserva"
-              placeholderTextColor="#666"
+              placeholderTextColor={isLight ? '#999' : '#666'}
               value={newPortfolioName}
               onChangeText={setNewPortfolioName}
             />
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
                 onPress={() => setIsNewPortfolioModalOpen(false)}
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
               >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleCreatePortfolio} style={styles.modalConfirmBtn}>
                 <Text style={styles.modalConfirmText}>Criar Dossiê</Text>
@@ -432,29 +436,29 @@ export const PortfolioManagementScreen: React.FC<{
       {/* Modal: Adicionar Ativo */}
       <Modal visible={isAddAssetModalOpen} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>ADICIONAR ATIVO</Text>
-            <Text style={styles.modalSubtitle}>Classe: {getClassName(selectedClassTab)}</Text>
+          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
+            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>ADICIONAR ATIVO</Text>
+            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>Classe: {getClassName(selectedClassTab)}</Text>
 
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Ticker (ex: BBDC4, KNRI11, SOL)"
-              placeholderTextColor="#666"
+              placeholderTextColor={isLight ? '#999' : '#666'}
               value={newTicker}
               onChangeText={handleTickerChange}
               autoCapitalize="characters"
             />
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Nome descritivo da empresa/ativo"
-              placeholderTextColor="#666"
+              placeholderTextColor={isLight ? '#999' : '#666'}
               value={newName}
               onChangeText={setNewName}
             />
             <TextInput
-              style={styles.modalInput}
+              style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Peso dentro da classe % (ex: 20)"
-              placeholderTextColor="#666"
+              placeholderTextColor={isLight ? '#999' : '#666'}
               keyboardType="numeric"
               value={newTargetInClass}
               onChangeText={setNewTargetInClass}
@@ -463,9 +467,9 @@ export const PortfolioManagementScreen: React.FC<{
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
                 onPress={() => setIsAddAssetModalOpen(false)}
-                style={styles.modalCancelBtn}
+                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
               >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleAddAsset} style={styles.modalConfirmBtn}>
                 <Text style={styles.modalConfirmText}>Salvar Ativo</Text>
@@ -779,6 +783,107 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.voidFloor,
     fontWeight: '700',
+  },
+  // Light Theme Styles
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  addPortfolioBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  addPortfolioBtnTextLight: {
+    color: '#111315',
+  },
+  cardSectionLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  sectionLabelLight: {
+    color: '#111315',
+  },
+  sectionHelperLight: {
+    color: '#6E6A63',
+  },
+  macroCardLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  macroClassNameLight: {
+    color: '#111315',
+  },
+  stepBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  stepBtnTextLight: {
+    color: '#111315',
+  },
+  classTabLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  classTabTextLight: {
+    color: '#6E6A63',
+  },
+  assetCardLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  assetTickerLight: {
+    color: '#111315',
+  },
+  assetNameLight: {
+    color: '#6E6A63',
+  },
+  globalBadgeLight: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  globalBadgeLabelLight: {
+    color: '#6E6A63',
+  },
+  assetTargetRowLight: {
+    borderTopColor: '#EAE4D7',
+  },
+  targetInClassLabelLight: {
+    color: '#6E6A63',
+  },
+  microStepBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  addAssetBtnLight: {
+    backgroundColor: '#F0ECE1',
+    borderColor: '#EAE4D7',
+  },
+  addAssetBtnTextLight: {
+    color: '#111315',
+  },
+  modalContainerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  modalTitleLight: {
+    color: '#111315',
+  },
+  modalSubtitleLight: {
+    color: '#6E6A63',
+  },
+  modalInputLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+    color: '#111315',
+  },
+  modalCancelBtnLight: {
+    backgroundColor: '#F0ECE1',
+  },
+  modalCancelTextLight: {
+    color: '#6E6A63',
   },
 });
 

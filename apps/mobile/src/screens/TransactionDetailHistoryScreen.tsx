@@ -45,6 +45,7 @@ export interface TransactionDetailHistoryScreenProps {
   isPrivacyMode?: boolean;
   onClose?: () => void;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 const DEFAULT_TRANSACTION: TransactionDetailData = {
@@ -100,8 +101,10 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   isPrivacyMode = false,
   onClose = () => {},
   testID = 'transaction-detail-history-screen',
+  themeMode = 'dark',
 }) => {
   const insets = useSafeAreaInsets();
+  const isLight = themeMode === 'light';
   const tx = transaction || DEFAULT_TRANSACTION;
   const historyList = history && history.length > 0 ? history : DEFAULT_HISTORY;
 
@@ -118,21 +121,21 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   const feesDisplay = isPrivacyMode ? '██████,██' : tx.fees;
 
   return (
-    <View testID={testID} style={styles.container}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Topo Limpo Minimalista (Zero Header Pesado) */}
-      <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
+      <View style={[styles.topBar, isLight && styles.topBarLight, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         <TouchableOpacity
           testID="btn-close-tx-detail"
           onPress={onClose}
-          style={styles.backButton}
+          style={[styles.backButton, isLight && styles.backButtonLight]}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="arrow-back" size={22} color={colors.parchmentPale} />
+          <MaterialIcons name="arrow-back" size={22} color={isLight ? '#111315' : colors.parchmentPale} />
         </TouchableOpacity>
 
-        <View style={styles.tickerBadge}>
+        <View style={[styles.tickerBadge, isLight && styles.tickerBadgeLight]}>
           <View style={[styles.classDot, { backgroundColor: classConfig.color }]} />
-          <Text style={styles.tickerBadgeText}>• {tx.ticker}</Text>
+          <Text style={[styles.tickerBadgeText, isLight && styles.tickerBadgeTextLight]}>• {tx.ticker}</Text>
         </View>
 
         <View style={{ width: 40 }} />
@@ -146,30 +149,30 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
         ]}
       >
         {/* Card Destaque da Operação Selecionada (Estilo BTG) */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroHeader}>
+        <View style={[styles.heroCard, isLight && styles.heroCardLight]}>
+          <View style={[styles.heroHeader, isLight && styles.heroHeaderLight]}>
             <View>
-              <Text style={styles.heroAssetTitle}>{tx.ticker}</Text>
+              <Text style={[styles.heroAssetTitle, isLight && styles.heroAssetTitleLight]}>{tx.ticker}</Text>
               {tx.assetName && (
-                <Text style={styles.heroAssetSubtitle}>{tx.assetName}</Text>
+                <Text style={[styles.heroAssetSubtitle, isLight && styles.heroAssetSubtitleLight]}>{tx.assetName}</Text>
               )}
             </View>
             <View
               testID="tx-detail-type"
               style={[
                 styles.typeBadge,
-                { backgroundColor: isBuy ? '#1D2E28' : '#331C18' },
+                { backgroundColor: isBuy ? (isLight ? '#E5F3EE' : '#1D2E28') : (isLight ? '#FCEBEA' : '#331C18') },
               ]}
             >
               <MaterialIcons
                 name={isBuy ? 'arrow-upward' : 'arrow-downward'}
                 size={14}
-                color={isBuy ? colors.tertiary : colors.deficit}
+                color={isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit}
               />
               <Text
                 style={[
                   styles.typeBadgeText,
-                  { color: isBuy ? colors.tertiary : colors.deficit },
+                  { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
                 ]}
               >
                 {isBuy ? 'Compra' : 'Venda'}
@@ -179,44 +182,44 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 
           {/* Destaque do Valor Investido */}
           <View style={styles.investedHeroContainer}>
-            <Text style={styles.investedLabel}>VALOR INVESTIDO</Text>
-            <Text testID="tx-detail-invested-amount" style={styles.investedValue}>
+            <Text style={[styles.investedLabel, isLight && styles.investedLabelLight]}>VALOR INVESTIDO</Text>
+            <Text testID="tx-detail-invested-amount" style={[styles.investedValue, isLight && styles.investedValueLight]}>
               {investedDisplay}
             </Text>
           </View>
 
           {/* Grid de Detalhes da Execução */}
-          <View style={styles.detailsGrid}>
+          <View style={[styles.detailsGrid, isLight && styles.detailsGridLight]}>
             <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>Cotação</Text>
+              <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Cotação</Text>
               {unitPriceDisplay.includes('35,00') ? (
-                <Text testID="tx-detail-unit-price" style={styles.detailValue}>
+                <Text testID="tx-detail-unit-price" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                   R$ 3<Text aria-hidden={true}>5,00</Text>
                 </Text>
               ) : (
-                <Text testID="tx-detail-unit-price" style={styles.detailValue}>
+                <Text testID="tx-detail-unit-price" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                   {unitPriceDisplay}
                 </Text>
               )}
             </View>
 
             <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>Quantidade</Text>
-              <Text testID="tx-detail-quantity" style={styles.detailValue}>
+              <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Quantidade</Text>
+              <Text testID="tx-detail-quantity" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                 {tx.quantity}
               </Text>
             </View>
 
             <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>Taxas</Text>
-              <Text testID="tx-detail-fees" style={styles.detailValue}>
+              <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Taxas</Text>
+              <Text testID="tx-detail-fees" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                 {feesDisplay}
               </Text>
             </View>
 
             <View style={styles.detailCol}>
-              <Text style={styles.detailLabel}>Data</Text>
-              <Text testID="tx-detail-trade-date" style={styles.detailValue}>
+              <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Data</Text>
+              <Text testID="tx-detail-trade-date" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                 {tx.tradeDate}
               </Text>
             </View>
@@ -224,20 +227,19 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 
           {tx.portfolioName && (
             <View style={styles.portfolioTagRow}>
-              <MaterialIcons name="account-balance-wallet" size={14} color="#8A8A8E" />
-              <Text style={styles.portfolioTagText}>{tx.portfolioName}</Text>
+              <MaterialIcons name="account-balance-wallet" size={14} color={isLight ? '#6E6A63' : '#8A8A8E'} />
+              <Text style={[styles.portfolioTagText, isLight && styles.portfolioTagTextLight]}>{tx.portfolioName}</Text>
             </View>
           )}
         </View>
 
         {/* Linha do Tempo / Histórico Completo de Movimentações */}
         <View testID="tx-history-list" style={styles.historySection}>
-          <Text style={styles.historySectionTitle}>HISTÓRICO DE OPERAÇÕES</Text>
+          <Text style={[styles.historySectionTitle, isLight && styles.historySectionTitleLight]}>HISTÓRICO DE OPERAÇÕES</Text>
 
           {historyList.map((item, idx) => {
             const itemIsBuy = item.type === 'BUY';
             const totalDisplay = isPrivacyMode ? '██████,██' : item.totalAmount;
-            const unitDisplay = isPrivacyMode ? '██████,██' : item.unitPrice;
 
             return (
               <View key={item.id || `history-${idx}`} style={styles.timelineItem}>
@@ -249,19 +251,19 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
                       { backgroundColor: itemIsBuy ? colors.primary : colors.deficit },
                     ]}
                   />
-                  {idx < historyList.length - 1 && <View style={styles.timelineLine} />}
+                  {idx < historyList.length - 1 && <View style={[styles.timelineLine, isLight && styles.timelineLineLight]} />}
                 </View>
 
                 {/* Card de Detalhe do Histórico */}
-                <View style={styles.timelineContentCard}>
+                <View style={[styles.timelineContentCard, isLight && styles.timelineContentCardLight]}>
                   <View style={styles.timelineHeaderRow}>
-                    <Text style={styles.timelineDateText}>
+                    <Text style={[styles.timelineDateText, isLight && styles.timelineDateTextLight]}>
                       {item.tradeDate === tx.tradeDate ? 'Esta operação' : item.tradeDate}
                     </Text>
                     <Text
                       style={[
                         styles.timelineTypeText,
-                        { color: itemIsBuy ? colors.tertiary : colors.deficit },
+                        { color: itemIsBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
                       ]}
                     >
                       {itemIsBuy ? 'COMPRA' : 'VENDA'}
@@ -270,8 +272,8 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 
                   <View style={styles.timelineMetricsRow}>
                     <View>
-                      <Text style={styles.timelineAmountText}>{totalDisplay}</Text>
-                      <Text style={styles.timelineSubText}>
+                      <Text style={[styles.timelineAmountText, isLight && styles.timelineAmountTextLight]}>{totalDisplay}</Text>
+                      <Text style={[styles.timelineSubText, isLight && styles.timelineSubTextLight]}>
                         {item.quantity} cotas
                       </Text>
                     </View>
@@ -519,5 +521,77 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm.fontSize - 1,
     color: colors.tertiary,
     fontStyle: 'italic',
+  },
+  // Light Theme Styles
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  topBarLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  backButtonLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  tickerBadgeLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  tickerBadgeTextLight: {
+    color: '#111315',
+  },
+  heroCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  heroHeaderLight: {
+    borderBottomColor: '#EAE4D7',
+  },
+  heroAssetTitleLight: {
+    color: '#111315',
+  },
+  heroAssetSubtitleLight: {
+    color: '#6E6A63',
+  },
+  investedLabelLight: {
+    color: '#6E6A63',
+  },
+  investedValueLight: {
+    color: '#111315',
+  },
+  detailsGridLight: {
+    borderTopColor: '#EAE4D7',
+  },
+  detailLabelLight: {
+    color: '#6E6A63',
+  },
+  detailValueLight: {
+    color: '#333537',
+  },
+  portfolioTagTextLight: {
+    color: '#6E6A63',
+  },
+  historySectionTitleLight: {
+    color: '#6E6A63',
+  },
+  timelineLineLight: {
+    backgroundColor: '#EAE4D7',
+  },
+  timelineContentCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.06,
+  },
+  timelineDateTextLight: {
+    color: '#6E6A63',
+  },
+  timelineAmountTextLight: {
+    color: '#111315',
+  },
+  timelineSubTextLight: {
+    color: '#6E6A63',
   },
 });

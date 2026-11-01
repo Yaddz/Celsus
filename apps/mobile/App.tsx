@@ -16,11 +16,9 @@ import { StatusBar } from 'expo-status-bar';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders } from './src/theme/tokens';
 import {
-  DossierCard,
   StackedWalletDeck,
   WalletCardData,
   QuickActionBentoRow,
-  SpecimenHexCard,
   RecentTransactionsCard,
   DotMatrixAllocationCard,
   LedgerInput,
@@ -274,6 +272,9 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
+        <View style={styles.sheetDragHandleContainer}>
+          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+        </View>
         <SettingsBackupScreen
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
@@ -304,11 +305,17 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <StatisticsScreen isPrivacyMode={isPrivacyMode} />
+        <StatisticsScreen isPrivacyMode={isPrivacyMode} themeMode={themeMode} />
         <FloatingBottomDock
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab)}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
           themeMode={themeMode}
         />
       </SafeAreaView>
@@ -332,6 +339,7 @@ function AppContent() {
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <PortfolioManagementScreen
           isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
           onClose={() => {
             setIsPortfolioManagerModalOpen(false);
             setActiveTab('home');
@@ -345,6 +353,12 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
           themeMode={themeMode}
         />
       </SafeAreaView>
@@ -366,7 +380,11 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
+        <View style={styles.sheetDragHandleContainer}>
+          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+        </View>
         <TransactionScreen
+          themeMode={themeMode}
           onClose={() => {
             setIsTransactionModalOpen(false);
             refreshAppData();
@@ -392,7 +410,11 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
+        <View style={styles.sheetDragHandleContainer}>
+          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+        </View>
         <SimulatorScreen
+          themeMode={themeMode}
           onClose={() => {
             setIsSimulatorModalOpen(false);
             refreshAppData();
@@ -433,6 +455,7 @@ function AppContent() {
             portfolioName: 'Carteira Principal',
           }}
           isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
           onClose={() => setSelectedRecentTransaction(null)}
         />
         <FloatingBottomDock
@@ -442,6 +465,12 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
           themeMode={themeMode}
         />
       </SafeAreaView>
@@ -466,6 +495,7 @@ function AppContent() {
         <ClassDetailScreen
           assetClass={selectedClassDetail}
           isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
           onClose={() => setSelectedClassDetail(null)}
         />
         <FloatingBottomDock
@@ -475,6 +505,12 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
           themeMode={themeMode}
         />
       </SafeAreaView>
@@ -600,6 +636,12 @@ function AppContent() {
           }
         }}
         onActionPress={() => setIsTransactionModalOpen(true)}
+        onNovoAportePress={() => setIsTransactionModalOpen(true)}
+        onNovaCarteiraPress={() => {
+          setIsPortfolioManagerModalOpen(true);
+          setActiveTab('wallets');
+        }}
+        onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
         themeMode={themeMode}
       />
     </SafeAreaView>
@@ -610,6 +652,19 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.voidFloor,
+  },
+  sheetDragHandleContainer: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  sheetDragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#3A3D42',
+  },
+  sheetDragHandleLight: {
+    backgroundColor: '#D1CCC0',
   },
   ambientGlow: {
     position: 'absolute',

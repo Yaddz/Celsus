@@ -35,6 +35,7 @@ export interface ClassDetailScreenProps {
   onClose?: () => void;
   onAssetPress?: (assetId: string) => void;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 export const DONUT_SLICE_COLORS = [
@@ -192,9 +193,11 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   isPrivacyMode = false,
   onClose = () => {},
   testID = 'class-detail-screen',
+  themeMode = 'dark',
 }) => {
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+  const isLight = themeMode === 'light';
 
   const classConfig = ASSET_CLASS_ATTRIBUTE_MAP[assetClass] || {
     name: 'Ações',
@@ -220,21 +223,21 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   };
 
   return (
-    <View testID={testID} style={styles.container}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Topo Limpo Minimalista (Sem Header Pesado) */}
       <View style={[styles.topBar, { paddingTop: Math.max(insets.top, 12) + 6 }]}>
         <TouchableOpacity
           testID="btn-close-class-detail"
           onPress={onClose}
-          style={styles.backButton}
+          style={[styles.backButton, isLight && styles.backButtonLight]}
           activeOpacity={0.7}
         >
-          <MaterialIcons name="arrow-back" size={22} color={colors.parchmentPale} />
+          <MaterialIcons name="arrow-back" size={22} color={isLight ? '#111315' : colors.parchmentPale} />
         </TouchableOpacity>
 
-        <View style={styles.titleBadge}>
+        <View style={[styles.titleBadge, isLight && styles.titleBadgeLight]}>
           <View style={[styles.classColorDot, { backgroundColor: classConfig.color }]} />
-          <Text style={styles.classTitleText}>{title.toUpperCase()}</Text>
+          <Text style={[styles.classTitleText, isLight && styles.classTitleTextLight]}>{title.toUpperCase()}</Text>
         </View>
 
         <View style={{ width: 40 }} />
@@ -249,13 +252,13 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         ]}
       >
         {/* Gráfico de Pizza Oco (Hollow Donut Chart) */}
-        <View testID="class-donut-chart" style={styles.donutCard}>
+        <View testID="class-donut-chart" style={[styles.donutCard, isLight && styles.donutCardLight]}>
           <View style={styles.donutVisualArea}>
             {/* Anel Oco Central */}
-            <View style={styles.donutHoleContainer}>
+            <View style={[styles.donutHoleContainer, isLight && styles.donutHoleContainerLight]}>
               <View style={styles.donutCenterCircle}>
-                <Text style={styles.donutCenterLabel}>{title}</Text>
-                <Text style={styles.donutCenterTotal}>
+                <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>{title}</Text>
+                <Text style={[styles.donutCenterTotal, isLight && styles.donutCenterTotalLight]}>
                   {assetList.length} {assetList.length === 1 ? 'ativo' : 'ativos'}
                 </Text>
               </View>
@@ -290,7 +293,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
 
           {/* Tooltip Flutuante disparado no onLongPress */}
           {activeTooltipAsset && (
-            <View testID="donut-tooltip" style={styles.tooltipBox}>
+            <View testID="donut-tooltip" style={[styles.tooltipBox, isLight && styles.tooltipBoxLight]}>
               <View style={styles.tooltipHeader}>
                 <View
                   style={[
@@ -305,13 +308,13 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                     },
                   ]}
                 />
-                <Text style={styles.tooltipTicker}>{activeTooltipAsset.ticker}</Text>
+                <Text style={[styles.tooltipTicker, isLight && styles.tooltipTickerLight]}>{activeTooltipAsset.ticker}</Text>
                 <Text style={styles.tooltipPercentage}>
                   {activeTooltipAsset.currentAllocationPercentage.toFixed(1)}%
                 </Text>
               </View>
-              <Text style={styles.tooltipName}>{activeTooltipAsset.name}</Text>
-              <Text style={styles.tooltipHint}>Toque para rolar até o ativo</Text>
+              <Text style={[styles.tooltipName, isLight && styles.tooltipNameLight]}>{activeTooltipAsset.name}</Text>
+              <Text style={[styles.tooltipHint, isLight && styles.tooltipHintLight]}>Toque para rolar até o ativo</Text>
             </View>
           )}
 
@@ -328,10 +331,10 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                   activeOpacity={0.7}
                   onPress={() => handleSlicePress(asset, idx)}
                   onLongPress={() => handleSliceLongPress(asset)}
-                  style={styles.legendItem}
+                  style={[styles.legendItem, isLight && styles.legendItemLight]}
                 >
                   <View style={[styles.legendDot, { backgroundColor: color }]} />
-                  <Text style={styles.legendTicker}>• {asset.ticker}</Text>
+                  <Text style={[styles.legendTicker, isLight && styles.legendTickerLight]}>• {asset.ticker}</Text>
                   <Text style={styles.legendPercentage}>{pctText}</Text>
                 </TouchableOpacity>
               );
@@ -341,7 +344,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
 
         {/* Lista de Cards Detalhados dos Ativos (Estilo BTG / XP) */}
         <View style={styles.cardsSection}>
-          <Text style={styles.sectionHeader}>ATIVOS DA CARTEIRA</Text>
+          <Text style={[styles.sectionHeader, isLight && styles.sectionHeaderLight]}>ATIVOS DA CARTEIRA</Text>
 
           {assetList.map((asset) => {
             const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
@@ -360,21 +363,21 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                   const y = e.nativeEvent.layout.y;
                   setCardPositions((prev) => ({ ...prev, [asset.ticker]: y }));
                 }}
-                style={styles.assetCard}
+                style={[styles.assetCard, isLight && styles.assetCardLight]}
               >
                 {/* Linha Superior: Ticker + Nome + Acento de Cor */}
-                <View style={styles.cardHeader}>
+                <View style={[styles.cardHeader, isLight && styles.cardHeaderLight]}>
                   <View style={styles.cardHeaderLeft}>
                     <View style={[styles.tickerIndicator, { backgroundColor: color }]} />
                     <View>
-                      <Text style={styles.tickerText}>{asset.ticker}</Text>
-                      <Text style={styles.nameText} numberOfLines={1}>
+                      <Text style={[styles.tickerText, isLight && styles.tickerTextLight]}>{asset.ticker}</Text>
+                      <Text style={[styles.nameText, isLight && styles.nameTextLight]} numberOfLines={1}>
                         {nameDisplay}
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.allocationBadge}>
-                    <Text style={styles.allocationText}>
+                  <View style={[styles.allocationBadge, isLight && styles.allocationBadgeLight]}>
+                    <Text style={[styles.allocationText, isLight && styles.allocationTextLight]}>
                       Alocação {asset.currentAllocationPercentage.toFixed(1)}
                     </Text>
                   </View>
@@ -384,44 +387,44 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                 <View style={styles.metricsGrid}>
                   {/* Saldo Bruto */}
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>Saldo Bruto</Text>
-                    <Text style={styles.metricValuePrimary}>{grossBalanceDisplay}</Text>
+                    <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Saldo Bruto</Text>
+                    <Text style={[styles.metricValuePrimary, isLight && styles.metricValuePrimaryLight]}>{grossBalanceDisplay}</Text>
                   </View>
 
                   {/* Preço Médio */}
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>Preço Médio</Text>
+                    <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Preço Médio</Text>
                     {avgPriceDisplay.includes('32,50') ? (
-                      <Text style={styles.metricValue}>
+                      <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
                         R$ 32,<Text aria-hidden={true}>50</Text>
                       </Text>
                     ) : (
-                      <Text style={styles.metricValue}>{avgPriceDisplay}</Text>
+                      <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>{avgPriceDisplay}</Text>
                     )}
                   </View>
 
                   {/* Quantidade */}
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>Quantidade</Text>
+                    <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Quantidade</Text>
                     {asset.quantity === '150' ? (
-                      <Text style={styles.metricValue}>
+                      <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
                         1<Text aria-hidden={true}>50</Text>
                       </Text>
                     ) : (
-                      <Text style={styles.metricValue}>{asset.quantity}</Text>
+                      <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>{asset.quantity}</Text>
                     )}
                   </View>
 
                   {/* Cotação / Preço Atual */}
                   <View style={styles.metricCol}>
-                    <Text style={styles.metricLabel}>Cotação Atual</Text>
-                    <Text style={styles.metricValue}>{curPriceDisplay}</Text>
+                    <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Cotação Atual</Text>
+                    <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>{curPriceDisplay}</Text>
                   </View>
                 </View>
 
                 {/* Linha Inferior: Rentabilidade */}
-                <View style={styles.cardFooter}>
-                  <Text style={styles.metricLabel}>Rentabilidade</Text>
+                <View style={[styles.cardFooter, isLight && styles.cardFooterLight]}>
+                  <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Rentabilidade</Text>
                   <View style={styles.profitContainer}>
                     <MaterialIcons
                       name={profitDisplay.startsWith('-') ? 'arrow-downward' : 'arrow-upward'}
@@ -437,7 +440,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                       {profitDisplay}
                     </Text>
                     {asset.profitabilityAmount && !isPrivacyMode && (
-                      <Text style={styles.profitAmountText}>
+                      <Text style={[styles.profitAmountText, isLight && styles.profitAmountTextLight]}>
                         ({asset.profitabilityAmount})
                       </Text>
                     )}
@@ -764,5 +767,95 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm.fontSize,
     color: '#8A8A8E',
     marginLeft: 4,
+  },
+  // Light Theme Styles
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  backButtonLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  titleBadgeLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  classTitleTextLight: {
+    color: '#111315',
+  },
+  donutCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  donutHoleContainerLight: {
+    backgroundColor: '#F4F1EA',
+    borderColor: '#EAE4D7',
+  },
+  donutCenterLabelLight: {
+    color: '#111315',
+  },
+  donutCenterTotalLight: {
+    color: '#6E6A63',
+  },
+  tooltipBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  tooltipTickerLight: {
+    color: '#111315',
+  },
+  tooltipNameLight: {
+    color: '#6E6A63',
+  },
+  tooltipHintLight: {
+    color: '#8A8A8E',
+  },
+  legendItemLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  legendTickerLight: {
+    color: '#111315',
+  },
+  sectionHeaderLight: {
+    color: '#6E6A63',
+  },
+  assetCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  cardHeaderLight: {
+    borderBottomColor: '#EAE4D7',
+  },
+  tickerTextLight: {
+    color: '#111315',
+  },
+  nameTextLight: {
+    color: '#6E6A63',
+  },
+  allocationBadgeLight: {
+    backgroundColor: '#F0ECE1',
+  },
+  allocationTextLight: {
+    color: '#8A581A',
+  },
+  metricLabelLight: {
+    color: '#6E6A63',
+  },
+  metricValuePrimaryLight: {
+    color: '#111315',
+  },
+  metricValueLight: {
+    color: '#333537',
+  },
+  cardFooterLight: {
+    borderTopColor: '#EAE4D7',
+  },
+  profitAmountTextLight: {
+    color: '#6E6A63',
   },
 });

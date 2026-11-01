@@ -35,6 +35,7 @@ import { transactionRepository } from '../repositories/transactionRepository';
 export interface StatisticsScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
+  themeMode?: 'dark' | 'light';
 }
 
 const DEFAULT_SAMPLE_CURVE: HistoricalPricePoint[] = [
@@ -49,8 +50,10 @@ const DEFAULT_SAMPLE_CURVE: HistoricalPricePoint[] = [
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
+  themeMode = 'dark',
 }) => {
   const insets = useSafeAreaInsets();
+  const isLight = themeMode === 'light';
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<PeriodFilter>('ALL');
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('all'); // 'all' = Carteiras Consolidadas
   const [loading, setLoading] = useState(true);
@@ -186,7 +189,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     : undefined;
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + spacing.xs }]}>
+    <View style={[styles.container, isLight && styles.containerLight, { paddingTop: insets.top + spacing.xs }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Seletor de Carteira: Carteiras Consolidadas ou individuais */}
         <ScrollView
@@ -199,12 +202,14 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
             onPress={() => setSelectedPortfolioId('all')}
             style={[
               styles.filterPill,
+              isLight && styles.filterPillLight,
               selectedPortfolioId === 'all' && styles.filterPillActive,
             ]}
           >
             <Text
               style={[
                 styles.filterPillText,
+                isLight && styles.filterPillTextLight,
                 selectedPortfolioId === 'all' && styles.filterPillTextActive,
               ]}
             >
@@ -219,11 +224,12 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
                 key={p.id}
                 activeOpacity={0.8}
                 onPress={() => setSelectedPortfolioId(p.id)}
-                style={[styles.filterPill, isSelected && styles.filterPillActive]}
+                style={[styles.filterPill, isLight && styles.filterPillLight, isSelected && styles.filterPillActive]}
               >
                 <Text
                   style={[
                     styles.filterPillText,
+                    isLight && styles.filterPillTextLight,
                     isSelected && styles.filterPillTextActive,
                   ]}
                 >
@@ -247,6 +253,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           onPeriodChange={setSelectedPeriodFilter}
           summary={periodSummary}
           isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
           testID="patrimony-line-chart-card"
         />
 
@@ -255,31 +262,33 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           totalBalance={totalBalanceStr}
           allocations={categoryAllocations}
           isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
           testID="dot-matrix-allocation-card"
         />
 
         {/* 3. Card de Métricas Financeiras Consolidadas */}
         {consolidatedData ? (
-          <View style={styles.metricsCard}>
-            <Text style={styles.metricsTitle}>RESUMO DO DOSSIÊ</Text>
+          <View style={[styles.metricsCard, isLight && styles.metricsCardLight]}>
+            <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight]}>RESUMO DO DOSSIÊ</Text>
             <View style={styles.metricsGrid}>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Capital Aportado</Text>
-                <Text style={styles.metricValue}>
+              <View style={[styles.metricBox, isLight && styles.metricBoxLight]}>
+                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Capital Aportado</Text>
+                <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
                   {isPrivacyMode
                     ? '*******'
                     : `R$ ${parseFloat(consolidatedData.totalInvestedCapital).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </Text>
               </View>
-              <View style={styles.metricBox}>
-                <Text style={styles.metricLabel}>Lucro / PnL Total</Text>
+              <View style={[styles.metricBox, isLight && styles.metricBoxLight]}>
+                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Lucro / PnL Total</Text>
                 <Text
                   style={[
                     styles.metricValue,
+                    isLight && styles.metricValueLight,
                     {
                       color:
                         parseFloat(consolidatedData.totalProfit) >= 0
-                          ? '#AECDC5'
+                          ? (isLight ? '#2E4A44' : '#AECDC5')
                           : colors.primary,
                     },
                   ]}
@@ -380,6 +389,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.parchmentPale,
     marginTop: 4,
+  },
+  // Light Theme Styles
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  filterPillLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  filterPillTextLight: {
+    color: '#6E6A63',
+  },
+  metricsCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  metricsTitleLight: {
+    color: '#6E6A63',
+  },
+  metricBoxLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  metricLabelLight: {
+    color: '#6E6A63',
+  },
+  metricValueLight: {
+    color: '#111315',
   },
 });
 

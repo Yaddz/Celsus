@@ -24,6 +24,7 @@ export interface SimulatorScreenProps {
   onClose: () => void;
   onContributionsConfirmed?: () => void;
   initialPortfolioId?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.glyphMap> = {
@@ -37,7 +38,9 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   onClose,
   onContributionsConfirmed = () => {},
   initialPortfolioId,
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -160,12 +163,20 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isLight && styles.containerLight]}>
       {/* Top Close Action (sem header) */}
       {onClose && (
         <View style={styles.topActionsRow}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} testID="close-simulator-btn">
-            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
+          <TouchableOpacity
+            onPress={onClose}
+            style={[styles.closeBtn, isLight && styles.closeBtnLight]}
+            testID="close-simulator-btn"
+          >
+            <MaterialIcons
+              name="close"
+              size={20}
+              color={isLight ? '#111315' : colors.parchmentPale}
+            />
           </TouchableOpacity>
         </View>
       )}
@@ -173,7 +184,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Seletor de Carteira */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>CARTEIRA DESTINO</Text>
+          <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>CARTEIRA DESTINO</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
             {portfolios.map((p) => {
               const isSelected = p.id === selectedPortfolioId;
@@ -181,14 +192,14 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setSelectedPortfolioId(p.id)}
-                  style={[styles.chip, isSelected && styles.chipActive]}
+                  style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
                 >
                   <MaterialIcons
                     name="account-balance-wallet"
                     size={16}
-                    color={isSelected ? colors.voidFloor : colors.tertiary}
+                    color={isSelected ? colors.voidFloor : (isLight ? '#6E6A63' : colors.tertiary)}
                   />
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
                     {p.name}
                   </Text>
                 </TouchableOpacity>
@@ -205,6 +216,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
             onChangeText={setContributionAmountText}
             prefix="R$ "
             suffix=" BRL"
+            themeMode={themeMode}
           />
 
           <DirectiveButton
@@ -212,6 +224,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
             variant="primary"
             materialIcon="calculate"
             onPress={handleSimulate}
+            themeMode={themeMode}
             style={{ marginTop: spacing.xs }}
           />
         </View>
@@ -221,28 +234,30 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           <View style={styles.resultSection}>
             {/* Bento Card de Resumo do Aporte */}
             <View style={styles.metricsRow}>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>TOTAL APORTE</Text>
-                <Text style={styles.metricValue}>R$ {simulationResult.contributionAmount}</Text>
+              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
+                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>TOTAL APORTE</Text>
+                <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
+                  R$ {simulationResult.contributionAmount}
+                </Text>
               </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>TOTAL ALOCADO</Text>
-                <Text style={[styles.metricValue, { color: '#AECDC5' }]}>
+              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
+                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>TOTAL ALOCADO</Text>
+                <Text style={[styles.metricValue, { color: isLight ? '#1B4D3E' : '#AECDC5' }]}>
                   R$ {simulationResult.totalAllocated}
                 </Text>
               </View>
-              <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>SOBRA EM CAIXA</Text>
-                <Text style={[styles.metricValue, { color: colors.tertiary }]}>
+              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
+                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>SOBRA EM CAIXA</Text>
+                <Text style={[styles.metricValue, { color: isLight ? '#A0522D' : colors.tertiary }]}>
                   R$ {simulationResult.remainingCash}
                 </Text>
               </View>
             </View>
 
             {/* Lista de Ativos Sugeridos */}
-            <Text style={styles.listSectionTitle}>ATIVOS CONTEMPLADOS</Text>
+            <Text style={[styles.listSectionTitle, isLight && styles.listSectionTitleLight]}>ATIVOS CONTEMPLADOS</Text>
 
-            <View style={styles.suggestionsContainer}>
+            <View style={[styles.suggestionsContainer, isLight && styles.suggestionsContainerLight]}>
               {simulationResult.suggestions.map((s) => {
                 const config = ASSET_CLASS_ATTRIBUTE_MAP[s.assetClass] || {
                   color: colors.primary,
@@ -257,6 +272,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                     style={[
                       styles.suggestionCard,
                       !hasAllocation && styles.suggestionCardZero,
+                      isLight && styles.suggestionCardLight,
                     ]}
                   >
                     {/* Avatar Circular 44x44 */}
@@ -267,10 +283,10 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                     {/* Detalhes do Ativo */}
                     <View style={styles.detailsCol}>
                       <View style={styles.tickerRow}>
-                        <Text style={styles.tickerText}>{s.ticker}</Text>
-                        <Text style={styles.classBadgeText}>{config.label}</Text>
+                        <Text style={[styles.tickerText, isLight && styles.tickerTextLight]}>{s.ticker}</Text>
+                        <Text style={[styles.classBadgeText, isLight && styles.classBadgeTextLight]}>{config.label}</Text>
                       </View>
-                      <Text style={styles.subDetailText}>
+                      <Text style={[styles.subDetailText, isLight && styles.subDetailTextLight]}>
                         Meta: {s.targetWeightPercent}% • Atual: {s.currentWeightPercent}%
                       </Text>
                     </View>
@@ -280,12 +296,14 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                       <Text
                         style={[
                           styles.allocatedAmountText,
-                          hasAllocation ? styles.allocatedPositive : styles.allocatedZero,
+                          hasAllocation
+                            ? (isLight ? styles.allocatedPositiveLight : styles.allocatedPositive)
+                            : (isLight ? styles.allocatedZeroLight : styles.allocatedZero),
                         ]}
                       >
                         {hasAllocation ? `+R$ ${s.allocatedAmount}` : 'R$ 0,00'}
                       </Text>
-                      <Text style={styles.quantityText}>
+                      <Text style={[styles.quantityText, isLight && styles.quantityTextLight]}>
                         {s.suggestedQuantity}{' '}
                         {s.assetClass === 'STOCK' || s.assetClass === 'FII'
                           ? 'cotas'
@@ -306,6 +324,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
               materialIcon="north-east"
               disabled={isExecuting}
               onPress={handleConfirmBatch}
+              themeMode={themeMode}
               style={{ marginTop: spacing.md }}
             />
           </View>
@@ -487,6 +506,62 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
     marginTop: 2,
+  },
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
+  closeBtnLight: {
+    backgroundColor: '#EAE4D7',
+  },
+  sectionLabelLight: {
+    color: '#6E6A63',
+  },
+  chipLight: {
+    backgroundColor: '#EDE8DF',
+    borderColor: '#E5DFD3',
+  },
+  chipTextLight: {
+    color: '#111315',
+  },
+  metricCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  metricLabelLight: {
+    color: '#6E6A63',
+  },
+  metricValueLight: {
+    color: '#111315',
+  },
+  listSectionTitleLight: {
+    color: '#111315',
+  },
+  suggestionsContainerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
+  suggestionCardLight: {
+    borderBottomColor: '#EAE4D7',
+  },
+  tickerTextLight: {
+    color: '#111315',
+  },
+  classBadgeTextLight: {
+    color: '#6E6A63',
+  },
+  subDetailTextLight: {
+    color: '#6E6A63',
+  },
+  allocatedPositiveLight: {
+    color: '#1B4D3E',
+  },
+  allocatedZeroLight: {
+    color: '#8A857B',
+  },
+  quantityTextLight: {
+    color: '#1B4D3E',
   },
 });
 

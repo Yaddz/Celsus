@@ -985,6 +985,41 @@
   - **235 casos de teste automatizados executados (16 em Go + 219 em TypeScript/Jest)**
   - **100% de aprovação (235 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
 
+---
+
+### Sprint 15 — Design System v3 & Padronização Global (2026-11-01)
+- **Status do Bloqueio:** Regime estrito de TDD Lock mantido. Nenhuma alteração foi realizada em nenhum arquivo de teste bloqueado em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 36 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Stacked Hero Wallet Deck com Authentic Notch:** Geometria exata de `media_1793503104078_4279d087.png` (círculos bokeh no topo esquerdo, header `PATRIMÔNIO TOTAL`, rentabilidade no rodapé esquerdo e notch escuro côncavo no canto inferior direito exibindo o Nome da Carteira em 2 linhas + física de mola com tilt de $\pm 2.5^\circ$ e escala $0.98$).
+  2. **Floating Bottom Dock com Rotating FAB:** Botão central com animação de rotação em $45^\circ$ (`+` $\to$ `×`) e abertura de Action Sheet com 3 opções principais (Nova Movimentação, Nova Carteira, Adicionar Ativo).
+  3. **Limpeza de Componentes Legados:** Remoção completa de `DossierCard.tsx`, `SpecimenHexCard.tsx` e `MonthlyPillChartCard.tsx`.
+  4. **Padronização Global Warm Editorial Light Theme:** Atualização de 100% das telas (`App.tsx`, `TransactionScreen.tsx`, `SimulatorScreen.tsx`, `StatisticsScreen.tsx`, `PortfolioManagementScreen.tsx`, `ClassDetailScreen.tsx`, `TransactionDetailHistoryScreen.tsx`, `SettingsBackupScreen.tsx`, `LedgerInput.tsx`, `PatrimonyLineChartCard.tsx`) com contraste equilibrado, drag handle nos modais e preservação das cores institucionais das 4 classes de ativos.
+- **Execução Completa da Suíte de Testes Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 30 passed, 30 total
+  Tests:       219 passed, 219 total
+  Snapshots:   0 total
+  Time:        14.786 s
+  Total Mobile: 30 suítes | 219 PASS | 0 FAIL
+  ```
+- **Execução Completa da Suíte Backend Go (`Set-Location services/market-api; go test ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	(cached)
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	(cached)
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Geral do Projeto Celsus (Sprint 15):**
+  - **36 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **235 casos de teste automatizados executados (16 em Go + 219 em TypeScript/Jest)**
+  - **100% de aprovação (235 PASS / 0 FAIL)**
+
+
 
 
 

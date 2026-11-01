@@ -20,6 +20,7 @@ export interface LedgerInputProps {
   keyboardType?: KeyboardTypeOptions;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 export const LedgerInput: React.FC<LedgerInputProps> = ({
@@ -32,10 +33,13 @@ export const LedgerInput: React.FC<LedgerInputProps> = ({
   keyboardType = 'numeric',
   style,
   testID,
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
+
   return (
-    <View style={[styles.card, style]} testID={testID}>
-      {label ? <Text style={styles.label}>{label.toUpperCase()}</Text> : null}
+    <View style={[styles.card, isLight && styles.cardLight, style]} testID={testID}>
+      {label ? <Text style={[styles.label, isLight && styles.labelLight]}>{label.toUpperCase()}</Text> : null}
 
       <View style={styles.inputRow}>
         {prefix ? <Text style={styles.affix}>{prefix}</Text> : null}
@@ -44,15 +48,15 @@ export const LedgerInput: React.FC<LedgerInputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="rgba(213, 202, 168, 0.35)"
+          placeholderTextColor={isLight ? 'rgba(30, 30, 30, 0.35)' : 'rgba(213, 202, 168, 0.35)'}
           keyboardType={keyboardType}
-          style={styles.input}
+          style={[styles.input, isLight && styles.inputLight]}
         />
 
-        {suffix ? <Text style={styles.suffix}>{suffix}</Text> : null}
+        {suffix ? <Text style={[styles.suffix, isLight && styles.suffixLight]}>{suffix}</Text> : null}
       </View>
 
-      <View style={styles.baseline} />
+      <View style={[styles.baseline, isLight && styles.baselineLight]} />
     </View>
   );
 };
@@ -106,6 +110,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.tertiary,
     marginTop: 6,
     opacity: 0.5,
+  },
+  // Light Theme Styles
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  labelLight: {
+    color: '#6E6A63',
+  },
+  inputLight: {
+    color: '#111315',
+  },
+  suffixLight: {
+    color: '#6E6A63',
+  },
+  baselineLight: {
+    backgroundColor: '#EAE4D7',
   },
 });
 

@@ -26,6 +26,7 @@ export interface PatrimonyLineChartCardProps {
   isPrivacyMode?: boolean;
   accentColor?: string;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
@@ -36,7 +37,9 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
   isPrivacyMode = false,
   accentColor = colors.primary,
   testID = 'patrimony-line-chart-card',
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
   const [activePeriod, setActivePeriod] = useState<PeriodFilter>(selectedPeriod);
   const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(
     curve.length > 0 ? curve.length - 1 : null
@@ -90,11 +93,11 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
   return (
     <View style={styles.container} testID={testID}>
       {/* 1. Header do Gráfico com Filtros de Período */}
-      <View style={styles.chartHeader}>
+      <View style={[styles.chartHeader, isLight && styles.chartHeaderLight]}>
         <View>
-          <Text style={styles.chartLabel}>PATRIMÔNIO HISTÓRICO</Text>
+          <Text style={[styles.chartLabel, isLight && styles.chartLabelLight]}>PATRIMÔNIO HISTÓRICO</Text>
           <View style={styles.valueRow}>
-            <Text style={styles.mainValue}>
+            <Text style={[styles.mainValue, isLight && styles.mainValueLight]}>
               {maskValue(activeSummary.finalPatrimony)}
             </Text>
             {/* Rentabilidade permanece visível sem censura conforme solicitação */}
@@ -125,11 +128,12 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
                 key={p}
                 activeOpacity={0.75}
                 onPress={() => handlePeriodChange(p)}
-                style={[styles.periodBtn, isSelected && styles.periodBtnActive]}
+                style={[styles.periodBtn, isLight && styles.periodBtnLight, isSelected && styles.periodBtnActive]}
               >
                 <Text
                   style={[
                     styles.periodBtnText,
+                    isLight && styles.periodBtnTextLight,
                     isSelected && styles.periodBtnTextActive,
                   ]}
                 >
@@ -142,7 +146,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
       </View>
 
       {/* 2. Área do Gráfico de Linha Suave com Sombra (estilo BTG / Pierre) */}
-      <View style={styles.chartArea} testID="patrimony-line-chart-area">
+      <View style={[styles.chartArea, isLight && styles.chartAreaLight]} testID="patrimony-line-chart-area">
         {curve.length > 0 ? (
           <View style={styles.curveContainer}>
             {curve.map((pt, idx) => {
@@ -165,7 +169,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
                         backgroundColor: isSelected
                           ? `${accentColor}55`
                           : 'rgba(217, 102, 40, 0.18)',
-                        borderTopColor: isSelected ? colors.parchmentPale : accentColor,
+                        borderTopColor: isSelected ? (isLight ? '#111315' : colors.parchmentPale) : accentColor,
                         borderTopWidth: isSelected ? 3 : 2,
                       },
                     ]}
@@ -176,38 +180,39 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
           </View>
         ) : (
           <View style={styles.emptyChart}>
-            <Text style={styles.emptyChartText}>Sem pontos no período selecionado</Text>
+            <Text style={[styles.emptyChartText, isLight && styles.emptyChartTextLight]}>Sem pontos no período selecionado</Text>
           </View>
         )}
       </View>
 
       {/* 3. Card de Resumo do Período */}
-      <View style={styles.summaryCard} testID="period-summary-card">
-        <Text style={styles.summaryTitle}>RESUMO DO PERÍODO</Text>
+      <View style={[styles.summaryCard, isLight && styles.summaryCardLight]} testID="period-summary-card">
+        <Text style={[styles.summaryTitle, isLight && styles.summaryTitleLight]}>RESUMO DO PERÍODO</Text>
         <View style={styles.summaryGrid}>
           {/* Patrimônio Inicial */}
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryItemLabel}>Patrimônio Inicial</Text>
-            <Text style={styles.summaryItemValue}>
+          <View style={[styles.summaryItem, isLight && styles.summaryItemLight]}>
+            <Text style={[styles.summaryItemLabel, isLight && styles.summaryItemLabelLight]}>Patrimônio Inicial</Text>
+            <Text style={[styles.summaryItemValue, isLight && styles.summaryItemValueLight]}>
               {maskValue(activeSummary.initialPatrimony)}
             </Text>
           </View>
 
           {/* Aportes Líquidos */}
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryItemLabel}>Aportes</Text>
-            <Text style={styles.summaryItemValue}>
+          <View style={[styles.summaryItem, isLight && styles.summaryItemLight]}>
+            <Text style={[styles.summaryItemLabel, isLight && styles.summaryItemLabelLight]}>Aportes</Text>
+            <Text style={[styles.summaryItemValue, isLight && styles.summaryItemValueLight]}>
               {maskValue(activeSummary.netContributions)}
             </Text>
           </View>
 
           {/* Rendimentos */}
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryItemLabel}>Rendimentos</Text>
+          <View style={[styles.summaryItem, isLight && styles.summaryItemLight]}>
+            <Text style={[styles.summaryItemLabel, isLight && styles.summaryItemLabelLight]}>Rendimentos</Text>
             <View style={styles.yieldAmountRow}>
               <Text
                 style={[
                   styles.summaryItemValue,
+                  isLight && styles.summaryItemValueLight,
                   isPositiveYield ? styles.yieldTextGreen : styles.yieldTextRed,
                 ]}
               >
@@ -225,9 +230,9 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
           </View>
 
           {/* Patrimônio Final */}
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryItemLabel}>Patrimônio Final</Text>
-            <Text style={styles.summaryItemValue}>
+          <View style={[styles.summaryItem, isLight && styles.summaryItemLight]}>
+            <Text style={[styles.summaryItemLabel, isLight && styles.summaryItemLabelLight]}>Patrimônio Final</Text>
+            <Text style={[styles.summaryItemValue, isLight && styles.summaryItemValueLight]}>
               {maskValue(activeSummary.finalPatrimony)}
             </Text>
           </View>
@@ -403,5 +408,46 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 11,
     fontWeight: '700',
+  },
+  // Light Theme Styles
+  chartHeaderLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  chartLabelLight: {
+    color: '#6E6A63',
+  },
+  mainValueLight: {
+    color: '#111315',
+  },
+  periodBtnLight: {
+    backgroundColor: '#F0EDE6',
+  },
+  periodBtnTextLight: {
+    color: '#6E6A63',
+  },
+  chartAreaLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  emptyChartTextLight: {
+    color: '#6E6A63',
+  },
+  summaryCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  summaryTitleLight: {
+    color: '#6E6A63',
+  },
+  summaryItemLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  summaryItemLabelLight: {
+    color: '#6E6A63',
+  },
+  summaryItemValueLight: {
+    color: '#111315',
   },
 });

@@ -23,13 +23,16 @@ export interface TransactionScreenProps {
   onClose: () => void;
   onTransactionSuccess?: () => void;
   initialPortfolioId?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   onClose,
   onTransactionSuccess = () => {},
   initialPortfolioId,
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -185,12 +188,12 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isLight && styles.containerLight]}>
       {/* Top Close Action (sem header) */}
       {onClose && (
         <View style={styles.topActionsRow}>
-          <TouchableOpacity onPress={onClose} style={styles.closeBtn} testID="close-transaction-btn">
-            <MaterialIcons name="close" size={20} color={colors.parchmentPale} />
+          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isLight && styles.closeBtnLight]} testID="close-transaction-btn">
+            <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
           </TouchableOpacity>
         </View>
       )}
@@ -203,18 +206,22 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
             onPress={() => setType('BUY')}
             style={[
               styles.typeButton,
-              type === 'BUY' ? styles.typeButtonBuyActive : styles.typeButtonInactive,
+              type === 'BUY'
+                ? styles.typeButtonBuyActive
+                : (isLight ? styles.typeButtonInactiveLight : styles.typeButtonInactive),
             ]}
           >
             <MaterialIcons
               name="north-east"
               size={18}
-              color={type === 'BUY' ? colors.voidFloor : colors.parchmentPale}
+              color={type === 'BUY' ? colors.voidFloor : (isLight ? '#6E6A63' : colors.parchmentPale)}
             />
             <Text
               style={[
                 styles.typeButtonText,
-                type === 'BUY' ? styles.typeButtonTextBuyActive : styles.typeButtonTextInactive,
+                type === 'BUY'
+                  ? styles.typeButtonTextBuyActive
+                  : (isLight ? styles.typeButtonTextInactiveLight : styles.typeButtonTextInactive),
               ]}
             >
               COMPRA (APORTE)
@@ -226,18 +233,22 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
             onPress={() => setType('SELL')}
             style={[
               styles.typeButton,
-              type === 'SELL' ? styles.typeButtonSellActive : styles.typeButtonInactive,
+              type === 'SELL'
+                ? styles.typeButtonSellActive
+                : (isLight ? styles.typeButtonInactiveLight : styles.typeButtonInactive),
             ]}
           >
             <MaterialIcons
               name="south-west"
               size={18}
-              color={type === 'SELL' ? colors.voidFloor : colors.parchmentPale}
+              color={type === 'SELL' ? colors.voidFloor : (isLight ? '#6E6A63' : colors.parchmentPale)}
             />
             <Text
               style={[
                 styles.typeButtonText,
-                type === 'SELL' ? styles.typeButtonTextSellActive : styles.typeButtonTextInactive,
+                type === 'SELL'
+                  ? styles.typeButtonTextSellActive
+                  : (isLight ? styles.typeButtonTextInactiveLight : styles.typeButtonTextInactive),
               ]}
             >
               VENDA (RESGATE)
@@ -247,7 +258,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Seleção de Carteira */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>CARTEIRA (DOSSIÊ)</Text>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>CARTEIRA (DOSSIÊ)</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
             {portfolios.map((p) => {
               const isSelected = p.id === selectedPortfolioId;
@@ -255,14 +266,14 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
                 <TouchableOpacity
                   key={p.id}
                   onPress={() => setSelectedPortfolioId(p.id)}
-                  style={[styles.chip, isSelected && styles.chipActive]}
+                  style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
                 >
                   <MaterialIcons
                     name="account-balance-wallet"
                     size={16}
-                    color={isSelected ? colors.voidFloor : colors.tertiary}
+                    color={isSelected ? colors.voidFloor : (isLight ? '#6E6A63' : colors.tertiary)}
                   />
-                  <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
                     {p.name}
                   </Text>
                 </TouchableOpacity>
@@ -273,10 +284,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Seleção do Ativo */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>ATIVO EM CARTEIRA</Text>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>ATIVO EM CARTEIRA</Text>
           {assets.length === 0 ? (
-            <View style={styles.emptyAssetsNotice}>
-              <Text style={styles.emptyAssetsText}>
+            <View style={[styles.emptyAssetsNotice, isLight && styles.emptyAssetsNoticeLight]}>
+              <Text style={[styles.emptyAssetsText, isLight && styles.emptyAssetsTextLight]}>
                 Nenhum ativo cadastrado nesta carteira. Cadastre um ativo na aba Carteiras primeiro.
               </Text>
             </View>
@@ -288,14 +299,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
                   <TouchableOpacity
                     key={a.id}
                     onPress={() => setSelectedAssetId(a.id)}
-                    style={[styles.chip, isSelected && styles.chipActive]}
+                    style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
                   >
-                    <Text style={[styles.chipText, isSelected && styles.chipTextActive]}>
+                    <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
                       {a.ticker}
                     </Text>
                     <Text
                       style={[
                         styles.chipSubText,
+                        isLight && styles.chipSubTextLight,
                         isSelected && { color: colors.voidFloor },
                       ]}
                     >
@@ -310,15 +322,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Data da Operação */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>DATA DO PREGÃO (AAAA-MM-DD)</Text>
-          <View style={styles.textInputBox}>
-            <MaterialIcons name="calendar-today" size={18} color="#8A8A8E" />
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>DATA DO PREGÃO (AAAA-MM-DD)</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
+            <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLight && styles.textInputLight]}
               value={tradeDate}
               onChangeText={setTradeDate}
               placeholder="Ex: 2024-03-15"
-              placeholderTextColor="#55585C"
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
             />
           </View>
         </View>
@@ -326,50 +338,50 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         {/* Preço Unitário + Botão Auto-Fill COTAHIST */}
         <View style={styles.inputGroup}>
           <View style={styles.labelWithActionRow}>
-            <Text style={styles.inputLabel}>PREÇO UNITÁRIO (R$)</Text>
+            <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>PREÇO UNITÁRIO (R$)</Text>
             <TouchableOpacity
               onPress={handleAutoFillPrice}
-              style={styles.autoFillBtn}
+              style={[styles.autoFillBtn, isLight && styles.autoFillBtnLight]}
               disabled={isLoadingAutoFill}
             >
               {isLoadingAutoFill ? (
-                <ActivityIndicator size="small" color={colors.tertiary} />
+                <ActivityIndicator size="small" color={isLight ? '#8A531B' : colors.tertiary} />
               ) : (
                 <>
-                  <MaterialIcons name="sync" size={14} color={colors.tertiary} />
-                  <Text style={styles.autoFillBtnText}>COTAHIST AUTO</Text>
+                  <MaterialIcons name="sync" size={14} color={isLight ? '#8A531B' : colors.tertiary} />
+                  <Text style={[styles.autoFillBtnText, isLight && styles.autoFillBtnTextLight]}>COTAHIST AUTO</Text>
                 </>
               )}
             </TouchableOpacity>
           </View>
 
-          <View style={styles.textInputBox}>
-            <Text style={styles.currencyPrefix}>R$</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
+            <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLight && styles.textInputLight]}
               value={unitPrice}
               onChangeText={setUnitPrice}
               placeholder="0.00"
-              placeholderTextColor="#55585C"
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
               keyboardType="decimal-pad"
             />
           </View>
 
           {autoFillMessage ? (
-            <Text style={styles.autoFillFeedback}>{autoFillMessage}</Text>
+            <Text style={[styles.autoFillFeedback, isLight && styles.autoFillFeedbackLight]}>{autoFillMessage}</Text>
           ) : null}
         </View>
 
         {/* Quantidade */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>QUANTIDADE</Text>
-          <View style={styles.textInputBox}>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>QUANTIDADE</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLight && styles.textInputLight]}
               value={quantity}
               onChangeText={setQuantity}
               placeholder={selectedAsset?.asset_class === 'CRYPTO' ? '0.00000000' : '100'}
-              placeholderTextColor="#55585C"
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
               keyboardType="decimal-pad"
             />
           </View>
@@ -377,15 +389,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Taxas / Corretagem */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>TAXAS / CORRETAGEM (R$)</Text>
-          <View style={styles.textInputBox}>
-            <Text style={styles.currencyPrefix}>R$</Text>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>TAXAS / CORRETAGEM (R$)</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
+            <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLight && styles.textInputLight]}
               value={fees}
               onChangeText={setFees}
               placeholder="0.00"
-              placeholderTextColor="#55585C"
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
               keyboardType="decimal-pad"
             />
           </View>
@@ -393,26 +405,26 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Notas / Observação */}
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>NOTAS / MOTIVO DA OPERAÇÃO (OPCIONAL)</Text>
-          <View style={styles.textInputBox}>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>NOTAS / MOTIVO DA OPERAÇÃO (OPCIONAL)</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
             <TextInput
-              style={styles.textInput}
+              style={[styles.textInput, isLight && styles.textInputLight]}
               value={notes}
               onChangeText={setNotes}
               placeholder="Ex: Aporte mensal de rebalanceamento"
-              placeholderTextColor="#55585C"
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
             />
           </View>
         </View>
 
         {/* Resumo Financeiro da Operação */}
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, isLight && styles.summaryCardLight]}>
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>TOTAL DA OPERAÇÃO:</Text>
+            <Text style={[styles.summaryLabel, isLight && styles.summaryLabelLight]}>TOTAL DA OPERAÇÃO:</Text>
             <Text style={styles.summaryValue}>R$ {calculateTotal()}</Text>
           </View>
           {selectedAsset && (
-            <Text style={styles.summarySub}>
+            <Text style={[styles.summarySub, isLight && styles.summarySubLight]}>
               Posição atual: {selectedAsset.quantity} un @ PM R$ {selectedAsset.average_price}
             </Text>
           )}
@@ -424,6 +436,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
           variant={type === 'BUY' ? 'primary' : 'secondary'}
           disabled={isSubmitting}
           onPress={handleSubmit}
+          themeMode={themeMode}
           style={{ marginTop: spacing.md }}
         />
 
@@ -631,6 +644,55 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm.fontSize,
     color: '#8A8A8E',
     marginTop: 6,
+  },
+  inputLabelLight: {
+    color: '#6E6A63',
+  },
+  chipLight: {
+    backgroundColor: '#EDE8DF',
+    borderColor: '#E5DFD3',
+  },
+  chipTextLight: {
+    color: '#111315',
+  },
+  chipSubTextLight: {
+    color: '#8A857B',
+  },
+  emptyAssetsNoticeLight: {
+    backgroundColor: '#EDE8DF',
+    borderColor: '#E5DFD3',
+  },
+  emptyAssetsTextLight: {
+    color: '#6E6A63',
+  },
+  textInputBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  textInputLight: {
+    color: '#111315',
+  },
+  currencyPrefixLight: {
+    color: '#A0522D',
+  },
+  autoFillBtnLight: {
+    backgroundColor: '#EADFC7',
+  },
+  autoFillBtnTextLight: {
+    color: '#8A531B',
+  },
+  autoFillFeedbackLight: {
+    color: '#8A531B',
+  },
+  summaryCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  summaryLabelLight: {
+    color: '#111315',
+  },
+  summarySubLight: {
+    color: '#6E6A63',
   },
 });
 
