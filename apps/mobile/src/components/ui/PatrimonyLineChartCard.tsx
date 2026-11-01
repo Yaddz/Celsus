@@ -91,7 +91,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
   const yieldPrefix = isPositiveYield ? '+' : '';
 
   return (
-    <View style={styles.container} testID={testID}>
+    <View style={[styles.container, isLight && styles.containerLight]} testID={testID}>
       {/* 1. Header do Gráfico com Filtros de Período */}
       <View style={[styles.chartHeader, isLight && styles.chartHeaderLight]}>
         <View>
@@ -410,6 +410,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   // Light Theme Styles
+  containerLight: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+  },
   chartHeaderLight: {
     backgroundColor: '#FFFFFF',
     borderColor: '#EAE4D7',

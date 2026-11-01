@@ -696,6 +696,9 @@ const styles = StyleSheet.create({
   summarySubLight: {
     color: '#6E6A63',
   },
+  containerLight: {
+    backgroundColor: '#F4F1EA',
+  },
 });
 
 export default TransactionScreen;
