@@ -111,7 +111,7 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
   showDotMatrix = true,
   variant = 'default',
   marketValue,
-  fillDirection,
+  fillDirection = 'left-to-right',
   onPress,
   isPrivacyMode = false,
   themeMode = 'dark',
@@ -121,7 +121,7 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
   const safeTarget = Math.max(0, targetPercentage);
   const isLight = themeMode === 'light';
 
-  const resolvedFillDirection = fillDirection || (variant === 'v2' ? 'right-to-left' : 'left-to-right');
+  const resolvedFillDirection = fillDirection || 'left-to-right';
 
   const formattedMarketValue = marketValue
     ? marketValue.startsWith('R$') ? marketValue : `R$ ${marketValue}`

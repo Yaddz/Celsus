@@ -11,37 +11,37 @@ describe('S9-T02: TestRightToLeftColumnsRebalanceButtonAndInvestedValue', () => 
     { assetClass: 'CRYPTO' as const, currentPercentage: 10.0, targetPercentage: 10.0, marketValue: '3.246,80' },
   ];
 
-  describe('DotMatrixGrid Columns Pre-filling: Right to Left', () => {
-    it('should fill dots in columns starting from the rightmost column to the left', async () => {
+  describe('DotMatrixGrid Columns Pre-filling: Left to Right', () => {
+    it('should fill dots in columns starting from the leftmost column to the right', async () => {
       // 4 linhas x 10 colunas = 40 pontos no total. 10% = 4 pontos ativos.
-      // Em modo right-to-left, os 4 pontos devem ocupar a coluna 9 (última coluna à direita).
+      // Em modo left-to-right, os 4 pontos devem ocupar a coluna 0 (primeira coluna à esquerda).
       await render(
         <DotMatrixGrid
           currentPercentage={10.0}
           color="#2E4A44"
           rows={4}
           cols={10}
-          fillDirection="right-to-left"
-          testID="grid-rtl"
+          fillDirection="left-to-right"
+          testID="grid-ltr"
         />
       );
 
-      const grid = screen.getByTestId('grid-rtl');
+      const grid = screen.getByTestId('grid-ltr');
       expect(grid).toBeDefined();
 
-      // Ponto na coluna mais à direita (coluna 9) deve estar preenchido com a cor #2E4A44
-      const rightmostDot = screen.getByTestId('dot-3-9');
-      const rightmostStyle = Array.isArray(rightmostDot.props.style)
-        ? Object.assign({}, ...rightmostDot.props.style.filter(Boolean))
-        : rightmostDot.props.style;
-      expect(rightmostStyle.backgroundColor?.toUpperCase()).toBe('#2E4A44');
-
-      // Ponto na coluna mais à esquerda (coluna 0) deve estar vazio/desativado (não preenchido)
+      // Ponto na coluna mais à esquerda (coluna 0) deve estar preenchido com a cor #2E4A44
       const leftmostDot = screen.getByTestId('dot-3-0');
       const leftmostStyle = Array.isArray(leftmostDot.props.style)
         ? Object.assign({}, ...leftmostDot.props.style.filter(Boolean))
         : leftmostDot.props.style;
-      expect(leftmostStyle.backgroundColor?.toUpperCase()).not.toBe('#2E4A44');
+      expect(leftmostStyle.backgroundColor?.toUpperCase()).toBe('#2E4A44');
+
+      // Ponto na coluna mais à direita (coluna 9) deve estar vazio/desativado (não preenchido)
+      const rightmostDot = screen.getByTestId('dot-3-9');
+      const rightmostStyle = Array.isArray(rightmostDot.props.style)
+        ? Object.assign({}, ...rightmostDot.props.style.filter(Boolean))
+        : rightmostDot.props.style;
+      expect(rightmostStyle.backgroundColor?.toUpperCase()).not.toBe('#2E4A44');
     });
   });
 

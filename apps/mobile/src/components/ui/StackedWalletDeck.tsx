@@ -30,6 +30,7 @@ export interface StackedWalletDeckProps {
   portfolios?: StackedWalletItem[];
   activeIndex?: number;
   onPortfolioChange?: (index: number, portfolio: StackedWalletItem) => void;
+  onCreatePortfolioPress?: () => void;
   onCycleNext?: () => void;
   onCyclePrev?: () => void;
   testID?: string;
@@ -55,6 +56,7 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   portfolios = DEFAULT_PORTFOLIOS,
   activeIndex = 0,
   onPortfolioChange,
+  onCreatePortfolioPress,
   onCycleNext,
   onCyclePrev,
   testID = 'stacked-wallet-deck',
@@ -224,20 +226,24 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
             >
               {/* Curva de concordância côncava superior (Top Inverted Fillet) */}
               <View
+                testID="notch-fillet-top"
                 style={[styles.filletTopContainer, { backgroundColor: notchBgColor }]}
                 pointerEvents="none"
               >
                 <View
+                  testID="notch-fillet-top-inner"
                   style={[styles.filletInnerCurve, { backgroundColor: cardBgColor }]}
                 />
               </View>
 
               {/* Curva de concordância côncava lateral esquerda (Left Inverted Fillet) */}
               <View
+                testID="notch-fillet-left"
                 style={[styles.filletLeftContainer, { backgroundColor: notchBgColor }]}
                 pointerEvents="none"
               >
                 <View
+                  testID="notch-fillet-left-inner"
                   style={[styles.filletInnerCurve, { backgroundColor: cardBgColor }]}
                 />
               </View>

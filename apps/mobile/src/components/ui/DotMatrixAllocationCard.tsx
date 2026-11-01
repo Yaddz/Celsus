@@ -16,6 +16,7 @@ export interface DotMatrixAllocationCardProps {
   isPrivacyMode?: boolean;
   testID?: string;
   variant?: 'default' | 'v2';
+  fillDirection?: 'left-to-right' | 'right-to-left';
   onRebalancePress?: () => void;
   onClassPress?: (assetClass: AssetClass) => void;
   themeMode?: 'dark' | 'light';
@@ -34,6 +35,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
   isPrivacyMode = false,
   testID,
   variant = 'default',
+  fillDirection = 'left-to-right',
   onRebalancePress,
   onClassPress,
   themeMode = 'dark',
@@ -80,7 +82,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
             targetPercentage={item.targetPercentage}
             marketValue={item.marketValue}
             variant={variant}
-            fillDirection={isV2 ? 'right-to-left' : 'left-to-right'}
+            fillDirection={fillDirection}
             onPress={onClassPress}
             isPrivacyMode={isPrivacyMode}
             themeMode={themeMode}
