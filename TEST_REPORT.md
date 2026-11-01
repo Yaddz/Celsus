@@ -26,7 +26,8 @@
 | **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 17 | 0 | `VERIFIED (38 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S19)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **40** | **280** | **280** | **0** | **`VERIFIED (40 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 0 | 5 | `LOCKED (41 arquivos)` | 🔴 Fase A (Red Phase) |
+| **TOTAL (S1–S20)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **285** | **280** | **5** | **`VERIFIED (41 arquivos)`** | **🔴 Fase A (Aguardando Fase B)** |
 
 ---
 
@@ -43,7 +44,7 @@
 | `S1-T05` | `internal/cotahist/repository_test.go` | `TestIdempotentBatchUpsert` | Reimportar o mesmo arquivo COTAHIST não duplica linhas (`INSERT OR REPLACE`) | `2b3208f456c5bbe99dc1d7357dd2805f178043a46eb8ca4d4143a7ebd82c0178` | 🟢 PASS (0.00s) |
 | `S1-T06` | `internal/brapi/client_test.go` | `TestFetchStockAndFIIQuotesWithCache` | Busca em lote na BRAPI e retorno do cache dentro do TTL sem nova chamada HTTP | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🟢 PASS (0.08s) |
 | `S1-T07` | `internal/brapi/client_test.go` | `TestFetchCryptoQuotesInBRL` | Cotação de criptomoedas (`BTC`, `ETH`) padronizada em `BRL` | `ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac` | 🟢 PASS (0.00s) |
-| `S1-T08` | `internal/macro/rates_test.go` | `TestFetchAndStoreDailyCDIAndIPCA` | Armazenamento e consulta da série histórica diária de CDI e IPCA por intervalo de datas | `575b28ebc6e03256deac947e03d67d2bfdac46debc59f6f0cb3a2a921d4f8881` | 🟢 PASS (0.00s) |
+| `S1-T08` | `internal/macro/rates_test.go` | `TestFetchAndStoreDailyCDIAndIPCA` | Armazenamento e consulta da série histórica diária de CDI e IPCA por intervalo de datas | `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e` | 🟢 PASS (0.00s) |
 | `S1-T09` | `internal/http/handlers_test.go` | `TestEndpoints_Health_Catalog_Quotes_History_Macro` | Contratos JSON e códigos HTTP (`200`, `400`) para todos os 5 endpoints `/v1/*` | `783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1` | 🟢 PASS (0.05s) |
 
 ---
@@ -238,6 +239,18 @@
 | `S19-T12` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `TransactionScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no modal/tela de nova transação | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.04s) |
 | `S19-T13` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `SimulatorScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no simulador de aportes | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.02s) |
 | `S19-T14` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `AllTransactionsScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no extrato completo de transações | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.02s) |
+
+---
+
+### 2.17. Sprint 20 — Cliente Yahoo Finance (`internal/yahoo`), Interface `QuoteProvider` e Cliente BCB SGS (`internal/macro`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S20-T01` | `internal/yahoo/client_test.go` | `TestTickerNormalization` | Conversão bidirecional `PETR4` ↔ `PETR4.SA`, `HGLG11` ↔ `HGLG11.SA`, `BTC` ↔ `BTC-BRL` e remoção estrita de `.SA`/`-BRL` no retorno | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
+| `S20-T02` | `internal/yahoo/client_test.go` | `TestFetchQuotes_SuccessAndCache` | Cotações Yahoo v8 chart (Ações, FIIs e Cripto) via `httptest`, validação de `User-Agent`, cálculo de `Change24h` e cache TTL sem nova chamada HTTP | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
+| `S20-T03` | `internal/yahoo/client_test.go` | `TestFetchChartHistory_CloseAdjCloseAndSplits` | Extração de `indicators.quote[0].close` nominal vs `indicators.adjclose[0].adjclose` e eventos corporativos (`SPLIT` `2:1` e `DIVIDEND`) | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
+| `S20-T04` | `internal/yahoo/client_test.go` | `TestFetchQuotes_FailoverQuery1ToQuery2` | Failover automático de `query1` (`429 Too Many Requests`) para `query2` sem perda de requisição | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
+| `S20-T05` | `internal/macro/rates_test.go` | `TestBCBClient_FetchIncrementalCDIAndIPCA` | Sincronização incremental BCB SGS (Séries `#12` CDI e `#433` IPCA) a partir de `GetLastDate` com conversão `DD/MM/YYYY` → `YYYY-MM-DD` | `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e` | 🔴 FAIL (Fase A Stub) |
 
 ---
 
@@ -1405,6 +1418,40 @@
   - **40 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **280 casos de teste automatizados executados (16 em Go + 264 em TypeScript/Jest)**
   - **100% de aprovação (280 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
+---
+
+### Sprint 20 — Fase A: Autoria e Bloqueio dos Testes do Cliente Yahoo Finance e BCB SGS (2026-11-01)
+- **Status do Bloqueio:** 41 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action lock` / `verify`):**
+  ```text
+  [TDD LOCK] 41 arquivo(s) de teste bloqueado(s) com ReadOnly e registrados em tests.lock.json.
+  [TDD VERIFIED] Integridade de todos os 41 arquivos de teste confirmada via SHA-256.
+  ```
+- **Arquivos de Teste Criados/Atualizados e Bloqueados:**
+  - `services/market-api/internal/yahoo/client_test.go`: `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60`
+  - `services/market-api/internal/macro/rates_test.go`: `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e`
+- **Execução Inicial dos Testes sob Stubs (Red Phase confirmada no `go test`):**
+  ```text
+  === RUN   TestFetchAndStoreDailyCDIAndIPCA
+  --- PASS: TestFetchAndStoreDailyCDIAndIPCA (0.00s)
+  === RUN   TestBCBClient_FetchIncrementalCDIAndIPCA
+      rates_test.go:115: esperava GetLastDate(CDI) == '2026-01-02', obtido ""
+  --- FAIL: TestBCBClient_FetchIncrementalCDIAndIPCA (0.00s)
+  FAIL	github.com/pedro/celsus/services/market-api/internal/macro	0.103s
+  === RUN   TestTickerNormalization
+  --- FAIL: TestTickerNormalization (0.00s)
+  === RUN   TestFetchQuotes_SuccessAndCache
+  --- FAIL: TestFetchQuotes_SuccessAndCache (0.00s)
+  === RUN   TestFetchChartHistory_CloseAdjCloseAndSplits
+  --- FAIL: TestFetchChartHistory_CloseAdjCloseAndSplits (0.00s)
+  === RUN   TestFetchQuotes_FailoverQuery1ToQuery2
+  --- FAIL: TestFetchQuotes_FailoverQuery1ToQuery2 (0.00s)
+  FAIL	github.com/pedro/celsus/services/market-api/internal/yahoo	0.378s
+  ```
+  - Total da Sprint 20 em Red Phase: 5 novos casos | 0 PASS | 5 FAIL (Fase A Red Phase confirmada).
+  - Total Geral do Projeto Celsus: 41 arquivos de teste bloqueados | 285 casos de teste automatizados (280 PASS / 5 FAIL aguardando implementação da Fase B).
+
 
 
 

@@ -18,6 +18,7 @@ type Repository interface {
 	InitSchema(ctx context.Context) error
 	SaveRates(ctx context.Context, rates []Rate) error
 	GetRates(ctx context.Context, rateType string, from, to string) ([]Rate, error)
+	GetLastDate(ctx context.Context, rateType string) (string, error)
 }
 
 // SQLiteRepository implements Repository backed by SQLite.
@@ -129,4 +130,10 @@ func (r *SQLiteRepository) GetRates(ctx context.Context, rateType string, from, 
 	}
 
 	return results, rows.Err()
+}
+
+// GetLastDate returns the most recent YYYY-MM-DD date stored for a given rateType (e.g. "CDI", "IPCA").
+func (r *SQLiteRepository) GetLastDate(ctx context.Context, rateType string) (string, error) {
+	// Stub Fase A (Red Phase)
+	return "", nil
 }

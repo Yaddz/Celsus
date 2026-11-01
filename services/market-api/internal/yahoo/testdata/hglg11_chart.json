@@ -1,0 +1,38 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "BRL",
+          "symbol": "HGLG11.SA",
+          "exchangeName": "SAO",
+          "instrumentType": "EQUITY",
+          "regularMarketPrice": 162.50,
+          "chartPreviousClose": 163.15,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400,
+          1704286800
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [163.00, 162.10],
+              "high": [163.50, 162.80],
+              "low": [162.00, 161.90],
+              "close": [162.50, 162.50],
+              "volume": [25000, 28000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [161.20, 162.50]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "BRL",
+          "symbol": "BTC-BRL",
+          "exchangeName": "CCC",
+          "instrumentType": "CRYPTOCURRENCY",
+          "regularMarketPrice": 350000.50,
+          "chartPreviousClose": 340000.00,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400,
+          1704286800
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [340000.00, 345000.00],
+              "high": [352000.00, 355000.00],
+              "low": [339000.00, 344000.00],
+              "close": [345000.00, 350000.50],
+              "volume": [1200000000, 1500000000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [345000.00, 350000.50]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

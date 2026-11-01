@@ -1,0 +1,55 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "BRL",
+          "symbol": "PETR4.SA",
+          "exchangeName": "SAO",
+          "instrumentType": "EQUITY",
+          "regularMarketPrice": 38.50,
+          "chartPreviousClose": 38.00,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400,
+          1704286800,
+          1704373200
+        ],
+        "events": {
+          "splits": {
+            "1704286800": {
+              "date": 1704286800,
+              "numerator": 2,
+              "denominator": 1,
+              "splitRatio": "2:1"
+            }
+          },
+          "dividends": {
+            "1704373200": {
+              "amount": 1.15,
+              "date": 1704373200
+            }
+          }
+        },
+        "indicators": {
+          "quote": [
+            {
+              "open": [37.50, 38.50, 39.10],
+              "high": [39.00, 39.40, 39.80],
+              "low": [37.00, 38.20, 38.90],
+              "close": [38.50, 39.12, 39.50],
+              "volume": [45000000, 38000000, 41000000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [34.10, 34.65, 35.50]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

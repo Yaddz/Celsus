@@ -3,6 +3,9 @@ package macro
 import (
 	"context"
 	"database/sql"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -77,5 +80,106 @@ func TestFetchAndStoreDailyCDIAndIPCA(t *testing.T) {
 	}
 	if allCDI[2].Value != 0.000475 {
 		t.Errorf("taxa corrigida não foi atualizada no banco: esperado 0.000475, obtido %f", allCDI[2].Value)
+	}
+}
+
+// S20-T05: Cliente BCB SGS (Séries #12 CDI e #433 IPCA) com conversão DD/MM/YYYY -> YYYY-MM-DD e sincronização incremental
+func TestBCBClient_FetchIncrementalCDIAndIPCA(t *testing.T) {
+	ctx := context.Background()
+
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("falha ao abrir banco sqlite em memória: %v", err)
+	}
+	defer db.Close()
+
+	repo := NewSQLiteRepository(db)
+	if err := repo.InitSchema(ctx); err != nil {
+		t.Fatalf("falha ao inicializar schema de macro taxas: %v", err)
+	}
+
+	// Seed inicial até 2026-01-02 (CDI) e 2026-01-01 (IPCA)
+	initialRates := []Rate{
+		{Date: "2026-01-02", Type: "CDI", Value: 0.050788},
+		{Date: "2026-01-01", Type: "IPCA", Value: 0.33},
+	}
+	if err := repo.SaveRates(ctx, initialRates); err != nil {
+		t.Fatalf("falha ao salvar seed inicial: %v", err)
+	}
+
+	lastCDI, err := repo.GetLastDate(ctx, "CDI")
+	if err != nil {
+		t.Fatalf("erro ao consultar GetLastDate(CDI): %v", err)
+	}
+	if lastCDI != "2026-01-02" {
+		t.Fatalf("esperava GetLastDate(CDI) == '2026-01-02', obtido %q", lastCDI)
+	}
+
+	var sgsRequests int32
+	var receivedCDIDataInicial string
+
+	mockBCB := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&sgsRequests, 1)
+
+		if r.URL.Query().Get("formato") != "json" {
+			http.Error(w, "formato=json obrigatório", http.StatusBadRequest)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/dados/serie/bcdata.sgs.12/dados":
+			receivedCDIDataInicial = r.URL.Query().Get("dataInicial")
+			_, _ = w.Write([]byte(`[
+				{"data":"05/01/2026","valor":"0.050788"},
+				{"data":"06/01/2026","valor":"0.051000"}
+			]`))
+		case "/dados/serie/bcdata.sgs.433/dados":
+			_, _ = w.Write([]byte(`[
+				{"data":"01/02/2026","valor":"0.48"}
+			]`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer mockBCB.Close()
+
+	bcbClient := NewBCBClient(mockBCB.URL, mockBCB.Client())
+
+	// Sincronização incremental até 2026-02-15
+	syncedCount, err := bcbClient.SyncIncrementalRates(ctx, repo, "2026-02-15")
+	if err != nil {
+		t.Fatalf("falha em SyncIncrementalRates: %v", err)
+	}
+	if syncedCount != 3 {
+		t.Fatalf("esperava 3 novas taxas sincronizadas (2 CDI + 1 IPCA), obtido %d", syncedCount)
+	}
+
+	// Verifica se buscou incrementalmente a partir do dia seguinte a 2026-01-02 (03/01/2026)
+	if receivedCDIDataInicial != "03/01/2026" {
+		t.Errorf("esperava dataInicial incremental '03/01/2026' para CDI, obtido %q", receivedCDIDataInicial)
+	}
+
+	// Verifica persistência e conversão de data DD/MM/YYYY -> YYYY-MM-DD no banco
+	cdiAll, err := repo.GetRates(ctx, "CDI", "2026-01-01", "2026-01-31")
+	if err != nil {
+		t.Fatalf("falha ao consultar CDI após sync: %v", err)
+	}
+	if len(cdiAll) != 3 {
+		t.Fatalf("esperava 3 registros de CDI no banco após sync incremental, obtido %d", len(cdiAll))
+	}
+	if cdiAll[1].Date != "2026-01-05" || cdiAll[1].Value != 0.050788 {
+		t.Errorf("registro incremental de CDI incorreto: %+v", cdiAll[1])
+	}
+	if cdiAll[2].Date != "2026-01-06" || cdiAll[2].Value != 0.051000 {
+		t.Errorf("registro incremental de CDI incorreto: %+v", cdiAll[2])
+	}
+
+	ipcaAll, err := repo.GetRates(ctx, "IPCA", "2026-01-01", "2026-02-28")
+	if err != nil {
+		t.Fatalf("falha ao consultar IPCA após sync: %v", err)
+	}
+	if len(ipcaAll) != 2 || ipcaAll[1].Date != "2026-02-01" || ipcaAll[1].Value != 0.48 {
+		t.Errorf("registros de IPCA após sync incorretos: %+v", ipcaAll)
 	}
 }
