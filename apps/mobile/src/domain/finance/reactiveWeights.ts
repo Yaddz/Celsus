@@ -9,12 +9,19 @@ export interface LockableAllocationItem {
 }
 
 /**
+ * Arredonda para no máximo 2 casas decimais sem dízimas periódicas estranhas.
+ */
+function roundToTwo(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+/**
  * Recalcula as porcentagens dos itens destravados de forma proporcional
  * quando um item específico é alterado, mantendo rigorosamente itens travados
  * e garantindo que a soma final de todos os itens totalize exatamente 100%.
  *
  * Regras da SPEC (Módulo 4):
- * - Seja L = soma das porcentagens dos itens travados (isLocked = true).
+ * - Seja L = soma das porcentagens dos itens travados (isLocked = true, exceto o item alterado).
  * - O valor desejado vi é limitado ao teto disponível: vi = max(0, min(100 - L, vi)).
  * - O restante R = 100 - L - vi é redistribuído proporcionalmente entre os demais
  *   itens destravados (j != i, j not in locked).
@@ -26,10 +33,66 @@ export function recalculateUnlockedTargets<T extends LockableAllocationItem>(
   changedId: string,
   newPercentage: number
 ): T[] {
-  // Stub inicial para Fase A (TDD Red Phase)
-  return items.map((item) =>
-    item.id === changedId ? { ...item, percentage: newPercentage } : item
+  if (!items || items.length === 0) return [];
+  if (items.length === 1) {
+    return [{ ...items[0], percentage: 100 }];
+  }
+
+  // 1. Soma dos itens travados (exceto o próprio item alterado se ele estiver travado)
+  const lockedItems = items.filter((i) => i.isLocked && i.id !== changedId);
+  const lockedSum = lockedItems.reduce((acc, curr) => acc.plus(curr.percentage || 0), new Decimal(0));
+  const lockedSumNum = lockedSum.toNumber();
+
+  // 2. Limitar o novo valor ao teto disponível: 0 <= vi <= 100 - L
+  const maxAvailable = Math.max(0, 100 - lockedSumNum);
+  const clampedNewVal = Math.max(0, Math.min(maxAvailable, newPercentage));
+
+  // 3. Resíduo a ser distribuído entre os demais itens destravados
+  const remaining = new Decimal(100).minus(lockedSum).minus(clampedNewVal);
+
+  const otherUnlocked = items.filter((i) => !i.isLocked && i.id !== changedId);
+
+  if (otherUnlocked.length === 0) {
+    // Se não há outros destravados, o item alterado assume o que resta
+    return items.map((item) => {
+      if (item.id === changedId) {
+        return { ...item, percentage: clampedNewVal };
+      }
+      return item;
+    });
+  }
+
+  // 4. Soma prévia das porcentagens dos demais itens destravados
+  const otherUnlockedSum = otherUnlocked.reduce(
+    (acc, curr) => acc.plus(curr.percentage || 0),
+    new Decimal(0)
   );
+
+  return items.map((item) => {
+    if (item.id === changedId) {
+      return { ...item, percentage: clampedNewVal };
+    }
+    if (item.isLocked) {
+      return item;
+    }
+
+    // Item destravado: redistribuição proporcional
+    let newPercent: number;
+    if (otherUnlockedSum.gt(0)) {
+      newPercent = new Decimal(item.percentage || 0)
+        .div(otherUnlockedSum)
+        .mul(remaining)
+        .toNumber();
+    } else {
+      // Se todos os outros estavam com 0%, divide igualmente o resíduo
+      newPercent = remaining.div(otherUnlocked.length).toNumber();
+    }
+
+    return {
+      ...item,
+      percentage: roundToTwo(newPercent),
+    };
+  });
 }
 
 /**
@@ -46,6 +109,41 @@ export function recalculateUnlockedTargets<T extends LockableAllocationItem>(
 export function convertWeightsToPercentagesWithLocks<T extends LockableAllocationItem>(
   items: T[]
 ): T[] {
-  // Stub inicial para Fase A (TDD Red Phase)
-  return items;
+  if (!items || items.length === 0) return [];
+
+  const lockedItems = items.filter((i) => i.isLocked);
+  const lockedSum = lockedItems.reduce((acc, curr) => acc.plus(curr.percentage || 0), new Decimal(0));
+  const availablePercentage = new Decimal(100).minus(lockedSum);
+
+  const unlockedItems = items.filter((i) => !i.isLocked);
+  if (unlockedItems.length === 0) {
+    return items;
+  }
+
+  const unlockedWeightSum = unlockedItems.reduce(
+    (acc, curr) => acc.plus(curr.weight !== undefined ? curr.weight : 1),
+    new Decimal(0)
+  );
+
+  return items.map((item) => {
+    if (item.isLocked) {
+      return item;
+    }
+
+    const weight = item.weight !== undefined ? item.weight : 1;
+    let newPercent: number;
+    if (unlockedWeightSum.gt(0)) {
+      newPercent = new Decimal(weight)
+        .div(unlockedWeightSum)
+        .mul(availablePercentage)
+        .toNumber();
+    } else {
+      newPercent = availablePercentage.div(unlockedItems.length).toNumber();
+    }
+
+    return {
+      ...item,
+      percentage: roundToTwo(newPercent),
+    };
+  });
 }

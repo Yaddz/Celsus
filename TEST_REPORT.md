@@ -24,8 +24,8 @@
 | **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 14 | 0 | `VERIFIED (36 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 16** | Refatoração Módulos 1 e 2: Stacked Hero Wallet Deck (Notch, Quinas Retas, Blur Orgânico, Z-Index, Empty/Add States) & Gráficos Left-to-Right | 1 (+1 mod) | 9 | 9 | 0 | `VERIFIED (37 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 17 | 0 | `VERIFIED (38 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 0 | 12 | `VERIFIED (39 arquivos)` | 🔴 Fase A: Red Phase (Lock Ativo) |
-| **TOTAL (S1–S18)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **39** | **266** | **254** | **12** | **`VERIFIED (39 arquivos)`** | **🟡 95.5% (254 PASS / 12 FAIL Fase A)** |
+| **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S18)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **39** | **266** | **266** | **0** | **`VERIFIED (39 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -204,18 +204,18 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `REFACTORING_SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S18-T01` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `recalcular proporcionalmente itens destravados fechando rigorosamente em 100%` | Recálculo reativo proporcional entre itens destravados com soma final garantida em 100% | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T02` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `manter itens com cadeado fechado (isLocked = true) estritamente inalterados` | Itens com cadeado fechado não sofrem alteração percentual quando outros itens são modificados | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T03` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `impedir que um item destravado ultrapasse 100% - SomaTravados (teto disponível)` | Limitação ao teto $100 - L$ e clamping de excedentes | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T04` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `dividir igualmente o restante se todos os demais destravados estiverem em 0%` | Divisão equitativa do resíduo $R$ quando demais itens destravados estão em 0% | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T05` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `converter pesos livres em porcentagens proporcionais respeitando itens com cadeado` | Modo Peso: conversão proporcional $p_j = (w_j / \sum w) \times (100 - L)$ | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T06` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `remover completamente todos os botões -5% / +5% e badges "100% OK" / "AJUSTE"` | Remoção de botões de incremento legado e badges redundantes de validação | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T07` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar inputs numéricos editáveis e botões de cadeado para as 4 classes macro` | Presença de `input-class-*` e `lock-class-*` com alternância de estado nos botões de cadeado | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T08` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `exibir inputs numéricos e cadeado diretamente na listagem de ativos da carteira (Edição Rápida inline)` | Presença de `input-asset-*` e `lock-asset-*` diretamente nos cards de ativos | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T09` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar toggle entre Porcentagem (%) e Peso (Pts) na tela da carteira` | Alternância fluida entre visualização em % e Pts (`portfolio-mode-percent` / `portfolio-mode-weight`) | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T10` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `exibir campo com autocomplete (asset-autocomplete-input), listar sugestões ao digitar e preencher ativo ao clicar` | Input de busca com autocomplete em tempo real e autopreenchimento de ativo via sugestão | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T11` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar weight-helper-card explicando o conceito amigável de Peso relativo` | Bloco informativo amigável explicando como o Peso relativo é convertido em porcentagem | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
-| `S18-T12` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `permitir alternar entre Peso e Porcentagem (%) no modal com recálculo e cadeados` | Alternância Peso vs % no modal com pré-visualização reativa e suporte a cadeado | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🔴 FAIL (Fase A) |
+| `S18-T01` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `recalcular proporcionalmente itens destravados fechando rigorosamente em 100%` | Recálculo reativo proporcional entre itens destravados com soma final garantida em 100% | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.00s) |
+| `S18-T02` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `manter itens com cadeado fechado (isLocked = true) estritamente inalterados` | Itens com cadeado fechado não sofrem alteração percentual quando outros itens são modificados | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.01s) |
+| `S18-T03` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `impedir que um item destravado ultrapasse 100% - SomaTravados (teto disponível)` | Limitação ao teto $100 - L$ e clamping de excedentes | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.00s) |
+| `S18-T04` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `dividir igualmente o restante se todos os demais destravados estiverem em 0%` | Divisão equitativa do resíduo $R$ quando demais itens destravados estão em 0% | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.00s) |
+| `S18-T05` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `converter pesos livres em porcentagens proporcionais respeitando itens com cadeado` | Modo Peso: conversão proporcional $p_j = (w_j / \sum w) \times (100 - L)$ | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.00s) |
+| `S18-T06` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `remover completamente todos os botões -5% / +5% e badges "100% OK" / "AJUSTE"` | Remoção de botões de incremento legado e badges redundantes de validação | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.75s) |
+| `S18-T07` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar inputs numéricos editáveis e botões de cadeado para as 4 classes macro` | Presença de `input-class-*` e `lock-class-*` com alternância de estado nos botões de cadeado | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.05s) |
+| `S18-T08` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `exibir inputs numéricos e cadeado diretamente na listagem de ativos da carteira (Edição Rápida inline)` | Presença de `input-asset-*` e `lock-asset-*` diretamente nos cards de ativos | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.05s) |
+| `S18-T09` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar toggle entre Porcentagem (%) e Peso (Pts) na tela da carteira` | Alternância fluida entre visualização em % e Pts (`portfolio-mode-percent` / `portfolio-mode-weight`) | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.04s) |
+| `S18-T10` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `exibir campo com autocomplete (asset-autocomplete-input), listar sugestões ao digitar e preencher ativo ao clicar` | Input de busca com autocomplete em tempo real e autopreenchimento de ativo via sugestão | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.13s) |
+| `S18-T11` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar weight-helper-card explicando o conceito amigável de Peso relativo` | Bloco informativo amigável explicando como o Peso relativo é convertido em porcentagem | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.04s) |
+| `S18-T12` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `permitir alternar entre Peso e Porcentagem (%) no modal com recálculo e cadeados` | Alternância Peso vs % no modal com pré-visualização reativa e suporte a cadeado | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.07s) |
 
 ---
 
@@ -1260,6 +1260,59 @@
     ```
   - Total da Sprint 18 em Red Phase: 12 casos | 0 PASS | 12 FAIL (Fase A Red Phase confirmada).
   - Total Geral do Projeto Celsus: 39 arquivos de teste bloqueados | 266 casos de teste automatizados (254 PASS / 12 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 18 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 39 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Motor de Rebalanceamento Reativo (`reactiveWeights.ts`):**
+     - Recálculo proporcional de alocações mantendo rigidez absoluta de soma em 100% (`recalculateUnlockedTargets`).
+     - Imutabilidade de itens com cadeado (`isLocked = true`) durante edição de outros ativos ou classes.
+     - Limitação ao teto disponível ($100 - L$) e divisão equitativa caso demais destravados estejam em 0%.
+     - Conversão de pesos numéricos relativos em porcentagens com respeito a itens travados (`convertWeightsToPercentagesWithLocks`).
+  2. **Refatoração Editorial de `PortfolioManagementScreen.tsx` (Módulo 4):**
+     - Remoção completa e absoluta dos botões `-5%` e `+5%` e dos badges redundantes `"100% OK"` / `"AJUSTE"`.
+     - Inputs numéricos editáveis (`input-class-*`) e botões de cadeado com toggle visual (`lock-class-*`) nas 4 classes macro.
+     - Edição rápida inline com inputs numéricos (`input-asset-*`) e botões de cadeado (`lock-asset-*`) diretamente nos cards da listagem geral de ativos da carteira.
+     - Toggle de visualização entre Porcentagem (`%`) e Peso (`Pts`) (`portfolio-mode-percent` / `portfolio-mode-weight`).
+  3. **Modal de Adicionar Ativo com Autocomplete e Explicação de Peso (Módulo 5):**
+     - Campo de Autocomplete (`asset-autocomplete-input`) com sugestões em tempo real (`autocomplete-option-${ticker}`) e preenchimento instantâneo ao selecionar.
+     - Card informativo amigável (`weight-helper-card`) explicando a conversão de peso relativo em alocação percentual.
+     - Seletor de modo no modal (`add-asset-mode-percent` / `add-asset-mode-weight`) com suporte a recálculo automático.
+- **Execução da Suíte da Sprint 18 (`npm test --prefix apps/mobile -- Sprint18ReactiveLockWeightsAndAutocomplete`):**
+  ```text
+  PASS src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx
+  Test Suites: 1 passed, 1 total
+  Tests:       12 passed, 12 total
+  Snapshots:   0 total
+  Time:        3.791 s
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 33 passed, 33 total
+  Tests:       250 passed, 250 total
+  Snapshots:   0 total
+  Time:        17.029 s
+  Total Mobile: 33 suítes | 250 PASS | 0 FAIL
+  ```
+- **Execução Completa da Suíte Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	0.871s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.694s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.106s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.670s
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 18 Concluída):**
+  - **39 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **266 casos de teste automatizados executados (16 em Go + 250 em TypeScript/Jest)**
+  - **100% de aprovação (266 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
 
 
 
