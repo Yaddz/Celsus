@@ -8,6 +8,7 @@ import {
   PanResponder,
   PanResponderGestureState,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import { colors, typography, borders, spacing } from '../../theme/tokens';
 import { PORTFOLIO_PALETTES, PortfolioPalette, getPortfolioPalette } from '../../theme/palettes';
@@ -52,6 +53,18 @@ const DEFAULT_PORTFOLIOS: StackedWalletItem[] = [
   },
 ];
 
+const ADD_WALLET_CARD_ITEM: StackedWalletItem = {
+  id: '__add_wallet_card__',
+  name: 'Nova Carteira',
+  docketCode: 'REV-CART-NEW',
+  accountCode: '•••• +',
+  balance: '+ Adicionar',
+  subtitle: 'EXPANDIR DOSSIÊ',
+  profitText: 'Cadastrar nova carteira',
+  accentColor: '#25282B',
+  paletteId: 'classic',
+};
+
 export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   portfolios = DEFAULT_PORTFOLIOS,
   activeIndex = 0,
@@ -63,7 +76,67 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   style,
   themeMode = 'dark',
 }) => {
-  const items = portfolios.length > 0 ? portfolios : DEFAULT_PORTFOLIOS;
+  // Empty State: quando explicitamente passado array vazio
+  if (portfolios && portfolios.length === 0) {
+    return (
+      <View testID={testID} style={[styles.heroWrapper, style]}>
+        <View testID="stacked-wallet-empty-card" style={styles.heroCard}>
+          <View style={[styles.coloredBody, styles.emptyCardBody]}>
+            {/* Camadas orgânicas difusas */}
+            <View testID="wallet-organic-blur-layers" style={styles.organicBlurContainer} pointerEvents="none">
+              <View
+                style={[
+                  styles.organicShape,
+                  {
+                    top: -20,
+                    left: -20,
+                    width: 140,
+                    height: 110,
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderRadius: 70,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.organicShape,
+                  {
+                    top: 20,
+                    right: -20,
+                    width: 120,
+                    height: 120,
+                    backgroundColor: 'rgba(0, 0, 0, 0.20)',
+                    borderRadius: 60,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.emptyCardContent}>
+              <Text style={styles.emptyCardTitle}>Nenhuma carteira cadastrada</Text>
+              <Text style={styles.emptyCardSubtitle}>
+                Crie sua primeira carteira para começar a acompanhar seu patrimônio
+              </Text>
+              <TouchableOpacity
+                testID="empty-wallet-create-cta"
+                style={styles.emptyCardCta}
+                onPress={onCreatePortfolioPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.emptyCardCtaText}>+ Criar primeira carteira</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  const shouldIncludeAddCard = portfolios.length >= 1 && Boolean(onCreatePortfolioPress);
+  const items: StackedWalletItem[] = shouldIncludeAddCard
+    ? [...portfolios, ADD_WALLET_CARD_ITEM]
+    : (portfolios.length > 0 ? portfolios : DEFAULT_PORTFOLIOS);
+
   const [currentIndex, setCurrentIndex] = useState(activeIndex);
   const currentIndexRef = useRef(currentIndex);
   currentIndexRef.current = currentIndex;
@@ -139,6 +212,8 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   ).current;
 
   const currentItem = items[currentIndex] || items[0];
+  const isAddCard = currentItem.id === '__add_wallet_card__';
+
   const palette: PortfolioPalette = currentItem.paletteId
     ? PORTFOLIO_PALETTES[currentItem.paletteId as keyof typeof PORTFOLIO_PALETTES] || PORTFOLIO_PALETTES.classic
     : getPortfolioPalette(currentIndex);
@@ -165,9 +240,9 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
       <View style={styles.heroLayerTwo} />
       <View style={styles.heroLayerOne} />
 
-      {/* Cartão Ativo Principal com física elástica de cartas */}
+      {/* Cartão Ativo Principal ou Card Móvel de Adicionar */}
       <Animated.View
-        testID="stacked-wallet-card-active"
+        testID={isAddCard ? 'stacked-wallet-add-card' : 'stacked-wallet-card-active'}
         style={[
           styles.heroCard,
           {
@@ -181,12 +256,70 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
         {...panResponder.panHandlers}
         onResponderRelease={handleRelease}
       >
-        {/* Corpo colorido preenchendo o card (Imagem 4) */}
+        {/* Corpo colorido preenchendo o card */}
         <View
           testID="wallet-colored-body"
           style={[styles.coloredBody, { backgroundColor: cardBgColor }]}
         >
-          {/* 1. Topo Esquerdo: Esferas Bokeh Difusas Translúcidas Sobrepostas */}
+          {/* Background orgânico e difuso com múltiplas camadas (Blur) */}
+          <View testID="wallet-organic-blur-layers" style={styles.organicBlurContainer} pointerEvents="none">
+            <View
+              style={[
+                styles.organicShape,
+                {
+                  top: -24,
+                  left: -20,
+                  width: 145,
+                  height: 110,
+                  backgroundColor: 'rgba(255, 255, 255, 0.20)',
+                  borderRadius: 72,
+                  transform: [{ rotate: '12deg' }],
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.organicShape,
+                {
+                  top: -10,
+                  left: 14,
+                  width: 115,
+                  height: 85,
+                  backgroundColor: 'rgba(255, 255, 255, 0.30)',
+                  borderRadius: 58,
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.organicShape,
+                {
+                  top: 15,
+                  right: -25,
+                  width: 130,
+                  height: 130,
+                  backgroundColor: 'rgba(0, 0, 0, 0.20)',
+                  borderRadius: 65,
+                  transform: [{ rotate: '-18deg' }],
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.organicShape,
+                {
+                  bottom: -18,
+                  left: 36,
+                  width: 95,
+                  height: 75,
+                  backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                  borderRadius: 48,
+                },
+              ]}
+            />
+          </View>
+
+          {/* Topo Esquerdo: Esferas Bokeh Difusas Translúcidas Sobrepostas */}
           <View style={styles.circlesContainer} pointerEvents="none">
             <View
               style={[
@@ -202,15 +335,26 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
             />
           </View>
 
-          {/* 2. Topo Direito: PATRIMÔNIO TOTAL e Valor em Destaque */}
+          {/* Topo Direito: PATRIMÔNIO TOTAL e Valor em Destaque */}
           <View style={styles.balanceCol}>
             <Text style={styles.balanceSubtitle}>
               {(currentItem.subtitle || 'Patrimônio Total').toUpperCase()}
             </Text>
-            <Text style={styles.balanceText}>{currentItem.balance}</Text>
+            {isAddCard ? (
+              <TouchableOpacity
+                testID="add-wallet-card-cta"
+                style={styles.addCardCta}
+                onPress={onCreatePortfolioPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.addCardCtaText}>+ Nova Carteira</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.balanceText}>{currentItem.balance}</Text>
+            )}
           </View>
 
-          {/* 3. Base: Rentabilidade à esquerda e Notch Autêntico à direita */}
+          {/* Base: Rentabilidade à esquerda e Notch Autêntico à direita */}
           <View style={styles.bottomRow}>
             <View style={styles.nameAndProfitCol}>
               <Text style={styles.profitLabel}>Rentabilidade</Text>
@@ -219,7 +363,7 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
               </Text>
             </View>
 
-            {/* 4. Notch Autêntico no Canto Inferior Direito (Imagem 4) */}
+            {/* Notch Autêntico no Canto Inferior Direito */}
             <View
               testID="wallet-corner-notch"
               style={[styles.cornerNotch, { backgroundColor: notchBgColor }]}
@@ -227,24 +371,24 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
               {/* Curva de concordância côncava superior (Top Inverted Fillet) */}
               <View
                 testID="notch-fillet-top"
-                style={[styles.filletTopContainer, { backgroundColor: notchBgColor }]}
+                style={[styles.filletTopContainer, { backgroundColor: cardBgColor }]}
                 pointerEvents="none"
               >
                 <View
                   testID="notch-fillet-top-inner"
-                  style={[styles.filletInnerCurve, { backgroundColor: cardBgColor }]}
+                  style={[styles.filletInnerCurve, { backgroundColor: notchBgColor }]}
                 />
               </View>
 
               {/* Curva de concordância côncava lateral esquerda (Left Inverted Fillet) */}
               <View
                 testID="notch-fillet-left"
-                style={[styles.filletLeftContainer, { backgroundColor: notchBgColor }]}
+                style={[styles.filletLeftContainer, { backgroundColor: cardBgColor }]}
                 pointerEvents="none"
               >
                 <View
                   testID="notch-fillet-left-inner"
-                  style={[styles.filletInnerCurve, { backgroundColor: cardBgColor }]}
+                  style={[styles.filletInnerCurve, { backgroundColor: notchBgColor }]}
                 />
               </View>
 
@@ -276,6 +420,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     width: '100%',
+    zIndex: 999,
+    elevation: 24,
   },
   heroLayerTwo: {
     position: 'absolute',
@@ -300,8 +446,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral,
     borderRadius: 24,
     overflow: 'hidden',
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
+    borderWidth: 0,
+    borderColor: 'transparent',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.5,
@@ -317,6 +463,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     overflow: 'hidden',
     position: 'relative',
+  },
+  // Background Orgânico e Difuso (Blur)
+  organicBlurContainer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  organicShape: {
+    position: 'absolute',
   },
   // Esferas Bokeh no Topo Esquerdo
   circlesContainer: {
@@ -393,7 +547,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 2,
   },
-  // Notch Autêntico no Canto Inferior Direito (Imagem 4)
+  // Notch Autêntico no Canto Inferior Direito com Quinas Retas
   cornerNotch: {
     position: 'absolute',
     bottom: -16,
@@ -407,9 +561,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderTopLeftRadius: 20,
     borderBottomRightRadius: 24,
-    borderTopWidth: borders.hairline,
-    borderLeftWidth: borders.hairline,
-    borderColor: '#26292C',
+    borderBottomLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderWidth: 0,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
+    borderColor: 'transparent',
     justifyContent: 'center',
     zIndex: 10,
   },
@@ -446,6 +603,63 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.tertiary,
     fontWeight: '700',
+  },
+  // Empty State Styles
+  emptyCardBody: {
+    backgroundColor: '#191B1D',
+    minHeight: 170,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  emptyCardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  emptyCardTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyCardSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.tertiary,
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+  },
+  emptyCardCta: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyCardCtaText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111315',
+  },
+  // Add Card Styles
+  addCardCta: {
+    backgroundColor: '#D5CAA8',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 4,
+  },
+  addCardCtaText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111315',
   },
 });
 

@@ -79,8 +79,8 @@ export const DotMatrixGrid: React.FC<{
                 const dotSeq = colFromRight * rows + rowFromBottom;
                 isFilled = dotSeq < activeDots;
               } else {
-                const dotIndex = rowFromBottom * cols + cIdx;
-                isFilled = dotIndex < activeDots;
+                const dotSeq = cIdx * rows + rowFromBottom;
+                isFilled = dotSeq < activeDots;
               }
 
               return (

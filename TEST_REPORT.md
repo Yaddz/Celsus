@@ -22,8 +22,8 @@
 | **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | 11 | 11 | 0 | `VERIFIED (31 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | 27 | 27 | 0 | `VERIFIED (34 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 12** | Header Minimalista XP, Remoção Global de Headers, Perfil/Configurações, Tema Claro e Máscara `*******` | 2 | 14 | 14 | 0 | `VERIFIED (36 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 16** | Refatoração Módulos 1 e 2: Stacked Hero Wallet Deck (Notch, Quinas Retas, Blur Orgânico, Z-Index, Empty/Add States) & Gráficos Left-to-Right | 1 (+1 mod) | 9 | 2 | 7 | `VERIFIED (37 arquivos)` | 🟡 Fase A Concluída (Red Phase & Lock) |
-| **TOTAL (S1–S16)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **37** | **244** | **237** | **7** | **`VERIFIED (37 arquivos)`** | **🟡 Fase A Bloqueada (Red Phase)** |
+| **Sprint 16** | Refatoração Módulos 1 e 2: Stacked Hero Wallet Deck (Notch, Quinas Retas, Blur Orgânico, Z-Index, Empty/Add States) & Gráficos Left-to-Right | 1 (+1 mod) | 9 | 9 | 0 | `VERIFIED (37 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S16)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **37** | **244** | **244** | **0** | **`VERIFIED (37 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -164,13 +164,13 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `REFACTORING_SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S16-T01` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should enforce borderWidth: 0 on heroCard and cornerNotch` | Remoção de borda geral do card principal e do recorte notch (`borderWidth: 0`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T02` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should have straight bottom-left and top-right notch corners` | Quinas inferior-esquerda e superior-direita retas no notch (`borderBottomLeftRadius: 0`, `borderTopRightRadius: 0`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T03` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should invert fillet curves colors` | Inversão cromática dos conectores côncavos do notch: container com `cardBgColor` e curva interna com `notchBgColor` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T04` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should elevate deck container with zIndex >= 100` | Elevação `zIndex >= 100` no container do deck para sobrepor a dock e botões durante animação de arrasto | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T05` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should render organic diffuse background shapes` | Renderização de formas orgânicas elípticas difusas com múltiplas camadas de opacidade (`wallet-organic-blur-layers`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T06` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should render stationary empty card when portfolios is empty array` | Card fixo de estado vazio (`stacked-wallet-empty-card`) com CTA `empty-wallet-create-cta` acionando `onCreatePortfolioPress` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
-| `S16-T07` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should append an extra add-wallet card at end of stack (1+ portfolios)` | Card móvel `stacked-wallet-add-card` ao final da pilha participando da física de cartas com CTA `add-wallet-card-cta` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🔴 FAIL (Fase A) |
+| `S16-T01` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should enforce borderWidth: 0 on heroCard and cornerNotch` | Remoção de borda geral do card principal e do recorte notch (`borderWidth: 0`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.45s) |
+| `S16-T02` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should have straight bottom-left and top-right notch corners` | Quinas inferior-esquerda e superior-direita retas no notch (`borderBottomLeftRadius: 0`, `borderTopRightRadius: 0`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.01s) |
+| `S16-T03` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should invert fillet curves colors` | Inversão cromática dos conectores côncavos do notch: container com `cardBgColor` e curva interna com `notchBgColor` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.02s) |
+| `S16-T04` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should elevate deck container with zIndex >= 100` | Elevação `zIndex >= 100` no container do deck para sobrepor a dock e botões durante animação de arrasto | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.01s) |
+| `S16-T05` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should render organic diffuse background shapes` | Renderização de formas orgânicas elípticas difusas com múltiplas camadas de opacidade (`wallet-organic-blur-layers`) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.01s) |
+| `S16-T06` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should render stationary empty card when portfolios is empty array` | Card fixo de estado vazio (`stacked-wallet-empty-card`) com CTA `empty-wallet-create-cta` acionando `onCreatePortfolioPress` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.02s) |
+| `S16-T07` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should append an extra add-wallet card at end of stack (1+ portfolios)` | Card móvel `stacked-wallet-add-card` ao final da pilha participando da física de cartas com CTA `add-wallet-card-cta` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.03s) |
 | `S16-T08` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should fill DotMatrixAllocationCard columns from left to right` | Preenchimento das colunas em `DotMatrixAllocationCard` (v2) fluindo da esquerda para a direita (coluna 0 antes da coluna 9) | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.05s) |
 | `S16-T09` | `src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx` | `should render AttributeStatBar with left-to-right fill direction by default` | Preenchimento padrão `left-to-right` em `AttributeStatBar` | `302a19b073e37c20eaba10c135db6794afa10f99a280e642d06121d29cc98773` | 🟢 PASS (0.01s) |
 | `S16-T10` | `src/components/ui/__tests__/DotMatrixV2.test.tsx` | `DotMatrixGrid Columns Pre-filling: Left to Right` | Preenchimento de colunas da esquerda para a direita atualizado na suíte oficial de DotMatrixV2 | `41d2e93f6ee997126c34d830ec797095a20977896d0228b9da4c6f39b35c0ff1` | 🟢 PASS (0.03s) |
@@ -1071,6 +1071,56 @@
     ```
   - Total da Sprint 16 em Red Phase: 9 casos | 2 PASS | 7 FAIL (Fase A Red Phase confirmada).
   - Total Geral do Projeto Celsus: 37 arquivos de teste bloqueados | 244 casos de teste automatizados (237 PASS / 7 FAIL aguardando Fase B).
+
+---
+
+### Sprint 16 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 37 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Ajuste Geométrico e Visual do Notch (`StackedWalletDeck.tsx`):**
+     - Remoção completa de bordas do card e do notch (`borderWidth: 0`, `borderColor: 'transparent'`).
+     - Quinas inferior-esquerda e superior-direita retas no notch (`borderBottomLeftRadius: 0`, `borderTopRightRadius: 0`).
+     - Inversão cromática das curvas de concordância côncavas: container externo assume a cor do card (`cardBgColor`) e a curva interna assume a cor escura do notch (`notchBgColor` / `#191B1D`).
+  2. **Background Orgânico Difuso e Elevação (`StackedWalletDeck.tsx`):**
+     - Renderização de formas orgânicas elípticas difusas concêntricas com camadas de opacidade variadas (`wallet-organic-blur-layers`).
+     - Elevação `zIndex: 999` e `elevation: 24` no container do deck (`heroWrapper`) para sobrepor todos os elementos durante o arrasto.
+  3. **Estados da Pilha (Empty Card & Add Card):**
+     - Estado 0 carteiras (`portfolios.length === 0`): renderiza card fixo `stacked-wallet-empty-card` com mensagem e botão CTA `empty-wallet-create-cta` acionando `onCreatePortfolioPress`.
+     - Estado 1+ carteiras (`portfolios.length >= 1`): adiciona card móvel `stacked-wallet-add-card` ao final da pilha, participando da física de arrasto com CTA `add-wallet-card-cta` para criar nova carteira e ciclando de volta para o primeiro card.
+  4. **Padronização dos Gráficos de Alocação (`DotMatrixAllocationCard.tsx` & `AttributeStatBar.tsx`):**
+     - Sentido de renderização padronizado para fluir da esquerda para a direita em colunas (`fillDirection="left-to-right"`, coluna 0 preenchida antes da coluna 9).
+- **Execução da Suíte da Sprint 16 (`npm test --prefix apps/mobile -- Sprint16WalletStackAndAllocation StackedWalletDeck DotMatrixV2`):**
+  ```text
+  PASS src/components/ui/__tests__/DotMatrixV2.test.tsx (3 passed, 3 total)
+  PASS src/components/ui/__tests__/StackedWalletDeck.test.tsx (6 passed, 6 total)
+  PASS src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx (11 passed, 11 total)
+  Test Suites: 3 passed, 3 total
+  Tests:       20 passed, 20 total
+  ```
+- **Execução Completa da Suíte Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 31 passed, 31 total
+  Tests:       228 passed, 228 total
+  Snapshots:   0 total
+  Time:        14.241 s
+  Total Mobile: 31 suítes | 228 PASS | 0 FAIL
+  ```
+- **Execução Completa da Suíte Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.306s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.630s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.130s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.623s
+  Total Backend Go: 16 testes | 16 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 16 Concluída):**
+  - **37 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **244 casos de teste automatizados executados (16 em Go + 228 em TypeScript/Jest)**
+  - **100% de aprovação (244 PASS / 0 FAIL) sob regime estrito de TDD Lock**
 
 
 
