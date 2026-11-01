@@ -27,7 +27,8 @@
 | **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S20)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **285** | **285** | **0** | **`VERIFIED (41 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 0 | 4 | `VERIFIED (41 arquivos)` | 🔴 Fase A (Red Phase & Locked) |
+| **TOTAL (S1–S21)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **289** | **285** | **4** | **`VERIFIED (41 arquivos)`** | **🟡 Em Desenvolvimento (Fase A Red)** |
 
 ---
 
@@ -251,6 +252,17 @@
 | `S20-T03` | `internal/yahoo/client_test.go` | `TestFetchChartHistory_CloseAdjCloseAndSplits` | Extração de `indicators.quote[0].close` nominal vs `indicators.adjclose[0].adjclose` e eventos corporativos (`SPLIT` `2:1` e `DIVIDEND`) | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.00s) |
 | `S20-T04` | `internal/yahoo/client_test.go` | `TestFetchQuotes_FailoverQuery1ToQuery2` | Failover automático de `query1` (`429 Too Many Requests`) para `query2` sem perda de requisição | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.00s) |
 | `S20-T05` | `internal/macro/rates_test.go` | `TestBCBClient_FetchIncrementalCDIAndIPCA` | Sincronização incremental BCB SGS (Séries `#12` CDI e `#433` IPCA) a partir de `GetLastDate` com conversão `DD/MM/YYYY` → `YYYY-MM-DD` | `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e` | 🟢 PASS (0.00s) |
+
+---
+
+### 2.18. Sprint 21 — Motor SQLite Go: Precedência `COTAHIST > YAHOO`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento de Seed
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S21-T01` | `internal/cotahist/repository_test.go` | `TestUpsertQuotes_PrecedenceCotahistOverYahoo` | Precedência estrita `COTAHIST > YAHOO` em `(ticker, trade_date)` preservando `close_price` nominal e `source`, permitindo preenchimento de `adj_close` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
+| `S21-T02` | `internal/cotahist/repository_test.go` | `TestParseZIPFiltered_OnlyAllowedTickers` | Leitura streaming filtrada de arquivos `COTAHIST.ZIP` emitindo apenas tickers informados na carteira | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
+| `S21-T03` | `internal/cotahist/repository_test.go` | `TestCorporateEvents_SaveAndQuery` | Persistência e consulta por período de eventos corporativos de splits/inplits e dividendos em `corporate_events` | `2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23` | 🔴 FAIL (Red Phase) |
+| `S21-T04` | `internal/cotahist/seed_test.go` | `TestProductionSeed_LicensingCompliance` | Licenciamento em produção: `SeedProductionCatalogAndMacro` popula `catalog_assets` e séries BCB com ZERO cotações pré-gravadas em `historical_quotes` | `98b0125a649b2170d84700a16dfd6357dfedb8a57eee07b610ff797834ad033f` | 🔴 FAIL (Red Phase) |
 
 ---
 
@@ -1495,6 +1507,40 @@
   - **41 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **285 casos de teste automatizados executados (21 em Go + 264 em TypeScript/Jest)**
   - **100% de aprovação (285 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
+---
+
+### Sprint 21 — Fase A: Autoria e Bloqueio dos Testes do Motor SQLite Go, Filtro ZIP e Licenciamento (2026-11-01)
+- **Status do Bloqueio:** 41 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action lock` / `verify`):**
+  ```text
+  [TDD LOCK] 41 arquivo(s) de teste bloqueado(s) com ReadOnly e registrados em tests.lock.json.
+  [TDD VERIFIED] Integridade de todos os 41 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução dos Testes da Sprint 21 sob Stubs (Red Phase Confirmada):**
+  ```text
+  === RUN   TestUpsertQuotes_PrecedenceCotahistOverYahoo
+      repository_test.go:171: esperado Close=38.50 e Source=COTAHIST, obtido Close=38.50 e Source=
+      repository_test.go:200: violação de precedência! Preço nominal COTAHIST sobrescrito por YAHOO: esperado 38.50, obtido 38.42
+      repository_test.go:203: violação de precedência! Source sobrescrito por YAHOO: esperado COTAHIST, obtido 
+      repository_test.go:207: adj_close deveria ser preenchido/atualizado pelo Yahoo: esperado 34.10, obtido 0.00
+      repository_test.go:254: registro YAHOO deveria ser atualizado por outro YAHOO: obtido Close=68.50, Source=
+      repository_test.go:282: registro deveria ser promovido para COTAHIST: obtido Close=68.80, Source=
+  --- FAIL: TestUpsertQuotes_PrecedenceCotahistOverYahoo (0.00s)
+  === RUN   TestParseZIPFiltered_OnlyAllowedTickers
+      repository_test.go:318: erro ao executar ParseZIPFiltered: ParseZIPFiltered not implemented
+  --- FAIL: TestParseZIPFiltered_OnlyAllowedTickers (0.00s)
+  === RUN   TestCorporateEvents_SaveAndQuery
+      repository_test.go:389: falha ao salvar eventos corporativos: SaveCorporateEvents not implemented
+  --- FAIL: TestCorporateEvents_SaveAndQuery (0.00s)
+  === RUN   TestProductionSeed_LicensingCompliance
+      seed_test.go:208: SeedProductionCatalogAndMacro falhou: SeedProductionCatalogAndMacro not implemented
+  --- FAIL: TestProductionSeed_LicensingCompliance (0.00s)
+  FAIL	github.com/pedro/celsus/services/market-api/internal/cotahist	0.872s
+  ```
+- **Total da Sprint 21 em Red Phase:** 4 novos casos | 0 PASS | 4 FAIL (Fase A Red Phase confirmada).
+- **Total Geral do Projeto Celsus:** 41 arquivos de teste bloqueados | 289 casos de teste automatizados (285 PASS / 4 FAIL aguardando implementação da Fase B).
+
 
 
 

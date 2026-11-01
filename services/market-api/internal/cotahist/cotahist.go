@@ -10,17 +10,37 @@ import (
 	"strings"
 )
 
-// Quote represents a parsed stock or FII daily quote from B3 COTAHIST.
+// Quote represents a parsed stock or FII daily quote from B3 COTAHIST or external market providers.
 type Quote struct {
-	Date       string  `json:"date"`        // YYYY-MM-DD
-	Ticker     string  `json:"ticker"`      // e.g. PETR4, HGLG11
-	AssetClass string  `json:"asset_class"` // STOCK or FII
-	Name       string  `json:"name"`        // Company or Fund name
-	Open       float64 `json:"open"`        // Preço de abertura em R$
-	High       float64 `json:"high"`        // Preço máximo em R$
-	Low        float64 `json:"low"`         // Preço mínimo em R$
-	Close      float64 `json:"close"`       // Preço de fechamento em R$
-	Volume     float64 `json:"volume"`      // Volume financeiro em R$
+	Date       string  `json:"date"`                // YYYY-MM-DD
+	Ticker     string  `json:"ticker"`              // e.g. PETR4, HGLG11
+	AssetClass string  `json:"asset_class"`         // STOCK, FII or CRYPTO
+	Name       string  `json:"name"`                // Company or Fund name
+	Open       float64 `json:"open"`                // Preço de abertura em R$
+	High       float64 `json:"high"`                // Preço máximo em R$
+	Low        float64 `json:"low"`                 // Preço mínimo em R$
+	Close      float64 `json:"close"`               // Preço de fechamento nominal em R$
+	AdjClose   float64 `json:"adj_close,omitempty"` // Preço ajustado opcional
+	Volume     float64 `json:"volume"`              // Volume financeiro em R$
+	Source     string  `json:"source,omitempty"`    // Origem do dado: 'COTAHIST' ou 'YAHOO'
+}
+
+// CorporateEvent represents a stock split, inplit (reverse split), or cash dividend.
+type CorporateEvent struct {
+	Ticker      string  `json:"ticker"`
+	Type        string  `json:"type"`        // "SPLIT" | "DIVIDEND"
+	Date        string  `json:"date"`        // YYYY-MM-DD (ex-date)
+	Numerator   float64 `json:"numerator"`   // For SPLIT/INPLIT
+	Denominator float64 `json:"denominator"` // For SPLIT/INPLIT
+	Ratio       string  `json:"ratio"`       // e.g. "2:1" or "1:10"
+	CashAmount  float64 `json:"cash_amount"` // For DIVIDEND
+}
+
+// CatalogAsset represents a public registered security in the catalog.
+type CatalogAsset struct {
+	Ticker     string `json:"ticker"`
+	Name       string `json:"name"`
+	AssetClass string `json:"asset_class"`
 }
 
 // Parser handles positional parsing of B3 COTAHIST fixed-width 245-byte records.
@@ -108,7 +128,9 @@ func (p *Parser) ParseLine(line string) (*Quote, bool, error) {
 		High:       highPrice,
 		Low:        lowPrice,
 		Close:      closePrice,
+		AdjClose:   closePrice,
 		Volume:     volume,
+		Source:     "COTAHIST",
 	}
 
 	return q, true, nil
@@ -178,11 +200,22 @@ func (p *Parser) ParseZip(r io.ReaderAt, size int64, handleQuote func(q Quote) e
 	return nil
 }
 
-// Repository defines data access for COTAHIST historical quotes and catalog.
+// ParseZIPFiltered parses a ZIP archive containing COTAHIST_AXXXX.TXT in a streaming fashion,
+// but only invokes handleQuote for tickers present in allowedTickers (case-insensitive).
+// If allowedTickers is empty, all quotes are emitted.
+func (p *Parser) ParseZIPFiltered(r io.ReaderAt, size int64, allowedTickers []string, handleQuote func(q Quote) error) error {
+	// Stub for Phase A Red Phase
+	return fmt.Errorf("ParseZIPFiltered not implemented")
+}
+
+// Repository defines data access for COTAHIST historical quotes, corporate events and catalog.
 type Repository interface {
 	InitSchema(ctx context.Context) error
 	UpsertQuotes(ctx context.Context, quotes []Quote) error
 	GetQuotes(ctx context.Context, ticker string, from, to string) ([]Quote, error)
 	SearchCatalog(ctx context.Context, query string, assetClass string) ([]Quote, error)
 	GetLastDate(ctx context.Context) (string, error)
+	SaveCorporateEvents(ctx context.Context, events []CorporateEvent) error
+	GetCorporateEvents(ctx context.Context, ticker string, from, to string) ([]CorporateEvent, error)
+	UpsertCatalogAssets(ctx context.Context, assets []CatalogAsset) error
 }

@@ -197,3 +197,19 @@ func (r *SQLiteRepository) GetLastDate(ctx context.Context) (string, error) {
 	}
 	return "", nil
 }
+
+// SaveCorporateEvents persists corporate events (splits, dividends) for tickers.
+func (r *SQLiteRepository) SaveCorporateEvents(ctx context.Context, events []CorporateEvent) error {
+	return fmt.Errorf("SaveCorporateEvents not implemented")
+}
+
+// GetCorporateEvents retrieves corporate events for a ticker in date range [from, to].
+func (r *SQLiteRepository) GetCorporateEvents(ctx context.Context, ticker string, from, to string) ([]CorporateEvent, error) {
+	return nil, fmt.Errorf("GetCorporateEvents not implemented")
+}
+
+// UpsertCatalogAssets inserts or replaces assets in the public catalog.
+func (r *SQLiteRepository) UpsertCatalogAssets(ctx context.Context, assets []CatalogAsset) error {
+	return fmt.Errorf("UpsertCatalogAssets not implemented")
+}
+

@@ -77,3 +77,10 @@ func SeedMarketData(ctx context.Context, cotahistRepo *SQLiteRepository, macroRe
 
 	return nil
 }
+
+// SeedProductionCatalogAndMacro populates catalog_assets and BCB CDI/IPCA macro series
+// with zero historical price bars in production.
+func SeedProductionCatalogAndMacro(ctx context.Context, cotahistRepo *SQLiteRepository, macroRepo *macro.SQLiteRepository) error {
+	return fmt.Errorf("SeedProductionCatalogAndMacro not implemented")
+}
+

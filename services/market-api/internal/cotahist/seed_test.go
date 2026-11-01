@@ -174,3 +174,74 @@ func TestLocalMarketSeedBootstrap(t *testing.T) {
 		}
 	})
 }
+
+// S21-T04: Licenciamento em produção: Catálogo Cadastral público + Séries BCB sem preços proprietários pré-gravados
+func TestProductionSeed_LicensingCompliance(t *testing.T) {
+	ctx := context.Background()
+
+	// 1. Setup Cotahist SQLite in-memory DB
+	cotahistDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("falha ao abrir banco sqlite cotahist: %v", err)
+	}
+	defer cotahistDB.Close()
+
+	cotahistRepo := NewSQLiteRepository(cotahistDB)
+	if err := cotahistRepo.InitSchema(ctx); err != nil {
+		t.Fatalf("falha ao inicializar schema cotahist: %v", err)
+	}
+
+	// 2. Setup Macro SQLite in-memory DB
+	macroDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("falha ao abrir banco sqlite macro: %v", err)
+	}
+	defer macroDB.Close()
+
+	macroRepo := macro.NewSQLiteRepository(macroDB)
+	if err := macroRepo.InitSchema(ctx); err != nil {
+		t.Fatalf("falha ao inicializar schema macro: %v", err)
+	}
+
+	// 3. Executa o Seed de Produção
+	if err := SeedProductionCatalogAndMacro(ctx, cotahistRepo, macroRepo); err != nil {
+		t.Fatalf("SeedProductionCatalogAndMacro falhou: %v", err)
+	}
+
+	// 4. Verificação de Licenciamento: ZERO preços em historical_quotes
+	var quoteCount int
+	err = cotahistDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM historical_quotes;").Scan(&quoteCount)
+	if err != nil {
+		t.Fatalf("falha ao consultar contagem de historical_quotes: %v", err)
+	}
+	if quoteCount != 0 {
+		t.Errorf("violação de compliance/licenciamento: historical_quotes em produção deve ter 0 cotações pré-gravadas, obtido %d", quoteCount)
+	}
+
+	// 5. Catálogo Cadastral público (catalog_assets) deve estar populado
+	var catalogCount int
+	err = cotahistDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM catalog_assets;").Scan(&catalogCount)
+	if err != nil {
+		t.Fatalf("falha ao consultar contagem de catalog_assets: %v", err)
+	}
+	if catalogCount == 0 {
+		t.Errorf("esperava catálogo cadastral populado em catalog_assets, obtido 0")
+	}
+
+	// 6. Séries Macroeconômicas oficiais do Banco Central (CDI / IPCA) devem estar presentes
+	cdiRates, err := macroRepo.GetRates(ctx, "CDI", "2024-01-01", "2024-12-31")
+	if err != nil || len(cdiRates) == 0 {
+		t.Errorf("esperava séries históricas de CDI do BCB no seed de produção")
+	}
+
+	ipcaRates, err := macroRepo.GetRates(ctx, "IPCA", "2024-01-01", "2024-12-31")
+	if err != nil || len(ipcaRates) == 0 {
+		t.Errorf("esperava séries históricas de IPCA do BCB no seed de produção")
+	}
+
+	// 7. Idempotência
+	if err := SeedProductionCatalogAndMacro(ctx, cotahistRepo, macroRepo); err != nil {
+		t.Fatalf("segunda execução de SeedProductionCatalogAndMacro falhou: %v", err)
+	}
+}
+
