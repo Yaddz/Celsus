@@ -19,9 +19,9 @@
 | **Sprint 7** | Integração Local Front+Back, Seed COTAHIST e Sincronização de Cotações | 3 | 24 | 24 | 0 | `VERIFIED (21 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 8** | Paletas por Carteira (`/imgsinsp`), Tema Escuro/Claro, `AmbientOrb` e Header XP | 3 | 22 | 22 | 0 | `VERIFIED (24 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 9** | Card em Pilha (`StackedWalletDeck`), Home Clean v2 e Matriz Direita → Esquerda | 4 | 21 | 21 | 0 | `VERIFIED (28 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
+| **Sprint 10** | Tela Detalhe da Classe (Donut Oco + Scroll) e Histórico da Movimentação | 3 | 11 | 2 | 9 | `VERIFIED (31 arquivos)` | 🟡 Em Andamento (Fase A Red Phase Lock) |
 | **Sprint 11** | Estatísticas v2 (`5D/Mês/Ano/5A/Total` + Linha) e Carteiras Clean v2 | 3 | — | — | — | `PENDING (Fase A)` | ⏳ Planejado (SPEC v2) |
-| **TOTAL (S1–S9)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **28** | **183** | **183** | **0** | **`VERIFIED (28 arquivos)`** | **🟢 100% Aprovado** |
+| **TOTAL (S1–S10)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **31** | **194** | **185** | **9** | **`VERIFIED (31 arquivos)`** | **🟡 Fase A Concluída / Fase B Pendente** |
 
 ---
 
@@ -133,9 +133,9 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` (v2) Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S10-T01` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `TestHollowDonutLongPressTooltipAndTapScroll` | Gráfico de pizza oco da classe: segurar na cor mostra caixa com nome do ativo; clicar na cor faz scroll até o ativo | `PENDING (Fase A)` | ⏳ PENDING |
-| `S10-T02` | `src/screens/__tests__/ClassAssetCards.test.tsx` | `TestAssetDetailInformationCards` | Exibição de Saldo Bruto, Quantidade, Preço Médio, Cotação Atual e Rentabilidade de cada ativo da classe | `PENDING (Fase A)` | ⏳ PENDING |
-| `S10-T03` | `src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx` | `TestTransactionHistoryNavigationAndDetails` | Clicar em movimentação recente abre histórico exibindo Valor Investido, Cotação, Quantidade e Data | `PENDING (Fase A)` | ⏳ PENDING |
+| `S10-T01` | `src/screens/__tests__/ClassDetailScreen.test.tsx` | `TestHollowDonutLongPressTooltipAndTapScroll` | Gráfico de pizza oco da classe: segurar na cor mostra caixa com nome do ativo; clicar na cor faz scroll até o ativo | `eefe06c8b26e2153a7945feb1c095a9ca6e56171c511f896a8788c8b5988a908` | 🔴 FAIL (Red Phase sob stubs) |
+| `S10-T02` | `src/screens/__tests__/ClassAssetCards.test.tsx` | `TestAssetDetailInformationCards` | Exibição de Saldo Bruto, Quantidade, Preço Médio, Cotação Atual e Rentabilidade de cada ativo da classe | `ed3388a52dba6b975318fffcd5e47aec0b54ee584044738cfd9c37f8b7d0165a` | 🔴 FAIL (Red Phase sob stubs) |
+| `S10-T03` | `src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx` | `TestTransactionHistoryNavigationAndDetails` | Clicar em movimentação recente abre histórico exibindo Valor Investido, Cotação, Quantidade e Data | `6ce5b4135d04ca1d525365234dcd28c6ce4ad6e8ba30feba6256c626c24b9e56` | 🔴 FAIL (Red Phase sob stubs) |
 
 ---
 
@@ -814,6 +814,26 @@
   - **28 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **183 casos de teste automatizados executados (16 em Go + 167 em TypeScript/Jest)**
   - **100% de aprovação (183 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
+
+---
+
+### Sprint 10 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 31 arquivos de teste bloqueados com `ReadOnly` e registrados em `tests.lock.json` (3 novos arquivos criados para a Sprint 10).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 31 arquivos de teste confirmada via SHA-256.
+  ```
+- **Hashes SHA-256 dos Novos Testes Bloqueados:**
+  - `src/screens/__tests__/ClassDetailScreen.test.tsx`: `eefe06c8b26e2153a7945feb1c095a9ca6e56171c511f896a8788c8b5988a908`
+  - `src/screens/__tests__/ClassAssetCards.test.tsx`: `ed3388a52dba6b975318fffcd5e47aec0b54ee584044738cfd9c37f8b7d0165a`
+  - `src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx`: `6ce5b4135d04ca1d525365234dcd28c6ce4ad6e8ba30feba6256c626c24b9e56`
+- **Execução Inicial dos Testes sob Stubs (Red Phase confirmada no Jest):**
+  - Execução dos testes da Sprint 10 sob stubs vazios de compilação:
+    - `ClassDetailScreen.test.tsx`: 3 testes falham aguardando Donut Chart, tooltip em `onLongPress` e auto-scroll em `onPress`.
+    - `ClassAssetCards.test.tsx`: 2 testes de métricas detalhadas (Saldo Bruto, Quantidade, PM, Preço Atual, Rentabilidade) e privacidade falham sob stubs; 1 teste passa (ausência de header pesado).
+    - `TransactionDetailHistoryScreen.test.tsx`: 4 testes falham aguardando exibição de métricas detalhadas da transação, linha do tempo histórica, privacidade e abertura ao clicar na Home; 1 teste passa (ausência de header pesado).
+  - Total da Sprint 10 em Red Phase: 11 testes | 2 PASS | 9 FAIL.
+
 
 
 
