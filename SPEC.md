@@ -609,66 +609,68 @@ Passos:
 
 ## 11. Especificação da Leva de Aperfeiçoamento e Testes de Integração (SPEC v2 — Sprints 7 a 11)
 
-Após a conclusão das Sprints 1 a 6, a **SPEC v2** estabelece a preparação do ambiente local de integração real (`apps/mobile` ↔ `services/market-api`) e o aperfeiçoamento completo de UI/UX inspirado nas referências em `/imgsinsp` (*Pierre*, *XP Investimentos*, *BTG Investimentos* e *Disco Elysium Color Charts*).
+> **Consulte também o documento dedicado:** [SPEC_V2.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/SPEC_V2.md) com o Checklist Completo de Validação dos 11 pontos.
 
-### 11.1. Integração Local Front-End + Back-End e Busca de Tickers
-- **Ambiente Local Unificado:**
-  - Script de inicialização (`scripts/dev-local.ps1`) e configuração automática de `EXPO_PUBLIC_MARKET_API_URL` apontando para o backend Go (`http://localhost:8080` ou IP da LAN para dispositivo físico via Expo Go).
-  - Comando/rotina de seed no backend Go (`services/market-api`) carregando amostra real do **COTAHIST B3**, curvas diárias de **CDI/IPCA** e proxy **BRAPI** (Ações, FIIs e Cripto em BRL).
-  - No app mobile, a busca de tickers (`/v1/catalog/search`), a cotação atual (`/v1/quotes`) e o preenchimento histórico (`/v1/history`) consultam o backend Go em tempo real e atualizam o cache SQLite local (`market_price_cache` e `historical_prices_local`).
+Após a conclusão das Sprints 1 a 6, a **SPEC v2** estabelece a preparação do ambiente local de integração real (`apps/mobile` no **Expo Go** ↔ `services/market-api` rodando no PC) e o aperfeiçoamento completo de UI/UX inspirado nas referências em `/imgsinsp` (*Pierre*, *XP Investimentos*, *BTG Investimentos* e *Disco Elysium Color Charts*).
 
-### 11.2. Arquitetura Visual Limpa, Header Estilo XP e Esfera Luminosa (`AmbientOrb`)
+### 11.1. Integração Local Front-End (Expo Go) + Back-End (PC) e Busca de Tickers
+- **Execução no Expo Go com Backend no PC:**
+  - O servidor Go (`services/market-api`) escuta em `0.0.0.0:8080` no PC com CORS habilitado e executa bootstrap/seed automático do catálogo **COTAHIST B3**, curvas diárias de **CDI/IPCA** e proxy **BRAPI** (Ações, FIIs e Cripto em BRL).
+  - O script `scripts/dev-local.ps1` e o módulo `lanDiscovery.ts` no app mobile detectam automaticamente o IPv4 da rede local do PC a partir do `hostUri` do Expo (`Constants.expoConfig.hostUri`), permitindo que o celular no **Expo Go** se conecte diretamente ao PC via Wi-Fi (`http://<IP_DO_PC>:8080/v1/...`) para buscar valores reais de tickers (`/v1/catalog/search`, `/v1/quotes`, `/v1/history`).
+
+### 11.2. Esfera Luminosa (`AmbientOrb`), Header Estilo XP na Home e Zero Header nas Demais Telas
 1. **Esfera Luminosa no Topo (`AmbientOrb`):**
-   - Inspirada na iluminação atmosférica superior do app *Pierre*, renderiza uma bola difusa suave no topo da tela que reflete as cores da paleta da carteira ativa.
+   - Inspirada na iluminação atmosférica superior do app *Pierre*, renderiza uma bola difusa suave no topo da tela que acompanha a paleta da carteira ativa.
 2. **Header Estilo XP na Home (e Remoção Total de Headers nas Demais Telas):**
-   - **Na Home:**
-     - **Canto Esquerdo:** Avatar circular com as iniciais do usuário (ex.: `PL`) + nome (`Pedro`). Ao clicar, abre a **Página de Configurações**.
+   - **Na Home:** Remove o antigo ícone/nome/escudo e adota o layout estilo XP:
+     - **Canto Esquerdo:** Avatar circular com as iniciais do usuário (`PL`) + nome (`Pedro`). **Ao clicar, abre a Página de Configurações**.
      - **Canto Direito:** Dois botões circulares:
-       1. **Botão Globo (`language` / `public`):** Placeholder preparado para versões futuras onde o usuário alternará a visualização entre *Investimentos* e *Movimentações Bancárias*.
-       2. **Botão de Olho (`visibility` / `visibility-off`):** Alterna instantaneamente o Modo Privacidade em todo o app.
+       1. **Botão Globo (`public` / `language`):** Placeholder para versões futuras onde o usuário alternará a visualização entre *Investimentos* e *Movimentações Bancárias*.
+       2. **Botão de Olho (`visibility` / `visibility-off`):** Alterna o Modo Privacidade em todo o app.
    - **Nas demais telas (`Estatísticas`, `Carteiras`, `Detalhe da Classe`, `Histórico da Movimentação`):**
-     - **Nenhuma página possui header superior.** Os títulos pesados de topo foram removidos.
-     - O **Footer Flutuante (`FloatingBottomDock`)** permanece visível em **todas as telas**, acompanhado de transições suaves de abertura/navegação.
+     - **Nenhuma página possui header superior.**
+     - O **Footer Flutuante (`FloatingBottomDock`)** permanece visível em **todas as telas**, acompanhado de animações suaves de transição.
 
-### 11.3. Paletas por Carteira (`/imgsinsp`) + Página de Configurações (Tema Escuro / Claro)
+### 11.3. Paletas Automáticas por Carteira (`/imgsinsp`) + Página de Configurações (Tema Escuro / Claro)
 1. **Paletas Temáticas por Carteira (Atribuição Sequencial Automática):**
-   - Extraídas das 3 cartelas de cores em `/imgsinsp/disco-elysium-colors-charts` + paleta clássica Celsus (`classic` → `harbor` → `docks` → `tribunal`).
-   - **Atribuição Automática:** Para cada nova carteira criada em sequência, o sistema atribui automaticamente uma paleta diferente em ciclo (`portfolioIndex % 4`).
+   - Extraídas das cartelas de cores em `/imgsinsp/disco-elysium-colors-charts` + paleta clássica Celsus (`classic` → `harbor` → `docks` → `tribunal`).
+   - **Atribuição Automática:** Cada nova carteira criada em sequência recebe automaticamente uma paleta diferente (`portfolioIndex % 4`).
    - **Sincronização na Pilha:** Ao trocar de carteira na pilha (`StackedWalletDeck`), **a cor do Card, a bola luminosa no topo (`AmbientOrb`) e os detalhes ativos da interface acompanham automaticamente a paleta daquela carteira**.
-   - **Regra de Coerência:** As cores das 4 categorias de ativos (`FIXED_INCOME` `#2E4A44`, `FII` `#D5CAA8`, `STOCK` `#D96628`, `CRYPTO` `#C49A45`) permanecem **sempre fixas**, e o fundo do app permanece consistente com o tema global (Escuro ou Claro).
+   - **Regra de Coerência:** As cores das 4 categorias de ativos (`FIXED_INCOME` `#2E4A44`, `FII` `#D5CAA8`, `STOCK` `#D96628`, `CRYPTO` `#C49A45`) permanecem **sempre fixas**, e o fundo do app permanece consistente com o tema global.
 2. **Página de Configurações (`SettingsBackupScreen` v2):**
-   - Permite alternar o **Tema do App (`Escuro` `#111315` ou `Claro` `#F4F1EA`)**.
-   - Reúne as configurações de **PIN / Biometria**, **Modo Privacidade**, **URL da API Local** e **Backup / Restauração `.celsus.zip`**.
+   - Permite selecionar o **Tema do App (`Escuro` `#111315` ou `Claro` `#F4F1EA`)**, além de **Backup / Restauração `.celsus.zip`**, **PIN / Biometria** e **Modo Privacidade**.
 
 ### 11.4. Card da Carteira em Pilha Interativa (`StackedWalletDeck`) e Geometria com Recorte Curvo
 1. **Gesto de Pilha Vertical (Pull Down / Pull Up):**
-   - As carteiras ficam empilhadas. **Puxar a carteira atual para baixo** executa uma animação suave trazendo a próxima carteira para o topo da pilha; **puxar para cima** volta uma carteira.
-2. **Cor Estendida + Recorte Curvo (`•••• 001`):**
-   - A cor principal da carteira se estende por todo o card, abrangendo a área inferior esquerda onde antes ficava `"DOSSIÊ CONSOLIDADO"` — que agora passa a exibir o **Nome da Carteira** e a **Rentabilidade** (`+12,4% no ano`).
-   - O canto inferior direito onde fica o código `•••• 001` mantém a cor escura do card (`#191B1D`) como um **quadrado com borda curva integrado ao formato do card** (*corner notch*).
+   - As carteiras ficam empilhadas (tendo a visão Consolidada como 1º card da pilha). **Puxar a carteira atual para baixo** executa uma animação suave trazendo a próxima carteira para o topo da pilha; **puxar para cima** volta uma carteira.
+2. **Cor Estendida até Rentabilidade + Recorte Curvo (`•••• 001`):**
+   - A cor principal da carteira se estende por todo o card, exibindo o **Nome da Carteira** no topo esquerdo, o **Saldo Total** no topo direito e a **Rentabilidade (`R$` e `%`)** na base esquerda (onde antes ficava `"DOSSIÊ CONSOLIDADO"`).
+   - O canto inferior direito onde fica o código `•••• 001` mantém a cor escura do card (`#191B1D`) como um **quadrado com borda curva integrado ao formato do card** (*corner cutout*).
 
-### 11.5. Reorganização da Home, Acesso Rápido Ampliado e Alocação por Categoria
-1. **Botões de Acesso Rápido (`QuickActionBentoRow` v2):**
+### 11.5. Nova Ordem da Home, Acesso Rápido Ampliado e Alocação por Categoria (Direita → Esquerda)
+1. **Ordem Exata dos Blocos na Home:**
+   - **1º Card da Carteira em Pilha (`StackedWalletDeck`)**
+   - **2º Botões de Acesso Rápido (`QuickActionBentoRow` v2)**
+   - **3º Movimentações Recentes (`RecentTransactionsCard` v2)** — posicionadas logo abaixo dos botões rápidos!
+   - **4º Alocação por Categoria (`DotMatrixAllocationCard` v2)** — posicionada abaixo das movimentações recentes!
+   - *(O antigo Card de Simulação e o antigo Card avulso de Rebalanceamento saem da Home).*
+2. **Botões de Acesso Rápido (`QuickActionBentoRow` v2):**
    - Ícones maiores (`28px`–`30px`) e textos maiores (`15px`–`16px`).
-   - O botão **Mais** apresenta um seletor com **duas opções**:
-     1. **Adicionar Novo Aporte**
-     2. **Adicionar Nova Carteira**
-2. **Limpeza e Nova Ordem na Home:**
-   - **Card de Simulação removido** da página inicial.
-   - **Card de Rebalanceamento removido** da página inicial e substituído por um **botão `"Rebalancear"` da mesma cor (`#D5CAA8`)** posicionado no cabeçalho do card de **Alocação por Categoria** (no lugar onde ficava o valor total).
-   - **Movimentações Recentes posicionadas mais acima** na Home.
+   - O botão **Mais** apresenta um seletor com **duas opções**: **1. Novo Aporte** ou **2. Nova Carteira**.
 3. **Card de Alocação por Categoria (`DotMatrixAllocationCard` & `AttributeStatBar` v2):**
    - Remove o texto `"Matriz de Pontos • 4 Classes Reais"`.
-   - Remove o texto `/ META X%` de cada categoria e exibe o **valor aportado/investido em cada classe + porcentagem atual** (ex.: `R$ 10.389,76 • 32,0%`).
-   - **Gráfico de Matriz de Pontos em Colunas da Direita para a Esquerda:** O preenchimento dos pontos ocorre **em colunas, da direita para a esquerda** (e não mais em linhas).
+   - No lugar do valor total no topo direito do card, entra o **botão `"Rebalancear"` da mesma cor (`#D5CAA8`)** do antigo card de rebalanceamento.
+   - Remove `/ META X%` de cada categoria e exibe o **valor aportado/investido em cada classe + porcentagem atual** (ex.: `R$ 10.389,76 • 32,0%`).
+   - **Gráfico de Matriz de Pontos em Colunas da Direita para a Esquerda:** O preenchimento dos pontos ocorre **em colunas, da direita para a esquerda** (e não em linhas).
 
 ### 11.6. Nova Tela de Detalhe da Classe (`ClassDetailScreen`) e Página de Histórico da Movimentação (`TransactionDetailHistoryScreen`)
 1. **Clique na Classe → Tela de Detalhe da Classe (`ClassDetailScreen`):**
-   - Exibe no topo um **Gráfico de Pizza Oco (Donut Chart)** mostrando a porcentagem de alocação de cada ativo dentro da classe.
+   - Topo com **Gráfico de Pizza Oco (Donut Chart)** mostrando a porcentagem de alocação de cada ativo dentro da classe.
    - **Segurar em cima de uma cor (`onLongPress`):** Exibe uma caixa de texto (*tooltip*) com o **nome do ativo e sua porcentagem**.
-   - **Clicar na cor (`onPress`):** Faz **scroll automático** até o card onde está o ativo abaixo, com todas as suas informações (Saldo Bruto, Quantidade, Preço Médio, Cotação Atual e Rentabilidade, inspirado nas telas do BTG e XP).
+   - **Clicar na cor (`onPress`):** Faz **scroll automático** até o card onde está o ativo abaixo.
+   - **Cards dos Ativos (Estilo XP / BTG):** Exibem Saldo Bruto, Quantidade, Preço Médio, Preço Atual, Rentabilidade e botões rápidos de **`"Aportar"`** e **`"Resgatar"`** dentro do card.
 2. **Clique em uma Movimentação Recente → Página de Histórico da Movimentação (`TransactionDetailHistoryScreen`):**
-   - Direciona para a página de histórico/detalhe daquela movimentação, exibindo **Valor Investido, Cotação na data, Quantidade, Taxas, Tipo de Operação, Data e histórico completo do ativo**.
+   - Destaca no topo o card completo da movimentação clicada (**Valor Investido, Cotação executada, Quantidade, Taxas, Preço Médio na época, Data e Carteira**) e lista logo abaixo o **histórico de todas as movimentações daquele mesmo ativo agrupadas por data (estilo BTG)**.
 
 ### 11.7. Reformulação das Páginas de Estatísticas e Carteiras
 1. **Página de Estatísticas (`StatisticsScreen` v2):**
@@ -677,8 +679,9 @@ Após a conclusão das Sprints 1 a 6, a **SPEC v2** estabelece a preparação do
    - Substitui o antigo gráfico confuso e os botões `W | M | Y` por um **Gráfico de Linha Suave com Área Sombreada (estilo BTG / Pierre)** e os filtros de período: **`5 dias` (`5D`), `Mês` (`1M`), `Ano` (`1A`), `5 anos` (`5A`) e `Total`**, acompanhado logo abaixo pelo **Card de Resumo do Período** (*Patrimônio Inicial, Aportes, Rendimentos e Patrimônio Final*).
 2. **Página de Carteiras na Navbar (`PortfolioManagementScreen` v2):**
    - **Sem header superior.**
-   - Reaproveita o mecanismo de **mudança de carteira em pilha (`StackedWalletDeck`)** da Home.
-   - Remove todos os textos com cara de IA, descrições técnicas (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`) e sinalizadores poluídos, deixando a gestão de pesos e ativos limpa e direta.
+   - Coloca no topo o **Card em Pilha (`StackedWalletDeck`) da Home** para trocar de carteira puxando para baixo/cima.
+   - Logo abaixo exibe as **4 classes com ajuste direto de `%`** e, ao tocar em uma classe, expande os ativos dela com ajuste limpo de peso e botão **`"+ Adicionar Ativo"`**.
+   - Remove todos os textos com cara de IA, descrições técnicas (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`) e sinalizadores inúteis.
 
 ---
 
