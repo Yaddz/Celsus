@@ -2,6 +2,16 @@ import Decimal from 'decimal.js';
 import { AssetClass } from './types';
 import { calculateCDIAccrual, calculatePreFixedAccrual, calculateIPCAPlusAccrual } from './fixedIncome';
 
+export type PeriodFilter = '5D' | '1M' | '1Y' | '5Y' | 'ALL';
+
+export interface PeriodSummary {
+  initialPatrimony: string;
+  netContributions: string;
+  yieldAmount: string;
+  yieldPercentage: string;
+  finalPatrimony: string;
+}
+
 export interface HistoricalPricePoint {
   date: string; // YYYY-MM-DD
   investedCapital: string;
@@ -317,3 +327,35 @@ export function calculateMonthlyAggregatedPills(
 
   return pills;
 }
+
+/**
+ * S11-T01: Filtra a curva histórica de patrimônio de acordo com o período selecionado.
+ * Suporta '5D', '1M', '1Y', '5Y' e 'ALL'.
+ */
+export function filterCurveByPeriod(
+  curve: HistoricalPricePoint[],
+  period: PeriodFilter,
+  referenceDate?: string
+): HistoricalPricePoint[] {
+  // Stub para a Fase A
+  return [];
+}
+
+/**
+ * S11-T01: Calcula o resumo do período (patrimônio inicial, aportes líquidos,
+ * rendimento monetário, rentabilidade percentual e patrimônio final).
+ */
+export function calculatePeriodSummary(
+  curve: HistoricalPricePoint[],
+  transactions?: HistoricalTransactionInput[]
+): PeriodSummary {
+  // Stub para a Fase A
+  return {
+    initialPatrimony: '0.00',
+    netContributions: '0.00',
+    yieldAmount: '0.00',
+    yieldPercentage: '0.00',
+    finalPatrimony: '0.00',
+  };
+}
+

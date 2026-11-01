@@ -869,6 +869,25 @@
   - **194 casos de teste automatizados executados (16 em Go + 178 em TypeScript/Jest)**
   - **100% de aprovação (194 PASS / 0 FAIL) sem nenhuma violação de TDD Lock**
 
+---
+
+### Sprint 11 — Fase A: Lock e Verificação Inicial (2026-10-31)
+- **Status do Bloqueio:** 34 arquivos de teste bloqueados com `ReadOnly` e registrados em `tests.lock.json` (3 novos arquivos criados para a Sprint 11).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 34 arquivos de teste confirmada via SHA-256.
+  ```
+- **Hashes SHA-256 dos Novos Testes Bloqueados:**
+  - `src/domain/finance/__tests__/periodSummary.test.ts`: `86632148d54ba60ae1eabc11daa3725530b096da910bc3e769139c204e458418`
+  - `src/screens/__tests__/StatisticsScreenV2.test.tsx`: `8177d41c9aab6c62fb532e2609a405bdfa84f26af3f5db1eaef2855370e402a1`
+  - `src/screens/__tests__/PortfolioManagementV2.test.tsx`: `d3ae56140c31b61208eb3348e045fb84a39b0e153baa21e0a6c7e82048775552`
+- **Execução Inicial dos Testes sob Stubs (Red Phase confirmada no Jest):**
+  - Execução dos testes da Sprint 11 sob stubs vazios de compilação:
+    - `periodSummary.test.ts`: 12 testes falham sob stubs aguardando a implementação dos filtros de período (`5D`, `1M`, `1Y`, `5Y`, `ALL`) e da fórmula financeira de resumo (`initialPatrimony`, `netContributions`, `yieldAmount`, `yieldPercentage`, `finalPatrimony`).
+    - `StatisticsScreenV2.test.tsx`: 7 testes falham sob stubs aguardando remoção do header pesado, seletor unificado com `"Carteiras Consolidadas"`, botões de período (`5 dias`, `Mês`, `Ano`, `5 anos`, `Total`) e componentes `patrimony-line-chart-card` e `period-summary-card`.
+    - `PortfolioManagementV2.test.tsx`: 4 testes falham sob stubs aguardando reaproveitamento do `StackedWalletDeck` e remoção de textos artificiais com cara de IA (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`).
+  - Total da Sprint 11 em Red Phase: 27 testes | 4 PASS | 23 FAIL.
+
 
 
 

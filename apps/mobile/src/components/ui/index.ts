@@ -10,4 +10,5 @@ export * from './DotMatrixAllocationCard';
 export * from './AmbientOrb';
 export * from './XpMinimalHeader';
 export * from './StackedWalletDeck';
+export * from './PatrimonyLineChartCard';
 
