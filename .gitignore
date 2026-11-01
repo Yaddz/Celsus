@@ -7,11 +7,17 @@ node_modules/
 .expo/
 dist/
 web-build/
+build/
+.gradle/
+**/build/
+**/.gradle/
 /android/
 apps/mobile/android/
 /ios/
 apps/mobile/ios/
 !apps/mobile/modules/**
+apps/mobile/modules/**/build/
+apps/mobile/modules/**/.gradle/
 *.jks
 *.p8
 *.p12

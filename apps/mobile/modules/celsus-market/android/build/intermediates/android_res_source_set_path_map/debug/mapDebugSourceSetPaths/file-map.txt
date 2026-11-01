@@ -1,9 +1,0 @@
-expo.modules.celsusmarket.celsus-market-pngs-0 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\generated\res\pngs\debug
-expo.modules.celsusmarket.celsus-market-updated_navigation_xml-1 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\generated\updated_navigation_xml\debug
-expo.modules.celsusmarket.celsus-market-mergeDebugResources-2 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\intermediates\incremental\debug\mergeDebugResources\merged.dir
-expo.modules.celsusmarket.celsus-market-mergeDebugResources-3 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\intermediates\incremental\debug\mergeDebugResources\stripped.dir
-expo.modules.celsusmarket.celsus-market-debug-4 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\intermediates\merged_res\debug\mergeDebugResources
-expo.modules.celsusmarket.celsus-market-debug-5 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\build\intermediates\packaged_res\debug\packageDebugResources
-expo.modules.celsusmarket.celsus-market-debug-6 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\src\debug\res
-expo.modules.celsusmarket.celsus-market-main-7 C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\src\main\res
-gradleHome-0 C:\Users\Pedro\.gradle
