@@ -1,4 +1,4 @@
-# CELSUS — SPEC v2 (Especificação Completa: MVP Sprints 1–6 + Aperfeiçoamento Geral e Integração Sprints 7–11)
+# CELSUS — SPEC v2 (Especificação Completa: MVP Sprints 1–6 + Aperfeiçoamento Geral Sprints 7–11 + Ajustes Finos Sprints 12–14)
 
 > **Documento:** `SPEC v2.0`  
 > **Arquitetura:** Mobile Local-First (`React Native / Expo Go` + `SQLite`) + Market Data Engine Stateless (`Go`)  
@@ -22,6 +22,11 @@
 | **9** | **Clique em registro de Movimentações Recentes → Página de Histórico dessa Movimentação** | `TransactionDetailHistoryScreen`: destaca no topo o card completo da movimentação clicada (**Valor Investido, Cotação executada, Quantidade, Taxas, Preço Médio na época, Data e Carteira**) e lista logo abaixo o histórico de todas as movimentações daquele mesmo ativo agrupadas por data (estilo BTG). | **Sprint 10** |
 | **10** | **Página de Estatísticas: sem header, seletor de Carteira + Consolidado, Gráfico de Linha (`5 dias`, `Mês`, `Ano`, `5 anos`, `Total`) + Resumo** | Remove o header. Substitui `"Dossiê Geral"` pelo **nome da carteira** com seletor para escolher as demais carteiras ou **"Carteiras Consolidadas"**. Novo **Gráfico de Linha Suave com Área Sombreada (estilo BTG/Pierre)** com filtros **`5 dias`, `Mês`, `Ano`, `5 anos` e `Total`** + card de resumo logo abaixo (*Patrimônio Inicial, Aportes, Rendimentos e Patrimônio Final*). | **Sprint 11** |
 | **11** | **Página de Carteiras na Navbar: reaproveitar Card em Pilha da Home e remover textos com cara de IA** | Sem header. Coloca o **Card em Pilha (`StackedWalletDeck`) no topo**, logo abaixo as 4 classes com ajuste direto de `%` e, ao tocar na classe, expande os ativos dela com ajuste limpo de peso e botão `"+ Adicionar Ativo"`. Remove todos os textos artificiais (`"SISTEMA DE PESOS EM 2 NÍVEIS"`, `"NÍVEL 1: METAS MACRO (Wc)"`, `"NÍVEL 2: METAS MICRO (wi,c)"`, `"META GLOBAL Ti"`). | **Sprint 11** |
+| **12** | **Header inspirado na XP na Home + Remoção de TODOS os headers das telas + Perfil com Configurações do App dentro do Perfil** | Substitui definitivamente o header antigo de `App.tsx` pelo **`XpMinimalHeader` + `AmbientOrb`**. Remove os blocos `<View style={styles.header}>` de **todas** as telas (`SettingsBackupScreen`, `TransactionScreen`, `SimulatorScreen`, `ClassDetailScreen`, `TransactionDetailHistoryScreen`, `StatisticsScreen`, `PortfolioManagementScreen`). Ao tocar no Avatar/Perfil na Home, abre o **Modal de Perfil & Configurações** com identificação do investidor + Tema Claro/Escuro + PIN/Biometria + Backup `.celsus.zip`. | **Sprint 12** |
+| **13** | **Máscara de privacidade com asteriscos (`*******`) e Tema Claro (`Light Mode`) aplicado ponta a ponta** | Substitui a exibição de quadrados pela máscara **`*******`** (`PRIVACY_ASTERISK_MASK`) em toda a interface quando o modo privacidade está ativo. Conecta `themeModeService` (`light` vs `dark`) ao container principal de `App.tsx` e a todas as telas/cards para que o **Tema Claro (`#F4F1EA` / `#FFFFFF`)** funcione perfeitamente. | **Sprint 12** |
+| **14** | **Botão `+` com símbolo girando + animação fluida subindo exibindo 3 opções (Criar Carteira, Adicionar Ativo, Registrar Transação)** | Ao clicar no botão `+` (no `FloatingBottomDock` ou botão rápido `Mais`), o símbolo `+` **roda suavemente (`45deg` virando `×`)** e um menu fluido sobe de baixo para cima (`Animated.spring` / Action Sheet) exibindo **3 opções**: **1. Criar uma Nova Carteira**, **2. Adicionar um Ativo** e **3. Registrar uma Transação**. | **Sprint 13** |
+| **15** | **Utilizar Modais para telas adequadas + Gráfico de Alocação da esquerda para a direita** | Exibe os fluxos de **Perfil & Configurações**, **Registrar Transação**, **Adicionar Ativo**, **Criar Nova Carteira** e **Simulador de Aporte** em **Modais deslizantes (`Modal` com backdrop e drag handle)**. Ajusta o gráfico de alocação (`DotMatrixGrid` / `AttributeStatBar`) para preencher **da esquerda para a direita em colunas** por padrão. | **Sprint 13** |
+| **16** | **Redesign completo da Tela do Ativo / Detalhe da Classe (`ClassDetailScreen`)** | Reformula o layout visual de `ClassDetailScreen.tsx`: substitui a barra improvisada por um **Anel de Alocação (Donut Chart circular segmentado com pílulas interativas)** e **Cards de Ativos elegantes estilo BTG/XP** (cabeçalho com badge colorido + ticker + rentabilidade, grid 2x2 limpo com Posição Atual, Participação, Quantidade e Preço Médio vs. Cotação, e botões **`Resgatar`** e **`Aportar`** alinhados na base). | **Sprint 14** |
 
 ---
 
@@ -437,4 +442,128 @@ Passos:
 3. Atualize `PortfolioManagementScreen.tsx` removendo o header, colocando o `StackedWalletDeck` no topo para troca de carteira em pilha, listando as 4 classes expansíveis logo abaixo e removendo todos os textos artificiais (`"NÍVEL 1"`, `"Wc"`, `"wi,c"`, `"META GLOBAL Ti"`, etc.).
 4. Rode toda a suíte de testes (`go test ./...` e `npm test --prefix apps/mobile`) até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
 5. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-11): complete phase B statistics line chart and clean portfolio management" && git push origin main`.
+```
+
+---
+
+## 8. Novas Sprints de Ajuste Fino e Polimento Visual (SPEC v2 — Sprints 12 a 14)
+
+> Como as Sprints 1 a 11 já foram executadas e bloqueadas em `tests.lock.json`, as **Sprints 12, 13 e 14** aplicam os novos ajustes solicitados pelo usuário mantendo 100% de compatibilidade com a suíte de testes anterior sob o protocolo estrito de TDD (`tdd-lock.md`).
+
+---
+
+### SPRINT 12: Header Minimalista XP na Home, Remoção Global de TODOS os Headers, Perfil & Configurações em Modal, Tema Claro Real e Máscara `*******`
+**Objetivo:** Substituir definitivamente o header antigo de `App.tsx` pelo `XpMinimalHeader` + `AmbientOrb` (inspirado na XP), remover **TODOS** os headers de todas as telas secundárias (`SettingsBackupScreen`, `TransactionScreen`, `SimulatorScreen`, etc.), adicionar a seção de **Perfil do Investidor** com todas as **Configurações do App dentro do Perfil** (aberto ao clicar no avatar), aplicar a máscara de privacidade **`*******`** (asteriscos, em vez dos quadrados) e conectar o **Tema Claro (`Light Mode`)** de ponta a ponta em toda a interface.
+
+#### Prompt da Sprint 12 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 12 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+1. Desbloqueie o lock (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action unlock`) e crie as assinaturas necessárias em `src/services/privacyAndAuth.ts` (`PRIVACY_ASTERISK_MASK = '*******'` e `redactWithAsterisks`), `src/screens/SettingsBackupScreen.tsx` (Perfil + Configurações) e `App.tsx`.
+2. Escreva os testes da Sprint 12 (`S12-T01` e `S12-T02`):
+   - `S12-T01` (`apps/mobile/src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx`):
+     - Verifica que `App.tsx` na Home renderiza `XpMinimalHeader` e `AmbientOrb` (sem o header antigo `"GESTÃO DE CARTEIRAS"`).
+     - Verifica que tocar no avatar do usuário no `XpMinimalHeader` abre o **Modal de Perfil & Configurações** contendo os dados do Perfil do Investidor + seletor de Tema (`Escuro` / `Claro`) + Segurança (PIN) + Backup (`.celsus.zip`).
+     - Verifica que `SettingsBackupScreen`, `TransactionScreen` e `SimulatorScreen` **não** possuem barras de header (`<View style={styles.header}>` removido de todas as telas).
+   - `S12-T02` (`apps/mobile/src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts`):
+     - Verifica que `PRIVACY_ASTERISK_MASK` é `'*******'` e que `redactWithAsterisks('R$ 32.468,00', true)` retorna `'*******'` (mantendo `redactCurrencyValue` intacta para retrocompatibilidade com `S6-T04`).
+     - Verifica que ativar o modo privado na Home oculta os valores com `'*******'` e que alternar para o Tema Claro (`light`) aplica os tokens claros (`backgroundPrimary: '#F4F1EA'`, `cardBackground: '#FFFFFF'`, `textPrimary: '#111315'`) na tela principal e nos componentes.
+3. Bloqueie todos os testes (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-12): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 12 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 12 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado (`S1` a `S12`).
+
+Passos:
+1. Em `src/services/privacyAndAuth.ts`, implemente `PRIVACY_ASTERISK_MASK = '*******'` e `redactWithAsterisks(value, isPrivacyMode)` e atualize `App.tsx`, `StackedWalletDeck.tsx`, `AttributeStatBar.tsx`, `StatisticsScreen.tsx` e `PortfolioManagementScreen.tsx` para exibirem `'*******'` quando o modo de privacidade estiver ativo.
+2. Em `App.tsx`, remova o header antigo (`Celsus` / `GESTÃO DE CARTEIRAS`) e integre `<AmbientOrb />` + `<XpMinimalHeader />` sincronizados com a paleta da carteira ativa (`getPortfolioPalette(activeWalletIndex)`).
+3. Remova todos os blocos `<View style={styles.header}>` de `SettingsBackupScreen.tsx`, `TransactionScreen.tsx` e `SimulatorScreen.tsx` para que **nenhuma tela** tenha header.
+4. Transforme `SettingsBackupScreen.tsx` na tela/modal unificada de **Perfil & Configurações**, exibindo no topo o card de Perfil do Usuário (Avatar, Nome, Perfil de Investidor e Carteira Principal) e logo abaixo as Configurações do App (Tema Escuro/Claro, Privacidade, PIN/Biometria e Backup `.celsus.zip`), aberta em um `Modal` ao clicar no perfil no `XpMinimalHeader`.
+5. Conecte `themeModeService` (`dark` | `light`) ao container raiz e às telas em `App.tsx`, aplicando o Tema Claro (`#F4F1EA` / `#FFFFFF`) em tempo real quando selecionado.
+6. Rode `npm test --prefix apps/mobile` até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+7. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-12): complete phase B XP header, profile modal, light theme and asterisk mask" && git push origin main`.
+```
+
+---
+
+### SPRINT 13: Botão `+` com Símbolo Rotacionando e Menu Fluido Subindo (3 Opções), Modais Deslizantes e Gráfico de Alocação da Esquerda para a Direita
+**Objetivo:** Fazer o símbolo `+` (no `FloatingBottomDock` e no botão rápido `Mais`) **girar suavemente (`45deg` virando `×`)** ao ser clicado e exibir uma **animação fluida subindo (`slide-up`) com 3 opções** (**1. Criar uma Nova Carteira**, **2. Adicionar um Ativo**, **3. Registrar uma Transação**); utilizar **Modais (`Modal`)** para as telas de ação/formulário adequadas; e inverter o preenchimento padrão do gráfico de alocação (`DotMatrixGrid`) para ir **da esquerda para a direita em colunas**.
+
+#### Prompt da Sprint 13 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 13 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+1. Desbloqueie o lock (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action unlock`) e crie as assinaturas/stubs para `QuickCreateSheetModal.tsx` (ou novas props em `FloatingBottomDock.tsx` e `AttributeStatBar.tsx`).
+2. Escreva os testes da Sprint 13 (`S13-T01` e `S13-T02`):
+   - `S13-T01` (`apps/mobile/src/components/ui/__tests__/Sprint13PlusMenuAndModals.test.tsx`):
+     - Verifica que ao clicar no botão `+` (`dock-item-add-fab`), o símbolo `+` aplica rotação (`45deg`, `testID="fab-plus-icon-rotated"`) e exibe uma sheet animada subindo (`testID="plus-quick-sheet"`) com exatamente as **3 opções**:
+       1. `Criar uma Nova Carteira` (`plus-option-create-wallet`)
+       2. `Adicionar um Ativo` (`plus-option-add-asset`)
+       3. `Registrar uma Transação` (`plus-option-register-transaction`)
+     - Verifica que selecionar cada uma das 3 opções abre o respectivo fluxo em um `Modal` deslizante adequado (`Modal` de Nova Carteira, `Modal` de Adicionar Ativo e `Modal` de Registrar Transação).
+   - `S13-T02` (`apps/mobile/src/components/ui/__tests__/Sprint13LeftToRightMatrix.test.tsx`):
+     - Verifica que `DotMatrixAllocationCard` e `AttributeStatBar` (`variant="v2"`) preenchem os pontos em colunas **da esquerda (`col 0`) para a direita (`col N-1`)** por padrão (`fillDirection="left-to-right"`), mantendo suporte explícito a `fillDirection="right-to-left"` para retrocompatibilidade com `S9-T02`.
+3. Bloqueie os testes (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-13): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 13 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 13 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado (`S1` a `S13`).
+
+Passos:
+1. Em `AttributeStatBar.tsx` e `DotMatrixAllocationCard.tsx`, ajuste `DotMatrixGrid` para suportar `fillDirection="left-to-right"` (preenchendo em colunas da esquerda `cIdx = 0` para a direita `cIdx = cols - 1`) e defina `'left-to-right'` como padrão no `AttributeStatBar` (`variant="v2"`) e no `DotMatrixAllocationCard`.
+2. Em `FloatingBottomDock.tsx` e `App.tsx`, implemente a rotação suave do ícone `+` (`45deg` quando aberto) e o menu fluido subindo (`Animated.spring` / Bottom Sheet) exibindo as **3 opções**:
+   - **Criar uma Nova Carteira**
+   - **Adicionar um Ativo**
+   - **Registrar uma Transação**
+3. Apresente as telas de ação (**Criar Nova Carteira**, **Adicionar um Ativo**, **Registrar uma Transação**, **Simulador de Aporte** e **Perfil & Configurações**) dentro de **Modais deslizantes (`Modal` com drag handle e botão de fechar)**, garantindo uma experiência fluida sem headers pesados.
+4. Rode `npm test --prefix apps/mobile` até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+5. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-13): complete phase B rotating plus menu, modals and left-to-right matrix" && git push origin main`.
+```
+
+---
+
+### SPRINT 14: Redesign Completo da Tela do Ativo / Detalhe da Classe (`ClassDetailScreen`)
+**Objetivo:** Reformular completamente o layout visual de `ClassDetailScreen.tsx` (que estava com visual improvisado), implementando um **Anel de Alocação (Donut Chart circular segmentado real com pílulas interativas)** e **Cards de Ativos elegantes inspirados no BTG / XP** (com cabeçalho limpo, badge de rentabilidade, grid 2x2 alinhado sem textos quebrados, suporte a máscara `*******` e Tema Claro/Escuro, e botões de ação rápida **`Resgatar`** e **`Aportar`** na base do card).
+
+#### Prompt da Sprint 14 — Fase A (Criar Testes + Bloquear)
+```markdown
+Vamos executar a **Sprint 14 — Fase A (TDD: Especificação e Bloqueio de Testes)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+1. Desbloqueie o lock (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action unlock`) e adicione as novas props opcionais em `ClassDetailScreen.tsx` (`onInvestAsset?: (ticker: string) => void`, `onRedeemAsset?: (ticker: string) => void`, `themeMode?: 'dark' | 'light'`, `privacyMaskStyle?: 'blocks' | 'asterisks'`).
+2. Escreva o teste da Sprint 14 (`S14-T01`):
+   - `S14-T01` (`apps/mobile/src/screens/__tests__/Sprint14ClassDetailRedesign.test.tsx`):
+     - Verifica o novo layout do `ClassDetailScreen`: card superior de Composição da Classe com o anel oco (`testID="class-donut-chart"`), fatias interativas (`testID="donut-slice-${ticker}"`) que exibem tooltip no `onLongPress` e fazem scroll até o ativo no `onPress`.
+     - Verifica que cada card de ativo (`testID="asset-card-${ticker}"`) exibe o cabeçalho refinado (badge colorido, ticker, nome da empresa e badge de rentabilidade), o grid organizado de métricas (`Saldo bruto`, `Quantidade`, `Preço médio`, `Preço atual`) sem quebras feias de texto, e os dois botões de ação rápida **`Resgatar`** (`testID="asset-redeem-${ticker}"`) e **`Aportar`** (`testID="asset-invest-${ticker}"`) que disparam `onRedeemAsset(ticker)` e `onInvestAsset(ticker)`.
+     - Verifica suporte à máscara `'*******'` quando `isPrivacyMode={true}` e `privacyMaskStyle="asterisks"`, além de suporte ao Tema Claro (`themeMode="light"`).
+3. Bloqueie os testes (`powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action lock`) e registre os hashes `SHA-256` em `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase A: `git add . && git commit -m "test(sprint-14): add and lock phase A specification tests" && git push origin main`.
+```
+
+#### Prompt da Sprint 14 — Fase B (Implementar Código sob Bloqueio + Relatório)
+```markdown
+Vamos executar a **Sprint 14 — Fase B (Implementação TDD sob Bloqueio)** conforme definido em `SPEC_V2.md` e `SPEC.md`.
+
+REGRAS OBRIGATÓRIAS:
+- Não altere nenhum arquivo de teste bloqueado (`S1` a `S14`, incluindo `S10-T01` e `S10-T02`).
+
+Passos:
+1. Reformule o layout visual de `ClassDetailScreen.tsx`:
+   - No topo, construa um card de **Composição da Classe** com anel oco segmentado (Donut Chart circular com centro oco exibindo o total da classe e quantidade de ativos) + pílulas interativas de cada ativo (`donut-slice-${ticker}`) com suporte a `onLongPress` (tooltip elegante) e `onPress` (scroll suave e destaque na borda do card do ativo).
+   - Em cada Card de Ativo (`asset-card-${ticker}`), implemente o design inspirado no BTG/XP:
+     - **Topo:** Ícone/barra na cor do ativo + Ticker em destaque + Nome completo abaixo + Pílula de Rentabilidade (`+14,04%`) à direita.
+     - **Meio (Grid 2x2 com divisórias sutis):** `Saldo bruto`, `Participação`, `Quantidade`, `Preço médio` e `Preço atual` formatados de forma limpa e legível.
+     - **Base:** Botões **`Resgatar`** (`asset-redeem-${ticker}`) e **`Aportar`** (`asset-invest-${ticker}`) lado a lado, conectados em `App.tsx` para abrir o modal de transação já pré-selecionado no ativo clicado.
+2. Conecte `themeMode` (`dark` | `light`) e `privacyMaskStyle="asterisks"` (`*******`) ao `ClassDetailScreen` dentro de `App.tsx`.
+3. Rode toda a suíte de testes (`go test ./...` e `npm test --prefix apps/mobile`) até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
+4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-14): complete phase B class detail and asset card redesign" && git push origin main`.
 ```
