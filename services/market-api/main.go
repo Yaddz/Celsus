@@ -13,6 +13,8 @@ import (
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
 	appHttp "github.com/pedro/celsus/services/market-api/internal/http"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
+	"github.com/pedro/celsus/services/market-api/internal/quotes"
+	"github.com/pedro/celsus/services/market-api/internal/yahoo"
 	_ "modernc.org/sqlite"
 )
 
@@ -69,9 +71,14 @@ func main() {
 		log.Println("[CELSUS MARKET-API] Seed concluído com sucesso!")
 	}
 
-	brapiClient := brapi.NewClient(brapiToken, "https://brapi.dev", 15*time.Minute)
+	var quoteProvider quotes.QuoteProvider
+	if brapiToken != "" {
+		quoteProvider = brapi.NewClient(brapiToken, "https://brapi.dev", 15*time.Minute)
+	} else {
+		quoteProvider = yahoo.NewDefaultClient(15 * time.Minute)
+	}
 
-	server := appHttp.NewServer(cotahistRepo, brapiClient, macroRepo)
+	server := appHttp.NewServer(cotahistRepo, quoteProvider, macroRepo)
 	handler := corsMiddleware(server.Router())
 
 	addr := fmt.Sprintf(":%s", port)

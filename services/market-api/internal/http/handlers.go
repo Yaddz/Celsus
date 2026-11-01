@@ -19,8 +19,8 @@ func (s *Server) handleHealth() http.HandlerFunc {
 		}
 
 		brapiStatus := "ok"
-		if s.brapiClient != nil {
-			if err := s.brapiClient.CheckHealth(r.Context()); err != nil {
+		if s.quoteProvider != nil {
+			if err := s.quoteProvider.CheckHealth(r.Context()); err != nil {
 				brapiStatus = "degraded"
 			}
 		}
@@ -118,8 +118,8 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 
 		quotesMap := make(map[string]interface{})
 
-		if len(stockTickers) > 0 && s.brapiClient != nil {
-			stkQuotes, err := s.brapiClient.FetchQuotes(r.Context(), stockTickers)
+		if len(stockTickers) > 0 && s.quoteProvider != nil {
+			stkQuotes, err := s.quoteProvider.FetchQuotes(r.Context(), stockTickers)
 			if err == nil {
 				for k, v := range stkQuotes {
 					quotesMap[k] = v
@@ -127,8 +127,8 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 			}
 		}
 
-		if len(cryptoCoins) > 0 && s.brapiClient != nil {
-			cryptoQuotes, err := s.brapiClient.FetchCryptoQuotes(r.Context(), cryptoCoins)
+		if len(cryptoCoins) > 0 && s.quoteProvider != nil {
+			cryptoQuotes, err := s.quoteProvider.FetchCryptoQuotes(r.Context(), cryptoCoins)
 			if err == nil {
 				for k, v := range cryptoQuotes {
 					quotesMap[k] = v

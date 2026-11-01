@@ -5,26 +5,26 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/pedro/celsus/services/market-api/internal/brapi"
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
+	"github.com/pedro/celsus/services/market-api/internal/quotes"
 )
 
 // Server sets up the HTTP router and dependency injection.
 type Server struct {
-	router       *chi.Mux
-	cotahistRepo cotahist.Repository
-	brapiClient  *brapi.Client
-	macroRepo    macro.Repository
+	router        *chi.Mux
+	cotahistRepo  cotahist.Repository
+	quoteProvider quotes.QuoteProvider
+	macroRepo     macro.Repository
 }
 
 // NewServer creates a new HTTP server with chi router and registered endpoints.
-func NewServer(cotahistRepo cotahist.Repository, brapiClient *brapi.Client, macroRepo macro.Repository) *Server {
+func NewServer(cotahistRepo cotahist.Repository, quoteProvider quotes.QuoteProvider, macroRepo macro.Repository) *Server {
 	s := &Server{
-		router:       chi.NewRouter(),
-		cotahistRepo: cotahistRepo,
-		brapiClient:  brapiClient,
-		macroRepo:    macroRepo,
+		router:        chi.NewRouter(),
+		cotahistRepo:  cotahistRepo,
+		quoteProvider: quoteProvider,
+		macroRepo:     macroRepo,
 	}
 
 	s.router.Use(middleware.Logger)

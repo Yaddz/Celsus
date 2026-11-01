@@ -8,15 +8,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pedro/celsus/services/market-api/internal/quotes"
 )
 
-// Quote represents a quote fetched from BRAPI.
-type Quote struct {
-	Ticker    string    `json:"ticker"`
-	Price     float64   `json:"price"`
-	Change24h float64   `json:"change_24h"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
+// Quote represents a quote fetched from BRAPI (aliased to quotes.Quote for QuoteProvider compatibility).
+type Quote = quotes.Quote
 
 type cachedQuote struct {
 	quote     Quote

@@ -134,6 +134,10 @@ func (r *SQLiteRepository) GetRates(ctx context.Context, rateType string, from, 
 
 // GetLastDate returns the most recent YYYY-MM-DD date stored for a given rateType (e.g. "CDI", "IPCA").
 func (r *SQLiteRepository) GetLastDate(ctx context.Context, rateType string) (string, error) {
-	// Stub Fase A (Red Phase)
-	return "", nil
+	var lastDate string
+	query := `SELECT COALESCE(MAX(date), '') FROM macro_rates WHERE type = ?;`
+	if err := r.db.QueryRowContext(ctx, query, rateType).Scan(&lastDate); err != nil {
+		return "", fmt.Errorf("falha ao consultar ultima data macro (%s): %w", rateType, err)
+	}
+	return lastDate, nil
 }

@@ -26,8 +26,8 @@
 | **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 17 | 0 | `VERIFIED (38 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 0 | 5 | `LOCKED (41 arquivos)` | 🔴 Fase A (Red Phase) |
-| **TOTAL (S1–S20)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **285** | **280** | **5** | **`VERIFIED (41 arquivos)`** | **🔴 Fase A (Aguardando Fase B)** |
+| **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S20)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **41** | **285** | **285** | **0** | **`VERIFIED (41 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -246,11 +246,11 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S20-T01` | `internal/yahoo/client_test.go` | `TestTickerNormalization` | Conversão bidirecional `PETR4` ↔ `PETR4.SA`, `HGLG11` ↔ `HGLG11.SA`, `BTC` ↔ `BTC-BRL` e remoção estrita de `.SA`/`-BRL` no retorno | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
-| `S20-T02` | `internal/yahoo/client_test.go` | `TestFetchQuotes_SuccessAndCache` | Cotações Yahoo v8 chart (Ações, FIIs e Cripto) via `httptest`, validação de `User-Agent`, cálculo de `Change24h` e cache TTL sem nova chamada HTTP | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
-| `S20-T03` | `internal/yahoo/client_test.go` | `TestFetchChartHistory_CloseAdjCloseAndSplits` | Extração de `indicators.quote[0].close` nominal vs `indicators.adjclose[0].adjclose` e eventos corporativos (`SPLIT` `2:1` e `DIVIDEND`) | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
-| `S20-T04` | `internal/yahoo/client_test.go` | `TestFetchQuotes_FailoverQuery1ToQuery2` | Failover automático de `query1` (`429 Too Many Requests`) para `query2` sem perda de requisição | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🔴 FAIL (Fase A Stub) |
-| `S20-T05` | `internal/macro/rates_test.go` | `TestBCBClient_FetchIncrementalCDIAndIPCA` | Sincronização incremental BCB SGS (Séries `#12` CDI e `#433` IPCA) a partir de `GetLastDate` com conversão `DD/MM/YYYY` → `YYYY-MM-DD` | `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e` | 🔴 FAIL (Fase A Stub) |
+| `S20-T01` | `internal/yahoo/client_test.go` | `TestTickerNormalization` | Conversão bidirecional `PETR4` ↔ `PETR4.SA`, `HGLG11` ↔ `HGLG11.SA`, `BTC` ↔ `BTC-BRL` e remoção estrita de `.SA`/`-BRL` no retorno | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.00s) |
+| `S20-T02` | `internal/yahoo/client_test.go` | `TestFetchQuotes_SuccessAndCache` | Cotações Yahoo v8 chart (Ações, FIIs e Cripto) via `httptest`, validação de `User-Agent`, cálculo de `Change24h` e cache TTL sem nova chamada HTTP | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.11s) |
+| `S20-T03` | `internal/yahoo/client_test.go` | `TestFetchChartHistory_CloseAdjCloseAndSplits` | Extração de `indicators.quote[0].close` nominal vs `indicators.adjclose[0].adjclose` e eventos corporativos (`SPLIT` `2:1` e `DIVIDEND`) | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.00s) |
+| `S20-T04` | `internal/yahoo/client_test.go` | `TestFetchQuotes_FailoverQuery1ToQuery2` | Failover automático de `query1` (`429 Too Many Requests`) para `query2` sem perda de requisição | `bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60` | 🟢 PASS (0.00s) |
+| `S20-T05` | `internal/macro/rates_test.go` | `TestBCBClient_FetchIncrementalCDIAndIPCA` | Sincronização incremental BCB SGS (Séries `#12` CDI e `#433` IPCA) a partir de `GetLastDate` com conversão `DD/MM/YYYY` → `YYYY-MM-DD` | `82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e` | 🟢 PASS (0.00s) |
 
 ---
 
@@ -1451,6 +1451,51 @@
   ```
   - Total da Sprint 20 em Red Phase: 5 novos casos | 0 PASS | 5 FAIL (Fase A Red Phase confirmada).
   - Total Geral do Projeto Celsus: 41 arquivos de teste bloqueados | 285 casos de teste automatizados (280 PASS / 5 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 20 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 41 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Cliente Yahoo Finance (`internal/yahoo/client.go`):**
+     - Normalização bidirecional de tickers: `ToYahooSymbol` converte Ações/FIIs para `.SA` e Cripto para `-BRL`; `FromYahooSymbol` remove estritamente `.SA` e `-BRL` no retorno.
+     - Suporte a `/v8/finance/chart` com extração de `regularMarketPrice`, `chartPreviousClose`, `regularMarketTime` e cálculo de `change24h`.
+     - Suporte a histórico diário com diferenciação entre `close` nominal (`indicators.quote[0].close`) e `adjclose` (`indicators.adjclose[0].adjclose`).
+     - Extração e ordenação de eventos corporativos `events=div,splits` (`SPLIT` e `DIVIDEND`).
+     - Header `User-Agent` de navegador, semáforo de concorrência máxima de 4 goroutines, cache em memória com TTL configurável e failover automático de `query1` (em erros 429 ou 5xx) para `query2`.
+  2. **Cliente Incremental BCB SGS (`internal/macro/bcb_client.go` & `rates.go`):**
+     - Busca de séries `#12` (CDI) e `#433` (IPCA) no Banco Central com conversão de datas `DD/MM/YYYY` ↔ `YYYY-MM-DD`.
+     - Implementado `GetLastDate` em `SQLiteRepository` e sincronização incremental (`SyncIncrementalRates`) a partir do dia seguinte a `MAX(date)` até a data alvo.
+  3. **Desacoplamento do Provedor de Cotações (`QuoteProvider`):**
+     - Interface `quotes.QuoteProvider` criada e injetada em `http.Server` e `http.handlers`.
+     - `brapi.Client` adaptado como implementação de fallback opcional legado.
+     - `services/market-api/main.go` atualizado para instanciar `yahoo.NewDefaultClient` por padrão ou `brapi.Client` caso `BRAPI_TOKEN` esteja definido.
+- **Execução da Suíte Backend Go (`cd services/market-api && go test -count=1 -v ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.208s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.863s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.136s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.110s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	1.251s
+  Total Backend Go: 21 testes | 21 PASS | 0 FAIL
+  ```
+- **Execução da Suíte Mobile (`npm test --prefix apps/mobile -- --runInBand`):**
+  ```text
+  Test Suites: 34 passed, 34 total
+  Tests:       264 passed, 264 total
+  Snapshots:   0 total
+  Time:        20.231 s
+  Total Mobile: 34 suítes | 264 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 20 Concluída):**
+  - **41 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **285 casos de teste automatizados executados (21 em Go + 264 em TypeScript/Jest)**
+  - **100% de aprovação (285 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
 
 
 
