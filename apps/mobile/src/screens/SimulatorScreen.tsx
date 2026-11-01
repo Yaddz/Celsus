@@ -25,6 +25,7 @@ export interface SimulatorScreenProps {
   onContributionsConfirmed?: () => void;
   initialPortfolioId?: string;
   themeMode?: 'dark' | 'light';
+  testID?: string;
 }
 
 const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.glyphMap> = {
@@ -39,6 +40,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   onContributionsConfirmed = () => {},
   initialPortfolioId,
   themeMode = 'dark',
+  testID = 'simulator-screen',
 }) => {
   const isLight = themeMode === 'light';
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -163,7 +165,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   };
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight]}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Top Close Action (sem header) */}
       {onClose && (
         <View style={styles.topActionsRow}>

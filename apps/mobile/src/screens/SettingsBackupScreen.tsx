@@ -32,6 +32,7 @@ export interface SettingsBackupScreenProps {
   userInitials?: string;
   investorProfile?: string;
   mainPortfolioName?: string;
+  testID?: string;
 }
 
 export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
@@ -45,6 +46,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   userInitials = 'PL',
   investorProfile = 'Moderado',
   mainPortfolioName = 'Carteira Principal',
+  testID = 'settings-backup-screen',
 }) => {
   const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>(
     themeMode || themeModeService.getThemeMode()
@@ -173,7 +175,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   const isLight = currentThemeMode === 'light';
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight]}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

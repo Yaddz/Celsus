@@ -24,6 +24,7 @@ export interface TransactionScreenProps {
   onTransactionSuccess?: () => void;
   initialPortfolioId?: string;
   themeMode?: 'dark' | 'light';
+  testID?: string;
 }
 
 export const TransactionScreen: React.FC<TransactionScreenProps> = ({
@@ -31,6 +32,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   onTransactionSuccess = () => {},
   initialPortfolioId,
   themeMode = 'dark',
+  testID = 'transaction-screen',
 }) => {
   const isLight = themeMode === 'light';
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -188,7 +190,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   };
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight]}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Top Close Action (sem header) */}
       {onClose && (
         <View style={styles.topActionsRow}>

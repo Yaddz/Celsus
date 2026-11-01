@@ -37,6 +37,7 @@ export interface StatisticsScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
   themeMode?: 'dark' | 'light';
+  testID?: string;
 }
 
 const DEFAULT_SAMPLE_CURVE: HistoricalPricePoint[] = [
@@ -52,6 +53,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
   themeMode = 'dark',
+  testID = 'statistics-screen',
 }) => {
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
@@ -190,7 +192,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     : undefined;
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight]}>
+    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <XpMinimalHeader
         title="Análises"
         isPrivacyModeEnabled={isPrivacyMode}

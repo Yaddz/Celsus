@@ -25,7 +25,8 @@
 | **Sprint 16** | Refatoração Módulos 1 e 2: Stacked Hero Wallet Deck (Notch, Quinas Retas, Blur Orgânico, Z-Index, Empty/Add States) & Gráficos Left-to-Right | 1 (+1 mod) | 9 | 9 | 0 | `VERIFIED (37 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 17** | Refatoração Módulos 3, 6 e 8: Padronização Global do XpMinimalHeader, Donut Chart Circular e Interações, Speed-Dial Navbar e Rota de Extrato | 1 (+2 mod) | 17 | 17 | 0 | `VERIFIED (38 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 18** | Refatoração Módulos 4 e 5: Rebalanceamento Reativo 100% com Cadeado, Edição Rápida Inline e Modal com Autocomplete | 1 | 12 | 12 | 0 | `VERIFIED (39 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S18)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **39** | **266** | **266** | **0** | **`VERIFIED (39 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 6 | 8 | `VERIFIED (40 arquivos)` | 🔴 Fase A Concluída (Red Phase) |
+| **TOTAL (S1–S19)** | **Suíte Concluída Integrada (Backend Go + Mobile React Native/Expo)** | **40** | **280** | **272** | **8** | **`VERIFIED (40 arquivos)`** | **🟡 Fase A Concluída (Em Progresso)** |
 
 ---
 
@@ -216,6 +217,27 @@
 | `S18-T10` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `exibir campo com autocomplete (asset-autocomplete-input), listar sugestões ao digitar e preencher ativo ao clicar` | Input de busca com autocomplete em tempo real e autopreenchimento de ativo via sugestão | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.13s) |
 | `S18-T11` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `renderizar weight-helper-card explicando o conceito amigável de Peso relativo` | Bloco informativo amigável explicando como o Peso relativo é convertido em porcentagem | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.04s) |
 | `S18-T12` | `src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx` | `permitir alternar entre Peso e Porcentagem (%) no modal com recálculo e cadeados` | Alternância Peso vs % no modal com pré-visualização reativa e suporte a cadeado | `3cc7250c67e238d36122c2bf22a74f30905e6cec3bb6b65795affc4b3a675a84` | 🟢 PASS (0.07s) |
+
+---
+
+### 2.16. Sprint 19 — Tela de Configurações no Padrão XP e Auditoria Completa de Light Mode (`REFACTORING_SPEC.md` Módulos 7 e 9)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `REFACTORING_SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S19-T01` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter o XpMinimalHeader no topo com botão voltar que aciona onClose` | Presença de `xp-minimal-header` padronizado e botão voltar com `onClose` | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T02` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter o card de perfil estilo XP com avatar circular, selo institucional, barra de nível e pílula de status` | Estrutura modular do `investor-profile-card`: avatar circular, botão editar, selo `Celsus \| Dossiê Local`, nome e barra de nível | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T03` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter módulo horizontal "Dados das carteiras" com resumo lado a lado` | Cards horizontais lado a lado resumindo Carteira Principal e Reserva/Consolidado | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T04` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter bloco agrupado "Personalização" com Modo Privacidade e Seletor de Aparência` | Card agrupado com switch de privacidade (`*******`) e seletor de tema Escuro / Claro | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T05` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter bloco agrupado "Segurança" com switch de Biometria e validação` | Card agrupado com Bloqueio Biométrico / PIN e botão de testar/validar biometria | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T06` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `deve conter bloco agrupado "Gestão de dados (.celsus.zip)" com Exportação, Modo e Importação` | Card agrupado com Exportar Dossiê, Modo de Importação (Merge vs Restore) e Importar Backup | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T07` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `SettingsBackupScreen deve aplicar fundo claro #F4F1EA e cards brancos #FFFFFF no modo light` | Conformidade de contraste e cores light no perfil/configurações | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.01s) |
+| `S19-T08` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `PortfolioManagementScreen deve aplicar fundo claro #F4F1EA e superfícies claras no modo light` | Fundo `#F4F1EA` e superfícies editoriais no gerenciamento de carteira | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.26s) |
+| `S19-T09` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `ClassDetailScreen deve aplicar fundo #F4F1EA e superfície de cards #FFFFFF no modo light` | Fundo `#F4F1EA` e miolo donut no detalhe da classe | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.02s) |
+| `S19-T10` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `TransactionDetailHistoryScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` e contraste no detalhe histórico | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.01s) |
+| `S19-T11` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `StatisticsScreen deve aplicar fundo #F4F1EA e cards brancos #FFFFFF no modo light` | Cards de gráfico e patrimônio com fundo `#FFFFFF` | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T12` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `TransactionScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no modal/tela de nova transação | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🔴 FAIL (Fase A) |
+| `S19-T13` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `SimulatorScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no simulador de aportes | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.02s) |
+| `S19-T14` | `src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx` | `AllTransactionsScreen deve aplicar fundo #F4F1EA no modo light` | Fundo `#F4F1EA` no extrato completo de transações | `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -1312,6 +1334,29 @@
   - **39 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **266 casos de teste automatizados executados (16 em Go + 250 em TypeScript/Jest)**
   - **100% de aprovação (266 PASS / 0 FAIL) sob regime estrito de TDD Lock**
+
+---
+
+### Sprint 19 — Fase A: Autoria e Bloqueio dos Testes de Configurações XP e Light Mode (2026-11-01)
+- **Status do Bloqueio:** 40 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 40 arquivos de teste confirmada via SHA-256.
+  ```
+- **Nova Suíte Criada:**
+  - `apps/mobile/src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx`
+  - Hash SHA-256: `ee7235ca64d9bf129149c1479d2dbb3e94cdd1f251f193a1784d2a5e522e50f0`
+- **Resultados da Execução da Suíte (Red Phase):**
+  ```text
+  FAIL src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx
+  Test Suites: 1 failed, 1 total
+  Tests:       8 failed, 6 passed, 14 total
+  Snapshots:   0 total
+  Time:        3.922 s
+  ```
+  - Total da Sprint 19 em Red Phase: 14 casos | 6 PASS | 8 FAIL (Fase A Red Phase confirmada).
+  - Total Geral do Projeto Celsus: 40 arquivos de teste bloqueados | 280 casos de teste automatizados (272 PASS / 8 FAIL aguardando implementação da Fase B).
+
 
 
 
