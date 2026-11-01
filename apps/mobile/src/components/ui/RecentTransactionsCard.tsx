@@ -19,11 +19,12 @@ export interface RecentTransactionsCardProps {
   onSelectTransaction?: (tx: RecentTransactionItem) => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.glyphMap> = {
   FIXED_INCOME: 'account-balance',
-  FII: 'domain',
+  FII: 'apartment',
   STOCK: 'trending-up',
   CRYPTO: 'currency-bitcoin',
 };
@@ -34,24 +35,31 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
   onSelectTransaction,
   style,
   testID,
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
+
   return (
     <View style={[styles.container, style]} testID={testID}>
       {/* Cabeçalho */}
       <View style={styles.headerRow}>
-        <Text style={styles.titleText}>Movimentações Recentes</Text>
+        <Text style={[styles.titleText, isLight && styles.titleTextLight]}>
+          Movimentações Recentes
+        </Text>
         <TouchableOpacity activeOpacity={0.7} onPress={onViewAll} style={styles.viewAllBtn}>
-          <Text style={styles.viewAllText}>Ver tudo</Text>
-          <MaterialIcons name="chevron-right" size={16} color={colors.tertiary} />
+          <Text style={[styles.viewAllText, isLight && styles.viewAllTextLight]}>Ver tudo</Text>
+          <MaterialIcons name="chevron-right" size={16} color={isLight ? colors.primary : colors.tertiary} />
         </TouchableOpacity>
       </View>
 
       {/* Card de Transações estilo WalleZ */}
-      <View style={styles.card}>
+      <View style={[styles.card, isLight && styles.cardLight]}>
         {transactions.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <MaterialIcons name="receipt-long" size={32} color="#55585C" />
-            <Text style={styles.emptyText}>Nenhuma movimentação recente registrada</Text>
+            <MaterialIcons name="receipt-long" size={32} color={isLight ? '#A09D96' : '#55585C'} />
+            <Text style={[styles.emptyText, isLight && styles.subTextLight]}>
+              Nenhuma movimentação recente registrada
+            </Text>
           </View>
         ) : (
           transactions.map((tx, idx) => {
@@ -69,7 +77,10 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                 testID={`recent-tx-row-${tx.ticker}`}
                 activeOpacity={0.7}
                 onPress={() => onSelectTransaction?.(tx)}
-                style={[styles.txRow, !isLast && styles.txBorderBottom]}
+                style={[
+                  styles.txRow,
+                  !isLast && (isLight ? styles.txBorderBottomLight : styles.txBorderBottom),
+                ]}
               >
                 {/* Avatar Circular 44x44 com cor e ícone da categoria */}
                 <View
@@ -78,13 +89,20 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                     { backgroundColor: config.color },
                   ]}
                 >
-                  <MaterialIcons name={iconName} size={22} color={colors.voidFloor} />
+                  <MaterialIcons
+                    name={iconName}
+                    size={21}
+                    color="#111315"
+                    style={styles.iconGlyph}
+                  />
                 </View>
 
                 {/* Detalhes Centrais */}
                 <View style={styles.centerCol}>
-                  <Text style={styles.tickerText}>{tx.ticker}</Text>
-                  <Text style={styles.subText}>
+                  <Text style={[styles.tickerText, isLight && styles.tickerTextLight]}>
+                    {tx.ticker}
+                  </Text>
+                  <Text style={[styles.subText, isLight && styles.subTextLight]}>
                     {tx.dateText} • {isBuy ? 'Compra' : 'Venda'}
                   </Text>
                 </View>
@@ -94,7 +112,9 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
                   <Text
                     style={[
                       styles.amountText,
-                      isBuy ? styles.amountPositive : styles.amountNegative,
+                      isBuy
+                        ? (isLight ? styles.amountPositiveLight : styles.amountPositive)
+                        : (isLight ? styles.amountNegativeLight : styles.amountNegative),
                     ]}
                   >
                     {isBuy ? `+${tx.amountText}` : `-${tx.amountText}`}
@@ -206,6 +226,38 @@ const styles = StyleSheet.create({
   },
   amountNegative: {
     color: colors.primary,
+  },
+  titleTextLight: {
+    color: '#111315',
+  },
+  viewAllTextLight: {
+    color: colors.primary,
+  },
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowOpacity: 0.08,
+    elevation: 2,
+  },
+  txBorderBottomLight: {
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#F0EBE1',
+  },
+  tickerTextLight: {
+    color: '#111315',
+  },
+  subTextLight: {
+    color: '#6E6A63',
+  },
+  amountPositiveLight: {
+    color: '#1D6F5B',
+  },
+  amountNegativeLight: {
+    color: '#C24D18',
+  },
+  iconGlyph: {
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
 });
 

@@ -18,6 +18,7 @@ export interface DotMatrixAllocationCardProps {
   variant?: 'default' | 'v2';
   onRebalancePress?: () => void;
   onClassPress?: (assetClass: AssetClass) => void;
+  themeMode?: 'dark' | 'light';
 }
 
 const DEFAULT_ALLOCATIONS: CategoryAllocationData[] = [
@@ -35,17 +36,19 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
   variant = 'default',
   onRebalancePress,
   onClassPress,
+  themeMode = 'dark',
 }) => {
   const isV2 = variant === 'v2';
+  const isLight = themeMode === 'light';
 
   return (
-    <View style={styles.card} testID={testID}>
+    <View style={[styles.card, isLight && styles.cardLight]} testID={testID}>
       {/* Topo do Card com Botão Rebalancear (v2) ou Saldo Consolidado (padrão) */}
-      <View style={styles.header}>
+      <View style={[styles.header, isLight && styles.headerLight]}>
         <View>
-          <Text style={styles.title}>ALOCAÇÃO POR CATEGORIA</Text>
+          <Text style={[styles.title, isLight && styles.titleLight]}>ALOCAÇÃO POR CATEGORIA</Text>
           {!isV2 && (
-            <Text style={styles.subtitle}>Matriz de Pontos • 4 Classes Reais</Text>
+            <Text style={[styles.subtitle, isLight && styles.subtitleLight]}>Matriz de Pontos • 4 Classes Reais</Text>
           )}
         </View>
 
@@ -59,7 +62,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
             <Text style={styles.rebalanceButtonText}>Rebalancear</Text>
           </TouchableOpacity>
         ) : (
-          <View style={styles.balanceBadge} testID="card-header-total-balance">
+          <View style={[styles.balanceBadge, isLight && styles.balanceBadgeLight]} testID="card-header-total-balance">
             <Text style={styles.balanceText}>
               {isPrivacyMode ? 'R$ ••••••••' : totalBalance}
             </Text>
@@ -80,6 +83,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
             fillDirection={isV2 ? 'right-to-left' : 'left-to-right'}
             onPress={onClassPress}
             isPrivacyMode={isPrivacyMode}
+            themeMode={themeMode}
             testID={`allocation-stat-${item.assetClass.toLowerCase()}`}
           />
         ))}
@@ -102,6 +106,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -111,6 +121,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: borders.hairline,
     borderBottomColor: '#25282B',
   },
+  headerLight: {
+    borderBottomColor: '#EAE4D7',
+  },
   title: {
     fontFamily: typography.fontFamily,
     fontSize: 14,
@@ -118,11 +131,17 @@ const styles = StyleSheet.create({
     color: colors.parchmentPale,
     letterSpacing: 1.1,
   },
+  titleLight: {
+    color: '#111315',
+  },
   subtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
     color: '#8A8A8E',
     marginTop: 2,
+  },
+  subtitleLight: {
+    color: '#6F6A5A',
   },
   balanceBadge: {
     backgroundColor: '#111315',
@@ -131,6 +150,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: borders.hairline,
     borderColor: '#2A2D30',
+  },
+  balanceBadgeLight: {
+    backgroundColor: '#F4F1EA',
+    borderColor: '#EAE4D7',
   },
   balanceText: {
     fontFamily: typography.fontFamily,

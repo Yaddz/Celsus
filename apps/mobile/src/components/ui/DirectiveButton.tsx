@@ -26,6 +26,7 @@ export interface DirectiveButtonProps {
   iconSize?: number;
   iconTestID?: string;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
@@ -41,7 +42,10 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
   iconSize,
   iconTestID,
   testID,
+  themeMode = 'dark',
 }) => {
+  const isLight = themeMode === 'light';
+
   // Bento Tile Mode (WalleZ Quick Action Tile)
   if (isBentoTile) {
     const isPrimary = variant === 'primary';
@@ -50,12 +54,14 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
     const tileBg = isPrimary
       ? colors.primary
       : isSecondary
-      ? colors.secondary
-      : colors.neutral;
+      ? (isLight ? '#E7DEC8' : colors.secondary)
+      : (isLight ? '#FFFFFF' : colors.neutral);
 
     const textColor = isPrimary
       ? colors.voidFloor
-      : colors.parchmentPale;
+      : isSecondary
+      ? (isLight ? '#111315' : colors.parchmentPale)
+      : (isLight ? '#111315' : colors.parchmentPale);
 
     const iconColor = textColor;
     const defaultMaterialIcon: MaterialIconName = isPrimary
@@ -75,7 +81,8 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
         style={[
           styles.bentoTile,
           { backgroundColor: tileBg },
-          variant === 'neutral' && styles.bentoTileNeutralBorder,
+          variant === 'neutral' && (isLight ? styles.bentoTileNeutralLightBorder : styles.bentoTileNeutralBorder),
+          isLight && styles.bentoTileLightShadow,
           disabled && styles.disabled,
           style,
         ]}
@@ -148,6 +155,7 @@ export interface QuickActionBentoRowProps {
   variant?: 'default' | 'v2';
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 /**
@@ -162,9 +170,11 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
   variant = 'default',
   style,
   testID = 'quick-action-bento-row',
+  themeMode = 'dark',
 }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const isV2 = variant === 'v2';
+  const isLight = themeMode === 'light';
 
   const iconSize = isV2 ? 28 : 24;
   const labelStyle: TextStyle = isV2
@@ -189,6 +199,7 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           labelStyle={labelStyle}
           testID="quick-action-aportar"
           onPress={onAportar}
+          themeMode={themeMode}
         />
         <DirectiveButton
           label="Simular"
@@ -200,6 +211,7 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           labelStyle={labelStyle}
           testID="quick-action-simular"
           onPress={onSimular}
+          themeMode={themeMode}
         />
         <DirectiveButton
           label="Mais"
@@ -211,12 +223,19 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           labelStyle={labelStyle}
           testID="quick-action-mais"
           onPress={handleMaisPress}
+          themeMode={themeMode}
         />
       </View>
 
       {/* Menu Modal com 2 Opções ao Clicar em Mais */}
       {isMoreMenuOpen ? (
-        <View testID="quick-actions-more-modal" style={styles.moreModalOverlay}>
+        <View
+          testID="quick-actions-more-modal"
+          style={[
+            styles.moreModalOverlay,
+            isLight && styles.moreModalOverlayLight,
+          ]}
+        >
           <TouchableOpacity
             testID="more-option-novo-aporte"
             activeOpacity={0.75}
@@ -224,10 +243,15 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
               setIsMoreMenuOpen(false);
               onNovoAportePress?.();
             }}
-            style={styles.moreModalOption}
+            style={[
+              styles.moreModalOption,
+              isLight && styles.moreModalOptionLight,
+            ]}
           >
             <MaterialIcons name="north-east" size={20} color={colors.primary} />
-            <Text style={styles.moreOptionText}>Novo Aporte</Text>
+            <Text style={[styles.moreOptionText, isLight && styles.moreOptionTextLight]}>
+              Novo Aporte
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -237,10 +261,15 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
               setIsMoreMenuOpen(false);
               onNovaCarteiraPress?.();
             }}
-            style={styles.moreModalOption}
+            style={[
+              styles.moreModalOption,
+              isLight && styles.moreModalOptionLight,
+            ]}
           >
             <MaterialIcons name="account-balance-wallet" size={20} color={colors.tertiary} />
-            <Text style={styles.moreOptionText}>Nova Carteira</Text>
+            <Text style={[styles.moreOptionText, isLight && styles.moreOptionTextLight]}>
+              Nova Carteira
+            </Text>
           </TouchableOpacity>
         </View>
       ) : null}
@@ -276,6 +305,16 @@ const styles = StyleSheet.create({
     borderWidth: borders.hairline,
     borderColor: '#26292C',
   },
+  bentoTileNeutralLightBorder: {
+    borderWidth: borders.hairline,
+    borderColor: '#EAE4D7',
+  },
+  bentoTileLightShadow: {
+    shadowColor: '#111315',
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
   bentoLabel: {
     fontFamily: typography.fontFamily,
     fontSize: typography.labelMd.fontSize + 1,
@@ -298,6 +337,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  moreModalOverlayLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowColor: '#111315',
+    shadowOpacity: 0.12,
+  },
   moreModalOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -307,11 +352,17 @@ const styles = StyleSheet.create({
     borderRadius: borders.radiusSm,
     backgroundColor: '#202224',
   },
+  moreModalOptionLight: {
+    backgroundColor: '#F4F1EA',
+  },
   moreOptionText: {
     fontFamily: typography.fontFamily,
     fontSize: 14,
     fontWeight: '700',
     color: colors.parchmentPale,
+  },
+  moreOptionTextLight: {
+    color: '#111315',
   },
 
   // Standard Pill Action Button Styles

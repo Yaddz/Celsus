@@ -143,9 +143,20 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
         >
           {/* Topo: Círculos translúcidos e Saldo */}
           <View style={styles.topRow}>
+            {/* Esferas luminosas difusas no card (Efeito Bokeh/Pierre) */}
             <View style={styles.circlesContainer}>
-              <View style={[styles.translucentCircle, { backgroundColor: 'rgba(213, 202, 168, 0.45)' }]} />
-              <View style={[styles.translucentCircleOverlay, { backgroundColor: 'rgba(46, 74, 68, 0.55)' }]} />
+              <View
+                style={[
+                  styles.translucentCircle,
+                  { backgroundColor: 'rgba(255, 230, 180, 0.38)' },
+                ]}
+              />
+              <View
+                style={[
+                  styles.translucentCircleOverlay,
+                  { backgroundColor: 'rgba(30, 40, 45, 0.22)' },
+                ]}
+              />
             </View>
 
             <View style={styles.balanceCol}>
@@ -156,12 +167,10 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
             </View>
           </View>
 
-          {/* Base: Nome da Carteira, Rentabilidade e Recorte Curvo Integrado */}
+          {/* Base: Rentabilidade à esquerda e Recorte Curvo com Nome da Carteira à direita */}
           <View style={styles.bottomRow}>
             <View style={styles.nameAndProfitCol}>
-              <Text style={styles.portfolioNameText}>
-                {currentItem.name}
-              </Text>
+              <Text style={styles.profitLabel}>Rentabilidade</Text>
               <Text style={styles.profitBadgeText}>
                 {currentItem.profitText || '+0,0% no ano'}
               </Text>
@@ -169,9 +178,19 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
 
             {/* Recorte Quadrado Curvo Escuro (#191B1D / #111315) integrado ao card */}
             <View testID="wallet-corner-notch" style={styles.cornerNotch}>
-              <Text style={styles.accountCodeText}>
-                {currentItem.accountCode || '•••• 001'}
+              <Text style={styles.portfolioNameText} numberOfLines={1}>
+                {currentItem.name}
               </Text>
+              {currentItem.accountCode ? (
+                <Text
+                  style={[
+                    styles.accountCodeText,
+                    { position: 'absolute', opacity: 0, height: 0, width: 0 },
+                  ]}
+                >
+                  {currentItem.accountCode}
+                </Text>
+              ) : null}
             </View>
           </View>
         </View>
@@ -225,6 +244,8 @@ const styles = StyleSheet.create({
     borderRadius: borders.radiusXl,
     minHeight: 160,
     justifyContent: 'space-between',
+    overflow: 'hidden',
+    position: 'relative',
   },
   topRow: {
     flexDirection: 'row',
@@ -232,28 +253,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   circlesContainer: {
-    flexDirection: 'row',
-    position: 'relative',
-    width: 52,
-    height: 36,
-    alignItems: 'center',
+    position: 'absolute',
+    top: -16,
+    left: -16,
+    width: 160,
+    height: 130,
+    pointerEvents: 'none',
   },
   translucentCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     position: 'absolute',
-    left: 0,
+    top: 6,
+    left: 6,
   },
   translucentCircleOverlay: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     position: 'absolute',
-    left: 18,
+    top: 22,
+    left: 46,
   },
   balanceCol: {
     alignItems: 'flex-end',
+    zIndex: 2,
   },
   balanceSubtitle: {
     fontFamily: typography.fontFamily,
@@ -275,34 +300,43 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     marginTop: spacing.md,
+    zIndex: 2,
   },
   nameAndProfitCol: {
     flex: 1,
     paddingRight: spacing.sm,
   },
-  portfolioNameText: {
+  profitLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: 10,
     color: colors.voidFloor,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    opacity: 0.75,
+    letterSpacing: 0.5,
   },
   profitBadgeText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.voidFloor,
-    fontWeight: '600',
-    marginTop: 2,
-    opacity: 0.9,
+    fontWeight: '700',
+    marginTop: 1,
   },
   cornerNotch: {
     backgroundColor: '#191B1D',
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: borders.hairline,
     borderColor: '#26292C',
     alignSelf: 'flex-end',
+    maxWidth: 180,
+    justifyContent: 'center',
+  },
+  portfolioNameText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: colors.parchmentPale,
+    fontWeight: '700',
+    letterSpacing: 0.4,
   },
   accountCodeText: {
     fontFamily: typography.fontFamily,

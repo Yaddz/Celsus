@@ -309,6 +309,7 @@ function AppContent() {
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab)}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          themeMode={themeMode}
         />
       </SafeAreaView>
     );
@@ -344,6 +345,7 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          themeMode={themeMode}
         />
       </SafeAreaView>
     );
@@ -440,6 +442,7 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          themeMode={themeMode}
         />
       </SafeAreaView>
     );
@@ -472,6 +475,7 @@ function AppContent() {
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
+          themeMode={themeMode}
         />
       </SafeAreaView>
     );
@@ -513,7 +517,7 @@ function AppContent() {
           testID="home-scroll-content"
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 80 },
+            { paddingBottom: Math.max(insets.bottom, 16) + 96 },
           ]}
           showsVerticalScrollIndicator={false}
         >
@@ -553,6 +557,7 @@ function AppContent() {
             onMais={() => setIsPortfolioManagerModalOpen(true)}
             onNovoAportePress={() => setIsTransactionModalOpen(true)}
             onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
+            themeMode={themeMode}
           />
 
           {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
@@ -563,6 +568,7 @@ function AppContent() {
             }))}
             onViewAll={() => setIsTransactionModalOpen(true)}
             onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
+            themeMode={themeMode}
             testID="home-recent-transactions"
           />
 
@@ -573,6 +579,7 @@ function AppContent() {
             variant="v2"
             onRebalancePress={() => setIsSimulatorModalOpen(true)}
             onClassPress={(cls) => setSelectedClassDetail(cls)}
+            themeMode={themeMode}
             testID="home-dot-matrix-card"
           />
         </ScrollView>
@@ -593,6 +600,7 @@ function AppContent() {
           }
         }}
         onActionPress={() => setIsTransactionModalOpen(true)}
+        themeMode={themeMode}
       />
     </SafeAreaView>
   );

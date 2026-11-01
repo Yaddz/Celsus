@@ -35,9 +35,10 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   const isLight = themeMode === 'light';
   const theme = THEME_COLORS[themeMode] || THEME_COLORS.dark;
 
-  const textColor = isLight ? '#191B1D' : '#E6DECA';
-  const buttonBg = isLight ? '#EAE4D7' : '#191B1D';
-  const iconColor = isLight ? '#191B1D' : '#D5CAA8';
+  const textColor = isLight ? '#111315' : '#E6DECA';
+  const buttonBg = isLight ? '#FFFFFF' : '#191B1D';
+  const buttonBorder = isLight ? '#EAE4D7' : '#26292C';
+  const iconColor = isLight ? '#111315' : '#D5CAA8';
 
   return (
     <View testID={testID} style={styles.container}>
@@ -52,15 +53,15 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
           style={[
             styles.avatarCircle,
             {
-              backgroundColor: isLight ? '#D5CAA8' : '#202224',
-              borderColor: palette.accent,
+              backgroundColor: isLight ? '#EAE4D7' : '#202224',
+              borderColor: isLight ? '#D96628' : palette.accent,
             },
           ]}
         >
           <Text
             style={[
               styles.avatarText,
-              { color: isLight ? '#191B1D' : palette.accent },
+              { color: isLight ? '#111315' : palette.accent },
             ]}
           >
             {userInitials}
@@ -71,24 +72,17 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* Canto Direito: Ações (Globo + Olho) */}
+      {/* Canto Direito: Ações (Olho à esquerda, Globo à direita) */}
       <View style={styles.actionsRight}>
-        {/* Botão Globo Placeholder */}
-        <TouchableOpacity
-          testID="header-globe-button"
-          onPress={onGlobePress}
-          activeOpacity={0.7}
-          style={[styles.circularButton, { backgroundColor: buttonBg }]}
-        >
-          <MaterialIcons name="language" size={20} color={iconColor} />
-        </TouchableOpacity>
-
         {/* Botão de Olho (Privacidade) */}
         <TouchableOpacity
           testID="header-privacy-button"
           onPress={onTogglePrivacy}
           activeOpacity={0.7}
-          style={[styles.circularButton, { backgroundColor: buttonBg }]}
+          style={[
+            styles.circularButton,
+            { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
+          ]}
         >
           {isPrivacyModeEnabled ? (
             <MaterialIcons
@@ -105,6 +99,19 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
               color={iconColor}
             />
           )}
+        </TouchableOpacity>
+
+        {/* Botão Globo Placeholder */}
+        <TouchableOpacity
+          testID="header-globe-button"
+          onPress={onGlobePress}
+          activeOpacity={0.7}
+          style={[
+            styles.circularButton,
+            { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
+          ]}
+        >
+          <MaterialIcons name="language" size={20} color={iconColor} />
         </TouchableOpacity>
       </View>
     </View>

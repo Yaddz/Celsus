@@ -12,6 +12,7 @@ export interface FloatingBottomDockProps {
   onActionPress?: () => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  themeMode?: 'dark' | 'light';
 }
 
 interface TabItem {
@@ -33,17 +34,25 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   onActionPress = () => {},
   style,
   testID = 'floating-bottom-dock',
+  themeMode = 'dark',
 }) => {
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 16);
+  const isLight = themeMode === 'light';
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: bottomPadding }, style]} testID={testID}>
-      {/* Pílula de Navegação */}
-      <View style={styles.pillContainer}>
+    <View
+      style={[styles.wrapper, { paddingBottom: bottomPadding }, style]}
+      testID={testID}
+      pointerEvents="box-none"
+    >
+      {/* Pílula de Navegação Opaca Flutuante */}
+      <View style={[styles.pillContainer, isLight && styles.pillContainerLight]}>
         {TABS.map((tab) => {
           const isActive = tab.id === activeTab;
-          const iconColor = isActive ? colors.voidFloor : colors.parchmentPale;
+          const iconColor = isActive
+            ? (isLight ? '#FFFFFF' : colors.voidFloor)
+            : (isLight ? '#6E6A63' : colors.parchmentPale);
 
           return (
             <TouchableOpacity
@@ -56,7 +65,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
               <View
                 style={[
                   styles.tabIconCircle,
-                  isActive && styles.activeTabIconCircle,
+                  isActive && (isLight ? styles.activeTabIconCircleLight : styles.activeTabIconCircle),
                 ]}
               >
                 <MaterialIcons name={tab.iconName} size={22} color={iconColor} />
@@ -72,7 +81,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
         onPress={onActionPress}
         style={styles.actionButton}
       >
-        <MaterialIcons name="add" size={28} color={colors.voidFloor} />
+        <MaterialIcons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   );
@@ -80,12 +89,18 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
 
 const styles = StyleSheet.create({
   wrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     width: '100%',
     paddingHorizontal: 16,
     paddingBottom: 16,
+    backgroundColor: 'transparent',
+    zIndex: 99,
   },
   pillContainer: {
     flex: 1,
@@ -102,7 +117,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
-    elevation: 4,
+    elevation: 6,
+  },
+  pillContainerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    shadowOpacity: 0.12,
+    elevation: 5,
   },
   tabButton: {
     padding: 6,
@@ -122,6 +143,14 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  activeTabIconCircleLight: {
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   actionButton: {
     width: 60,
     height: 60,
@@ -133,7 +162,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.45,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 6,
   },
 });
 

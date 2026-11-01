@@ -22,6 +22,7 @@ export interface AttributeStatBarProps {
   fillDirection?: 'left-to-right' | 'right-to-left';
   onPress?: (assetClass: AssetClass) => void;
   isPrivacyMode?: boolean;
+  themeMode?: 'dark' | 'light';
 }
 
 export const ASSET_CLASS_ATTRIBUTE_MAP: Record<AssetClass, CategoryConfig> = {
@@ -58,10 +59,12 @@ export const DotMatrixGrid: React.FC<{
   cols?: number;
   fillDirection?: 'left-to-right' | 'right-to-left';
   testID?: string;
-}> = ({ currentPercentage, color, rows = 4, cols = 10, fillDirection = 'left-to-right', testID }) => {
+  themeMode?: 'dark' | 'light';
+}> = ({ currentPercentage, color, rows = 4, cols = 10, fillDirection = 'left-to-right', testID, themeMode = 'dark' }) => {
   const totalDots = rows * cols;
   const safePercentage = Math.min(100, Math.max(0, currentPercentage));
   const activeDots = Math.round((safePercentage / 100) * totalDots);
+  const isLight = themeMode === 'light';
 
   return (
     <View testID={testID} style={styles.matrixContainer}>
@@ -88,7 +91,7 @@ export const DotMatrixGrid: React.FC<{
                     styles.dot,
                     isFilled
                       ? { backgroundColor: color, shadowColor: color, shadowOpacity: 0.4 }
-                      : styles.emptyDot,
+                      : (isLight ? styles.emptyDotLight : styles.emptyDot),
                   ]}
                 />
               );
@@ -111,10 +114,12 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
   fillDirection,
   onPress,
   isPrivacyMode = false,
+  themeMode = 'dark',
 }) => {
   const config = ASSET_CLASS_ATTRIBUTE_MAP[assetClass];
   const safeCurrent = Math.max(0, currentPercentage);
   const safeTarget = Math.max(0, targetPercentage);
+  const isLight = themeMode === 'light';
 
   const resolvedFillDirection = fillDirection || (variant === 'v2' ? 'right-to-left' : 'left-to-right');
 
@@ -127,7 +132,7 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
     : (isPrivacyMode ? '*******' : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`);
 
   const content = (
-    <View style={styles.container}>
+    <View style={[styles.container, isLight && styles.containerLight]}>
       {/* Header com Nome Real da Categoria e Percentuais */}
       <View style={styles.header}>
         <View style={styles.titleRow}>
@@ -135,10 +140,10 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
           <Text style={[styles.categoryName, { color: config.color }]}>
             {config.name.toUpperCase()}
           </Text>
-          <Text style={styles.classLabel}> • {config.label}</Text>
+          <Text style={[styles.classLabel, isLight && styles.classLabelLight]}> • {config.label}</Text>
         </View>
 
-        <Text style={styles.metricsContainer}>
+        <Text style={[styles.metricsContainer, isLight && styles.metricsContainerLight]}>
           {metricsText}
         </Text>
       </View>
@@ -148,6 +153,7 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
           currentPercentage={safeCurrent}
           color={config.color}
           fillDirection={resolvedFillDirection}
+          themeMode={themeMode}
         />
       ) : null}
     </View>
@@ -181,6 +187,10 @@ const styles = StyleSheet.create({
     borderColor: '#26292C',
     marginVertical: spacing.xs,
   },
+  containerLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -210,12 +220,18 @@ const styles = StyleSheet.create({
     color: '#8A8A8E',
     flexShrink: 1,
   },
+  classLabelLight: {
+    color: '#6F6A5A',
+  },
   metricsContainer: {
     fontFamily: typography.fontFamily,
     fontSize: typography.labelMd.fontSize,
     fontWeight: '700',
     color: colors.parchmentPale,
     marginLeft: spacing.xs,
+  },
+  metricsContainerLight: {
+    color: '#111315',
   },
   matrixContainer: {
     gap: 5,
@@ -235,6 +251,9 @@ const styles = StyleSheet.create({
   },
   emptyDot: {
     backgroundColor: '#26292C',
+  },
+  emptyDotLight: {
+    backgroundColor: '#EAE4D7',
   },
 });
 
