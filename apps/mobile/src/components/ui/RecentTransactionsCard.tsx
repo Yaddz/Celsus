@@ -46,7 +46,12 @@ export const RecentTransactionsCard: React.FC<RecentTransactionsCardProps> = ({
         <Text style={[styles.titleText, isLight && styles.titleTextLight]}>
           Movimentações Recentes
         </Text>
-        <TouchableOpacity activeOpacity={0.7} onPress={onViewAll} style={styles.viewAllBtn}>
+        <TouchableOpacity
+          testID="recent-tx-view-all-btn"
+          activeOpacity={0.7}
+          onPress={onViewAll}
+          style={styles.viewAllBtn}
+        >
           <Text style={[styles.viewAllText, isLight && styles.viewAllTextLight]}>Ver tudo</Text>
           <MaterialIcons name="chevron-right" size={16} color={isLight ? colors.primary : colors.tertiary} />
         </TouchableOpacity>

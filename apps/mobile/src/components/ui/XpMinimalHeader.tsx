@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
 import { typography } from '../../theme/tokens';
@@ -11,15 +11,18 @@ export interface XpMinimalHeaderProps {
   onAvatarPress?: () => void;
   onGlobePress?: () => void;
   onTogglePrivacy?: () => void;
+  onBack?: () => void;
+  title?: string;
+  subtitle?: string;
   palette?: PortfolioPalette;
   themeMode?: ThemeMode;
   testID?: string;
 }
 
 /**
- * XpMinimalHeader: Header minimalista estilo XP para a Home.
- * - Esquerda: Avatar com iniciais + Nome do usuário (abre Configurações ao tocar).
- * - Direita: Botão de Globo (placeholder para alternância de visualização) e Botão de Olho (Modo Privacidade).
+ * XpMinimalHeader: Header minimalista estilo XP para todas as telas.
+ * - Esquerda: Botão Voltar (se onBack presente) OU Avatar com iniciais + Nome.
+ * - Direita: Botão de Globo e Botão de Olho (Modo Privacidade).
  */
 export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   userName = 'Pedro',
@@ -28,6 +31,9 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   onAvatarPress,
   onGlobePress,
   onTogglePrivacy,
+  onBack,
+  title,
+  subtitle,
   palette = PORTFOLIO_PALETTES.classic,
   themeMode = 'dark',
   testID = 'xp-minimal-header',
@@ -40,37 +46,75 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   const buttonBorder = isLight ? '#EAE4D7' : '#26292C';
   const iconColor = isLight ? '#111315' : '#D5CAA8';
 
+  const handleGlobePress = () => {
+    if (onGlobePress) {
+      onGlobePress();
+    } else {
+      Alert.alert('Funcionalidade em desenvolvimento');
+    }
+  };
+
   return (
     <View testID={testID} style={styles.container}>
-      {/* Canto Esquerdo: Avatar do Usuário (abre Configurações) */}
-      <TouchableOpacity
-        testID="header-avatar-button"
-        onPress={onAvatarPress}
-        activeOpacity={0.8}
-        style={styles.avatarButton}
-      >
-        <View
-          style={[
-            styles.avatarCircle,
-            {
-              backgroundColor: isLight ? '#EAE4D7' : '#202224',
-              borderColor: isLight ? '#D96628' : palette.accent,
-            },
-          ]}
+      {/* Canto Esquerdo: Botão Voltar OU Avatar do Usuário */}
+      {onBack ? (
+        <TouchableOpacity
+          testID="header-back-button"
+          onPress={onBack}
+          activeOpacity={0.7}
+          style={styles.backButtonContainer}
         >
-          <Text
+          <View
             style={[
-              styles.avatarText,
-              { color: isLight ? '#111315' : palette.accent },
+              styles.circularButton,
+              { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
             ]}
           >
-            {userInitials}
+            <MaterialIcons name="arrow-back" size={20} color={iconColor} />
+          </View>
+          {title ? (
+            <View style={styles.titleWrapper}>
+              <Text style={[styles.userNameText, { color: textColor }]}>
+                {title}
+              </Text>
+              {subtitle ? (
+                <Text style={[styles.subtitleText, { color: isLight ? '#6E6A63' : '#A09D96' }]}>
+                  {subtitle}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          testID="header-avatar-button"
+          onPress={onAvatarPress}
+          activeOpacity={0.8}
+          style={styles.avatarButton}
+        >
+          <View
+            style={[
+              styles.avatarCircle,
+              {
+                backgroundColor: isLight ? '#EAE4D7' : '#202224',
+                borderColor: isLight ? '#D96628' : palette.accent,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.avatarText,
+                { color: isLight ? '#111315' : palette.accent },
+              ]}
+            >
+              {userInitials}
+            </Text>
+          </View>
+          <Text style={[styles.userNameText, { color: textColor }]}>
+            {userName}
           </Text>
-        </View>
-        <Text style={[styles.userNameText, { color: textColor }]}>
-          {userName}
-        </Text>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      )}
 
       {/* Canto Direito: Ações (Olho à esquerda, Globo à direita) */}
       <View style={styles.actionsRight}>
@@ -104,7 +148,7 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
         {/* Botão Globo Placeholder */}
         <TouchableOpacity
           testID="header-globe-button"
-          onPress={onGlobePress}
+          onPress={handleGlobePress}
           activeOpacity={0.7}
           style={[
             styles.circularButton,
@@ -131,6 +175,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+  },
+  backButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  titleWrapper: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+  },
+  subtitleText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
   },
   avatarCircle: {
     width: 38,

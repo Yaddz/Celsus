@@ -96,8 +96,8 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
     });
   });
 
-  describe('2. Tooltip ao Segurar na Fatia (onLongPress)', () => {
-    it('deve exibir a caixa de texto flutuante (tooltip) com o nome e porcentagem do ativo ao segurar na fatia', async () => {
+  describe('2. Tooltip no Clique Simples da Fatia (onPress) e Ausência de onLongPress', () => {
+    it('deve exibir a caixa de texto flutuante (tooltip) com o nome e porcentagem do ativo ao clicar simples na fatia', async () => {
       await render(
         <ClassDetailScreen
           assetClass="STOCK"
@@ -109,9 +109,9 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
       // Tooltip não deve estar visível inicialmente
       expect(screen.queryByTestId('donut-tooltip')).toBeNull();
 
-      // Dispara onLongPress na fatia de PETR4
+      // Dispara clique simples (onPress) na fatia de PETR4
       const petrSlice = screen.getByTestId('donut-slice-PETR4');
-      fireEvent(petrSlice, 'longPress');
+      fireEvent.press(petrSlice);
 
       // Tooltip deve surgir exibindo o nome do ativo e sua porcentagem
       const tooltip = screen.getByTestId('donut-tooltip');
@@ -119,17 +119,15 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
       expect(screen.getByText(/Petróleo Brasileiro S\.A\./i)).toBeTruthy();
       expect(screen.getByText(/50(\.0)?%/)).toBeTruthy();
 
-      // Dispara onLongPress em outra fatia (VALE3) e o tooltip atualiza
+      // Dispara clique simples em outra fatia (VALE3) e o tooltip atualiza
       const valeSlice = screen.getByTestId('donut-slice-VALE3');
-      fireEvent(valeSlice, 'longPress');
+      fireEvent.press(valeSlice);
 
       expect(screen.getByText(/Vale S\.A\./i)).toBeTruthy();
       expect(screen.getByText(/30(\.0)?%/)).toBeTruthy();
     });
-  });
 
-  describe('3. Scroll Automático ao Clicar na Fatia (onPress)', () => {
-    it('deve disparar o scroll suave até o card do ativo ao clicar (onPress) na respectiva fatia ou cor', async () => {
+    it('não deve possuir prop onLongPress na fatia', async () => {
       await render(
         <ClassDetailScreen
           assetClass="STOCK"
@@ -138,8 +136,28 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
         />
       );
 
+      const petrSlice = screen.getByTestId('donut-slice-PETR4');
+      expect(petrSlice.props.onLongPress).toBeUndefined();
+    });
+  });
+
+  describe('3. Scroll ao Clicar no Nome do Ativo no Resumo', () => {
+    it('deve disparar o scroll suave até o card do ativo ao clicar no botão de scroll do tooltip', async () => {
+      await render(
+        <ClassDetailScreen
+          assetClass="STOCK"
+          className="Ações"
+          assets={MOCK_ASSETS}
+        />
+      );
+
+      // Abre o resumo com clique simples na fatia
       const valeSlice = screen.getByTestId('donut-slice-VALE3');
       fireEvent.press(valeSlice);
+
+      // Clica no nome do ativo no tooltip
+      const scrollBtn = screen.getByTestId('donut-tooltip-scroll-btn');
+      fireEvent.press(scrollBtn);
 
       // Verifica se a chamada de scrollTo no ScrollView foi acionada
       expect(scrollToSpy).toHaveBeenCalled();
