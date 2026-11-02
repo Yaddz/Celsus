@@ -237,7 +237,14 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   return (
     <View testID={testID} style={[styles.heroWrapper, style]}>
       {/* Camadas inferiores empilhadas (Stacked Depth Layers) */}
-      <View style={styles.heroLayerTwo} />
+      <TouchableOpacity
+        testID={shouldIncludeAddCard && !isAddCard ? 'stacked-wallet-add-card' : undefined}
+        style={styles.heroLayerTwo}
+        onPress={onCreatePortfolioPress}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel="Adicionar nova carteira"
+      />
       <View style={styles.heroLayerOne} />
 
       {/* Cartão Ativo Principal ou Card Móvel de Adicionar */}

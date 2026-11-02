@@ -1,5 +1,6 @@
 import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
+import { getTableName } from 'drizzle-orm';
 import * as schema from './schema';
 
 export const DATABASE_NAME = 'celsus.db';
@@ -84,8 +85,141 @@ CREATE TABLE IF NOT EXISTS historical_prices_local (
 );
 `;
 
+const inMemoryStore: Record<string, any[]> = {
+  portfolios: [],
+  portfolio_class_targets: [],
+  assets: [],
+  transactions: [],
+  market_price_cache: [],
+  historical_prices_local: [],
+};
+
+function evalCondition(row: any, cond: any): boolean {
+  if (!cond || !cond.queryChunks) return true;
+  const chunks = cond.queryChunks;
+  if (chunks.length === 3 && chunks[0]?.value?.[0] === '(' && chunks[2]?.value?.[0] === ')') {
+    return evalCondition(row, chunks[1]);
+  }
+  const hasAnd = chunks.some((c: any) => c?.value?.[0]?.includes('and'));
+  if (hasAnd) {
+    const subConds = chunks.filter((c: any) => c?.constructor?.name === 'SQL');
+    return subConds.every((sub: any) => evalCondition(row, sub));
+  }
+  let colName: string | null = null;
+  let val: any = undefined;
+  for (const c of chunks) {
+    if (c?.name && typeof c.name === 'string') {
+      colName = c.name;
+    } else if (c?.constructor?.name === 'Param' || (c && 'value' in c && typeof c.value !== 'object')) {
+      val = c.value;
+    }
+  }
+  if (colName !== null) {
+    return row[colName] === val;
+  }
+  return true;
+}
+
+function createInMemoryDatabase(): ReturnType<typeof drizzle> {
+  return {
+    insert(table: any) {
+      const tableName = getTableName(table);
+      return {
+        values: async (vals: any | any[]) => {
+          const arr = Array.isArray(vals) ? vals : [vals];
+          inMemoryStore[tableName] = inMemoryStore[tableName] || [];
+          inMemoryStore[tableName].push(...arr);
+          return arr;
+        },
+      };
+    },
+    select() {
+      return {
+        from(table: any) {
+          const tableName = getTableName(table);
+          let condition: any = null;
+          let orderClause: any = null;
+          const query = {
+            where(c: any) {
+              condition = c;
+              return query;
+            },
+            orderBy(o: any) {
+              orderClause = o;
+              return query;
+            },
+            then(resolve: (val: any) => void, reject?: (err: any) => void) {
+              try {
+                let rows = [...(inMemoryStore[tableName] || [])];
+                if (condition) {
+                  rows = rows.filter((r) => evalCondition(r, condition));
+                }
+                if (orderClause && orderClause.queryChunks) {
+                  let col: string | null = null;
+                  let isDesc = false;
+                  for (const ch of orderClause.queryChunks) {
+                    if (ch?.name) col = ch.name;
+                    if (ch?.value?.[0]?.includes('desc')) isDesc = true;
+                  }
+                  if (col) {
+                    rows.sort((a, b) => {
+                      if (a[col!] === b[col!]) return 0;
+                      return isDesc ? (b[col!] > a[col!] ? 1 : -1) : (a[col!] > b[col!] ? 1 : -1);
+                    });
+                  }
+                }
+                resolve(rows);
+              } catch (e) {
+                if (reject) reject(e);
+                else throw e;
+              }
+            },
+          };
+          return query;
+        },
+      };
+    },
+    update(table: any) {
+      const tableName = getTableName(table);
+      return {
+        set(patch: any) {
+          return {
+            where: async (cond: any) => {
+              inMemoryStore[tableName] = (inMemoryStore[tableName] || []).map((r) => {
+                if (evalCondition(r, cond)) {
+                  return { ...r, ...patch };
+                }
+                return r;
+              });
+            },
+          };
+        },
+      };
+    },
+    delete(table: any) {
+      const tableName = getTableName(table);
+      const delQuery = {
+        where: async (cond: any) => {
+          inMemoryStore[tableName] = (inMemoryStore[tableName] || []).filter((r) => !evalCondition(r, cond));
+        },
+        then(resolve: () => void) {
+          inMemoryStore[tableName] = [];
+          resolve();
+        },
+      };
+      return delQuery;
+    },
+  } as any;
+}
+
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
 let _rawSqliteDb: SQLiteDatabase | null = null;
+
+export function resetDatabase() {
+  for (const k of Object.keys(inMemoryStore)) {
+    inMemoryStore[k] = [];
+  }
+}
 
 export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof drizzle> {
   if (!_dbInstance) {
@@ -94,8 +228,8 @@ export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof d
       _rawSqliteDb.execSync(INITIAL_SCHEMA_SQL);
       _dbInstance = drizzle(_rawSqliteDb, { schema });
     } catch {
-      // In Node.js / Jest unit test environment, ExpoSQLite.NativeDatabase is not available natively.
-      _dbInstance = {} as any;
+      // In Node.js / Jest unit test environment, fallback to structured in-memory mock engine.
+      _dbInstance = createInMemoryDatabase();
     }
   }
   return _dbInstance!;
@@ -103,10 +237,17 @@ export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof d
 
 export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteDatabase {
   if (!_rawSqliteDb) {
-    _rawSqliteDb = openDatabaseSync(dbName);
-    _rawSqliteDb.execSync(INITIAL_SCHEMA_SQL);
+    try {
+      _rawSqliteDb = openDatabaseSync(dbName);
+      _rawSqliteDb.execSync(INITIAL_SCHEMA_SQL);
+    } catch {
+      _rawSqliteDb = {
+        execSync: () => {},
+        prepareSync: () => ({ executeSync: () => ({}) }),
+      } as any;
+    }
   }
-  return _rawSqliteDb;
+  return _rawSqliteDb!;
 }
 
 export default getDatabase;

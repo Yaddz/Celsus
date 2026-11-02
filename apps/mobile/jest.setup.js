@@ -20,6 +20,25 @@ jest.mock('@expo/vector-icons', () => {
   });
 });
 
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const mockComponent = ({ children }) => children;
+  return {
+    __esModule: true,
+    SafeAreaProvider: mockComponent,
+    SafeAreaConsumer: ({ children }) => children(insets),
+    SafeAreaView: mockComponent,
+    useSafeAreaInsets: () => insets,
+    default: {
+      SafeAreaProvider: mockComponent,
+      SafeAreaConsumer: ({ children }) => children(insets),
+      SafeAreaView: mockComponent,
+      useSafeAreaInsets: () => insets,
+    },
+  };
+});
+
 const React = require('react');
 const RNTL = require('@testing-library/react-native');
 const actModule = require('@testing-library/react-native/dist/act.js');

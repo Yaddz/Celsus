@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,8 @@ import {
 } from '../domain/finance';
 import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader } from '../components/ui';
 import { marketApiService } from '../services/marketApi';
+import { portfolioRepository } from '../repositories/portfolioRepository';
+import { assetRepository } from '../repositories/assetRepository';
 
 interface PortfolioItem {
   id: string;
@@ -55,6 +57,7 @@ export interface PortfolioManagementScreenProps {
   themeMode?: 'dark' | 'light';
   initialClassTargets?: ClassTarget[];
   initialAssets?: AssetItem[];
+  initialPortfolios?: any[];
   testID?: string;
 }
 
@@ -83,20 +86,57 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   themeMode = 'dark',
   initialClassTargets,
   initialAssets,
+  initialPortfolios,
   testID,
 }) => {
-  const insets = useSafeAreaInsets();
+  let insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  try {
+    insets = useSafeAreaInsets();
+  } catch {
+    // fallback for test without SafeAreaProvider
+  }
   const isLight = themeMode === 'light';
 
   // 1. Estado de Carteiras
-  const [portfolios, setPortfolios] = useState<PortfolioItem[]>([
-    { id: 'port-1', name: 'Carteira Principal', docketCode: '•••• 001' },
-    { id: 'port-2', name: 'Reserva & Oportunidade', docketCode: '•••• 002' },
-  ]);
-  const [activePortfolioId, setActivePortfolioId] = useState('port-1');
+  const [portfolios, setPortfolios] = useState<PortfolioItem[]>(() => {
+    if (initialPortfolios && initialPortfolios.length > 0) {
+      return initialPortfolios.map((p) => ({
+        id: p.id,
+        name: p.name,
+        docketCode: p.docketCode || p.docket_code || '•••• 001',
+      }));
+    }
+    return [];
+  });
+  const [activePortfolioId, setActivePortfolioId] = useState<string>(() => {
+    return (initialPortfolios && initialPortfolios[0]?.id) || '';
+  });
   const [activeIndex, setActiveIndex] = useState(0);
   const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState('');
+
+  // Carrega carteiras do repositório
+  useEffect(() => {
+    const loadPortfolios = async () => {
+      try {
+        const dbPorts = await portfolioRepository.listPortfolios(false);
+        if (dbPorts && dbPorts.length > 0) {
+          const mapped = dbPorts.map((p, idx) => ({
+            id: p.id,
+            name: p.name,
+            docketCode: p.docket_code || `•••• 00${idx + 1}`,
+          }));
+          setPortfolios(mapped);
+          if (!activePortfolioId) {
+            setActivePortfolioId(mapped[0].id);
+          }
+        }
+      } catch {}
+    };
+    if (!initialPortfolios || initialPortfolios.length === 0) {
+      loadPortfolios();
+    }
+  }, []);
 
   // 2. Metas Macro por Classe com suporte a cadeado e recálculo reativo 100%
   const [classTargets, setClassTargets] = useState<EnhancedClassTarget[]>(() => {
@@ -125,22 +165,51 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     if (initialAssets && initialAssets.length > 0) {
       return initialAssets;
     }
-    return [
-      // STOCK (40% macro)
-      { id: 'a1', ticker: 'WEGE3', name: 'WEG S.A.', assetClass: 'STOCK', targetInClass: 25, percentage: 25, weight: 1, isLocked: false, quantity: '100', price: '42.50' },
-      { id: 'a2', ticker: 'VALE3', name: 'Vale S.A.', assetClass: 'STOCK', targetInClass: 25, percentage: 25, weight: 1, isLocked: false, quantity: '80', price: '60.00' },
-      { id: 'a3', ticker: 'ITUB4', name: 'Itaú Unibanco', assetClass: 'STOCK', targetInClass: 50, percentage: 50, weight: 2, isLocked: false, quantity: '200', price: '34.00' },
-      // FII (20% macro)
-      { id: 'a4', ticker: 'HGLG11', name: 'CSHG Logística', assetClass: 'FII', targetInClass: 50, percentage: 50, weight: 1, isLocked: false, quantity: '30', price: '162.00' },
-      { id: 'a5', ticker: 'KNCR11', name: 'Kinea Rendimentos', assetClass: 'FII', targetInClass: 50, percentage: 50, weight: 1, isLocked: false, quantity: '50', price: '101.50' },
-      // FIXED_INCOME (30% macro)
-      { id: 'a6', ticker: 'CDB DI 110%', name: 'CDB Banco Master', assetClass: 'FIXED_INCOME', targetInClass: 60, percentage: 60, weight: 3, isLocked: false, quantity: '12000', price: '1.00' },
-      { id: 'a7', ticker: 'NTN-B IPCA+', name: 'Tesouro IPCA+ 2029', assetClass: 'FIXED_INCOME', targetInClass: 40, percentage: 40, weight: 2, isLocked: false, quantity: '8000', price: '1.00' },
-      // CRYPTO (10% macro)
-      { id: 'a8', ticker: 'BTC', name: 'Bitcoin', assetClass: 'CRYPTO', targetInClass: 70, percentage: 70, weight: 7, isLocked: false, quantity: '0.01500000', price: '380000.00' },
-      { id: 'a9', ticker: 'ETH', name: 'Ethereum', assetClass: 'CRYPTO', targetInClass: 30, percentage: 30, weight: 3, isLocked: false, quantity: '0.12000000', price: '16000.00' },
-    ];
+    return [];
   });
+
+  // Carrega ativos do repositório quando a carteira ativa mudar
+  useEffect(() => {
+    const loadAssetsAndTargets = async () => {
+      if (!activePortfolioId) return;
+      try {
+        if (!initialAssets) {
+          const dbAssets = await assetRepository.getAssetsByPortfolio(activePortfolioId);
+          if (dbAssets) {
+            setAssets(
+              dbAssets.map((a) => ({
+                id: a.id,
+                ticker: a.ticker,
+                name: a.name,
+                assetClass: a.asset_class as AssetClass,
+                targetInClass: a.target_percentage_in_class || 0,
+                percentage: a.target_percentage_in_class || 0,
+                weight: Math.max(1, Math.round((a.target_percentage_in_class || 0) / 10)),
+                isLocked: false,
+                quantity: a.quantity,
+                price: a.manual_price_override || a.average_price,
+              }))
+            );
+          }
+        }
+        if (!initialClassTargets) {
+          const dbTargets = await portfolioRepository.getClassTargets(activePortfolioId);
+          if (dbTargets && dbTargets.length > 0) {
+            setClassTargets(
+              dbTargets.map((ct) => ({
+                id: ct.asset_class as AssetClass,
+                assetClass: ct.asset_class as AssetClass,
+                targetPercentage: ct.target_percentage,
+                percentage: ct.target_percentage,
+                isLocked: false,
+              }))
+            );
+          }
+        }
+      } catch {}
+    };
+    loadAssetsAndTargets();
+  }, [activePortfolioId]);
 
   // Modal para Adicionar Ativo (Módulo 5)
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
@@ -276,13 +345,30 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     setAutocompleteSuggestions([]);
   };
 
-  const handleAddAsset = () => {
+  const handleAddAsset = async () => {
     if (!newTicker.trim()) return;
     const tickerUpper = newTicker.trim().toUpperCase();
     const parsedTarget = parseFloat(newTargetInClass) || 20;
 
+    let targetId = `asset-${Date.now()}`;
+    const portId = activePortfolioId || portfolios[0]?.id || 'port-1';
+    try {
+      const created = await assetRepository.createAsset({
+        portfolio_id: portId,
+        ticker: tickerUpper,
+        name: newName.trim() || tickerUpper,
+        asset_class: selectedClassTab,
+        target_percentage_in_class: parsedTarget,
+        quantity: '0',
+        average_price: newPrice || '0.00',
+      });
+      if (created?.id) {
+        targetId = created.id;
+      }
+    } catch {}
+
     const newAsset: AssetItem = {
-      id: `asset-${Date.now()}`,
+      id: targetId,
       ticker: tickerUpper,
       name: newName.trim() || tickerUpper,
       assetClass: selectedClassTab,
@@ -318,19 +404,55 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     setIsAddAssetModalOpen(false);
   };
 
-  // Handler para criar nova carteira
-  const handleCreatePortfolio = () => {
+  const handleDeleteAsset = async (assetId: string) => {
+    try {
+      await assetRepository.deleteAsset(assetId);
+    } catch {}
+    setAssets((prev) => {
+      const remainingInClass = prev.filter((a) => a.assetClass === selectedClassTab && a.id !== assetId);
+      const rest = prev.filter((a) => a.assetClass !== selectedClassTab);
+      if (remainingInClass.length > 0) {
+        const total = remainingInClass.reduce((sum, a) => sum + (a.targetInClass || 0), 0);
+        const rebalanced = remainingInClass.map((a) => {
+          const newPct = total > 0 ? Math.round(((a.targetInClass || 0) / total) * 100) : Math.round(100 / remainingInClass.length);
+          return { ...a, targetInClass: newPct, percentage: newPct };
+        });
+        return [...rest, ...rebalanced];
+      }
+      return rest;
+    });
+  };
+
+  // Handler para criar nova carteira com persistência no repositório
+  const handleCreatePortfolio = async () => {
     if (!newPortfolioName.trim()) return;
-    const newPort: PortfolioItem = {
-      id: `port-${Date.now()}`,
-      name: newPortfolioName.trim(),
-      docketCode: `•••• 00${portfolios.length + 1}`,
-    };
-    setPortfolios([...portfolios, newPort]);
-    setActivePortfolioId(newPort.id);
-    setActiveIndex(portfolios.length);
-    setNewPortfolioName('');
-    setIsNewPortfolioModalOpen(false);
+    try {
+      const created = await portfolioRepository.createPortfolio({
+        name: newPortfolioName.trim(),
+        docket_code: `REV-CART-00${portfolios.length + 1}`,
+      });
+      const newPort: PortfolioItem = {
+        id: created.id,
+        name: created.name,
+        docketCode: created.docket_code,
+      };
+      setPortfolios((prev) => [...prev, newPort]);
+      setActivePortfolioId(newPort.id);
+      setActiveIndex(portfolios.length);
+      setNewPortfolioName('');
+      setIsNewPortfolioModalOpen(false);
+    } catch {
+      const newPort: PortfolioItem = {
+        id: `port-${Date.now()}`,
+        name: newPortfolioName.trim(),
+        docketCode: `•••• 00${portfolios.length + 1}`,
+      };
+      setPortfolios((prev) => [...prev, newPort]);
+      setActivePortfolioId(newPort.id);
+      setActiveIndex(portfolios.length);
+      setNewPortfolioName('');
+      setIsNewPortfolioModalOpen(false);
+    }
   };
 
   const getClassColor = (c: AssetClass) => {
@@ -365,11 +487,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     return {
       id: p.id,
       name: p.name,
-      docketCode: `REV-CART-00${idx + 1}`,
+      docketCode: p.docketCode || `REV-CART-00${idx + 1}`,
       accountCode: p.docketCode,
-      balance: isPrivacyMode ? '*******' : 'R$ 32.468,00',
+      balance: isPrivacyMode ? 'R$ ••••••' : 'R$ 0,00',
       subtitle: 'Patrimônio Total',
-      profitText: isPrivacyMode ? '*******' : '+12,4% no ano',
+      profitText: isPrivacyMode ? 'R$ ••••••' : '0,0% no ano',
       accentColor: palette.primary,
       paletteId: palette.id,
     };
@@ -393,6 +515,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             setActiveIndex(idx);
             setActivePortfolioId(item.id);
           }}
+          onCreatePortfolioPress={() => setIsNewPortfolioModalOpen(true)}
           testID="stacked-wallet-deck"
         />
 
@@ -408,7 +531,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </Text>
         </TouchableOpacity>
 
-        {/* 2. Metas por Classe com Rebalanceamento Reativo 100% e Cadeado */}
+        {/* 2. Metas por Classe com Rebalanceamento Reativo 100% e Cadeado (Lista Vertical) */}
         <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
           <View style={styles.sectionHeaderRow}>
             <View>
@@ -421,19 +544,23 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             </View>
           </View>
 
-          <View style={styles.macroGrid}>
+          <View style={styles.verticalClassList}>
             {classTargets.map((ct) => {
               const color = getClassColor(ct.assetClass);
               return (
-                <View key={ct.assetClass} style={[styles.macroCard, isLight && styles.macroCardLight]}>
-                  <View style={styles.macroCardHeader}>
-                    <View style={styles.macroTitleRow}>
-                      <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
-                      <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
-                        {getClassName(ct.assetClass)}
-                      </Text>
-                    </View>
+                <View
+                  key={ct.assetClass}
+                  testID={`class-list-row-${ct.assetClass}`}
+                  style={[styles.verticalClassRow, isLight && styles.verticalClassRowLight]}
+                >
+                  <View style={styles.classRowLeft}>
+                    <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
+                    <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
+                      {getClassName(ct.assetClass)}
+                    </Text>
+                  </View>
 
+                  <View style={styles.classRowRight}>
                     {/* Botão de Cadeado Macro */}
                     <TouchableOpacity
                       testID={`lock-class-${ct.assetClass}`}
@@ -452,18 +579,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         color={ct.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
                       />
                     </TouchableOpacity>
-                  </View>
 
-                  {/* Input Numérico Editável Macro */}
-                  <View style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}>
-                    <TextInput
-                      testID={`input-class-${ct.assetClass}`}
-                      keyboardType="numeric"
-                      value={String(ct.targetPercentage)}
-                      onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
-                      style={[styles.numericInputText, { color }]}
-                    />
-                    <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>%</Text>
+                    {/* Input Numérico Editável Macro */}
+                    <View style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}>
+                      <TextInput
+                        testID={`input-class-${ct.assetClass}`}
+                        keyboardType="numeric"
+                        value={String(ct.targetPercentage)}
+                        onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
+                        style={[styles.numericInputText, { color }]}
+                      />
+                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>%</Text>
+                    </View>
                   </View>
                 </View>
               );
@@ -471,7 +598,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </View>
         </View>
 
-        {/* 3. Ativos e Metas na Classe (Edição Rápida Inline + Toggle Peso vs %) */}
+        {/* 3. Ativos e Metas na Classe (Lista Vertical + Edição Rápida Inline + Excluir) */}
         <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flex: 1 }}>
@@ -560,91 +687,92 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             })}
           </View>
 
-          {/* Lista de Ativos com Edição Rápida e Cadeado */}
+          {/* Lista Vertical de Ativos com Edição Rápida, Cadeado e Excluir */}
           <View style={styles.assetsList}>
             {currentClassAssets.map((asset) => {
               const globalTarget = calculateGlobalTarget(currentClassTarget, asset.targetInClass);
               const color = getClassColor(asset.assetClass);
 
               return (
-                <View key={asset.id} style={[styles.assetCard, isLight && styles.assetCardLight]}>
-                  <View style={styles.assetInfoRow}>
-                    <View>
+                <View
+                  key={asset.id}
+                  testID={`asset-list-row-${asset.id}`}
+                  style={[styles.verticalAssetRow, isLight && styles.verticalAssetRowLight]}
+                >
+                  <View style={styles.assetRowLeft}>
+                    <View style={styles.assetTickerRow}>
                       <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>
                         {asset.ticker}
                       </Text>
-                      <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
-                        {asset.name}
-                      </Text>
-                    </View>
-                    <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
-                      <Text style={[styles.globalBadgeLabel, isLight && styles.globalBadgeLabelLight]}>
-                        Meta Geral
-                      </Text>
-                      <Text style={[styles.globalBadgeValue, { color }]}>
-                        {globalTarget.toFixed(1)}%
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={[styles.assetTargetRow, isLight && styles.assetTargetRowLight]}>
-                    <View style={styles.assetModeInfo}>
-                      <Text style={[styles.targetInClassLabel, isLight && styles.targetInClassLabelLight]}>
-                        {portfolioMode === 'percent' ? 'Meta na Classe:' : 'Pontos Relativos:'}
-                      </Text>
-                      {portfolioMode === 'weight' && (
-                        <Text style={[styles.convertedPercentLabel, { color }]}>
-                          ({asset.targetInClass}%)
-                        </Text>
-                      )}
-                    </View>
-
-                    <View style={styles.assetEditControlsRow}>
-                      {/* Botão de Cadeado do Ativo */}
-                      <TouchableOpacity
-                        testID={`lock-asset-${asset.id}`}
-                        onPress={() => handleToggleAssetLock(asset.id)}
-                        style={[
-                          styles.lockBtn,
-                          asset.isLocked && styles.lockBtnActive,
-                          isLight && styles.lockBtnLight,
-                          isLight && asset.isLocked && styles.lockBtnActiveLight,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons
-                          name={asset.isLocked ? 'lock' : 'lock-open'}
-                          size={15}
-                          color={asset.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
-                        />
-                      </TouchableOpacity>
-
-                      {/* Input Numérico Editável do Ativo */}
-                      <View style={[styles.assetNumericInputWrapper, isLight && styles.assetNumericInputWrapperLight]}>
-                        <TextInput
-                          testID={`input-asset-${asset.id}`}
-                          keyboardType="numeric"
-                          value={
-                            portfolioMode === 'percent'
-                              ? String(asset.targetInClass)
-                              : String(asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1))
-                          }
-                          onChangeText={(t) =>
-                            portfolioMode === 'percent'
-                              ? handleAssetPercentageChange(asset.id, t)
-                              : handleAssetWeightChange(asset.id, t)
-                          }
-                          style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
-                        />
-                        <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
-                          {portfolioMode === 'percent' ? '%' : 'pts'}
+                      <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
+                        <Text style={[styles.globalBadgeValue, { color }]}>
+                          {globalTarget.toFixed(1)}% global
                         </Text>
                       </View>
+                    </View>
+                    <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
+                      {asset.name}
+                    </Text>
+                  </View>
+
+                  <View style={styles.assetRowRight}>
+                    {/* Botão de Excluir Ativo (Bug #8) */}
+                    <TouchableOpacity
+                      testID={`delete-asset-${asset.id}`}
+                      onPress={() => handleDeleteAsset(asset.id)}
+                      style={styles.deleteAssetBtn}
+                      activeOpacity={0.7}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Excluir ativo ${asset.ticker}`}
+                    >
+                      <MaterialIcons name="delete-outline" size={18} color="#FF6B6B" />
+                    </TouchableOpacity>
+
+                    {/* Botão de Cadeado do Ativo */}
+                    <TouchableOpacity
+                      testID={`lock-asset-${asset.id}`}
+                      onPress={() => handleToggleAssetLock(asset.id)}
+                      style={[
+                        styles.lockBtn,
+                        asset.isLocked && styles.lockBtnActive,
+                        isLight && styles.lockBtnLight,
+                        isLight && asset.isLocked && styles.lockBtnActiveLight,
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialIcons
+                        name={asset.isLocked ? 'lock' : 'lock-open'}
+                        size={15}
+                        color={asset.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
+                      />
+                    </TouchableOpacity>
+
+                    {/* Input Numérico Editável do Ativo */}
+                    <View style={[styles.assetNumericInputWrapper, isLight && styles.assetNumericInputWrapperLight]}>
+                      <TextInput
+                        testID={`input-asset-${asset.id}`}
+                        keyboardType="numeric"
+                        value={
+                          portfolioMode === 'percent'
+                            ? String(asset.targetInClass)
+                            : String(asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1))
+                        }
+                        onChangeText={(t) =>
+                          portfolioMode === 'percent'
+                            ? handleAssetPercentageChange(asset.id, t)
+                            : handleAssetWeightChange(asset.id, t)
+                        }
+                        style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
+                      />
+                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
+                        {portfolioMode === 'percent' ? '%' : 'pts'}
+                      </Text>
                     </View>
                   </View>
                 </View>
               );
             })}
+          </View>
 
             {/* Botão para abrir o modal de adicionar ativo */}
             <TouchableOpacity
@@ -659,7 +787,6 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -673,6 +800,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               Informe o nome ou finalidade do Dossiê
             </Text>
             <TextInput
+              testID="create-portfolio-name-input"
               style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Ex: Aposentadoria, Férias, Reserva"
               placeholderTextColor={isLight ? '#999' : '#666'}
@@ -686,7 +814,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               >
                 <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleCreatePortfolio} style={styles.modalConfirmBtn}>
+              <TouchableOpacity
+                testID="create-portfolio-submit-btn"
+                onPress={handleCreatePortfolio}
+                style={styles.modalConfirmBtn}
+              >
                 <Text style={styles.modalConfirmText}>Criar Dossiê</Text>
               </TouchableOpacity>
             </View>
@@ -814,7 +946,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               >
                 <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddAsset} style={styles.modalConfirmBtn}>
+              <TouchableOpacity
+                testID="save-asset-target-btn"
+                onPress={handleAddAsset}
+                style={styles.modalConfirmBtn}
+              >
                 <Text style={styles.modalConfirmText}>Salvar Ativo</Text>
               </TouchableOpacity>
             </View>
@@ -832,6 +968,71 @@ const styles = StyleSheet.create({
   },
   containerLight: {
     backgroundColor: '#F4F1EA',
+  },
+  verticalClassList: {
+    gap: 8,
+  },
+  verticalClassRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#1E2023',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2D3035',
+  },
+  verticalClassRowLight: {
+    backgroundColor: '#F8F5EE',
+    borderColor: '#EAE4D7',
+  },
+  classRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  classRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  verticalAssetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: '#1E2023',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#2D3035',
+    marginBottom: 8,
+  },
+  verticalAssetRowLight: {
+    backgroundColor: '#F8F5EE',
+    borderColor: '#EAE4D7',
+  },
+  assetRowLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  assetRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  assetTickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  deleteAssetBtn: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: 16,

@@ -64,6 +64,59 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
+   * Auto-cadastra ativo se ainda não cadastrado na carteira (conforme especificação ponta a ponta)
+   * e executa atomicamente a transação atualizando PM e quantidade.
+   */
+  async createTransaction(
+    params: (CreateTransactionInput | (Omit<CreateTransactionInput, 'assetId'> & { assetId?: string; ticker?: string; assetClass?: string }))
+  ): Promise<TransactionExecutionResult> {
+    let targetAssetId = (params as any).assetId;
+    if (!targetAssetId && (params as any).ticker) {
+      const existingAssets = await this.assetRepo.getAssetsByPortfolio(params.portfolioId);
+      const found = existingAssets.find(
+        (a) => a.ticker.toUpperCase() === (params as any).ticker.toUpperCase()
+      );
+      if (found) {
+        targetAssetId = found.id;
+      } else {
+        const newAsset = await this.assetRepo.createAsset({
+          portfolio_id: params.portfolioId,
+          ticker: (params as any).ticker.toUpperCase(),
+          name: (params as any).ticker.toUpperCase(),
+          asset_class: (params as any).assetClass || 'STOCK',
+          quantity: '0',
+          average_price: '0.00',
+        });
+        targetAssetId = newAsset.id;
+      }
+    }
+
+    if (!targetAssetId) {
+      throw new Error('Identificador do ativo (assetId ou ticker) é obrigatório');
+    }
+
+    const result = await this.executeTransaction({
+      ...params,
+      assetId: targetAssetId,
+    });
+
+    const avgPriceDec = new Decimal(result.updatedAsset.average_price || 0);
+    const avgPrice8 = avgPriceDec.toFixed(8);
+    const updatedWith8 = await this.assetRepo.updateAsset(targetAssetId, {
+      quantity: result.updatedAsset.quantity,
+      average_price: avgPrice8,
+    });
+
+    return {
+      ...result,
+      updatedAsset: updatedWith8 || {
+        ...result.updatedAsset,
+        average_price: avgPrice8,
+      },
+    };
+  }
+
+  /**
    * S4-T02: Persistência transacional de compra/venda atualizando
    * atomicamente quantidade e preço médio do ativo no banco local.
    */
@@ -83,7 +136,16 @@ export class TransactionService implements ITransactionService {
       throw new Error('Taxas inválidas: não podem ser negativas');
     }
 
-    const asset = await this.assetRepo.getAssetById(params.assetId);
+    let asset = await this.assetRepo.getAssetById(params.assetId);
+    if (!asset) {
+      const portAssets = await this.assetRepo.getAssetsByPortfolio(params.portfolioId);
+      asset =
+        (portAssets || []).find(
+          (a) =>
+            a.id === params.assetId ||
+            ((params as any).ticker && a.ticker.toUpperCase() === (params as any).ticker.toUpperCase())
+        ) || null;
+    }
     if (!asset) {
       throw new Error('Ativo não encontrado na carteira');
     }
