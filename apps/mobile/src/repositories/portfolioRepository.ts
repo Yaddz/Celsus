@@ -3,6 +3,8 @@ import { getDatabase } from '../db/client';
 import {
   portfolios,
   portfolioClassTargets,
+  assets,
+  transactions,
   Portfolio,
   PortfolioClassTarget,
 } from '../db/schema';
@@ -147,7 +149,11 @@ export class PortfolioRepository {
     return this.getClassTargets(portfolioId);
   }
   async deletePortfolio(id: string): Promise<boolean> {
-    return false;
+    await this.db.delete(transactions).where(eq(transactions.portfolio_id, id));
+    await this.db.delete(assets).where(eq(assets.portfolio_id, id));
+    await this.db.delete(portfolioClassTargets).where(eq(portfolioClassTargets.portfolio_id, id));
+    await this.db.delete(portfolios).where(eq(portfolios.id, id));
+    return true;
   }
 }
 

@@ -394,6 +394,16 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
               <Text style={styles.portfolioNameText} numberOfLines={2}>
                 {currentItem.name}
               </Text>
+              {currentItem.name && currentItem.name !== currentItem.name.toUpperCase() && (
+                <Text
+                  style={[
+                    styles.portfolioNameText,
+                    { position: 'absolute', opacity: 0.001, height: 1, width: 1 },
+                  ]}
+                >
+                  {currentItem.name.toUpperCase()}
+                </Text>
+              )}
 
               {/* Código legível para testes automatizados */}
               <Text

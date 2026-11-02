@@ -115,6 +115,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [activeIndex, setActiveIndex] = useState(0);
   const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(false);
   const [newPortfolioName, setNewPortfolioName] = useState('');
+  const [portfolioBalances, setPortfolioBalances] = useState<Record<string, number>>({});
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   // Carrega carteiras do repositório
   useEffect(() => {
@@ -142,11 +144,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   // 2. Metas Macro por Classe com suporte a cadeado e recálculo reativo 100%
   const [classTargets, setClassTargets] = useState<EnhancedClassTarget[]>(() => {
     if (initialClassTargets && initialClassTargets.length > 0) {
-      return initialClassTargets.map((ct) => ({
-        id: ct.assetClass,
-        assetClass: ct.assetClass,
-        targetPercentage: ct.targetPercentage,
-        percentage: ct.targetPercentage,
+      return initialClassTargets.map((ct: any) => ({
+        id: (ct.assetClass || ct.asset_class) as AssetClass,
+        assetClass: (ct.assetClass || ct.asset_class) as AssetClass,
+        targetPercentage: ct.targetPercentage ?? ct.target_percentage ?? 0,
+        percentage: ct.targetPercentage ?? ct.target_percentage ?? 0,
         isLocked: false,
       }));
     }
@@ -174,9 +176,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     const loadAssetsAndTargets = async () => {
       if (!activePortfolioId) return;
       try {
-        if (!initialAssets) {
+        if (!initialAssets || initialAssets.length === 0) {
           const dbAssets = await assetRepository.getAssetsByPortfolio(activePortfolioId);
-          if (dbAssets) {
+          if (dbAssets && dbAssets.length > 0) {
             setAssets(
               dbAssets.map((a) => ({
                 id: a.id,
@@ -193,7 +195,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             );
           }
         }
-        if (!initialClassTargets) {
+        if (!initialClassTargets || initialClassTargets.length === 0) {
           const dbTargets = await portfolioRepository.getClassTargets(activePortfolioId);
           if (dbTargets && dbTargets.length > 0) {
             setClassTargets(
@@ -211,6 +213,28 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     };
     loadAssetsAndTargets();
   }, [activePortfolioId]);
+
+  // Carrega saldos reais das carteiras
+  useEffect(() => {
+    const calculateBalances = async () => {
+      const balances: Record<string, number> = {};
+      for (const p of portfolios) {
+        try {
+          const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
+          const total = pAssets.reduce((sum, a) => {
+            const q = parseFloat(a.quantity || '0') || 0;
+            const pr = parseFloat(a.manual_price_override || a.average_price || '0') || 0;
+            return sum + q * pr;
+          }, 0);
+          balances[p.id] = total;
+        } catch {
+          balances[p.id] = 0;
+        }
+      }
+      setPortfolioBalances(balances);
+    };
+    calculateBalances();
+  }, [portfolios, assets]);
 
   // Modal para Adicionar Ativo (Módulo 5)
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
@@ -238,16 +262,52 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const handleClassPercentageChange = (assetClass: AssetClass, text: string) => {
     const val = parseFloat(text) || 0;
     setClassTargets((prev) => {
-      const recalculated = recalculateUnlockedTargets(
-        prev.map((p) => ({ ...p, percentage: p.targetPercentage })),
-        assetClass,
-        val
-      );
-      return recalculated.map((r) => ({
-        ...r,
-        targetPercentage: r.percentage,
-      }));
+      let updated: EnhancedClassTarget[];
+      if (prev.length <= 1) {
+        updated = prev.map((p) => (p.assetClass === assetClass ? { ...p, targetPercentage: val } : p));
+      } else {
+        const recalculated = recalculateUnlockedTargets(
+          prev.map((p) => ({ ...p, percentage: p.targetPercentage })),
+          assetClass,
+          val
+        );
+        updated = recalculated.map((r) => ({
+          ...r,
+          targetPercentage: r.percentage,
+        }));
+      }
+      if (activePortfolioId) {
+        portfolioRepository
+          .setClassTargets(
+            activePortfolioId,
+            updated.map((u) => ({
+              asset_class: u.assetClass,
+              target_percentage: u.targetPercentage,
+            }))
+          )
+          .catch(() => {});
+      }
+      return updated;
     });
+  };
+
+  const handleDeleteActivePortfolio = async () => {
+    if (!activePortfolioId) return;
+    try {
+      await portfolioRepository.deletePortfolio(activePortfolioId);
+    } catch {}
+
+    const remaining = portfolios.filter((p) => p.id !== activePortfolioId);
+    setPortfolios(remaining);
+    setIsDeleteModalOpen(false);
+    if (remaining.length > 0) {
+      setActivePortfolioId(remaining[0].id);
+      setActiveIndex(0);
+    } else {
+      setActivePortfolioId('');
+      setActiveIndex(0);
+      setAssets([]);
+    }
   };
 
   // -------------------------------------------------------------------------
@@ -499,12 +559,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   // Mapeamento dos portfolios para o StackedWalletDeck
   const deckPortfolios: StackedWalletItem[] = portfolios.map((p, idx) => {
     const palette = getPortfolioPalette(idx);
+    const balanceNum = portfolioBalances[p.id] ?? 0;
+    const formattedBalance = isPrivacyMode
+      ? 'R$ ••••••'
+      : `R$ ${balanceNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return {
       id: p.id,
       name: p.name,
       docketCode: p.docketCode || `REV-CART-00${idx + 1}`,
       accountCode: p.docketCode,
-      balance: isPrivacyMode ? 'R$ ••••••' : 'R$ 0,00',
+      balance: formattedBalance,
       subtitle: 'Patrimônio Total',
       profitText: isPrivacyMode ? 'R$ ••••••' : '0,0% no ano',
       accentColor: palette.primary,
@@ -534,17 +598,22 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           testID="stacked-wallet-deck"
         />
 
-        {/* Botão de adicionar nova carteira */}
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => setIsNewPortfolioModalOpen(true)}
-          style={[styles.addPortfolioBtn, isLight && styles.addPortfolioBtnLight]}
-        >
-          <MaterialIcons name="add" size={18} color={colors.primary} />
-          <Text style={[styles.addPortfolioBtnText, isLight && styles.addPortfolioBtnTextLight]}>
-            Adicionar Nova Carteira
-          </Text>
-        </TouchableOpacity>
+        {/* Ações da Carteira Ativa: Excluir Carteira */}
+        {portfolios.length > 0 && (
+          <View style={styles.portfolioActionsRow}>
+            <TouchableOpacity
+              testID="delete-portfolio-btn"
+              activeOpacity={0.8}
+              onPress={() => setIsDeleteModalOpen(true)}
+              style={[styles.deletePortfolioBtn, isLight && styles.deletePortfolioBtnLight]}
+            >
+              <MaterialIcons name="delete-outline" size={16} color="#E05252" />
+              <Text style={[styles.deletePortfolioBtnText, isLight && styles.deletePortfolioBtnTextLight]}>
+                Excluir Carteira
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* 2. Metas por Classe com Rebalanceamento Reativo 100% e Cadeado (Lista Vertical) */}
         <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
@@ -596,7 +665,10 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                     </TouchableOpacity>
 
                     {/* Input Numérico Editável Macro */}
-                    <View style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}>
+                    <View
+                      testID={`input-wrapper-class-${ct.assetClass}`}
+                      style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}
+                    >
                       <TextInput
                         testID={`input-class-${ct.assetClass}`}
                         keyboardType="numeric"
@@ -604,7 +676,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
                         style={[styles.numericInputText, { color }]}
                       />
-                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>%</Text>
+                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>% meta</Text>
                     </View>
                   </View>
                 </View>
@@ -621,7 +693,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                 Ativos na Categoria
               </Text>
               <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>
-                Ativos em {getClassName(selectedClassTab)} (Meta Macro: {currentClassTarget}%)
+                {`Ativos em ${getClassName(selectedClassTab)} (Meta Macro: ${currentClassTarget}%)`}
               </Text>
             </View>
 
@@ -645,7 +717,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                     isLight && styles.modeToggleBtnTextLight,
                   ]}
                 >
-                  %
+                  Pct
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -695,7 +767,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                       isTabActive && { color: col, fontWeight: '700' },
                     ]}
                   >
-                    {getClassName(c)}
+                    {c === 'STOCK' ? 'Ações B3' : getClassName(c)}
                   </Text>
                 </TouchableOpacity>
               );
@@ -780,7 +852,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
                       />
                       <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
-                        {portfolioMode === 'percent' ? '%' : 'pts'}
+                        {portfolioMode === 'percent' ? '% meta' : 'pts'}
                       </Text>
                     </View>
                   </View>
@@ -798,7 +870,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             >
               <MaterialIcons name="add" size={16} color={colors.primary} />
               <Text style={styles.addAssetBtnText}>
-                Adicionar Ativo em {getClassName(selectedClassTab)}
+                {`Adicionar Ativo em ${getClassName(selectedClassTab)}`}
               </Text>
             </TouchableOpacity>
           </View>
@@ -847,7 +919,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
             <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>ADICIONAR ATIVO</Text>
             <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
-              Classe: {getClassName(selectedClassTab)}
+              {`Classe: ${getClassName(selectedClassTab)}`}
             </Text>
 
             {/* Toggle entre Porcentagem (%) e Peso no Modal */}
@@ -861,15 +933,17 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   isLight && addAssetMode === 'percent' && styles.modalModeBtnActiveLight,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.modalModeBtnText,
-                    addAssetMode === 'percent' && styles.modalModeBtnTextActive,
-                    isLight && styles.modalModeBtnTextLight,
-                  ]}
-                >
-                  Porcentagem (%)
-                </Text>
+                <View testID="mode-toggle-percent">
+                  <Text
+                    style={[
+                      styles.modalModeBtnText,
+                      addAssetMode === 'percent' && styles.modalModeBtnTextActive,
+                      isLight && styles.modalModeBtnTextLight,
+                    ]}
+                  >
+                    Porcentagem (%)
+                  </Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity
                 testID="add-asset-mode-weight"
@@ -880,16 +954,26 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   isLight && addAssetMode === 'weight' && styles.modalModeBtnActiveLight,
                 ]}
               >
-                <Text
-                  style={[
-                    styles.modalModeBtnText,
-                    addAssetMode === 'weight' && styles.modalModeBtnTextActive,
-                    isLight && styles.modalModeBtnTextLight,
-                  ]}
-                >
-                  Pontos (Pts)
-                </Text>
+                <View testID="mode-toggle-weight">
+                  <Text
+                    style={[
+                      styles.modalModeBtnText,
+                      addAssetMode === 'weight' && styles.modalModeBtnTextActive,
+                      isLight && styles.modalModeBtnTextLight,
+                    ]}
+                  >
+                    Pontos (Pts)
+                  </Text>
+                </View>
               </TouchableOpacity>
+            </View>
+
+            {/* Dica explicativa de % global */}
+            <View testID="global-target-hint" style={[styles.globalHintBox, isLight && styles.globalHintBoxLight]}>
+              <MaterialIcons name="lightbulb-outline" size={16} color={colors.primary} />
+              <Text style={[styles.globalHintText, isLight && styles.globalHintTextLight]}>
+                % global = fatia deste ativo no patrimônio total da carteira.
+              </Text>
             </View>
 
             {/* Card Explicativo de Peso (weight-helper-card) */}
@@ -953,14 +1037,22 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               onChangeText={setNewName}
             />
 
-            <TextInput
-              style={[styles.modalInput, isLight && styles.modalInputLight]}
-              placeholder={addAssetMode === 'percent' ? 'Alocação desejada na classe % (ex: 20)' : 'Pontos relativos (ex: 2)'}
-              placeholderTextColor={isLight ? '#999' : '#666'}
-              keyboardType="numeric"
-              value={newTargetInClass}
-              onChangeText={setNewTargetInClass}
-            />
+            <View style={[styles.modalTargetInputWrapper, isLight && styles.modalTargetInputWrapperLight]}>
+              <TextInput
+                style={[styles.modalTargetInputText, isLight && styles.modalTargetInputTextLight]}
+                placeholder={addAssetMode === 'percent' ? 'Alocação desejada na classe % (ex: 20)' : 'Pontos relativos (ex: 2)'}
+                placeholderTextColor={isLight ? '#999' : '#666'}
+                keyboardType="numeric"
+                value={newTargetInClass}
+                onChangeText={setNewTargetInClass}
+              />
+              <Text
+                testID="add-asset-unit-suffix"
+                style={[styles.modalTargetUnitSuffix, isLight && styles.modalTargetUnitSuffixLight]}
+              >
+                {addAssetMode === 'percent' ? '%' : 'pts'}
+              </Text>
+            </View>
 
             <View style={styles.modalButtonsRow}>
               <TouchableOpacity
@@ -975,6 +1067,35 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                 style={styles.modalConfirmBtn}
               >
                 <Text style={styles.modalConfirmText}>Salvar Ativo</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal: Confirmação de Exclusão de Carteira em Cascata */}
+      <Modal visible={isDeleteModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
+            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>
+              EXCLUIR CARTEIRA
+            </Text>
+            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight, { marginBottom: 16 }]}>
+              Tem certeza de que deseja excluir esta carteira? Todos os ativos e transações associados serão removidos definitivamente em cascata.
+            </Text>
+            <View style={styles.modalButtonsRow}>
+              <TouchableOpacity
+                onPress={() => setIsDeleteModalOpen(false)}
+                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
+              >
+                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                testID="confirm-delete-portfolio-btn"
+                onPress={handleDeleteActivePortfolio}
+                style={[styles.modalConfirmBtn, { backgroundColor: '#E05252' }]}
+              >
+                <Text style={styles.modalConfirmText}>Confirmar Exclusão</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1229,6 +1350,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderWidth: 1,
     borderColor: '#26292C',
+    width: 72,
+    justifyContent: 'flex-end',
   },
   numericInputWrapperLight: {
     backgroundColor: '#FFFFFF',
@@ -1236,10 +1359,11 @@ const styles = StyleSheet.create({
   },
   numericInputText: {
     fontFamily: typography.fontFamily,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    flex: 1,
     padding: 0,
+    textAlign: 'right',
+    minWidth: 32,
   },
   inputUnitText: {
     fontFamily: typography.fontFamily,
@@ -1645,5 +1769,95 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#E05252',
     lineHeight: 15,
+  },
+  portfolioActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginVertical: 8,
+    paddingHorizontal: 4,
+  },
+  deletePortfolioBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(224, 82, 82, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(224, 82, 82, 0.3)',
+  },
+  deletePortfolioBtnLight: {
+    backgroundColor: '#FDECEC',
+    borderColor: '#F5C6C6',
+  },
+  deletePortfolioBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#E05252',
+  },
+  deletePortfolioBtnTextLight: {
+    color: '#C92A2A',
+  },
+  globalHintBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#1E2023',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#2D3035',
+  },
+  globalHintBoxLight: {
+    backgroundColor: '#F8F5EE',
+    borderColor: '#EAE4D7',
+  },
+  globalHintText: {
+    flex: 1,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8C90',
+    lineHeight: 15,
+  },
+  globalHintTextLight: {
+    color: '#6E6A63',
+  },
+  modalTargetInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111315',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#26292C',
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  modalTargetInputWrapperLight: {
+    backgroundColor: '#F8F5EE',
+    borderColor: '#EAE4D7',
+  },
+  modalTargetInputText: {
+    flex: 1,
+    paddingVertical: 10,
+    color: colors.parchmentPale,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+  },
+  modalTargetInputTextLight: {
+    color: '#111315',
+  },
+  modalTargetUnitSuffix: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+    marginLeft: 6,
+  },
+  modalTargetUnitSuffixLight: {
+    color: colors.primary,
   },
 });
