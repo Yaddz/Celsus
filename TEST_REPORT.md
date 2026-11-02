@@ -2450,11 +2450,28 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
   ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	2.565s
   Total Backend Go: 25 testes | 25 PASS | 0 FAIL
   ```
-- **Consolidação Final do Projeto Celsus (Sprint 36 Concluída):**
-  - **57 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
-  - **395 testes automatizados aprovados (25 em Go + 370 em TypeScript/Jest)**
-  - **Zero adulterações em testes bloqueados (`node scripts/test-lock.js verify` = APROVADO)**
-  - **Bugs B1, B2, B3, B4 e B17 eliminados com sucesso; Decisão Q1 implementada rigorosamente.**
+### 2.37. Sprint 37: Cotação Yahoo via Backend Go, Singleflight e Campo de Ativo Livre (SPEC V5 — Item B)
+
+#### 2.37.1. Tabela de Casos de Teste (Fase A — Red Phase & Lock)
+
+| ID | Arquivo de Teste | Caso de Teste | Descrição da Regra / Comportamento Verificado | Hash SHA-256 do Teste Bloqueado | Status Fase A |
+|---|---|---|---|---|---|
+| `S37-T01` | `services/market-api/internal/yahoo/singleflight_cache_test.go` | Singleflight Deduplication (50 calls -> 1 upstream) | 50 chamadas concorrentes simultâneas ao mesmo ticker colapsam em 1 requisição upstream | `8b4af29bccc6c481c0f1bb3579f93dbf162be18214d2bf6e6a7501294ec075ee` | 🔴 FAIL (Bug B11) |
+| `S37-T02` | `services/market-api/internal/yahoo/singleflight_cache_test.go` | Negative Cache on HTTP 429 Too Many Requests | Respostas 429 geram cache negativo curto com backoff evitando sobrecarga imediata | `8b4af29bccc6c481c0f1bb3579f93dbf162be18214d2bf6e6a7501294ec075ee` | 🔴 FAIL (Bug B11) |
+| `S37-T03` | `services/market-api/internal/yahoo/singleflight_cache_test.go` | Crypto Symbol Conversion With AssetClass | Tickers de criptomoedas com assetClass explícita convertem para `XXX-BRL` | `8b4af29bccc6c481c0f1bb3579f93dbf162be18214d2bf6e6a7501294ec075ee` | 🟢 PASS |
+| `S37-T04` | `services/market-api/internal/http/quotes_history_v5_test.go` | Quotes Validation and Max 20 Limit | Rejeita requisições com mais de 20 tickers e valida caracteres alfanuméricos contra injeções | `037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d` | 🔴 FAIL (Bug B11) |
+| `S37-T05` | `services/market-api/internal/http/quotes_history_v5_test.go` | Quotes Failure Returns 502 JSON | Quando o upstream provider falha totalmente, responde HTTP 502 Bad Gateway com JSON | `037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d` | 🔴 FAIL (Bug B9) |
+| `S37-T06` | `services/market-api/internal/http/quotes_history_v5_test.go` | Quotes Response Includes Source Field | Resposta de cotações inclui metadado `source` indicando a procedência (YAHOO/BRAPI/CACHE) | `037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d` | 🔴 FAIL (Bug B9) |
+| `S37-T07` | `services/market-api/internal/http/quotes_history_v5_test.go` | History Endpoint Fallback To Yahoo When Cotahist Empty | `/v1/history` recorre ao Yahoo quando o ticker não existe na base local COTAHIST | `037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d` | 🔴 FAIL (Bug B10) |
+| `S37-T08` | `services/market-api/internal/http/quotes_history_v5_test.go` | Local-First Zero Personal Data Traffic | Garante que apenas tickers e datas trafegam; nenhum parâmetro pessoal é processado | `037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d` | 🟢 PASS |
+| `S37-T09` | `apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx` | Auto-Fill Price Using currentPrice and Local Timezone | `TransactionScreen` preenche `unitPrice` a partir de `currentPrice` e data local `sv-SE` | `ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6` | 🔴 FAIL (Bug B5/B6) |
+| `S37-T10` | `apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx` | Distinct User Messages for Offline Engine vs Not Found | Mensagens descritivas distintas para falha de motor/offline vs cotação não encontrada | `ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6` | 🔴 FAIL (Bug B8) |
+| `S37-T11` | `apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx` | Free Ticker Search Input with Catalog Autocomplete | Campo de digitação de ticker livre com sugestões do catálogo oficial | `ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6` | 🔴 FAIL (Bug B5) |
+| `S37-T12` | `apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx` | Adding Asset to Portfolio on Selection or Blocking on Rejection | Confirmação de ativo fora da carteira: Sim cria e seleciona; Não bloqueia botão Salvar (Q3) | `ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6` | 🔴 FAIL (Bug B5) |
+| `S37-T13` | `apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx` | Environment Notice when Native Bridge is Unavailable | Exibe aviso claro em ambiente Expo Go sem bridge Go nativa | `ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6` | 🔴 FAIL (Bug B7) |
+
+- **Status da Fase A (Sprint 37):** 13 novos testes especificados (8 em Go e 5 em TypeScript/Jest), bloqueados no `tests.lock.json` com SHA-256 e protegidos contra modificações. 11 testes em falha esperada (Red Phase) comprovando os bugs B5, B6, B7, B8, B9, B10 e B11 do SPEC V5.
+
 
 
 
