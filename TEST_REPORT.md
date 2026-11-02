@@ -39,7 +39,8 @@
 | **Sprint 30** | Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade | 1 | 7 | 7 | 0 | `VERIFIED (50 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 31** | Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira | 1 (+3 mod) | 10 | 10 | 0 | `VERIFIED (51 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 32** | P0: Dados, Persistência e Integração Real (Cotação Automática, SQLite Real, Cores Unificadas e Zero Bypasses) | 1 | 8 | 8 | 0 | `VERIFIED (52 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S32)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **52** | **366** | **366** | **0** | **`VERIFIED (52 arquivos)`** | **🟢 100% Aprovado (366 PASS)** |
+| **Sprint 33** | P1: Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais | 1 | 5 | 0 | 5 | `VERIFIED (53 arquivos)` | 🟡 Fase A Bloqueada (Red Phase) |
+| **TOTAL (S1–S33)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **53** | **371** | **366** | **5** | **`VERIFIED (53 arquivos)`** | **🟡 Fase A (53 bloqueados)** |
 
 ---
 
@@ -2276,6 +2277,18 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | **3. Cores Unificadas Home × Carteiras** | 🟢 PASS (`S32-T02`) — Mesma função canônica de paleta `getPortfolioPalette(idx)` | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 | **4. Ativo e Transação na Tela de Categoria** | 🟢 PASS (`S32-T03`) — Compra registrada reflete imediatamente com ativo, quantidade e saldo bruto | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 | **5. Zero Bypasses / Mocks de Produção** | 🟢 PASS (`S32-T04`, `S32-T05`) — Verificação de ausência de hacks no código de produção | 🟢 PASS (Verificado em runtime e análise estática) | Aprovado |
+
+---
+
+### 2.33. Sprint 33: P1 Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais
+
+#### 2.33.1. Especificação dos Casos de Teste da Fase A (Red Phase & Lock)
+| Caso de Teste | Arquivo de Teste | Funcionalidade Avaliada | Critério de Aceite Fidedigno | Hash SHA-256 Bloqueado | Status Fase A |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| `S33-T01` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | Seleção de Carteiras Exclusivamente pelo Deck sem Chips Horizontais | Remoção do `portfolio-horizontal-selector` redundante; seleção ativa efetuada puramente pela interação com a pilha do deck | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
+| `S33-T02` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | Botão de Exclusão no Rodapé com Confirmação Destrutiva | Botão posicionado no rodapé da página (após movimentações), abrindo modal de confirmação antes de disparar exclusão em cascata | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
+| `S33-T03` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | FloatingBottomDock: Botão Central "+" Reativo sem Travar em "X" | Abertura do speed-dial, fechamento imediato ao clicar em ação ou no backdrop de tela cheia, resetando a rotação sem travar em "X" | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
+| `S33-T04` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | Animações Físicas e Transições Reais em `AnimatedModalSheet` | Presença de contêiner animado, suporte a dismiss no backdrop e ciclo fluido de animação de entrada e saída sem teletransporte estático | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
 
 
 
