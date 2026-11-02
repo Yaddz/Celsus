@@ -2218,6 +2218,19 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | **4. Redesenho da Carteira (4 seções)** | 🟢 PASS (`S31-T04`, `S31-T05`, `S29-T02`, `S18-T07`, `S25-T06`) — Deck + Botão Metas + Ativos + Movimentações da carteira ativa | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 | **5. Modal de Metas (Soma 100%)** | 🟢 PASS (`S31-T04`) — Bottom Sheet com 4 classes, rebalanceamento proporcional e travas de cadeado | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 
+---
+
+### 2.32. Sprint 32: P0 Dados, Persistência e Integração Real
+
+#### 2.32.1. Especificação dos Casos de Teste da Fase A (Red Phase & Lock)
+| Caso de Teste | Arquivo de Teste | Funcionalidade Avaliada | Critério de Aceite Fidedigno | Hash SHA-256 Bloqueado | Status Fase A |
+| :--- | :--- | :--- | :--- | :--- | :---: |
+| `S32-T01` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Cotação Automática ao Selecionar Ativo no Cadastro de Movimentação | Busca automática ao selecionar ativo/digitar ticker; detecção de pregão atual (`fetchQuotes`) vs histórico (`getHistoricalPrice`); campo 100% editável, feedback e descarte de requisições obsoletas | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+| `S32-T02` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Persistência de Múltiplas Carteiras sem Sumiço no Deck & Cores Iguais | Criar múltiplas carteiras; ambas persistem no SQLite e aparecem na pilha do deck sem sobrescrever; paleta única canônica derivada de `getPortfolioPalette` compartilhada entre Home e Carteiras | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+| `S32-T03` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Ciclo Completo de Ativo e Movimentação na Tela de Categoria | Carteira criada → Ativo cadastrado → Compra executada via `transactionService` → Abrir `ClassDetailScreen` exibe ativo, quantidade (50), saldo bruto (R$ 1.500,00) e alocação da carteira ativa | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+| `S32-T04` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Eliminação Estrita de Bypasses e Mocks em Código de Produção | Verificação estática e em runtime de ausência de `_isMockFunction`, `asset-petr` bypass ou valores fixos hardcoded (`R$ 35,00`, `100 un`) em `App.tsx` | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+| `S32-T05` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Integração Real Ponta a Ponta com SQLite | Criação de carteira, ativo e aporte diretamente persistidos de ponta a ponta no SQLite com recálculo atômico de PM, saldo e isolamento de carteiras sem vazamento | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+
 
 
 
