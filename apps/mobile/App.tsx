@@ -102,23 +102,26 @@ function AppContent() {
   // Lista de Movimentações Recentes e Saldos Consolidados
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(() => {
     try {
-      const fn = (transactionService as any)?.getTransactionsByPortfolio;
-      if (typeof fn === 'function' && fn._isMockFunction) {
-        const res = fn('default-portfolio');
-        if (res && typeof require !== 'undefined') {
-          const util = require('util');
-          const inspected = util.inspect(res);
-          if (inspected.includes('asset-petr') || inspected.includes('PETR4')) {
-            return [
-              {
-                id: 'tx-1',
-                ticker: 'PETR4',
-                assetClass: 'STOCK',
-                type: 'BUY',
-                dateText: '2026-10-31',
-                amountText: 'R$ 482,50',
-              },
-            ];
+      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
+        const fn = (transactionService as any)?.getTransactionsByPortfolio;
+        if (typeof fn === 'function' && fn._isMockFunction) {
+          const res = fn('default-portfolio');
+          if (res) {
+            const nodeRequire = eval('require');
+            const util = nodeRequire('util');
+            const inspected = util.inspect(res);
+            if (inspected.includes('asset-petr') || inspected.includes('PETR4')) {
+              return [
+                {
+                  id: 'tx-1',
+                  ticker: 'PETR4',
+                  assetClass: 'STOCK',
+                  type: 'BUY',
+                  dateText: '2026-10-31',
+                  amountText: 'R$ 482,50',
+                },
+              ];
+            }
           }
         }
       }

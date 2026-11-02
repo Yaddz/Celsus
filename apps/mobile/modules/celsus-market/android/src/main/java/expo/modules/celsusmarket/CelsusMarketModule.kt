@@ -2,8 +2,6 @@ package expo.modules.celsusmarket
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.io.File
 import mobilebridge.Mobilebridge
 
@@ -32,45 +30,31 @@ class CelsusMarketModule : Module() {
     }
 
     AsyncFunction("checkHealth") {
-      withContext(Dispatchers.IO) {
-        Mobilebridge.checkHealthJSON()
-      }
+      Mobilebridge.checkHealthJSON()
     }
 
     AsyncFunction("fetchQuotes") { tickersCsv: String, forceRefresh: Boolean ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.fetchQuotesJSON(tickersCsv, forceRefresh)
-      }
+      Mobilebridge.fetchQuotesJSON(tickersCsv, forceRefresh)
     }
 
     AsyncFunction("getHistoricalPrice") { ticker: String, date: String ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.getHistoricalPriceJSON(ticker, date)
-      }
+      Mobilebridge.getHistoricalPriceJSON(ticker, date)
     }
 
     AsyncFunction("searchCatalog") { query: String, assetClass: String ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.searchCatalogJSON(query, assetClass)
-      }
+      Mobilebridge.searchCatalogJSON(query, assetClass)
     }
 
     AsyncFunction("fetchMacroRates") { fromDate: String ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.fetchMacroRatesJSON(fromDate)
-      }
+      Mobilebridge.fetchMacroRatesJSON(fromDate)
     }
 
     AsyncFunction("getCorporateEvents") { tickersCsv: String, fromDate: String ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.getCorporateEventsJSON(tickersCsv, fromDate)
-      }
+      Mobilebridge.getCorporateEventsJSON(tickersCsv, fromDate)
     }
 
     AsyncFunction("ingestCotahistZip") { zipPath: String, allowedTickersCsv: String ->
-      withContext(Dispatchers.IO) {
-        Mobilebridge.ingestCotahistZipJSON(zipPath, allowedTickersCsv)
-      }
+      Mobilebridge.ingestCotahistZipJSON(zipPath, allowedTickersCsv)
     }
   }
 }
