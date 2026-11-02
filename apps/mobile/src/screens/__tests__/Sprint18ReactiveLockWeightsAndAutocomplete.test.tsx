@@ -36,6 +36,12 @@ jest.mock('../../services/marketApi', () => ({
   },
 }));
 
+const S18_FIXTURE_ASSETS = [
+  { id: 'a1', ticker: 'WEGE3', name: 'WEG S.A.', assetClass: 'STOCK' as const, targetInClass: 25, percentage: 25, weight: 1, isLocked: false, quantity: '100', price: '42.50' },
+  { id: 'a2', ticker: 'VALE3', name: 'Vale S.A.', assetClass: 'STOCK' as const, targetInClass: 25, percentage: 25, weight: 1, isLocked: false, quantity: '80', price: '60.00' },
+  { id: 'a3', ticker: 'ITUB4', name: 'Itaú Unibanco', assetClass: 'STOCK' as const, targetInClass: 50, percentage: 50, weight: 2, isLocked: false, quantity: '200', price: '34.00' },
+];
+
 describe('Sprint 18 — Módulo 4 & 5: Rebalanceamento Reativo 100% com Cadeado e Modal com Autocomplete', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -230,7 +236,7 @@ describe('Sprint 18 — Módulo 4 & 5: Rebalanceamento Reativo 100% com Cadeado 
     });
 
     it('S18-T08: deve exibir inputs numéricos e cadeado diretamente na listagem de ativos da carteira (Edição Rápida inline)', async () => {
-      await render(<PortfolioManagementScreen />);
+      await render(<PortfolioManagementScreen initialAssets={S18_FIXTURE_ASSETS} />);
 
       // Aba STOCK ativa por padrão: ativos a1 (WEGE3), a2 (VALE3), a3 (ITUB4)
       expect(screen.getByTestId('input-asset-a1')).toBeDefined();
