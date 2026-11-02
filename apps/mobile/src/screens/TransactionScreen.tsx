@@ -454,6 +454,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral,
     borderRadius: borders.radiusSm,
   },
+  closeBtnLight: {
+    backgroundColor: '#F0EDE6',
+  },
   scrollContent: {
     padding: spacing.lg,
   },

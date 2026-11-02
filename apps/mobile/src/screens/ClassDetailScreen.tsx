@@ -179,6 +179,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                     {sliceData.segments.map((seg, sIdx) => (
                       <View
                         key={`seg-${sliceData.asset.ticker}-${sIdx}`}
+                        testID={`donut-segment-${sliceData.asset.ticker}-${sIdx}`}
                         style={[
                           styles.donutSegmentArc,
                           {
@@ -186,7 +187,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                             top: seg.segY - sliceData.minY,
                             backgroundColor: sliceData.color,
                             transform: [{ rotate: `${seg.rotate}deg` }],
-                            opacity: isSelected ? 1 : 0.94,
+                            opacity: 1,
                           },
                         ]}
                       />

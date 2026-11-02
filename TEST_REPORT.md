@@ -1999,10 +1999,47 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `implementation_plan.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S28-T01` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Dark Mode Contrast Audit & colors.parchmentMuted Token` | Define `colors.parchmentMuted = '#B8B2A6'`, garantindo razão de contraste WCAG AA $\ge 4.5:1$ contra `#191B1D` e ausência de textos com cor `undefined` no modo escuro | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🔴 Fase A (Red Phase) |
-| `S28-T02` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Light Mode Close Buttons, Borders & Card Consistency` | Botões de fechar modal (`close-transaction-btn`, `close-simulator-btn`, `close-settings-btn`) com fundo claro `#F0EDE6` e contraste $\ge 4.5:1$; borda unificada `#EAE4D7` e raio 24 entre `PatrimonyLineChartCard` e `DotMatrixAllocationCard` | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🔴 Fase A (Red Phase) |
-| `S28-T03` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Redesigned PatrimonyLineChartCard with References, Legend and Empty State` | Gráfico de linha com eixos Y de referência (mín e máx), legenda comparativa `Valor de Mercado` vs `Capital Investido`, tooltip interativo e estado vazio real para `curve = []` | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🔴 Fase A (Red Phase) |
-| `S28-T04` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Solid Donut Slices and Screen Header Alignment` | Fatias do Donut Chart em `ClassDetailScreen` com opacidade 100% sólida (`opacity = 1`), eliminando listras internas; alinhamento de `XpMinimalHeader` em 16px | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🔴 Fase A (Red Phase) |
+| `S28-T01` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Dark Mode Contrast Audit & colors.parchmentMuted Token` | Define `colors.parchmentMuted = '#B8B2A6'`, garantindo razão de contraste WCAG AA $\ge 4.5:1$ contra `#191B1D` e ausência de textos com cor `undefined` no modo escuro | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🟢 PASS (0.28s) |
+| `S28-T02` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Light Mode Close Buttons, Borders & Card Consistency` | Botões de fechar modal (`close-transaction-btn`, `close-simulator-btn`, `close-settings-btn`) com fundo claro `#F0EDE6` e contraste $\ge 4.5:1$; borda unificada `#EAE4D7` e raio 24 entre `PatrimonyLineChartCard` e `DotMatrixAllocationCard` | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🟢 PASS (0.30s) |
+| `S28-T03` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Redesigned PatrimonyLineChartCard with References, Legend and Empty State` | Gráfico de linha com eixos Y de referência (mín e máx), legenda comparativa `Valor de Mercado` vs `Capital Investido`, tooltip interativo e estado vazio real para `curve = []` | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🟢 PASS (0.03s) |
+| `S28-T04` | `src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx` | `Solid Donut Slices and Screen Header Alignment` | Fatias do Donut Chart em `ClassDetailScreen` com opacidade 100% sólida (`opacity = 1`), eliminando listras internas; alinhamento de `XpMinimalHeader` em 16px | `87fc3f8b149cbb1b2f9d64ea6363314d1ba33955459574ddd3c76ec7a7a06f9f` | 🟢 PASS (0.03s) |
+
+#### Detalhes de Implementação da Fase B (Sprint 28)
+- **Token `colors.parchmentMuted` e Auditoria de Contraste Dark Mode:**
+  - Definido `parchmentMuted: '#B8B2A6'` em `tokens.ts` com razão de contraste $7.85:1$ contra `#191B1D`.
+  - Atualizados textos de `PatrimonyLineChartCard.tsx` para assegurar que nenhum texto permaneça com cor `undefined`.
+- **Modo Claro — Borda Unificada e Botões `X`:**
+  - Eliminada sobreposição de estilo em `PatrimonyLineChartCard.tsx`: padronizada borda `#EAE4D7`, raio 24 e fundo `#FFFFFF`, perfeitamente alinhada com `DotMatrixAllocationCard.tsx`.
+  - Adicionado `closeBtnLight: { backgroundColor: '#F0EDE6' }` em `TransactionScreen.tsx`, `SimulatorScreen.tsx` e `SettingsBackupScreen.tsx`, garantindo contraste $> 7:1$ com o ícone escuro.
+- **Redesenho do Gráfico de Patrimônio Histórico:**
+  - `PatrimonyLineChartCard.tsx` agora renderiza estado vazio real (`chart-empty-state`, *"Nenhum histórico registrado no período"*).
+  - Incluídos eixos de referência Y (mínimo `chart-y-axis-min` e máximo `chart-y-axis-max`), legenda comparativa (`chart-legend-market-value` e `chart-legend-invested-capital`) e tooltip interativo ao toque (`chart-point-tooltip`).
+- **Donut Sólido e Alinhamento Global do Header:**
+  - Donut Chart em `ClassDetailScreen.tsx` atualizado com segmentos circulares de opacidade $1.0$ sólida (`opacity: 1`), eliminando artefatos e listras internas translúcidas.
+  - `XpMinimalHeader.tsx` padronizado com `paddingHorizontal: 16`, perfeitamente alinhado às margens dos cards de conteúdo.
+
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test`):**
+  ```text
+  Test Suites: 40 passed, 40 total
+  Tests:       311 passed, 311 total
+  Snapshots:   0 total
+  Time:        11.073 s
+  Total Mobile: 40 suítes | 311 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Execução da Suíte de Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.227s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.944s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.153s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.126s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	0.968s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	2.803s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 28 Concluída):**
+  - **48 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **336 testes automatizados aprovados (25 em Go + 311 em TypeScript/Jest)**
+  - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
 
 
 

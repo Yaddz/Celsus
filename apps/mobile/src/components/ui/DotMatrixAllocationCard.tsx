@@ -33,7 +33,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
   totalBalance = 'R$ 0,00',
   allocations = DEFAULT_ALLOCATIONS,
   isPrivacyMode = false,
-  testID,
+  testID = 'home-dot-matrix-card',
   variant = 'default',
   fillDirection = 'left-to-right',
   onRebalancePress,

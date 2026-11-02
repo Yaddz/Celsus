@@ -148,39 +148,81 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
       {/* 2. Área do Gráfico de Linha Suave com Sombra (estilo BTG / Pierre) */}
       <View style={[styles.chartArea, isLight && styles.chartAreaLight]} testID="patrimony-line-chart-area">
         {curve.length > 0 ? (
-          <View style={styles.curveContainer}>
-            {curve.map((pt, idx) => {
-              const val = parseFloat(pt.marketValue) || 0;
-              const normalizedHeight = Math.max(12, ((val - minVal) / range) * 110 + 12);
-              const isSelected = idx === selectedPointIndex;
+          <View style={{ width: '100%' }}>
+            {/* Tooltip de Ponto Inspecionado */}
+            {selectedPointIndex !== null && curve[selectedPointIndex] && (
+              <View testID="chart-point-tooltip" style={[styles.tooltipContainer, isLight && styles.tooltipContainerLight]}>
+                <Text style={[styles.tooltipDate, isLight && styles.tooltipDateLight]}>
+                  {curve[selectedPointIndex].date}
+                </Text>
+                <Text style={[styles.tooltipValue, isLight && styles.tooltipValueLight]}>
+                  {maskValue(curve[selectedPointIndex].marketValue)}
+                </Text>
+              </View>
+            )}
 
-              return (
-                <TouchableOpacity
-                  key={`${pt.date}-${idx}`}
-                  activeOpacity={0.85}
-                  onPress={() => setSelectedPointIndex(idx)}
-                  style={styles.curveColumnWrapper}
-                >
-                  <View
-                    style={[
-                      styles.curveBar,
-                      {
-                        height: normalizedHeight,
-                        backgroundColor: isSelected
-                          ? `${accentColor}55`
-                          : 'rgba(217, 102, 40, 0.18)',
-                        borderTopColor: isSelected ? (isLight ? '#111315' : colors.parchmentPale) : accentColor,
-                        borderTopWidth: isSelected ? 3 : 2,
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
-              );
-            })}
+            <View style={styles.chartMainRow}>
+              {/* Eixo Y com Mínimo e Máximo de Referência */}
+              <View style={styles.yAxisContainer}>
+                <Text testID="chart-y-axis-max" style={[styles.yAxisText, isLight && styles.yAxisTextLight]}>
+                  {maskValue(maxVal)}
+                </Text>
+                <Text testID="chart-y-axis-min" style={[styles.yAxisText, isLight && styles.yAxisTextLight]}>
+                  {maskValue(minVal)}
+                </Text>
+              </View>
+
+              {/* Colunas do Gráfico */}
+              <View style={styles.curveContainer}>
+                {curve.map((pt, idx) => {
+                  const val = parseFloat(pt.marketValue) || 0;
+                  const normalizedHeight = Math.max(12, ((val - minVal) / range) * 110 + 12);
+                  const isSelected = idx === selectedPointIndex;
+
+                  return (
+                    <TouchableOpacity
+                      key={`${pt.date}-${idx}`}
+                      testID={`chart-bar-point-${idx}`}
+                      activeOpacity={0.85}
+                      onPress={() => setSelectedPointIndex(idx)}
+                      style={styles.curveColumnWrapper}
+                    >
+                      <View
+                        style={[
+                          styles.curveBar,
+                          {
+                            height: normalizedHeight,
+                            backgroundColor: isSelected
+                              ? `${accentColor}55`
+                              : 'rgba(217, 102, 40, 0.18)',
+                            borderTopColor: isSelected ? (isLight ? '#111315' : colors.parchmentPale) : accentColor,
+                            borderTopWidth: isSelected ? 3 : 2,
+                          },
+                        ]}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Legenda Comparativa: Valor de Mercado vs Capital Investido */}
+            <View style={styles.legendRow}>
+              <View testID="chart-legend-market-value" style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: accentColor }]} />
+                <Text style={[styles.legendText, isLight && styles.legendTextLight]}>Valor de Mercado</Text>
+              </View>
+              <View testID="chart-legend-invested-capital" style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#6E7681' }]} />
+                <Text style={[styles.legendText, isLight && styles.legendTextLight]}>Capital Investido</Text>
+              </View>
+            </View>
           </View>
         ) : (
-          <View style={styles.emptyChart}>
-            <Text style={[styles.emptyChartText, isLight && styles.emptyChartTextLight]}>Sem pontos no período selecionado</Text>
+          <View testID="chart-empty-state" style={styles.emptyChart}>
+            <Text style={[styles.emptyChartText, isLight && styles.emptyChartTextLight]}>
+              Nenhum histórico registrado no período
+            </Text>
           </View>
         )}
       </View>
@@ -334,19 +376,99 @@ const styles = StyleSheet.create({
   },
   chartArea: {
     backgroundColor: colors.surfaceCard,
-    height: 140,
+    minHeight: 140,
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
   },
+  chartMainRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    width: '100%',
+  },
+  yAxisContainer: {
+    justifyContent: 'space-between',
+    height: 120,
+    paddingRight: 6,
+    paddingVertical: 2,
+  },
+  yAxisText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 9,
+    color: colors.parchmentMuted,
+  },
+  yAxisTextLight: {
+    color: '#6E6A63',
+  },
   curveContainer: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-end',
     height: 120,
-    width: '100%',
     justifyContent: 'space-between',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    color: colors.parchmentMuted,
+  },
+  legendTextLight: {
+    color: '#6E6A63',
+  },
+  tooltipContainer: {
+    backgroundColor: '#272A2E',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'center',
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#3D4247',
+  },
+  tooltipContainerLight: {
+    backgroundColor: '#F8F6F0',
+    borderColor: '#EAE4D7',
+  },
+  tooltipDate: {
+    fontFamily: typography.fontFamily,
+    fontSize: 9,
+    color: colors.parchmentMuted,
+    textAlign: 'center',
+  },
+  tooltipDateLight: {
+    color: '#6E6A63',
+  },
+  tooltipValue: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    textAlign: 'center',
+  },
+  tooltipValueLight: {
+    color: '#111315',
   },
   curveColumnWrapper: {
     flex: 1,
@@ -421,6 +543,8 @@ const styles = StyleSheet.create({
   // Light Theme Styles
   containerLight: {
     backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+    borderWidth: 1,
     borderRadius: 24,
   },
   chartHeaderLight: {

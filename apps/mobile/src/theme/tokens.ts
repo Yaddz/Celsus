@@ -11,6 +11,7 @@ export interface ColorTokens {
   tertiary: string;
   parchmentPale: string;
   parchmentLight?: string;
+  parchmentMuted?: string;
   subtleText?: string;
   oxidizedSlag: string;
   deficit: string;
@@ -64,6 +65,7 @@ export interface SpacingTokens {
   md: number;
   lg: number;
   xl: number;
+  screenHorizontal?: number;
 }
 
 export interface BorderTokens {
@@ -96,6 +98,7 @@ export const colors: ColorTokens = {
   tertiary: '#D5CAA8',
   parchmentPale: '#E6DECA',
   parchmentLight: '#E6DECA',
+  parchmentMuted: '#B8B2A6',
   subtleText: '#8A8A8E',
   oxidizedSlag: '#1B3530',
   deficit: '#B84A1C',
@@ -194,6 +197,7 @@ export const spacing: SpacingTokens = {
   md: 16,
   lg: 24,
   xl: 32,
+  screenHorizontal: 16,
 };
 
 export const borders: BorderTokens = {
