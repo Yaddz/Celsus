@@ -33,7 +33,8 @@
 | **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 8 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 25** | Estabilização E2E: Persistência Real SQLite, Zero Dados Fictícios, Criação Automática na Compra, Adicionar Carteira no Deck, Layout Vertical de Classes/Ativos e Tratamento Offline | 1 (+1 mod) | 7 | 7 | 0 | `VERIFIED (45 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 26** | Estabilização e Conformidade: Máscara Unificada `R$ ••••••`, Auditoria de Contraste Dark Mode (WCAG AA), Remoção de Switch Redundante e Floating Navbar | 1 (+4 mod) | 7 | 7 | 0 | `VERIFIED (46 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S26)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **46** | **328** | **328** | **0** | **`VERIFIED (46 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 27** | Grupo P0: Persistência Real, Fim dos Mocks, Validação FII × Classe e Navegação Global | 1 | 5 | 0 | 5 | `VERIFIED (47 arquivos)` | 🔴 Fase A Bloqueada (Red Phase) |
+| **TOTAL (S1–S27)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **47** | **333** | **328** | **5** | **`VERIFIED (47 arquivos)`** | **🟡 Fase A Concluída / Fase B em Progresso** |
 
 ---
 
@@ -1934,6 +1935,19 @@
   - **46 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **321 testes automatizados aprovados (25 em Go + 296 em TypeScript/Jest)**
   - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
+
+---
+
+### 2.27. Sprint 27 — Grupo P0: Persistência Real, Fim dos Mocks, Validação FII × Classe e Navegação Global (`apps/mobile`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `implementation_plan.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S27-T01` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Zero-Hook-Crash Transition 0 -> 1 -> 2 Portfolios in StackedWalletDeck & App Persistence` | Transição 0 → 1 → 2 carteiras no `StackedWalletDeck` e `App` sem erro de Hooks (`Expected static flag was missing`), persistindo após desmontar e remontar `<App />` | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+| `S27-T02` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Comprehensive Zero-Mock Audit Across All Screens on Clean Database` | Auditoria zero-mocks em todas as telas com banco vazio (`App`, `StatisticsScreen`, `ClassDetailScreen`, `AllTransactionsScreen`, `SimulatorScreen`, `SettingsBackupScreen` exibem `R$ 0,00` e zero fictícios) | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+| `S27-T03` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Asset Class Validation (FII x Class Incompatibility Prevention)` | Validação de ativos por catálogo e regras B3: bloqueia FII em Ações (`STOCK`) e Ações em FIIs, com mensagem explicativa e bloqueio de persistência | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+| `S27-T04` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Global Speed-Dial Navigation Across All Screen Views` | Atalhos globais do `+` acionados a partir de `Análises`, `Carteiras` ou `ClassDetailScreen` abrem seus respectivos modais sobre a tela ativa | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+| `S27-T05` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Tap on Asset Card in Category Screen Navigates to Real Asset Detail` | Clicar no card do ativo dentro de `ClassDetailScreen` navega para `TransactionDetailHistoryScreen` com os dados reais do ativo selecionado | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+
 
 
 

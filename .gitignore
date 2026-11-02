@@ -28,6 +28,7 @@ apps/mobile/modules/**/.gradle/
 # Go binaries & local market cache DB
 services/market-api/bin/
 services/market-api/*.exe
+services/market-api/*.db*
 services/market-api/data/*.db
 services/market-api/data/*.db-shm
 services/market-api/data/*.db-wal
