@@ -1,4 +1,5 @@
-// Stub para compilação da Fase A
+import { useSyncExternalStore } from 'react';
+
 export interface WalletStoreState {
   activeWalletIndex: number;
   activePortfolioId: string | null;
@@ -38,5 +39,9 @@ export const walletStore = {
 };
 
 export function useActiveWalletIndex(): number {
-  return currentState.activeWalletIndex;
+  return useSyncExternalStore(walletStore.subscribe, () => walletStore.getState().activeWalletIndex);
+}
+
+export function useActivePortfolioId(): string | null {
+  return useSyncExternalStore(walletStore.subscribe, () => walletStore.getState().activePortfolioId);
 }

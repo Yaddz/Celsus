@@ -1,0 +1,6 @@
+-keep class go.** { *; }
+-keepclassmembers class go.** { *; }
+-keep class mobilebridge.** { *; }
+-keepclassmembers class mobilebridge.** { *; }
+-keep class expo.modules.celsusmarket.** { *; }
+-keepclassmembers class expo.modules.celsusmarket.** { *; }

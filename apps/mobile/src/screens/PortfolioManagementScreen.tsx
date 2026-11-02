@@ -26,6 +26,7 @@ import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
 import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
+import { walletStore } from '../stores/walletStore';
 
 interface PortfolioItem {
   id: string;
@@ -131,6 +132,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
   const [isExtratoModalOpen, setIsExtratoModalOpen] = useState(false);
   const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>([]);
+
+  useEffect(() => {
+    return walletStore.subscribe(() => {
+      const state = walletStore.getState();
+      if (state.activeWalletIndex !== activeIndex) {
+        setActiveIndex(state.activeWalletIndex);
+        if (state.activePortfolioId) {
+          setActivePortfolioId(state.activePortfolioId);
+        }
+      }
+    });
+  }, [activeIndex]);
 
   useEffect(() => {
     if (autoOpenNewPortfolioModal) {
@@ -667,6 +680,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             if (item.id === '__add_wallet_card__') return;
             setActiveIndex(idx);
             setActivePortfolioId(item.id);
+            walletStore.setActiveIndex(idx, item.id);
             onPortfolioIndexChange?.(idx);
           }}
           onCreatePortfolioPress={() => setIsNewPortfolioModalOpen(true)}

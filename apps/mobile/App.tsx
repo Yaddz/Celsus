@@ -32,6 +32,7 @@ import {
   AmbientOrb,
 } from './src/components/ui';
 import { AssetClass } from './src/components/ui/AttributeStatBar';
+import { walletStore } from './src/stores/walletStore';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -182,6 +183,15 @@ function AppContent() {
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 0,00');
   const [profitSummary, setProfitSummary] = useState('0,0% no ano');
   const [walletsList, setWalletsList] = useState<WalletCardData[]>([]);
+
+  useEffect(() => {
+    return walletStore.subscribe(() => {
+      const state = walletStore.getState();
+      if (state.activeWalletIndex !== activeWalletIndex) {
+        setActiveWalletIndex(state.activeWalletIndex);
+      }
+    });
+  }, [activeWalletIndex]);
   const [portfolioAssets, setPortfolioAssets] = useState<any[]>([]);
   const [categoryAllocations, setCategoryAllocations] = useState<CategoryAllocationData[]>(INITIAL_CATEGORY_ALLOCATIONS);
   const [isOffline, setIsOffline] = useState(false);
@@ -847,7 +857,10 @@ function AppContent() {
               profitText: isPrivacyMode ? PRIVACY_MASK : (walletsList.length === 1 && idx === 0 ? profitDisplay : w.profitText),
             }))}
             activeIndex={activeWalletIndex}
-            onPortfolioChange={(idx) => setActiveWalletIndex(idx)}
+            onPortfolioChange={(idx, item) => {
+              setActiveWalletIndex(idx);
+              walletStore.setActiveIndex(idx, item?.id);
+            }}
             onCreatePortfolioPress={() => {
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
@@ -857,13 +870,13 @@ function AppContent() {
             testID="home-wallet-deck"
           />
 
-          {/* 1.1 Indicadores / Pílulas de Seleção de Carteiras na Home */}
+          {/* 1.1 Indicador Acessível de Carteiras na Home (Alternativa ao gesto) */}
           {walletsList.length > 0 && (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.homePillsScroll}
+            <View
+              style={styles.accessiblePageIndicator}
               testID="home-wallet-pills"
+              accessibilityRole="tablist"
+              accessibilityLabel="Indicador de carteiras"
             >
               {walletsList.map((w, idx) => {
                 const isSelected = idx === activeWalletIndex;
@@ -872,31 +885,22 @@ function AppContent() {
                   <TouchableOpacity
                     key={w.id}
                     testID={`home-wallet-pill-${w.id}`}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={w.name}
                     activeOpacity={0.8}
-                    onPress={() => setActiveWalletIndex(idx)}
+                    onPress={() => {
+                      setActiveWalletIndex(idx);
+                      walletStore.setActiveIndex(idx, w.id);
+                    }}
                     style={[
-                      styles.homePill,
-                      isLight && styles.homePillLight,
-                      isSelected && {
-                        borderColor: pal.primary,
-                        backgroundColor: isLight ? '#EAE4D7' : '#222528',
-                      },
+                      styles.pageDot,
+                      isSelected && [styles.pageDotActive, { backgroundColor: pal.primary }],
                     ]}
-                  >
-                    <View style={[styles.homePillDot, { backgroundColor: pal.primary }]} />
-                    <Text
-                      style={[
-                        styles.homePillText,
-                        isLight && styles.homePillTextLight,
-                        isSelected && { color: pal.primary, fontWeight: '700' },
-                      ]}
-                    >
-                      {w.name.charAt(0).toUpperCase() + w.name.slice(1).toLowerCase()}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
-            </ScrollView>
+            </View>
           )}
 
           {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
@@ -1085,39 +1089,22 @@ const styles = StyleSheet.create({
     color: colors.parchmentPale,
     lineHeight: 18,
   },
-  homePillsScroll: {
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    gap: 8,
-    marginBottom: spacing.xs,
-  },
-  homePill: {
+  accessiblePageIndicator: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    backgroundColor: '#1E2023',
-    borderWidth: 1,
-    borderColor: '#2F3236',
+    marginVertical: 4,
+    minHeight: 12,
   },
-  homePillLight: {
-    backgroundColor: '#F5F1E8',
-    borderColor: '#D8D2C5',
-  },
-  homePillDot: {
+  pageDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
   },
-  homePillText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.parchmentPale,
-  },
-  homePillTextLight: {
-    color: '#191B1D',
+  pageDotActive: {
+    width: 18,
+    borderRadius: 3,
   },
 });
