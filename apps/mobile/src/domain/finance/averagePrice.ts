@@ -7,6 +7,7 @@ import {
   PositionTransaction,
   PositionResult,
 } from './types';
+import { calculateSplitAdjustment } from './corporateEvents';
 
 function getDecimalPlaces(value: string | number): number {
   const str = value.toString();
@@ -124,7 +125,14 @@ export function calculatePositionFromTransactions(
   let totalRealizedPnl = new Decimal(0);
   let sampleInputs: Array<string | number> = [];
 
-  for (const tx of transactions) {
+  const sortedTx = [...transactions].sort((a, b) => {
+    if (a.tradeDate && b.tradeDate) {
+      return a.tradeDate.localeCompare(b.tradeDate);
+    }
+    return 0;
+  });
+
+  for (const tx of sortedTx) {
     const txPrice = tx.unitPrice ?? tx.price ?? 0;
     sampleInputs.push(tx.quantity);
     if (tx.type === 'BUY') {
@@ -148,6 +156,16 @@ export function calculatePositionFromTransactions(
       currentQty = new Decimal(sellRes.quantity);
       currentPM = new Decimal(sellRes.averagePrice);
       totalRealizedPnl = totalRealizedPnl.plus(new Decimal(sellRes.realizedPnl));
+    } else if (tx.type === 'SPLIT' || tx.type === 'INPLIT') {
+      if (tx.splitRatio && !currentQty.isZero()) {
+        const splitRes = calculateSplitAdjustment({
+          currentQuantity: currentQty.toString(),
+          currentAveragePrice: currentPM.toString(),
+          splitRatio: tx.splitRatio,
+        });
+        currentQty = new Decimal(splitRes.quantity);
+        currentPM = new Decimal(splitRes.averagePrice);
+      }
     }
   }
 

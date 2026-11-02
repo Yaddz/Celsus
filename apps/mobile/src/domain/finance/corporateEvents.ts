@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { SplitRatio } from './types';
 
 export interface SplitAdjustmentParams {
@@ -62,9 +63,42 @@ export interface ReconcileCorporateEventsResult {
  * Invariante: Custo Total de Aquisição (Q * PM) permanece estritamente constante.
  */
 export function calculateSplitAdjustment(
-  _params: SplitAdjustmentParams
+  params: SplitAdjustmentParams
 ): SplitAdjustmentResult {
-  throw new Error('calculateSplitAdjustment not implemented');
+  if (
+    !params.splitRatio ||
+    params.splitRatio.numerator <= 0 ||
+    params.splitRatio.denominator <= 0
+  ) {
+    throw new Error(
+      'Proporção de split inválida: numerador e denominador devem ser maiores que zero'
+    );
+  }
+
+  const currentQty = new Decimal(params.currentQuantity || 0);
+  const currentPM = new Decimal(params.currentAveragePrice || 0);
+  const num = new Decimal(params.splitRatio.numerator);
+  const den = new Decimal(params.splitRatio.denominator);
+
+  const ratio = num.div(den);
+  const newQty = currentQty.mul(ratio);
+  const newPM = ratio.isZero() ? new Decimal(0) : currentPM.div(ratio);
+  const totalCost = currentQty.mul(currentPM);
+
+  let formattedQty: string;
+  if (newQty.isInteger()) {
+    formattedQty = newQty.toFixed(0);
+  } else if (newQty.decimalPlaces() <= 2) {
+    formattedQty = newQty.toFixed(2);
+  } else {
+    formattedQty = newQty.toFixed(8);
+  }
+
+  return {
+    quantity: formattedQty,
+    averagePrice: newPM.toFixed(2),
+    totalCost: totalCost.toFixed(2),
+  };
 }
 
 /**
@@ -72,7 +106,76 @@ export function calculateSplitAdjustment(
  * ignorando eventos cujo external_id já foi aplicado anteriormente.
  */
 export function reconcileCorporateEvents(
-  _params: ReconcileCorporateEventsParams
+  params: ReconcileCorporateEventsParams
 ): ReconcileCorporateEventsResult {
-  throw new Error('reconcileCorporateEvents not implemented');
+  const existingSet = new Set(params.existingTransactionExternalIds || []);
+  let currentQ = params.currentQuantity ? params.currentQuantity.toString() : '0';
+  let currentP = params.currentAveragePrice ? params.currentAveragePrice.toString() : '0.00';
+  const appliedEvents: ReconciledEvent[] = [];
+
+  for (const e of params.events || []) {
+    const typeStr = (e.type || e.eventType || e.event_type || '').toUpperCase();
+    if (typeStr === 'DIVIDEND') {
+      continue;
+    }
+
+    const num = e.numerator ?? 0;
+    const den = e.denominator ?? 0;
+    if (num <= 0 || den <= 0) {
+      continue;
+    }
+
+    const eventType: 'SPLIT' | 'INPLIT' =
+      typeStr === 'SPLIT' || typeStr === 'INPLIT'
+        ? (typeStr as 'SPLIT' | 'INPLIT')
+        : num > den
+        ? 'SPLIT'
+        : 'INPLIT';
+
+    const tickerStr = (params.ticker || e.ticker || '').toUpperCase();
+    const dateStr = e.eventDate || e.event_date || '';
+
+    const externalId = `YAHOO_${eventType}_${tickerStr}_${dateStr}_${num}:${den}`;
+
+    if (existingSet.has(externalId)) {
+      continue;
+    }
+
+    const prevQ = currentQ;
+    const prevP = currentP;
+
+    const adj = calculateSplitAdjustment({
+      currentQuantity: currentQ,
+      currentAveragePrice: currentP,
+      splitRatio: {
+        numerator: num,
+        denominator: den,
+      },
+    });
+
+    currentQ = adj.quantity;
+    currentP = adj.averagePrice;
+    existingSet.add(externalId);
+
+    appliedEvents.push({
+      externalId,
+      ticker: tickerStr,
+      type: eventType,
+      eventDate: dateStr,
+      splitRatio: {
+        numerator: num,
+        denominator: den,
+      },
+      quantityBefore: prevQ,
+      quantityAfter: adj.quantity,
+      averagePriceBefore: prevP,
+      averagePriceAfter: adj.averagePrice,
+    });
+  }
+
+  return {
+    appliedEvents,
+    finalQuantity: currentQ,
+    finalAveragePrice: currentP,
+  };
 }

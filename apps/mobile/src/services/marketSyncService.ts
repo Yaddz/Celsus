@@ -1,8 +1,10 @@
 import Decimal from 'decimal.js';
 import { PortfolioRepository } from '../repositories/portfolioRepository';
 import { AssetRepository } from '../repositories/assetRepository';
+import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
 import { IMarketApiService, marketApiService, MarketQuote } from './marketApi';
 import { Asset } from '../db/schema';
+import { reconcileCorporateEvents, ReconciledEvent } from '../domain/finance/corporateEvents';
 
 export interface PortfolioSyncSummary {
   portfolioId: string;
@@ -33,8 +35,119 @@ export class MarketSyncService {
   constructor(
     protected portfolioRepo: PortfolioRepository = new PortfolioRepository(),
     protected assetRepo: AssetRepository = new AssetRepository(),
-    protected marketApi: IMarketApiService = marketApiService
+    protected marketApi: IMarketApiService = marketApiService,
+    protected transactionRepo: TransactionRepository = transactionRepository
   ) {}
+
+  /**
+   * S24: Sincroniza e reconcilia eventos corporativos de Split e Inplit para os ativos das carteiras.
+   * Consome marketApi.getCorporateEvents e registra transações idempotentes via external_id.
+   */
+  async syncCorporateEvents(
+    portfolioId?: string,
+    fromDate = '2000-01-01'
+  ): Promise<ReconciledEvent[]> {
+    let portfoliosToSync: { id: string }[] = [];
+    if (portfolioId) {
+      const p = await this.portfolioRepo.getPortfolioById(portfolioId);
+      if (p) portfoliosToSync.push(p);
+    } else {
+      const all = await this.portfolioRepo.listPortfolios(false);
+      portfoliosToSync = all || [];
+    }
+
+    if (portfoliosToSync.length === 0) {
+      return [];
+    }
+
+    const allAppliedEvents: ReconciledEvent[] = [];
+
+    for (const portfolio of portfoliosToSync) {
+      const assets = await this.assetRepo.getAssetsByPortfolio(portfolio.id);
+      const stockAssets = assets.filter(
+        (a) => a.ticker && a.asset_class !== 'FIXED_INCOME'
+      );
+
+      if (stockAssets.length === 0) continue;
+
+      const tickers = Array.from(
+        new Set(stockAssets.map((a) => a.ticker.trim().toUpperCase()))
+      );
+
+      if (!this.marketApi.getCorporateEvents) continue;
+
+      let events: any[] = [];
+      try {
+        events = await this.marketApi.getCorporateEvents(tickers, fromDate);
+      } catch (err) {
+        events = [];
+      }
+
+      if (!events || events.length === 0) continue;
+
+      for (const asset of stockAssets) {
+        const normTicker = asset.ticker.trim().toUpperCase();
+        const assetEvents = events.filter(
+          (e) => (e.ticker || '').trim().toUpperCase() === normTicker
+        );
+
+        if (assetEvents.length === 0) continue;
+
+        let assetTxs: any[] = [];
+        try {
+          assetTxs = await this.transactionRepo.getTransactionsByAsset(asset.id);
+        } catch (err) {
+          assetTxs = [];
+        }
+
+        const existingExternalIds = assetTxs
+          .map((tx) => tx.external_id)
+          .filter(Boolean) as string[];
+
+        const reconResult = reconcileCorporateEvents({
+          ticker: normTicker,
+          assetId: asset.id,
+          portfolioId: portfolio.id,
+          currentQuantity: asset.quantity,
+          currentAveragePrice: asset.average_price,
+          events: assetEvents,
+          existingTransactionExternalIds: existingExternalIds,
+        });
+
+        if (reconResult.appliedEvents.length > 0) {
+          for (const applied of reconResult.appliedEvents) {
+            try {
+              await this.transactionRepo.createTransaction({
+                portfolio_id: portfolio.id,
+                asset_id: asset.id,
+                type: applied.type,
+                trade_date: applied.eventDate,
+                quantity: applied.newQuantity,
+                unit_price: applied.newAveragePrice,
+                total_amount: new Decimal(applied.newQuantity)
+                  .mul(new Decimal(applied.newAveragePrice))
+                  .toFixed(2),
+                notes: `Evento corporativo: ${applied.type} ${applied.splitRatio.numerator}:${applied.splitRatio.denominator}`,
+                source: 'YAHOO',
+                external_id: applied.externalId,
+              });
+            } catch (err) {
+              // Ignore insert error if unique constraint
+            }
+          }
+
+          await this.assetRepo.updateAsset(asset.id, {
+            quantity: reconResult.finalQuantity,
+            average_price: reconResult.finalAveragePrice,
+          });
+
+          allAppliedEvents.push(...reconResult.appliedEvents);
+        }
+      }
+    }
+
+    return allAppliedEvents;
+  }
 
   /**
    * S7-T02: Sincroniza em lote todos os tickers das carteiras locais com o backend Go

@@ -30,8 +30,8 @@
 | **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 0 | 7 | `VERIFIED (42 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
 | **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 10 | 0 | `VERIFIED (43 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 1 | 7 | `VERIFIED (44 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
-| **TOTAL (S1–S24)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **44** | **314** | **300** | **14** | **`VERIFIED (44 arquivos)`** | **⏳ 300 PASS / 14 Red Phase** |
+| **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 8 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S24)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **44** | **314** | **307** | **7** | **`VERIFIED (44 arquivos)`** | **⏳ 307 PASS / 7 Red Phase** |
 
 ---
 
@@ -297,10 +297,10 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S24-T01` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Desdobramento / Stock Split (Proporção > 1)` | Ajuste de quantidade e preço médio em desdobramentos inteiros (4:1) e fracionários (3:2) preservando rigorosamente o custo total fiscal de aquisição | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
-| `S24-T02` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Grupamento / Inplit (Proporção < 1)` | Ajuste de quantidade e preço médio em grupamentos (10:1), invariante fiscal e rejeição de proporções com numerador/denominador <= 0 | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
-| `S24-T03` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Ordem Cronológica Mista com calculatePositionFromTransactions` | Reconstrução cronológica de carteira combinando Compra Pré-Split, Split, Compra Pós-Split e Venda Parcial, bem como múltiplos eventos consecutivos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
-| `S24-T04` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Idempotência na Reconciliação de Eventos Corporativos` | Geração de `external_id` determinístico (`YAHOO_SPLIT_${ticker}_${date}_${ratio}`), dedup evitando reaplicação em sincronizações sucessivas e descarte de dividendos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
+| `S24-T01` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Desdobramento / Stock Split (Proporção > 1)` | Ajuste de quantidade e preço médio em desdobramentos inteiros (4:1) e fracionários (3:2) preservando rigorosamente o custo total fiscal de aquisição | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | 🟢 PASS (0.01s) |
+| `S24-T02` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Grupamento / Inplit (Proporção < 1)` | Ajuste de quantidade e preço médio em grupamentos (10:1), invariante fiscal e rejeição de proporções com numerador/denominador <= 0 | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | 🟢 PASS (0.01s) |
+| `S24-T03` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Ordem Cronológica Mista com calculatePositionFromTransactions` | Reconstrução cronológica de carteira combinando Compra Pré-Split, Split, Compra Pós-Split e Venda Parcial, bem como múltiplos eventos consecutivos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | 🟢 PASS (0.01s) |
+| `S24-T04` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Idempotência na Reconciliação de Eventos Corporativos` | Geração de `external_id` determinístico (`YAHOO_SPLIT_${ticker}_${date}_${ratio}`), dedup evitando reaplicação em sincronizações sucessivas e descarte de dividendos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | 🟢 PASS (0.01s) |
 
 ---
 
@@ -1778,6 +1778,52 @@
   ```
 - **Total da Sprint 24 em Red Phase:** 8 novos casos | 1 PASS | 7 FAIL (Fase A Red Phase confirmada sob stubs).
 - **Total Geral do Projeto Celsus:** 44 arquivos de teste bloqueados | 314 casos de teste automatizados (300 PASS / 14 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 24 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 44 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Motor de Eventos Corporativos (`corporateEvents.ts`):**
+     - Função `calculateSplitAdjustment`: cálculo exato de desdobramentos (splits, proporção > 1) e grupamentos (inplits, proporção < 1) com garantia matemática e fiscal de invariante de Custo Total ($Q_{\text{nova}} \times PM_{\text{novo}} = C_{\text{total}}$).
+     - Função `reconcileCorporateEvents`: reconciliação idempotente com external_id determinístico (`YAHOO_SPLIT_${ticker}_${date}_${ratio}`), descarte de dividendos em dinheiro da posição de cotas e prevenção contra duplicatas em sincronizações sucessivas.
+  2. **Reconstrução Cronológica em `averagePrice.ts` (`calculatePositionFromTransactions`):**
+     - Suporte aos tipos de transação `SPLIT` e `INPLIT` com splitRatio `{ numerator, denominator }`.
+     - Ordenação cronológica estável por `tradeDate ASC` permitindo compras pré-split, split, compras pós-split e vendas parciais com apuração de PnL realizado exato.
+  3. **Integração em `MarketSyncService` (`syncCorporateEvents`):**
+     - Consumo de `marketApi.getCorporateEvents` para os tickers de Ações e FIIs da carteira, registro transacional no livro-razão (`transactions`) com chave de deduplicação `external_id`, e atualização atômica da quantidade e preço médio em `assets`.
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test -- --runInBand`):**
+  ```text
+  PASS src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts (2.335 s)
+    Sprint 24: Corporate Events (Stock Splits & Inplits) Specification
+      S24-T01: Desdobramento / Stock Split (Proporção > 1)
+        √ deve ajustar quantidade e preço médio em desdobramento 4:1 preservando custo total de aquisição (5 ms)
+        √ deve processar desdobramentos fracionários mantendo precisão decimal sem resíduos (8 ms)
+      S24-T02: Grupamento / Reverse Stock Split - Inplit (Proporção < 1)
+        √ deve ajustar quantidade e preço médio em grupamento 10:1 preservando custo total de aquisição (3 ms)
+        √ deve rejeitar proporções inválidas (numerador ou denominador <= 0) (5 ms)
+      S24-T03: Ordem Cronológica Mista com calculatePositionFromTransactions
+        √ deve reconstruir posição com Compra Pré-Split, Split, Compra Pós-Split e Venda Parcial (11 ms)
+        √ deve aplicar múltiplos desdobramentos e grupamentos consecutivos na ordem cronológica correta
+      S24-T04: Idempotência na Reconciliação de Eventos Corporativos
+        √ deve aplicar split novo gerando external_id determinístico e ignorar quando já aplicado (1 ms)
+        √ deve ignorar eventos de dividendos em dinheiro sem alterar posição acionária
+
+  Test Suites: 36 passed, 36 total
+  Tests:       282 passed, 282 total
+  Snapshots:   0 total
+  Time:        20.396 s
+  Total Mobile: 36 suítes | 282 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 24 Concluída):**
+  - **44 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **307 testes automatizados aprovados (25 em Go + 282 em TypeScript/Jest)**
+  - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
+
 
 
 
