@@ -41,8 +41,8 @@
 | **Sprint 32** | P0: Dados, Persistência e Integração Real (Cotação Automática, SQLite Real, Cores Unificadas e Zero Bypasses) | 1 | 8 | 8 | 0 | `VERIFIED (52 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 33** | P1: Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais | 1 | 5 | 5 | 0 | `VERIFIED (53 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 34** | P2: Header XP Padrão e Aceite Ponta a Ponta E2E | 1 | 4 | 4 | 0 | `VERIFIED (54 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 35** | Baralho Empilhado de Carteiras (Card Stack), Gestos Verticais 50% e Loop Cíclico | 1 | 8 | 0 | 8 | `LOCKED (55 arquivos)` | 🔴 Fase A Concluída (Red Phase) |
-| **TOTAL (S1–S35)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **55** | **383** | **375** | **8** | **`LOCKED (55 arquivos)`** | **🟡 Em Execução (Fase A Red)** |
+| **Sprint 35** | Baralho Empilhado de Carteiras (Card Stack), Gestos Verticais 50% e Loop Cíclico | 1 | 8 | 8 | 0 | `VERIFIED (55 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S35)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **55** | **383** | **383** | **0** | **`VERIFIED (55 arquivos)`** | **🟢 100% Aprovado (383 PASS)** |
 
 ---
 
@@ -2382,17 +2382,42 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 
 ### 2.35. Sprint 35: Baralho Empilhado de Carteiras (Portfolio Card Stack)
 
-#### 2.35.1. Tabela de Casos de Teste (Fase A)
+#### 2.35.1. Tabela de Casos de Teste (Fase B — 100% Green)
 | ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S35-T01` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Visible Depth Layers Render Real Full Content | Renderização com conteúdo real completo nos cards de profundidade (Card 1 e Card 2 com saldos, nomes e badges visíveis) | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T02` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | "Nova Carteira" Special Card is Always the Last Card | Card especial "Nova Carteira" é sempre o último card do baralho quando ação de criação existe | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T03` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Full Cyclic Loop Around the Deck | Loop cíclico completo ao arrastar além do último card da pilha, voltando ao card inicial | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T04` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Reverts on Drag < 50% | Arraste vertical menor que 50% da altura do card é cancelado e card volta com mola elástica | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T05` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Confirms Swap on Drag >= 50% | Arraste vertical >= 50% da altura confirma troca para próxima (ou anterior) carteira | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T06` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Edge Cases - Empty Deck and Single Portfolio Deck | Casos de borda: 0 carteiras exibe empty state; 1 carteira isolada bloqueia troca por gesto | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T07` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Privacy Mode Masks Balances Across All Rendered Cards | Mascaramento de privacidade (`R$ ••••••`) aplicado em todos os cards visíveis da pilha | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
-| `S35-T08` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Central walletStore Reactive Synchronization | Sincronização central via `walletStore` notificando subscribers e gerindo índice ativo | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T01` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Visible Depth Layers Render Real Full Content | Renderização com conteúdo real completo nos cards de profundidade (Card 1 e Card 2 com saldos, nomes e badges visíveis) | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.29s) |
+| `S35-T02` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | "Nova Carteira" Special Card is Always the Last Card | Card especial "Nova Carteira" é sempre o último card do baralho quando ação de criação existe | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.03s) |
+| `S35-T03` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Full Cyclic Loop Around the Deck | Loop cíclico completo ao arrastar além do último card da pilha, voltando ao card inicial | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.05s) |
+| `S35-T04` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Reverts on Drag < 50% | Arraste vertical menor que 50% da altura do card é cancelado e card volta com mola elástica | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.03s) |
+| `S35-T05` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Confirms Swap on Drag >= 50% | Arraste vertical >= 50% da altura confirma troca para próxima (ou anterior) carteira | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.07s) |
+| `S35-T06` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Edge Cases - Empty Deck and Single Portfolio Deck | Casos de borda: 0 carteiras exibe empty state; 1 carteira isolada bloqueia troca por gesto | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.02s) |
+| `S35-T07` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Privacy Mode Masks Balances Across All Rendered Cards | Mascaramento de privacidade (`R$ ••••••`) aplicado em todos os cards visíveis da pilha | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.01s) |
+| `S35-T08` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Central walletStore Reactive Synchronization | Sincronização central via `walletStore` notificando subscribers e gerindo índice ativo | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🟢 PASS (0.01s) |
+
+#### 2.35.2. Evidência de Execução da Fase B
+- **Execução dos Testes Mobile (`npm --prefix apps/mobile test`):**
+  ```text
+  PASS src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx (10 PASS)
+  Total Mobile Test Suites: 47 passed, 47 total
+  Total Mobile Tests:       360 passed, 360 total
+  Snapshots:                0 total
+  Time:                     11.184 s
+  ```
+- **Execução dos Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	0.092s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.058s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.011s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.009s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	0.120s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	0.280s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 35 Concluída):**
+  - **55 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **385 testes automatizados aprovados (25 em Go + 360 em TypeScript/Jest)**
+  - **Zero adulterações em testes bloqueados (`node scripts/test-lock.js verify` = APROVADO)**
+  - **Conformidade estrita com o Protocolo TDD Lock.**
 
 
 
