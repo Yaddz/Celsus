@@ -90,36 +90,36 @@ const INITIAL_CATEGORY_ALLOCATIONS: CategoryAllocationData[] = [
 function extractSyncResolvedValue<T = any>(promiseOrVal: any): T | null {
   if (!promiseOrVal) return null;
   if (typeof promiseOrVal.then !== 'function') return promiseOrVal as T;
+  const util = (globalThis as any)?.__node_util__;
+  if (!util || typeof util.inspect !== 'function') {
+    return null;
+  }
   try {
-    const nodeRequire = typeof require !== 'undefined' ? require : null;
-    if (nodeRequire) {
-      const util = nodeRequire('util');
-      const str = util.inspect(promiseOrVal);
-      if (str.includes('<pending>') || str.includes('<rejected>')) return null;
-      const start = str.indexOf('{');
-      if (start === -1) return null;
-      let firstBracket = -1;
-      let openChar = '';
-      let closeChar = '';
-      for (let i = start + 1; i < str.length; i++) {
-        if (str[i] === '[' || str[i] === '{') {
-          firstBracket = i;
-          openChar = str[i];
-          closeChar = str[i] === '[' ? ']' : '}';
-          break;
-        }
+    const str = util.inspect(promiseOrVal);
+    if (str.includes('<pending>') || str.includes('<rejected>')) return null;
+    const start = str.indexOf('{');
+    if (start === -1) return null;
+    let firstBracket = -1;
+    let openChar = '';
+    let closeChar = '';
+    for (let i = start + 1; i < str.length; i++) {
+      if (str[i] === '[' || str[i] === '{') {
+        firstBracket = i;
+        openChar = str[i];
+        closeChar = str[i] === '[' ? ']' : '}';
+        break;
       }
-      if (firstBracket === -1) return null;
-      let depth = 0;
-      for (let i = firstBracket; i < str.length; i++) {
-        if (str[i] === openChar) depth++;
-        else if (str[i] === closeChar) {
-          depth--;
-          if (depth === 0) {
-            const block = str.substring(firstBracket, i + 1);
-            const evalFn = new Function(`return (${block});`);
-            return evalFn();
-          }
+    }
+    if (firstBracket === -1) return null;
+    let depth = 0;
+    for (let i = firstBracket; i < str.length; i++) {
+      if (str[i] === openChar) depth++;
+      else if (str[i] === closeChar) {
+        depth--;
+        if (depth === 0) {
+          const block = str.substring(firstBracket, i + 1);
+          const evalFn = new Function(`return (${block});`);
+          return evalFn();
         }
       }
     }

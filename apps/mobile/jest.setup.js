@@ -141,6 +141,7 @@ renderModule.render = syncRender;
 RNTL.render = syncRender;
 
 const { cleanup } = RNTL;
+global.__node_util__ = require('util');
 afterEach(async () => {
   await cleanup();
 });
