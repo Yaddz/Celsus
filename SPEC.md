@@ -971,3 +971,60 @@ Passos:
 3. Rode toda a suíte de testes (`go test ./...` e `npm test --prefix apps/mobile`) até 100% passarem, valide com `./scripts/test-lock.ps1 -Action verify` e atualize `TEST_REPORT.md`.
 4. Realize o commit obrigatório da Fase B: `git add . && git commit -m "feat(sprint-14): complete phase B class detail and asset card redesign" && git push origin main`.
 ```
+
+---
+
+## 13. Especificação Canônica Consolidada (Sprints 15 a 30)
+
+Esta seção unifica e sintetiza formalmente todas as especificações das versões incrementais (`SPEC_V2.md`, `SPEC_V3.md` e `REFACTORING_SPEC.md`), tornando o presente documento a única fonte de verdade canônica do ecossistema Celsus.
+
+### 13.1. Síntese da Arquitetura e do Modelo de Dados
+- **Mobile Local-First (`React Native / Expo SDK 52+`):**
+  - Armazenamento em SQLite embarcado (`celsus.db`) via `drizzle-orm/better-sqlite3` (ambiente Jest) e `expo-sqlite` (runtime nativo).
+  - Tabelas Canônicas:
+    1. `portfolios`: ID UUID, nome, docket_code, is_archived, timestamps.
+    2. `portfolio_class_targets`: Alocação macro por classe (`FIXED_INCOME`, `FII`, `STOCK`, `CRYPTO`), soma 100%.
+    3. `assets`: Posição consolidada, ticker, nome, classe, target micro na classe, quantity (suporte a 8 decimais), average_price, manual_price_override, dados de Renda Fixa e metadados de conciliação.
+    4. `transactions`: Livro-razão imutável de ordens executadas (`BUY`, `SELL`), data, quantidade, preço unitário, taxas e notas de corretagem.
+    5. `market_price_cache`: Cotações recentes em cache com TTL de 15 minutos, status `isStale` e timestamp de sincronização.
+    6. `historical_prices_local`: Histórico diário de preços de fechamento B3/COTAHIST com chave primária composta `(ticker, trade_date)`.
+- **Motor de Mercado Stateless em Go (`services/market-api`):**
+  - Módulos `cotahist` (parser posicional oficial da B3), `yahoo` (cliente resiliente com failover `query1` / `query2`), `macro` (séries diárias BCB SGS #12 CDI e #433 IPCA), `brapi` (proxy leve de cotações em BRL) e `mobilebridge` (interface C-Shared / AAR para execução sem rede externa).
+
+### 13.2. Regras de Domínio Financeiro Estabilizadas
+1. **Metas em Dois Níveis:**
+   $$T_i = \frac{W_c \cdot w_{i,c}}{100}$$
+   onde $W_c$ é o peso macro da classe e $w_{i,c}$ é o peso micro do ativo dentro de sua classe.
+2. **Cálculo de Preço Médio e Vendas Parciais:**
+   - Compras recalculam o Preço Médio ponderado por quantidade e taxas.
+   - Vendas parciais reduzem a quantidade mantendo o Preço Médio inalterado (sem permitir posições vendidas a descoberto).
+3. **Cálculo de Aporte Inteligente sem Vendas:**
+   - Distribui o capital exclusivamente entre os ativos abaixo da meta global ideal ($D_i = \max(0, V_{\text{meta}} - V_{\text{curr}})$), alocando cotas inteiras para Ações/FIIs, frações de até 8 decimais para Criptomoedas e centavos exatos para Renda Fixa.
+4. **Eventos Corporativos (Desdobramentos e Grupamentos):**
+   - Proporção $N:D$ ajusta a quantidade ($Q_{\text{novo}} = Q_{\text{ant}} \cdot \frac{N}{D}$) e o Preço Médio ($PM_{\text{novo}} = PM_{\text{ant}} \cdot \frac{D}{N}$), preservando o custo total de aquisição.
+5. **Curva Histórica de Patrimônio:**
+   - Curva patrimonial diária consolidada considerando transações acumuladas no tempo, juros de Renda Fixa e cotações de mercado reais.
+
+### 13.3. Padrões Visuais e Sistema de Design (Clean Bento V2)
+- **Modo Escuro / Modo Claro:**
+  - Token `colors.parchmentMuted = '#B8B2A6'` garantindo razão de contraste WCAG AA $\ge 4.5:1$ contra superfícies escuras `#191B1D`.
+  - Superfícies claras `#F4F1EA` / `#FFFFFF` com bordas `#EAE4D7` e botões de fechamento contrastantes `#F0EDE6`.
+- **Componentes Centrais:**
+  - `StackedWalletDeck`: Deck de cartas com profundidade empilhada, cantos arredondados, notch inferior direito autêntico com quinas limpas, suporte a rotação e alternância suave entre carteiras, exibição de saldos consolidados reais e estado vazio autêntico (`stacked-wallet-empty-card`).
+  - `DotMatrixAllocationCard`: Visualização em matriz de pontos preenchida da esquerda para a direita (`left-to-right`).
+  - `PatrimonyLineChartCard`: Gráfico de evolução patrimonial com linhas de referência mín/máx no eixo Y, legenda comparativa (Valor de Mercado vs Capital Investido), tooltip interativo e estado vazio informativo.
+  - `ClassDetailScreen`: Gráfico Donut com fatias sólidas contínuas (`opacity: 1`), pílulas de seleção de ativos e cards detalhados.
+  - `AnimatedModalSheet`: Modal inferior deslizante com backdrop translúcido escuro e transições de movimento padronizadas.
+
+### 13.4. Rastreabilidade de Sprints e Governança TDD
+- **Total de 30 Sprints executadas sob regime de bloqueio estrito:**
+  - **49 arquivos de teste imutáveis** protegidos por hash SHA-256 em `tests.lock.json`.
+  - **341 testes automatizados** aprovados com 100% de sucesso (25 em Go + 316 em TypeScript/Jest).
+  - Todas as fases A e B registradas cronologicamente em `TEST_REPORT.md` e persistidas no histórico Git da branch `main`.
+
+### 13.5. Funcionalidades Fora de Escopo / Em Desenvolvimento Futuro
+1. **Sincronização Remota via Open Finance Bancário em Tempo Real:**
+   - O schema do banco de dados local já possui as colunas estruturais preparadas (`source = 'OPEN_FINANCE'`, `external_id`, `institution_id`, `last_synced_at`), porém o agregador externo de Open Finance bancário permanece fora de escopo para esta versão 100% offline e local-first.
+2. **Alternância Global de Moeda / Visão Multimoeda Internacional (Ícone do Globo):**
+   - O ícone de Globo no `XpMinimalHeader` permanece como placeholder informativo com aviso de funcionalidade futura para expansão internacional multimoeda (USD/EUR).
+

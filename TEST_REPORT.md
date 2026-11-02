@@ -2118,6 +2118,24 @@
   - **341 testes automatizados aprovados (25 em Go + 316 em TypeScript/Jest)**
   - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
 
+---
+
+### 2.30. Sprint 30 — Consolidação Canônica do `SPEC.md`, Auditoria Final e Estabilização Concluída
+
+#### Sprint 30 — Consolidação e Auditoria Final (2026-11-02)
+- **Status do Bloqueio:** Auditoria completa dos 49 arquivos de teste sob o protocolo rigoroso TDD Lock (`.agents/rules/tdd-lock.md`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 49 arquivos de teste confirmada via SHA-256.
+  ```
+- **Consolidação Documental:**
+  - `SPEC.md` atualizado canonicamente como única fonte da verdade, unificando os conceitos e implementações das Sprints 1 a 29 (incluindo o motor em Go, bridge Yahoo/COTAHIST, regras de cálculo financeiro, design system bento v2 e lista de itens fora de escopo).
+- **Resultados de Execução Automatizada:**
+  - **Mobile (`npm --prefix apps/mobile test`):** 41 suítes de teste, 316 testes aprovados, 0 falhas.
+  - **Backend Go (`cd services/market-api && go test -count=1 ./...`):** 25 testes aprovados, 0 falhas.
+  - **Total Geral do Projeto:** **341 testes automatizados aprovados**, zero mocks nas telas de produção, banco de dados 100% local SQLite e integridade SHA-256 verificada.
+
+
 
 
 
