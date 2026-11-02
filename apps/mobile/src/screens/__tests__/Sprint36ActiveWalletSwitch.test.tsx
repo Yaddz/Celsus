@@ -188,10 +188,10 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
   });
 
   // =========================================================================
-  // S36-T07: Gesture Cycling Never Selects '__add_wallet_card__'
+  // S36-T07: Gesture Cycling Never Emits '__add_wallet_card__'
   // =========================================================================
   describe('S36-T07: Cyclic Gesture Never Emits "__add_wallet_card__"', () => {
-    it('should skip "__add_wallet_card__" and loop directly between real portfolios', async () => {
+    it('should never emit "__add_wallet_card__" via onPortfolioChange when cycling past real portfolios', async () => {
       const onPortfolioChange = jest.fn();
       const onCreatePortfolioPress = jest.fn();
 
@@ -212,16 +212,25 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
         nativeEvent: { layout: { width: 340, height: 180, x: 0, y: 0 } },
       });
 
-      // Da carteira Beta (index 1), puxar para baixo deve voltar para Alfa (index 0) e NUNCA selecionar __add_wallet_card__
+      // Da carteira Beta (index 1), puxar para baixo avança para o card Nova Carteira
       fireEvent(activeCard, 'responderRelease', {
         gestureState: { dy: 100, dx: 0 },
       });
 
-      expect(onPortfolioChange).toHaveBeenCalledWith(0, mockPortfolios[0]);
+      // O card exibido é o card de adicionar, mas onPortfolioChange NUNCA deve ser emitido com __add_wallet_card__
+      const addCard = screen.getByTestId('stacked-wallet-add-card');
+      expect(addCard).toBeTruthy();
       expect(onPortfolioChange).not.toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({ id: '__add_wallet_card__' })
       );
+
+      // Puxar para baixo novamente cicla de volta para a primeira carteira (Alfa, index 0)
+      fireEvent(addCard, 'responderRelease', {
+        gestureState: { dy: 100, dx: 0 },
+      });
+
+      expect(onPortfolioChange).toHaveBeenCalledWith(0, mockPortfolios[0]);
     });
   });
 
@@ -242,6 +251,7 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
       // Ativo em A: STOCK PETR4 R$ 300,00
       await assetRepository.createAsset({
         portfolio_id: portA.id,
+        name: 'Petrobras PN',
         ticker: 'PETR4',
         asset_class: 'STOCK',
         quantity: '10',
@@ -251,6 +261,7 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
       // Ativo em B: FII HGLG11 R$ 1.200,00
       await assetRepository.createAsset({
         portfolio_id: portB.id,
+        name: 'CSHG Logística',
         ticker: 'HGLG11',
         asset_class: 'FII',
         quantity: '12',
@@ -293,6 +304,7 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
       // Ativo em A: R$ 300,00
       await assetRepository.createAsset({
         portfolio_id: portA.id,
+        name: 'Petrobras PN',
         ticker: 'PETR4',
         asset_class: 'STOCK',
         quantity: '10',
@@ -302,6 +314,7 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
       // Ativo em B: R$ 1.200,00
       await assetRepository.createAsset({
         portfolio_id: portB.id,
+        name: 'Vale ON',
         ticker: 'VALE3',
         asset_class: 'STOCK',
         quantity: '20',

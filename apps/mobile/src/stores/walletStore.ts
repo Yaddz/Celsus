@@ -34,7 +34,7 @@ export const walletStore = {
       activeWalletIndex: 0,
       activePortfolioId: null,
     };
-    listeners.clear();
+    listeners.forEach((l) => l());
   },
 };
 

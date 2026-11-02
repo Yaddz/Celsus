@@ -74,7 +74,7 @@ const WalletCardFace: React.FC<WalletCardFaceProps> = ({
     const pal = it.paletteId
       ? PORTFOLIO_PALETTES[it.paletteId as keyof typeof PORTFOLIO_PALETTES] || PORTFOLIO_PALETTES.classic
       : getPortfolioPalette(idx);
-    return pal.cardBg || pal.primary;
+    return pal.cardBg || pal.accent;
   };
 
   const cardBgColor = isAddCard ? '#25282B' : (item.accentColor || getCardColor(item, index));
@@ -282,6 +282,24 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   // Animated values para física de cartas
   const panY = useRef(new Animated.Value(0)).current;
 
+  // Ref sempre atualizada para eliminar closures obsoletas no PanResponder
+  const latestRef = useRef({
+    items,
+    cardHeight,
+    onPortfolioChange,
+    onCycleNext,
+    onCyclePrev,
+    currentIndex,
+  });
+  latestRef.current = {
+    items,
+    cardHeight,
+    onPortfolioChange,
+    onCycleNext,
+    onCyclePrev,
+    currentIndex,
+  };
+
   useEffect(() => {
     if (activeIndex !== undefined && activeIndex !== prevActiveIndexRef.current) {
       prevActiveIndexRef.current = activeIndex;
@@ -290,8 +308,9 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   }, [activeIndex]);
 
   const cycleNext = () => {
-    if (items.length <= 1) return;
-    const nextIndex = (currentIndexRef.current + 1) % items.length;
+    const currentItems = latestRef.current.items;
+    if (currentItems.length <= 1) return;
+    const nextIndex = (currentIndexRef.current + 1) % currentItems.length;
     currentIndexRef.current = nextIndex;
     const act = (React as any).act;
     if (typeof act === 'function') {
@@ -301,13 +320,17 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
     } else {
       setCurrentIndex(nextIndex);
     }
-    onPortfolioChange?.(nextIndex, items[nextIndex]);
-    onCycleNext?.();
+    // NUNCA emite onPortfolioChange para o card especial de adicionar carteira
+    if (currentItems[nextIndex]?.id !== '__add_wallet_card__') {
+      latestRef.current.onPortfolioChange?.(nextIndex, currentItems[nextIndex]);
+    }
+    latestRef.current.onCycleNext?.();
   };
 
   const cyclePrev = () => {
-    if (items.length <= 1) return;
-    const prevIndex = (currentIndexRef.current - 1 + items.length) % items.length;
+    const currentItems = latestRef.current.items;
+    if (currentItems.length <= 1) return;
+    const prevIndex = (currentIndexRef.current - 1 + currentItems.length) % currentItems.length;
     currentIndexRef.current = prevIndex;
     const act = (React as any).act;
     if (typeof act === 'function') {
@@ -317,12 +340,16 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
     } else {
       setCurrentIndex(prevIndex);
     }
-    onPortfolioChange?.(prevIndex, items[prevIndex]);
-    onCyclePrev?.();
+    // NUNCA emite onPortfolioChange para o card especial de adicionar carteira
+    if (currentItems[prevIndex]?.id !== '__add_wallet_card__') {
+      latestRef.current.onPortfolioChange?.(prevIndex, currentItems[prevIndex]);
+    }
+    latestRef.current.onCyclePrev?.();
   };
 
   const handleRelease = (e: any, gestureState?: PanResponderGestureState) => {
-    if (items.length <= 1) {
+    const latest = latestRef.current;
+    if (latest.items.length <= 1) {
       Animated.spring(panY, {
         toValue: 0,
         useNativeDriver: false,
@@ -331,8 +358,11 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
       return;
     }
 
-    const dy = gestureState?.dy ?? e?.gestureState?.dy ?? e?.nativeEvent?.translationY ?? 0;
-    const effectiveThreshold = cardHeight > 0 ? cardHeight * 0.5 : 50;
+    const dy =
+      gestureState?.dy !== 0 && gestureState?.dy !== undefined
+        ? gestureState.dy
+        : (e?.gestureState?.dy ?? e?.nativeEvent?.translationY ?? 0);
+    const effectiveThreshold = latest.cardHeight > 0 ? latest.cardHeight * 0.5 : 50;
 
     if (dy >= effectiveThreshold) {
       cycleNext();
@@ -430,7 +460,7 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
     const pal = item.paletteId
       ? PORTFOLIO_PALETTES[item.paletteId as keyof typeof PORTFOLIO_PALETTES] || PORTFOLIO_PALETTES.classic
       : getPortfolioPalette(idx);
-    return pal.cardBg || pal.primary;
+    return pal.cardBg || pal.accent;
   };
 
   const layerOneColor = nextItem1 ? getCardColor(nextItem1, (currentIndex + 1) % items.length) : '#1A1C1E';
@@ -553,7 +583,6 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
           },
         ]}
         {...panResponder.panHandlers}
-        onResponderRelease={handleRelease}
       >
         <WalletCardFace
           item={currentItem}

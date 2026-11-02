@@ -227,12 +227,17 @@ function AppContent() {
         );
 
         const dossier = consolidatePortfolios(inputs);
-        const mvNum = parseFloat(dossier.totalMarketValue || '0');
+        const breakdownMap = new Map((dossier.portfolioBreakdown || []).map((b) => [b.portfolioId, b]));
+
+        const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+        const activeInput = inputs.find((i) => i.id === activePortId) || inputs[0];
+        const homeDossier = consolidatePortfolios(activeInput ? [activeInput] : []);
+
+        const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
         const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-        const formattedProfit = `${parseFloat(dossier.totalProfit || '0') >= 0 ? '+' : ''}${dossier.totalProfitPercentage || '0,0'}% total`;
+        const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${homeDossier.totalProfitPercentage || '0,0'}% total`;
         setTotalPatrimony(formattedTotal);
         setProfitSummary(formattedProfit);
-        const breakdownMap = new Map((dossier.portfolioBreakdown || []).map((b) => [b.portfolioId, b]));
         setWalletsList(
           allPortfolios.map((p, idx) => {
             const b = breakdownMap.get(p.id);
@@ -247,7 +252,7 @@ function AppContent() {
               code: p.docket_code || `•••• 00${idx + 1}`,
               balance: pBalance,
               profitText: pProfitText,
-              accentColor: pal.cardBg || pal.primary,
+              accentColor: pal.cardBg || pal.accent,
               paletteId: pal.id,
             };
           })
@@ -256,27 +261,27 @@ function AppContent() {
         setCategoryAllocations([
           {
             assetClass: 'FIXED_INCOME',
-            currentPercentage: parseFloat(dossier.classAllocation.FIXED_INCOME.currentPercentage) || 0,
-            targetPercentage: parseFloat(dossier.classAllocation.FIXED_INCOME.weightedTargetPercentage) || 0,
-            marketValue: dossier.classAllocation.FIXED_INCOME.marketValue,
+            currentPercentage: parseFloat(homeDossier.classAllocation.FIXED_INCOME.currentPercentage) || 0,
+            targetPercentage: parseFloat(homeDossier.classAllocation.FIXED_INCOME.weightedTargetPercentage) || 0,
+            marketValue: homeDossier.classAllocation.FIXED_INCOME.marketValue,
           },
           {
             assetClass: 'FII',
-            currentPercentage: parseFloat(dossier.classAllocation.FII.currentPercentage) || 0,
-            targetPercentage: parseFloat(dossier.classAllocation.FII.weightedTargetPercentage) || 0,
-            marketValue: dossier.classAllocation.FII.marketValue,
+            currentPercentage: parseFloat(homeDossier.classAllocation.FII.currentPercentage) || 0,
+            targetPercentage: parseFloat(homeDossier.classAllocation.FII.weightedTargetPercentage) || 0,
+            marketValue: homeDossier.classAllocation.FII.marketValue,
           },
           {
             assetClass: 'STOCK',
-            currentPercentage: parseFloat(dossier.classAllocation.STOCK.currentPercentage) || 0,
-            targetPercentage: parseFloat(dossier.classAllocation.STOCK.weightedTargetPercentage) || 0,
-            marketValue: dossier.classAllocation.STOCK.marketValue,
+            currentPercentage: parseFloat(homeDossier.classAllocation.STOCK.currentPercentage) || 0,
+            targetPercentage: parseFloat(homeDossier.classAllocation.STOCK.weightedTargetPercentage) || 0,
+            marketValue: homeDossier.classAllocation.STOCK.marketValue,
           },
           {
             assetClass: 'CRYPTO',
-            currentPercentage: parseFloat(dossier.classAllocation.CRYPTO.currentPercentage) || 0,
-            targetPercentage: parseFloat(dossier.classAllocation.CRYPTO.weightedTargetPercentage) || 0,
-            marketValue: dossier.classAllocation.CRYPTO.marketValue,
+            currentPercentage: parseFloat(homeDossier.classAllocation.CRYPTO.currentPercentage) || 0,
+            targetPercentage: parseFloat(homeDossier.classAllocation.CRYPTO.weightedTargetPercentage) || 0,
+            marketValue: homeDossier.classAllocation.CRYPTO.marketValue,
           },
         ]);
       } else {
@@ -361,11 +366,66 @@ function AppContent() {
     const updateActiveWalletData = async () => {
       try {
         const allPortfolios = await portfolioRepository.listPortfolios(false);
-        const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
-        if (activePortId) {
-          const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
+        const activePort = allPortfolios?.[activeWalletIndex] || allPortfolios?.[0];
+        if (activePort) {
+          const pAssets = await assetRepository.getAssetsByPortfolio(activePort.id);
+          const pTargets = await portfolioRepository.getClassTargets(activePort.id);
           setPortfolioAssets(pAssets || []);
-          const txs = await transactionService.getTransactionsByPortfolio(activePortId);
+
+          const activeInput: PortfolioConsolidationInput = {
+            id: activePort.id,
+            name: activePort.name,
+            docketCode: activePort.docket_code,
+            isArchived: activePort.is_archived,
+            assets: (pAssets || []).map((a) => ({
+              id: a.id,
+              ticker: a.ticker,
+              assetClass: a.asset_class as any,
+              quantity: a.quantity,
+              averagePrice: a.average_price,
+              currentPrice: a.manual_price_override || a.average_price,
+            })),
+            classTargets: (pTargets || []).map((ct) => ({
+              assetClass: ct.asset_class as any,
+              targetPercentage: ct.target_percentage,
+            })),
+          };
+
+          const homeDossier = consolidatePortfolios([activeInput]);
+          const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
+          const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+          const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${homeDossier.totalProfitPercentage || '0,0'}% total`;
+          setTotalPatrimony(formattedTotal);
+          setProfitSummary(formattedProfit);
+
+          setCategoryAllocations([
+            {
+              assetClass: 'FIXED_INCOME',
+              currentPercentage: parseFloat(homeDossier.classAllocation.FIXED_INCOME.currentPercentage) || 0,
+              targetPercentage: parseFloat(homeDossier.classAllocation.FIXED_INCOME.weightedTargetPercentage) || 0,
+              marketValue: homeDossier.classAllocation.FIXED_INCOME.marketValue,
+            },
+            {
+              assetClass: 'FII',
+              currentPercentage: parseFloat(homeDossier.classAllocation.FII.currentPercentage) || 0,
+              targetPercentage: parseFloat(homeDossier.classAllocation.FII.weightedTargetPercentage) || 0,
+              marketValue: homeDossier.classAllocation.FII.marketValue,
+            },
+            {
+              assetClass: 'STOCK',
+              currentPercentage: parseFloat(homeDossier.classAllocation.STOCK.currentPercentage) || 0,
+              targetPercentage: parseFloat(homeDossier.classAllocation.STOCK.weightedTargetPercentage) || 0,
+              marketValue: homeDossier.classAllocation.STOCK.marketValue,
+            },
+            {
+              assetClass: 'CRYPTO',
+              currentPercentage: parseFloat(homeDossier.classAllocation.CRYPTO.currentPercentage) || 0,
+              targetPercentage: parseFloat(homeDossier.classAllocation.CRYPTO.weightedTargetPercentage) || 0,
+              marketValue: homeDossier.classAllocation.CRYPTO.marketValue,
+            },
+          ]);
+
+          const txs = await transactionService.getTransactionsByPortfolio(activePort.id);
           if (txs && txs.length > 0) {
             const mapped: RecentTransactionItem[] = await Promise.all(
               txs.slice(0, 5).map(async (t) => {
@@ -384,6 +444,11 @@ function AppContent() {
           } else {
             setTransactionsList([]);
           }
+        } else {
+          setPortfolioAssets([]);
+          setTransactionsList([]);
+          setTotalPatrimony('R$ 0,00');
+          setProfitSummary('0,0% no ano');
         }
       } catch {}
     };
@@ -858,8 +923,10 @@ function AppContent() {
             }))}
             activeIndex={activeWalletIndex}
             onPortfolioChange={(idx, item) => {
-              setActiveWalletIndex(idx);
-              walletStore.setActiveIndex(idx, item?.id);
+              if (item?.id && item.id !== '__add_wallet_card__') {
+                setActiveWalletIndex(idx);
+                walletStore.setActiveIndex(idx, item.id);
+              }
             }}
             onCreatePortfolioPress={() => {
               setOpenCreatePortfolioModal(true);
@@ -889,13 +956,14 @@ function AppContent() {
                     accessibilityState={{ selected: isSelected }}
                     accessibilityLabel={w.name}
                     activeOpacity={0.8}
+                    hitSlop={{ top: 19, bottom: 19, left: 19, right: 19 }}
                     onPress={() => {
                       setActiveWalletIndex(idx);
                       walletStore.setActiveIndex(idx, w.id);
                     }}
                     style={[
                       styles.pageDot,
-                      isSelected && [styles.pageDotActive, { backgroundColor: pal.primary }],
+                      isSelected && [styles.pageDotActive, { backgroundColor: pal.accent }],
                     ]}
                   />
                 );
