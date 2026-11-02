@@ -146,6 +146,9 @@ export class PortfolioRepository {
 
     return this.getClassTargets(portfolioId);
   }
+  async deletePortfolio(id: string): Promise<boolean> {
+    return false;
+  }
 }
 
 export const portfolioRepository = new PortfolioRepository();

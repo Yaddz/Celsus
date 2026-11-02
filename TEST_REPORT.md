@@ -2041,6 +2041,42 @@
   - **336 testes automatizados aprovados (25 em Go + 311 em TypeScript/Jest)**
   - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
 
+---
+
+### 2.29. Sprint 29 — Grupos P2 & P3: Carteiras, Exclusão em Cascata, Layout de Metas e Animações de Modais (`apps/mobile`)
+
+#### Sprint 29 — Fase A: Lock e Verificação Inicial (2026-11-02)
+- **Status do Bloqueio:** 1 novo arquivo de teste de integração de ponta a ponta (`Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx`) bloqueado com `ReadOnly` (total de 49 arquivos protegidos no repositório) e registrado em `tests.lock.json`.
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 49 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução Inicial dos Testes sob Stubs (Red Phase no Jest):**
+  ```text
+  FAIL src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx
+    Sprint 29: Wallets Deck Sync, Class Target Layout, Cascade Delete & Modal Animations
+      × S29-T01: Wallet Deck Sync & Real Balance in PortfolioManagementScreen (1713 ms)
+      × S29-T02: Macro Class Targets Layout & Persistence (No flex: 1 Squashing) (20 ms)
+      × S29-T03: Destructive Delete Portfolio with Cascade in Real SQLite (18 ms)
+      × S29-T04: Add Asset Modal % Global Clarity & Suffix Indicator (40 ms)
+      √ S29-T05: AnimatedModalSheet Component Transition & Motion Standard (4 ms)
+
+  Test Suites: 1 failed, 1 total
+  Tests:       4 failed, 1 passed, 5 total
+  Snapshots:   0 total
+  Time:        5.334 s
+  Total: 5 novos testes da Sprint 29 | 1 PASS sob stubs | 4 FAIL (Red Phase confirmada sob stubs)
+  ```
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `implementation_plan.md` Verificada | Hash SHA-256 do Arquivo | Resultado Fase A |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S29-T01` | `src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx` | `Wallet Deck Sync & Real Balance in PortfolioManagementScreen` | Deck de carteiras em `PortfolioManagementScreen` exibe saldo consolidado real calculado via ativos da carteira e reflete seleção ativa | `a665eeb9797fd80d3353da43222db18db8906cac543137dee7ae40bca800ac9c` | 🔴 FAIL (Red Phase) |
+| `S29-T02` | `src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx` | `Macro Class Targets Layout & Persistence (No flex: 1 Squashing)` | Labels das classes não são esmagadas (wrapper com largura compacta $\le 84$px e `textAlign: right`); persiste alterações no SQLite via `setClassTargets` | `a665eeb9797fd80d3353da43222db18db8906cac543137dee7ae40bca800ac9c` | 🔴 FAIL (Red Phase) |
+| `S29-T03` | `src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx` | `Destructive Delete Portfolio with Cascade in Real SQLite` | Exclusão destrutiva de carteira com confirmação em duas etapas; cascata em `transactions`, `assets`, `portfolioClassTargets` e `portfolios`; fallback para card vazio quando zero | `a665eeb9797fd80d3353da43222db18db8906cac543137dee7ae40bca800ac9c` | 🔴 FAIL (Red Phase) |
+| `S29-T04` | `src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx` | `Add Asset Modal % Global Clarity & Suffix Indicator` | Exibe dica visual explicativa de `% global = fatia deste ativo no patrimônio total da carteira` e sufixo dinâmico (`%` vs `pts`) ao alternar modos | `a665eeb9797fd80d3353da43222db18db8906cac543137dee7ae40bca800ac9c` | 🔴 FAIL (Red Phase) |
+| `S29-T05` | `src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx` | `AnimatedModalSheet Component Transition & Motion Standard` | Componente padronizado `AnimatedModalSheet` com suporte a backdrop escuro e animação de subida suave | `a665eeb9797fd80d3353da43222db18db8906cac543137dee7ae40bca800ac9c` | 🟢 PASS (Stub) |
+
+
 
 
 
