@@ -39,8 +39,8 @@
 | **Sprint 30** | Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade | 1 | 7 | 7 | 0 | `VERIFIED (50 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 31** | Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira | 1 (+3 mod) | 10 | 10 | 0 | `VERIFIED (51 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 32** | P0: Dados, Persistência e Integração Real (Cotação Automática, SQLite Real, Cores Unificadas e Zero Bypasses) | 1 | 8 | 8 | 0 | `VERIFIED (52 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 33** | P1: Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais | 1 | 5 | 0 | 5 | `VERIFIED (53 arquivos)` | 🟡 Fase A Bloqueada (Red Phase) |
-| **TOTAL (S1–S33)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **53** | **371** | **366** | **5** | **`VERIFIED (53 arquivos)`** | **🟡 Fase A (53 bloqueados)** |
+| **Sprint 33** | P1: Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais | 1 | 5 | 5 | 0 | `VERIFIED (53 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S33)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **53** | **371** | **371** | **0** | **`VERIFIED (53 arquivos)`** | **🟢 100% Aprovado (371 PASS)** |
 
 ---
 
@@ -2289,6 +2289,45 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | `S33-T02` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | Botão de Exclusão no Rodapé com Confirmação Destrutiva | Botão posicionado no rodapé da página (após movimentações), abrindo modal de confirmação antes de disparar exclusão em cascata | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
 | `S33-T03` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | FloatingBottomDock: Botão Central "+" Reativo sem Travar em "X" | Abertura do speed-dial, fechamento imediato ao clicar em ação ou no backdrop de tela cheia, resetando a rotação sem travar em "X" | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
 | `S33-T04` | `apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx` | Animações Físicas e Transições Reais em `AnimatedModalSheet` | Presença de contêiner animado, suporte a dismiss no backdrop e ciclo fluido de animação de entrada e saída sem teletransporte estático | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | 🔴 RED (Previsto) |
+
+#### 2.33.2. Execução da Fase B sob Bloqueio Estrito (Green Phase & Report)
+Todos os testes foram executados com os 53 arquivos bloqueados em `ReadOnly` e integridade `SHA-256` verificada via `scripts/test-lock.js verify`:
+
+```
+PASS src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx
+  Sprint 33: P1 Deck Selection, Footer Delete, Floating Dock & Modal Physics
+    S33-T01: Wallet Selection Exclusively via Stacked Deck without Redundant Chips
+      ✓ should NOT render horizontal selector chips and should select active wallet purely via deck interaction (305 ms)
+    S33-T02: Destructive Delete Button Positioned at Page Footer with Confirmation Modal
+      ✓ should place delete button at the footer (after transactions) and require confirmation modal before deletion (110 ms)
+    S33-T03: FloatingBottomDock Center Action Button State & Dismiss
+      ✓ should open speed dial on action press, dismiss on backdrop click, and reset icon without getting stuck in X (76 ms)
+      ✓ should provide full-screen backdrop when speed dial is open to allow tapping outside to dismiss (23 ms)
+    S33-T04: Real Physics and Smooth Transitions in AnimatedModalSheet
+      ✓ should render animated container, handle backdrop dismiss, and support fluid open/close lifecycle (18 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       5 passed, 5 total
+Snapshots:   0 total
+Time:        1.523 s
+```
+
+| Caso de Teste | Status Fase B | Tempo de Execução | Hash SHA-256 Verificado | Correção no Código de Produção |
+| :--- | :---: | :---: | :---: | :--- |
+| `S33-T01` | 🟢 PASS | 305 ms | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | `PortfolioManagementScreen.tsx`: seleção de carteiras gerenciada exclusivamente pelo deck empilhado via `onPortfolioIndexChange` |
+| `S33-T02` | 🟢 PASS | 110 ms | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | `PortfolioManagementScreen.tsx`: botão `delete-portfolio-btn` movido para o rodapé (após movimentações recentes) com modal de confirmação antes da exclusão |
+| `S33-T03` | 🟢 PASS | 99 ms | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | `FloatingBottomDock.tsx`: backdrop de tela cheia `fab-speed-dial-backdrop` para toque fora e eliminação de duplo `TouchableOpacity` aninhado |
+| `S33-T04` | 🟢 PASS | 18 ms | `a9ba98e936752a611b1363f21ee1324d40d65c48f7fe73f768de6368925e1d8c` | `AnimatedModalSheet.tsx`: física real com `Animated.spring` (subida), `Animated.timing` (fade/descida), backdrop e desmonte gracioso |
+
+#### 2.33.3. Matriz de Validação e Evidências (Definição de Pronto)
+Conforme regra do projeto ("Definição de pronto = evidência. Teste automatizado passando e validação manual em dispositivo/emulador registrada no `TEST_REPORT.md`. O que não foi validado deve constar como 'não validado'"):
+
+| Item / Funcionalidade | Validação Automatizada (Jest / Go) | Validação Manual em Dispositivo / Emulador | Status Geral |
+| :--- | :--- | :--- | :--- |
+| **1. Seleção de Carteira via Deck** | 🟢 PASS (`S33-T01`) — Seleção operada estritamente no deck empilhado com sincronização do índice ativo | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **2. Exclusão no Rodapé com Confirmação** | 🟢 PASS (`S33-T02`) — Botão destrutivo no rodapé, modal de confirmação prévia antes de deletar em cascata | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **3. FloatingBottomDock sem Travar em "X"** | 🟢 PASS (`S33-T03`) — Speed-dial fecha ao acionar opção ou tocar no backdrop, retornando ícone para "+" (0deg) | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **4. Animação Física de Modais (Spring / Slide)** | 🟢 PASS (`S33-T04`) — `AnimatedModalSheet` com subida elástica e fade no backdrop sem teletransporte | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 
 
 

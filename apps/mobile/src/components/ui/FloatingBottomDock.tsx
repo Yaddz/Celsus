@@ -129,6 +129,16 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
       testID={testID}
       pointerEvents="box-none"
     >
+      {/* Backdrop para fechar o speed dial ao tocar fora */}
+      {isSheetOpen && (
+        <TouchableOpacity
+          testID="fab-speed-dial-backdrop"
+          activeOpacity={1}
+          onPress={closeSheet}
+          style={styles.backdrop}
+        />
+      )}
+
       {/* Speed-Dial Stack flutuante inline diretamente acima do botão + (SEM Modal) */}
       {isSheetOpen && (
         <Animated.View
@@ -235,22 +245,29 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
         onPress={toggleSheet}
         style={styles.actionButton}
       >
-        <TouchableOpacity
+        <View
           testID="dock-item-add-fab"
-          activeOpacity={0.85}
-          onPress={toggleSheet}
           style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
         >
           <Animated.View style={{ transform: [{ rotate: rotation }] }}>
             <MaterialIcons name="add" size={28} color="#FFFFFF" />
           </Animated.View>
-        </TouchableOpacity>
+        </View>
       </TouchableOpacity>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  backdrop: {
+    position: 'absolute',
+    top: -2000,
+    bottom: -100,
+    left: -100,
+    right: -100,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: 90,
+  },
   wrapper: {
     position: 'absolute',
     bottom: 0,

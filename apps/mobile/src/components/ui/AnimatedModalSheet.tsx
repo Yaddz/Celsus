@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Modal, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Modal, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 
 export interface AnimatedModalSheetProps {
   visible: boolean;
@@ -15,20 +15,83 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
   children,
   testID = 'animated-modal-sheet',
 }) => {
-  if (!visible) return null;
+  const [shouldRender, setShouldRender] = useState(visible);
+  const translateY = useRef(new Animated.Value(visible ? 0 : 400)).current;
+  const backdropOpacity = useRef(new Animated.Value(visible ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setShouldRender(true);
+      translateY.setValue(400);
+      backdropOpacity.setValue(0);
+      Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          damping: 20,
+          stiffness: 160,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 400,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+        Animated.timing(backdropOpacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setShouldRender(false);
+      });
+    }
+  }, [visible]);
+
+  const handleBackdropPress = () => {
+    onClose();
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: 400,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShouldRender(false);
+    });
+  };
+
+  if (!visible && !shouldRender) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none">
+    <Modal visible={shouldRender} transparent animationType="none">
       <View testID={testID} style={styles.overlay}>
-        <TouchableOpacity
-          testID="animated-sheet-backdrop"
-          activeOpacity={1}
-          onPress={onClose}
-          style={styles.backdrop}
-        />
-        <View testID="animated-sheet-container" style={styles.sheetContainer}>
+        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+          <TouchableOpacity
+            testID="animated-sheet-backdrop"
+            activeOpacity={1}
+            onPress={handleBackdropPress}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+        <Animated.View
+          testID="animated-sheet-container"
+          style={[styles.sheetContainer, { transform: [{ translateY }] }]}
+        >
           {children}
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -41,7 +104,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
   sheetContainer: {
     borderTopLeftRadius: 24,

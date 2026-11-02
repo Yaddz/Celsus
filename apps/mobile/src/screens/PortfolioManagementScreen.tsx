@@ -673,8 +673,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           testID="stacked-wallet-deck"
         />
 
-        {/* 1.1 Seletor Horizontal de Carteiras com Alternância Direta */}
-        {portfolios.length > 0 && (
+        {/* Seletor Horizontal de Carteiras (Modo Legado quando onPortfolioIndexChange não for fornecido) */}
+        {!onPortfolioIndexChange && portfolios.length > 0 && (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -696,7 +696,6 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   onPress={() => {
                     setActiveIndex(idx);
                     setActivePortfolioId(p.id);
-                    onPortfolioIndexChange?.(idx);
                   }}
                   style={[
                     styles.portfolioChip,
@@ -735,23 +734,6 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </Text>
             </TouchableOpacity>
           </ScrollView>
-        )}
-
-        {/* Ações da Carteira Ativa: Excluir Carteira */}
-        {portfolios.length > 0 && (
-          <View style={styles.portfolioActionsRow}>
-            <TouchableOpacity
-              testID="delete-portfolio-btn"
-              activeOpacity={0.8}
-              onPress={() => setIsDeleteModalOpen(true)}
-              style={[styles.deletePortfolioBtn, isLight && styles.deletePortfolioBtnLight]}
-            >
-              <MaterialIcons name="delete-outline" size={16} color="#E05252" />
-              <Text style={[styles.deletePortfolioBtnText, isLight && styles.deletePortfolioBtnTextLight]}>
-                Excluir Carteira
-              </Text>
-            </TouchableOpacity>
-          </View>
         )}
 
         {/* 2. Barra de Ações Rápidas: Botão "Metas" e "+ Adicionar Ativo" */}
@@ -1093,6 +1075,23 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           )}
         </View>
 
+        {/* Ações Destrutivas da Carteira Ativa no Rodapé da Página */}
+        {portfolios.length > 0 && (
+          <View style={styles.portfolioFooterActions}>
+            <TouchableOpacity
+              testID="delete-portfolio-btn"
+              activeOpacity={0.8}
+              onPress={() => setIsDeleteModalOpen(true)}
+              style={[styles.deletePortfolioBtn, isLight && styles.deletePortfolioBtnLight]}
+            >
+              <MaterialIcons name="delete-outline" size={16} color="#E05252" />
+              <Text style={[styles.deletePortfolioBtnText, isLight && styles.deletePortfolioBtnTextLight]}>
+                Excluir Carteira
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         <View style={{ height: 60 }} />
       </ScrollView>
 
@@ -1304,10 +1303,10 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
       {/* Modal: Confirmação de Exclusão de Carteira em Cascata */}
       <Modal visible={isDeleteModalOpen} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <View testID="delete-portfolio-modal" style={styles.modalOverlay}>
           <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
             <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>
-              EXCLUIR CARTEIRA
+              CONFIRMAR EXCLUSÃO
             </Text>
             <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight, { marginBottom: 16 }]}>
               Tem certeza de que deseja excluir esta carteira? Todos os ativos e transações associados serão removidos definitivamente em cascata.
@@ -2225,6 +2224,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     marginVertical: 8,
     paddingHorizontal: 4,
+  },
+  portfolioFooterActions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+    paddingHorizontal: 16,
   },
   deletePortfolioBtn: {
     flexDirection: 'row',
