@@ -28,10 +28,10 @@
 | **Sprint 19** | Refatoração Módulos 7 e 9: Configurações Padrão XP (Perfil, Carteiras, Blocos Modulares) & Auditoria Completa Light Mode | 1 | 14 | 14 | 0 | `VERIFIED (40 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 20** | Cliente Yahoo Finance (`/v8/finance/chart`, Failover `query1`→`query2`, Splits/Divs), `QuoteProvider` e BCB SGS (#12 CDI, #433 IPCA) | 1 (+1 mod) | 5 | 5 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 0 | 7 | `VERIFIED (42 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
-| **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 10 | 0 | `VERIFIED (43 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 7 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 10 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 8 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S24)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **44** | **314** | **307** | **7** | **`VERIFIED (44 arquivos)`** | **⏳ 307 PASS / 7 Red Phase** |
+| **TOTAL (S1–S24)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **44** | **314** | **314** | **0** | **`VERIFIED (44 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -273,13 +273,13 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S22-T01` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_InitAndSearchCatalogOffline` | Inicialização SQLite com catálogo público e busca offline instantânea (< 100ms) sem rede | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T02` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchQuotesJSON_TTLAndStaleFallback` | Cache SQLite com TTL de 15 minutos, forceRefresh e fallback gracioso offline com `is_stale: true` | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T03` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetHistoricalPriceJSON_OnDemandSync` | Sincronização sob demanda do Yahoo preservando close_price nominal e adj_close | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T04` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_CheckHealthJSON` | CheckHealthJSON retorna status ok, provider YAHOO e formato JSON válido | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T05` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchMacroRatesJSON` | Sincronização incremental e consulta de séries macro CDI (#12) e IPCA (#433) do BCB SGS | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T06` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetCorporateEventsJSON` | Consulta de eventos corporativos (splits, dividendos) salvos em SQLite | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
-| `S22-T07` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_IngestCotahistZipJSON` | Ingestão de arquivo .ZIP local B3 COTAHIST com filtragem por tickers permitidos | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | ❌ FAIL (Red Phase) |
+| `S22-T01` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_InitAndSearchCatalogOffline` | Inicialização SQLite com catálogo público e busca offline instantânea (< 100ms) sem rede | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.05s) |
+| `S22-T02` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchQuotesJSON_TTLAndStaleFallback` | Cache SQLite com TTL de 15 minutos, forceRefresh e fallback gracioso offline com `is_stale: true` | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.05s) |
+| `S22-T03` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetHistoricalPriceJSON_OnDemandSync` | Sincronização sob demanda do Yahoo preservando close_price nominal e adj_close | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.05s) |
+| `S22-T04` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_CheckHealthJSON` | CheckHealthJSON retorna status ok, provider YAHOO e formato JSON válido | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.04s) |
+| `S22-T05` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_FetchMacroRatesJSON` | Sincronização incremental e consulta de séries macro CDI (#12) e IPCA (#433) do BCB SGS | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.32s) |
+| `S22-T06` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_GetCorporateEventsJSON` | Consulta de eventos corporativos (splits, dividendos) salvos em SQLite | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.05s) |
+| `S22-T07` | `pkg/mobilebridge/bridge_test.go` | `TestBridge_IngestCotahistZipJSON` | Ingestão de arquivo .ZIP local B3 COTAHIST com filtragem por tickers permitidos | `d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc` | 🟢 PASS (0.05s) |
 
 ---
 
@@ -1666,6 +1666,51 @@
   ```
 - **Total da Sprint 22 em Red Phase:** 7 novos casos | 0 PASS | 7 FAIL (Fase A Red Phase confirmada).
 - **Total Geral do Projeto Celsus:** 42 arquivos de teste bloqueados | 296 casos de teste automatizados (289 PASS / 7 FAIL aguardando implementação da Fase B).
+
+---
+
+### Sprint 22 — Fase B: Implementação Green Phase & Auditoria (2026-11-01)
+- **Status do Bloqueio:** Nenhum arquivo de teste ou `tests.lock.json` foi modificado durante a implementação (estrito regime TDD Lock mantido).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 44 arquivos de teste confirmada via SHA-256.
+  ```
+- **Escopo Implementado:**
+  1. **Fachada Mobile Go (`services/market-api/pkg/mobilebridge/bridge.go`):**
+     - Compatibilidade estrita com `gomobile bind` (apenas tipos primitivos `string`, `bool` e `error` nas assinaturas públicas).
+     - `InitEngine(dbPath, isProd)`: inicialização transacional de SQLite local com criação de `market_price_cache`, migração de schemas e execução de seed de conformidade de licenciamento (`SeedProductionCatalogAndMacro` ou `SeedMarketData`).
+     - `SearchCatalogJSON`: busca indexada offline no SQLite local (`< 100ms`, zero chamadas HTTP) com fallback gracioso para o Yahoo Finance quando `query >= 4` caracteres.
+     - `FetchQuotesJSON`: estratégia de cache com TTL de 15 minutos em SQLite, suporte a `forceRefresh` e fallback para cotação em cache com `"is_stale": true` em falhas de rede.
+     - `GetHistoricalPriceJSON`: consulta local em `historical_quotes` com sincronização sob demanda via Yahoo Finance (`range=max`), preservando `close_price` nominal de negociação e `adj_close` ajustado.
+     - `FetchMacroRatesJSON`: sincronização incremental do BCB SGS com fallback offline para os snapshots locais de CDI e IPCA.
+     - `GetCorporateEventsJSON`: extração de eventos corporativos (desdobramentos e dividendos) registrados no banco local.
+     - `IngestCotahistZipJSON`: leitura streaming de arquivo `.ZIP` COTAHIST com filtragem em memória por tickers da carteira.
+  2. **Automação de Build Android Gomobile (`scripts/build-gomobile-android.ps1`):**
+     - Detecção automática de `ANDROID_HOME` e `ANDROID_NDK_HOME` (NDK r27).
+     - Execução de `gomobile bind -target=android -androidapi 24 -o .../celsusmarket.aar ./pkg/mobilebridge`.
+     - Geração do artefato binário `.aar` multi-arquitetura (arm64, armeabi-v7a, x86, x86_64) com classes Java/JNI `mobilebridge/Mobilebridge.class`.
+- **Execução da Suíte Go (`cd services/market-api && go test -count=1 -v ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.432s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	1.044s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.147s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.124s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	1.457s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	0.711s
+  Total Backend Go: 32 testes | 32 PASS | 0 FAIL
+  ```
+- **Execução do Script de Build Gomobile (`./scripts/build-gomobile-android.ps1`):**
+  ```text
+  >>> Configuring environment for gomobile...
+  ANDROID_HOME: C:\Users\Pedro\AppData\Local\Android\Sdk
+  ANDROID_NDK_HOME: C:\Users\Pedro\AppData\Local\Android\Sdk\ndk\27.1.12297006
+  Compiling celsusmarket.aar...
+  >>> Successfully generated C:\Users\Pedro\Documents\Projetos\Celsus\apps\mobile\modules\celsus-market\android\libs\celsusmarket.aar
+  ```
+- **Consolidação Final da Sprint 22:**
+  - **44 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **314 casos de teste automatizados executados (32 em Go + 282 em TypeScript/Jest)**
+  - **100% de aprovação (314 PASS / 0 FAIL) sob regime estrito de TDD Lock**
 
 ---
 
