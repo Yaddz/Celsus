@@ -17,7 +17,9 @@ import { ASSET_CLASS_ATTRIBUTE_MAP, AssetClass } from '../components/ui/Attribut
 export interface AllTransactionsScreenProps {
   transactions?: RecentTransactionItem[];
   isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   onClose?: () => void;
+  onBack?: () => void;
   onSelectTransaction?: (tx: RecentTransactionItem) => void;
   themeMode?: ThemeMode;
   testID?: string;
@@ -33,7 +35,9 @@ const CATEGORY_ICONS: Record<AssetClass, keyof typeof MaterialIcons.glyphMap> = 
 export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
   transactions = [],
   isPrivacyMode = false,
+  onTogglePrivacy,
   onClose,
+  onBack,
   onSelectTransaction,
   themeMode = 'dark',
   testID = 'all-transactions-screen',
@@ -52,7 +56,8 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Header Minimalista XP com Voltar */}
       <XpMinimalHeader
-        onBack={onClose}
+        onBack={onBack || onClose}
+        onTogglePrivacy={onTogglePrivacy}
         title="Extrato Completo"
         subtitle={`${txList.length} ${txList.length === 1 ? 'movimentação' : 'movimentações'}`}
         isPrivacyModeEnabled={isPrivacyMode}
