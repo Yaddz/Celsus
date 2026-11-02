@@ -40,15 +40,6 @@ export interface StatisticsScreenProps {
   testID?: string;
 }
 
-const DEFAULT_SAMPLE_CURVE: HistoricalPricePoint[] = [
-  { date: '2026-01-01', investedCapital: '20000.00', marketValue: '20000.00', profit: '0.00', profitPercentage: '0.00' },
-  { date: '2026-02-01', investedCapital: '25000.00', marketValue: '26200.00', profit: '1200.00', profitPercentage: '4.80' },
-  { date: '2026-03-01', investedCapital: '28000.00', marketValue: '30100.00', profit: '2100.00', profitPercentage: '7.50' },
-  { date: '2026-04-01', investedCapital: '30000.00', marketValue: '32500.00', profit: '2500.00', profitPercentage: '8.33' },
-  { date: '2026-05-01', investedCapital: '32000.00', marketValue: '34200.00', profit: '2200.00', profitPercentage: '6.88' },
-  { date: '2026-06-01', investedCapital: '32000.00', marketValue: '35468.00', profit: '3468.00', profitPercentage: '10.84' },
-];
-
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
@@ -61,7 +52,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('all'); // 'all' = Carteiras Consolidadas
   const [loading, setLoading] = useState(true);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedDossierResult | null>(null);
-  const [dailyCurve, setDailyCurve] = useState<HistoricalPricePoint[]>(DEFAULT_SAMPLE_CURVE);
+  const [dailyCurve, setDailyCurve] = useState<HistoricalPricePoint[]>([]);
   const [transactionsList, setTransactionsList] = useState<HistoricalTransactionInput[]>([]);
   const [portfoliosList, setPortfoliosList] = useState<Array<{ id: string; name: string }>>([]);
 
@@ -159,34 +150,34 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const periodSummary = calculatePeriodSummary(activeCurve, transactionsList);
 
   const totalBalanceStr = consolidatedData
-    ? `R$ ${parseFloat(consolidatedData.totalMarketValue).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    : 'R$ 32.468,00';
+    ? `R$ ${parseFloat(consolidatedData.totalMarketValue || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+    : 'R$ 0,00';
 
   const categoryAllocations = consolidatedData
     ? [
         {
           assetClass: 'FIXED_INCOME' as const,
-          currentPercentage: parseFloat(consolidatedData.classAllocation.FIXED_INCOME.currentPercentage) || 32.0,
-          targetPercentage: parseFloat(consolidatedData.classAllocation.FIXED_INCOME.weightedTargetPercentage) || 30.0,
-          marketValue: consolidatedData.classAllocation.FIXED_INCOME.marketValue,
+          currentPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.FIXED_INCOME?.currentPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.FIXED_INCOME.currentPercentage),
+          targetPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.FIXED_INCOME?.weightedTargetPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.FIXED_INCOME.weightedTargetPercentage),
+          marketValue: consolidatedData.classAllocation?.FIXED_INCOME?.marketValue || '0.00',
         },
         {
           assetClass: 'FII' as const,
-          currentPercentage: parseFloat(consolidatedData.classAllocation.FII.currentPercentage) || 24.5,
-          targetPercentage: parseFloat(consolidatedData.classAllocation.FII.weightedTargetPercentage) || 25.0,
-          marketValue: consolidatedData.classAllocation.FII.marketValue,
+          currentPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.FII?.currentPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.FII.currentPercentage),
+          targetPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.FII?.weightedTargetPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.FII.weightedTargetPercentage),
+          marketValue: consolidatedData.classAllocation?.FII?.marketValue || '0.00',
         },
         {
           assetClass: 'STOCK' as const,
-          currentPercentage: parseFloat(consolidatedData.classAllocation.STOCK.currentPercentage) || 33.5,
-          targetPercentage: parseFloat(consolidatedData.classAllocation.STOCK.weightedTargetPercentage) || 35.0,
-          marketValue: consolidatedData.classAllocation.STOCK.marketValue,
+          currentPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.STOCK?.currentPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.STOCK.currentPercentage),
+          targetPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.STOCK?.weightedTargetPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.STOCK.weightedTargetPercentage),
+          marketValue: consolidatedData.classAllocation?.STOCK?.marketValue || '0.00',
         },
         {
           assetClass: 'CRYPTO' as const,
-          currentPercentage: parseFloat(consolidatedData.classAllocation.CRYPTO.currentPercentage) || 10.0,
-          targetPercentage: parseFloat(consolidatedData.classAllocation.CRYPTO.weightedTargetPercentage) || 10.0,
-          marketValue: consolidatedData.classAllocation.CRYPTO.marketValue,
+          currentPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.CRYPTO?.currentPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.CRYPTO.currentPercentage),
+          targetPercentage: Number.isNaN(parseFloat(consolidatedData.classAllocation?.CRYPTO?.weightedTargetPercentage)) ? 0 : parseFloat(consolidatedData.classAllocation.CRYPTO.weightedTargetPercentage),
+          marketValue: consolidatedData.classAllocation?.CRYPTO?.marketValue || '0.00',
         },
       ]
     : undefined;

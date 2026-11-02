@@ -69,17 +69,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         setSelectedPortfolioId(list[0].id);
       }
     } catch {
-      const fallbackPort: Portfolio = {
-        id: 'default-portfolio',
-        name: 'Carteira Principal',
-        description: 'Dossiê Geral',
-        docket_code: 'REV-001',
-        is_archived: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setPortfolios([fallbackPort]);
-      setSelectedPortfolioId(fallbackPort.id);
+      setPortfolios([]);
     }
   };
 
@@ -100,22 +90,21 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       return;
     }
 
-    // Se a carteira selecionada tiver ativos cadastrados, usa-os; caso contrário, usa mock ilustrativo
-    const inputAssets: RebalanceAssetInput[] =
-      assets.length > 0
-        ? assets.map((a) => ({
-            ticker: a.ticker,
-            assetClass: a.asset_class as AssetClass,
-            currentQuantity: a.quantity || '0',
-            currentPrice: parseFloat(a.average_price) > 0 ? a.average_price : '50.00',
-            globalTargetPercentage: a.target_percentage_in_class || 25,
-          }))
-        : [
-            { ticker: 'PETR4', assetClass: 'STOCK', currentQuantity: '200', currentPrice: '38.50', globalTargetPercentage: 35 },
-            { ticker: 'HGLG11', assetClass: 'FII', currentQuantity: '45', currentPrice: '162.00', globalTargetPercentage: 25 },
-            { ticker: 'CDB DI', assetClass: 'FIXED_INCOME', currentQuantity: '10000', currentPrice: '1.00', globalTargetPercentage: 30 },
-            { ticker: 'BTC', assetClass: 'CRYPTO', currentQuantity: '0.0085', currentPrice: '380000.00', globalTargetPercentage: 10 },
-          ];
+    if (assets.length === 0) {
+      Alert.alert(
+        'Nenhum ativo',
+        'Nenhum ativo cadastrado nesta carteira. Adicione ativos na carteira para realizar simulações de aporte.'
+      );
+      return;
+    }
+
+    const inputAssets: RebalanceAssetInput[] = assets.map((a) => ({
+      ticker: a.ticker,
+      assetClass: a.asset_class as AssetClass,
+      currentQuantity: a.quantity || '0',
+      currentPrice: parseFloat(a.average_price) > 0 ? a.average_price : '50.00',
+      globalTargetPercentage: a.target_percentage_in_class || 25,
+    }));
 
     const result = calculateSmartContribution(numericAmount, inputAssets);
     setSimulationResult(result);

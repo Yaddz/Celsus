@@ -23,6 +23,7 @@ import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader } from '../compon
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
+import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
 
 interface PortfolioItem {
   id: string;
@@ -87,7 +88,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   initialClassTargets,
   initialAssets,
   initialPortfolios,
-  testID,
+  testID = 'portfolio-management-screen',
 }) => {
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
   try {
@@ -220,6 +221,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [newPrice, setNewPrice] = useState('10.00');
   const [autocompleteQuery, setAutocompleteQuery] = useState('');
   const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<any[]>([]);
+  const [assetValidationError, setAssetValidationError] = useState<string | null>(null);
 
   const currentClassAssets = assets.filter((a) => a.assetClass === selectedClassTab);
   const currentClassTarget = classTargets.find((c) => c.assetClass === selectedClassTab)?.targetPercentage || 0;
@@ -304,6 +306,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   // Handlers: Autocomplete & Adicionar Ativo (Módulo 5)
   // -------------------------------------------------------------------------
   const handleAutocompleteChange = async (text: string) => {
+    setAssetValidationError(null);
     setAutocompleteQuery(text);
     setNewTicker(text);
     const clean = text.trim().toUpperCase();
@@ -313,9 +316,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       return;
     }
 
-    // Filtra catálogo padrão local
+    // Filtra catálogo padrão local filtrando pela classe selecionada
     const localMatches = DEFAULT_ASSET_CATALOG.filter(
-      (item) => item.ticker.includes(clean) || item.name.toUpperCase().includes(clean)
+      (item) => item.assetClass === selectedClassTab && (item.ticker.includes(clean) || item.name.toUpperCase().includes(clean))
     );
 
     // Tenta complementar com busca na API
@@ -323,7 +326,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     try {
       const results = await marketApiService.searchCatalog(clean, selectedClassTab);
       if (results && Array.isArray(results)) {
-        apiMatches = results;
+        apiMatches = results.filter((r) => !r.assetClass || r.assetClass === selectedClassTab);
       }
     } catch {}
 
@@ -338,6 +341,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleSelectAutocomplete = (item: any) => {
+    setAssetValidationError(null);
     setNewTicker(item.ticker);
     setNewName(item.name || item.ticker);
     if (item.price) setNewPrice(String(item.price));
@@ -346,8 +350,19 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleAddAsset = async () => {
-    if (!newTicker.trim()) return;
-    const tickerUpper = newTicker.trim().toUpperCase();
+    const tickerUpper = (newTicker.trim() || autocompleteQuery.trim()).toUpperCase();
+    if (!tickerUpper) {
+      setAssetValidationError('Informe o código do ativo (ticker).');
+      return;
+    }
+
+    const validation = validateTickerForAssetClass(tickerUpper, selectedClassTab);
+    if (!validation.valid) {
+      setAssetValidationError(validation.reason || 'Ativo incompatível com esta categoria.');
+      return;
+    }
+    setAssetValidationError(null);
+
     const parsedTarget = parseFloat(newTargetInClass) || 20;
 
     let targetId = `asset-${Date.now()}`;
@@ -884,6 +899,14 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                 O Peso define a importância relativa do ativo dentro da categoria. Por exemplo, um ativo com peso 2 recebe o dobro da alocação de um ativo com peso 1, convertendo-se automaticamente em porcentagem (%).
               </Text>
             </View>
+
+            {/* Mensagem de Erro de Validação de Ativo x Classe */}
+            {assetValidationError && (
+              <View testID="asset-validation-error" style={styles.validationErrorBox}>
+                <MaterialIcons name="error-outline" size={16} color="#E05252" />
+                <Text style={styles.validationErrorText}>{assetValidationError}</Text>
+              </View>
+            )}
 
             {/* Campo de Autocomplete */}
             <View style={styles.autocompleteContainer}>
@@ -1603,5 +1626,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '700',
+  },
+  validationErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(224, 82, 82, 0.15)',
+    borderWidth: 1,
+    borderColor: '#E05252',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  validationErrorText: {
+    flex: 1,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#E05252',
+    lineHeight: 15,
   },
 });

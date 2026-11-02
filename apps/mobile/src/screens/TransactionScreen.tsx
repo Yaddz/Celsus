@@ -71,18 +71,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         setSelectedPortfolioId(list[0].id);
       }
     } catch {
-      // Em fallback ou banco inicial
-      const fallbackPort: Portfolio = {
-        id: 'default-portfolio',
-        name: 'Carteira Principal',
-        description: 'Dossiê Geral',
-        docket_code: 'REV-001',
-        is_archived: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setPortfolios([fallbackPort]);
-      setSelectedPortfolioId(fallbackPort.id);
+      setPortfolios([]);
     }
   };
 

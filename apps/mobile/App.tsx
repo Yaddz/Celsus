@@ -22,6 +22,7 @@ import {
   QuickActionBentoRow,
   RecentTransactionsCard,
   DotMatrixAllocationCard,
+  CategoryAllocationData,
   LedgerInput,
   DirectiveButton,
   FloatingBottomDock,
@@ -38,6 +39,7 @@ import {
   StatisticsScreen,
   SettingsBackupScreen,
   ClassDetailScreen,
+  ClassAssetDetailItem,
   TransactionDetailHistoryScreen,
   AllTransactionsScreen,
 } from './src/screens';
@@ -78,14 +80,19 @@ export default function App() {
   );
 }
 
+const INITIAL_CATEGORY_ALLOCATIONS: CategoryAllocationData[] = [
+  { assetClass: 'FIXED_INCOME', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'FII', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'STOCK', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'CRYPTO', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+];
+
 function AppContent() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeModeService.getThemeMode());
   const [activeWalletIndex, setActiveWalletIndex] = useState(0);
-  const [contributionAmount, setContributionAmount] = useState('1500,00');
-  const [simulationResult, setSimulationResult] = useState<string | null>(null);
 
   const activePalette = getPortfolioPalette(activeWalletIndex);
   const isLight = themeMode === 'light';
@@ -133,6 +140,8 @@ function AppContent() {
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 0,00');
   const [profitSummary, setProfitSummary] = useState('0,0% no ano');
   const [walletsList, setWalletsList] = useState<WalletCardData[]>([]);
+  const [portfolioAssets, setPortfolioAssets] = useState<any[]>([]);
+  const [categoryAllocations, setCategoryAllocations] = useState<CategoryAllocationData[]>(INITIAL_CATEGORY_ALLOCATIONS);
   const [isOffline, setIsOffline] = useState(false);
 
   const refreshAppData = async () => {
@@ -181,14 +190,54 @@ function AppContent() {
             accentColor: idx % 2 === 0 ? colors.primary : colors.secondary,
           }))
         );
+
+        setCategoryAllocations([
+          {
+            assetClass: 'FIXED_INCOME',
+            currentPercentage: parseFloat(dossier.classAllocation.FIXED_INCOME.currentPercentage) || 0,
+            targetPercentage: parseFloat(dossier.classAllocation.FIXED_INCOME.weightedTargetPercentage) || 0,
+            marketValue: dossier.classAllocation.FIXED_INCOME.marketValue,
+          },
+          {
+            assetClass: 'FII',
+            currentPercentage: parseFloat(dossier.classAllocation.FII.currentPercentage) || 0,
+            targetPercentage: parseFloat(dossier.classAllocation.FII.weightedTargetPercentage) || 0,
+            marketValue: dossier.classAllocation.FII.marketValue,
+          },
+          {
+            assetClass: 'STOCK',
+            currentPercentage: parseFloat(dossier.classAllocation.STOCK.currentPercentage) || 0,
+            targetPercentage: parseFloat(dossier.classAllocation.STOCK.weightedTargetPercentage) || 0,
+            marketValue: dossier.classAllocation.STOCK.marketValue,
+          },
+          {
+            assetClass: 'CRYPTO',
+            currentPercentage: parseFloat(dossier.classAllocation.CRYPTO.currentPercentage) || 0,
+            targetPercentage: parseFloat(dossier.classAllocation.CRYPTO.weightedTargetPercentage) || 0,
+            marketValue: dossier.classAllocation.CRYPTO.marketValue,
+          },
+        ]);
       } else {
         setTotalPatrimony('R$ 0,00');
         setProfitSummary('0,0% no ano');
         setWalletsList([]);
+        setCategoryAllocations([
+          { assetClass: 'FIXED_INCOME', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+          { assetClass: 'FII', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+          { assetClass: 'STOCK', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+          { assetClass: 'CRYPTO', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+        ]);
       }
 
-      // 2. Carrega movimentações recentes da carteira ativa ou primeira cadastrada
+      // 2. Carrega movimentações e ativos da carteira ativa ou primeira cadastrada
       const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+      if (activePortId) {
+        const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
+        setPortfolioAssets(pAssets || []);
+      } else {
+        setPortfolioAssets([]);
+      }
+
       const txs = await transactionService.getTransactionsByPortfolio(
         activePortId || 'default-portfolio'
       );
@@ -246,42 +295,70 @@ function AppContent() {
     };
   }, []);
 
-  const handleSimulate = () => {
-    const rawVal = contributionAmount.replace(/\./g, '').replace(',', '.');
-    const numericAmount = parseFloat(rawVal) || 1500;
-
-    const sampleAssets: RebalanceAssetInput[] = [
-      { ticker: 'PETR4', assetClass: 'STOCK', currentQuantity: '200', currentPrice: '38.50', globalTargetPercentage: 35 },
-      { ticker: 'HGLG11', assetClass: 'FII', currentQuantity: '45', currentPrice: '162.00', globalTargetPercentage: 25 },
-      { ticker: 'CDB DI 110%', assetClass: 'FIXED_INCOME', currentQuantity: '10000', currentPrice: '1.00', globalTargetPercentage: 30 },
-      { ticker: 'BTC', assetClass: 'CRYPTO', currentQuantity: '0.0085', currentPrice: '380000.00', globalTargetPercentage: 10 },
-    ];
-
-    const result = calculateSmartContribution(numericAmount, sampleAssets);
-    const activeSuggestions = result.suggestions.filter((s) => parseFloat(s.suggestedAmount) > 0);
-
-    const breakdown = activeSuggestions
-      .map(
-        (s) =>
-          `• ${s.ticker}: ${s.suggestedQuantity} ${
-            s.assetClass === 'STOCK' || s.assetClass === 'FII'
-              ? 'cotas'
-              : s.assetClass === 'CRYPTO'
-              ? 'BTC'
-              : 'BRL'
-          } (R$ ${s.allocatedAmount})`
-      )
-      .join('\n');
-
-    setSimulationResult(
-      `Alocação Inteligente (Motor Financeiro Celsus):\n${breakdown}\n\nTotal Alocado: R$ ${result.totalAllocated} | Troco em Caixa: R$ ${result.remainingCash}`
-    );
-  };
-
   const balanceDisplay = isPrivacyMode ? PRIVACY_CURRENCY_MASK : totalPatrimony;
   const profitDisplay = isPrivacyMode ? PRIVACY_MASK : profitSummary;
 
-  // Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
+  // 1. Modal: Nova Movimentação
+  if (isTransactionModalOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <View style={styles.sheetDragHandleContainer}>
+          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+        </View>
+        <TransactionScreen
+          themeMode={themeMode}
+          onClose={() => {
+            setIsTransactionModalOpen(false);
+            refreshAppData();
+          }}
+          onTransactionSuccess={() => refreshAppData()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 2. Modal: Simulador de Novo Aporte
+  if (isSimulatorModalOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <View style={styles.sheetDragHandleContainer}>
+          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+        </View>
+        <SimulatorScreen
+          themeMode={themeMode}
+          onClose={() => {
+            setIsSimulatorModalOpen(false);
+            refreshAppData();
+          }}
+          onContributionsConfirmed={() => refreshAppData()}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 3. Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
   if (isSettingsBackupModalOpen) {
     return (
       <SafeAreaView
@@ -315,8 +392,8 @@ function AppContent() {
     );
   }
 
-  // Tela/Aba: Análises & Estatísticas
-  if (activeTab === 'stats') {
+  // 4. Tela: Detalhe / Histórico da Movimentação ou do Ativo
+  if (selectedRecentTransaction) {
     return (
       <SafeAreaView
         style={[
@@ -330,24 +407,199 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <StatisticsScreen isPrivacyMode={isPrivacyMode} themeMode={themeMode} />
+        <TransactionDetailHistoryScreen
+          transaction={{
+            id: selectedRecentTransaction.id,
+            ticker: selectedRecentTransaction.ticker,
+            assetName: selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : `${selectedRecentTransaction.ticker} Ativo`,
+            assetClass: selectedRecentTransaction.assetClass,
+            type: selectedRecentTransaction.type,
+            tradeDate: selectedRecentTransaction.dateText,
+            investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
+            unitPrice: 'R$ 35,00',
+            quantity: '100',
+            fees: 'R$ 0,00',
+            portfolioName: walletsList[activeWalletIndex]?.name || 'Carteira Principal',
+          }}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          onClose={() => setSelectedRecentTransaction(null)}
+        />
         <FloatingBottomDock
           activeTab={activeTab}
-          onTabChange={(tab) => setActiveTab(tab)}
+          onTabChange={(tab) => {
+            setSelectedRecentTransaction(null);
+            setActiveTab(tab);
+          }}
           onActionPress={() => setIsTransactionModalOpen(true)}
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
+            setSelectedRecentTransaction(null);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
-          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
+          onAdicionarAtivoPress={() => {
+            setSelectedRecentTransaction(null);
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
           themeMode={themeMode}
         />
       </SafeAreaView>
     );
   }
 
-  // Modal / Tela: Carteiras & Alocação
+  // 5. Tela: Extrato Completo de Movimentações (AllTransactionsScreen)
+  if (isAllTransactionsModalOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <AllTransactionsScreen
+          transactions={transactionsList}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          onClose={() => setIsAllTransactionsModalOpen(false)}
+          onSelectTransaction={(tx) => {
+            setIsAllTransactionsModalOpen(false);
+            setSelectedRecentTransaction(tx);
+          }}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setIsAllTransactionsModalOpen(false);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setIsAllTransactionsModalOpen(false);
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => {
+            setIsAllTransactionsModalOpen(false);
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          themeMode={themeMode}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 6. Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
+  if (selectedClassDetail) {
+    const classAssetsForDetail: ClassAssetDetailItem[] = portfolioAssets
+      .filter((a) => a.asset_class === selectedClassDetail)
+      .map((a) => {
+        const qtyNum = parseFloat(a.quantity || '0');
+        const avgNum = parseFloat(a.average_price || '0');
+        const grossNum = qtyNum * avgNum;
+        return {
+          id: a.id,
+          ticker: a.ticker,
+          name: a.name || a.ticker,
+          assetClass: a.asset_class as AssetClass,
+          currentAllocationPercentage: a.target_percentage_in_class || 100,
+          grossBalance: `R$ ${grossNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          quantity: a.quantity,
+          averagePrice: `R$ ${avgNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          currentPrice: `R$ ${avgNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          profitabilityPercentage: '+0,00%',
+          profitabilityAmount: 'R$ 0,00',
+          sliceColor: '#DB5A42',
+        };
+      });
+
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <ClassDetailScreen
+          assetClass={selectedClassDetail}
+          assets={classAssetsForDetail}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          onClose={() => setSelectedClassDetail(null)}
+          onAssetPress={async (tickerOrId) => {
+            try {
+              const allPortfolios = await portfolioRepository.listPortfolios(false);
+              const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+              let targetAsset: any = null;
+              if (activePortId) {
+                const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
+                targetAsset = pAssets.find((a) => a.id === tickerOrId || a.ticker === tickerOrId);
+              }
+              const ticker = targetAsset?.ticker || tickerOrId;
+              const name = targetAsset?.name || ticker;
+              const qty = targetAsset?.quantity || '0';
+              const avgPrice = targetAsset?.average_price || '0.00';
+              const invested = (parseFloat(qty) * parseFloat(avgPrice)).toFixed(2);
+              setSelectedRecentTransaction({
+                id: `asset-detail-${ticker}`,
+                ticker: ticker,
+                assetClass: (targetAsset?.asset_class as AssetClass) || selectedClassDetail,
+                type: 'BUY',
+                dateText: new Date().toLocaleDateString('pt-BR'),
+                amountText: `R$ ${parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+              });
+            } catch {
+              setSelectedRecentTransaction({
+                id: `asset-detail-${tickerOrId}`,
+                ticker: tickerOrId,
+                assetClass: selectedClassDetail,
+                type: 'BUY',
+                dateText: new Date().toLocaleDateString('pt-BR'),
+                amountText: 'R$ 0,00',
+              });
+            }
+          }}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setSelectedClassDetail(null);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => setIsTransactionModalOpen(true)}
+          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onNovaCarteiraPress={() => {
+            setSelectedClassDetail(null);
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          onAdicionarAtivoPress={() => {
+            setSelectedClassDetail(null);
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
+          themeMode={themeMode}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 7. Modal / Tela: Carteiras & Alocação
   if (activeTab === 'wallets' || isPortfolioManagerModalOpen) {
     return (
       <SafeAreaView
@@ -383,15 +635,18 @@ function AppContent() {
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
-          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
+          onAdicionarAtivoPress={() => {
+            setIsPortfolioManagerModalOpen(true);
+            setActiveTab('wallets');
+          }}
           themeMode={themeMode}
         />
       </SafeAreaView>
     );
   }
 
-  // Modal: Nova Movimentação
-  if (isTransactionModalOpen) {
+  // 8. Tela/Aba: Análises & Estatísticas
+  if (activeTab === 'stats') {
     return (
       <SafeAreaView
         style={[
@@ -405,181 +660,20 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <View style={styles.sheetDragHandleContainer}>
-          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-        </View>
-        <TransactionScreen
-          themeMode={themeMode}
-          onClose={() => {
-            setIsTransactionModalOpen(false);
-            refreshAppData();
-          }}
-          onTransactionSuccess={() => refreshAppData()}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  // Modal: Simulador de Novo Aporte
-  if (isSimulatorModalOpen) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <View style={styles.sheetDragHandleContainer}>
-          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-        </View>
-        <SimulatorScreen
-          themeMode={themeMode}
-          onClose={() => {
-            setIsSimulatorModalOpen(false);
-            refreshAppData();
-          }}
-          onContributionsConfirmed={() => refreshAppData()}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  // Tela: Detalhe / Histórico da Movimentação
-  if (selectedRecentTransaction) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <TransactionDetailHistoryScreen
-          transaction={{
-            id: selectedRecentTransaction.id,
-            ticker: selectedRecentTransaction.ticker,
-            assetName: selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : `${selectedRecentTransaction.ticker} Ativo`,
-            assetClass: selectedRecentTransaction.assetClass,
-            type: selectedRecentTransaction.type,
-            tradeDate: '2026-10-31',
-            investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
-            unitPrice: 'R$ 35,00',
-            quantity: '42',
-            fees: 'R$ 5,00',
-            portfolioName: 'Carteira Principal',
-          }}
-          isPrivacyMode={isPrivacyMode}
-          themeMode={themeMode}
-          onClose={() => setSelectedRecentTransaction(null)}
-        />
+        <StatisticsScreen isPrivacyMode={isPrivacyMode} themeMode={themeMode} />
         <FloatingBottomDock
           activeTab={activeTab}
-          onTabChange={(tab) => {
-            setSelectedRecentTransaction(null);
-            setActiveTab(tab);
-          }}
+          onTabChange={(tab) => setActiveTab(tab)}
           onActionPress={() => setIsTransactionModalOpen(true)}
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
-          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
-          themeMode={themeMode}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  // Tela: Extrato Completo de Movimentações (AllTransactionsScreen)
-  if (isAllTransactionsModalOpen) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <AllTransactionsScreen
-          transactions={transactionsList}
-          isPrivacyMode={isPrivacyMode}
-          themeMode={themeMode}
-          onClose={() => setIsAllTransactionsModalOpen(false)}
-          onSelectTransaction={(tx) => {
-            setIsAllTransactionsModalOpen(false);
-            setSelectedRecentTransaction(tx);
-          }}
-        />
-        <FloatingBottomDock
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setIsAllTransactionsModalOpen(false);
-            setActiveTab(tab);
-          }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
-          onNovaCarteiraPress={() => {
+          onAdicionarAtivoPress={() => {
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
-          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
-          themeMode={themeMode}
-        />
-      </SafeAreaView>
-    );
-  }
-
-  // Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
-  if (selectedClassDetail) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <ClassDetailScreen
-          assetClass={selectedClassDetail}
-          isPrivacyMode={isPrivacyMode}
-          themeMode={themeMode}
-          onClose={() => setSelectedClassDetail(null)}
-        />
-        <FloatingBottomDock
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setSelectedClassDetail(null);
-            setActiveTab(tab);
-          }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
-          onNovaCarteiraPress={() => {
-            setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
-          }}
-          onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
           themeMode={themeMode}
         />
       </SafeAreaView>
@@ -659,6 +753,7 @@ function AppContent() {
             activeIndex={activeWalletIndex}
             onPortfolioChange={(idx) => setActiveWalletIndex(idx)}
             onCreatePortfolioPress={() => setIsPortfolioManagerModalOpen(true)}
+            isPrivacyMode={isPrivacyMode}
             testID="home-wallet-deck"
           />
 
@@ -688,6 +783,7 @@ function AppContent() {
           {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid v2) */}
           <DotMatrixAllocationCard
             totalBalance={balanceDisplay}
+            allocations={categoryAllocations}
             isPrivacyMode={isPrivacyMode}
             variant="v2"
             onRebalancePress={() => setIsSimulatorModalOpen(true)}

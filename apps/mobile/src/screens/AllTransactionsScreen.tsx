@@ -30,43 +30,8 @@ const CATEGORY_ICONS: Record<AssetClass, keyof typeof MaterialIcons.glyphMap> = 
   CRYPTO: 'currency-bitcoin',
 };
 
-const DEFAULT_TRANSACTIONS: RecentTransactionItem[] = [
-  {
-    id: 'tx-1',
-    ticker: 'PETR4',
-    assetClass: 'STOCK',
-    type: 'BUY',
-    dateText: 'Hoje, 14:32',
-    amountText: 'R$ 480,00',
-  },
-  {
-    id: 'tx-2',
-    ticker: 'HGLG11',
-    assetClass: 'FII',
-    type: 'BUY',
-    dateText: 'Ontem, 10:15',
-    amountText: 'R$ 325,50',
-  },
-  {
-    id: 'tx-3',
-    ticker: 'CDB 110%',
-    assetClass: 'FIXED_INCOME',
-    type: 'BUY',
-    dateText: '28 Out',
-    amountText: 'R$ 1.000,00',
-  },
-  {
-    id: 'tx-4',
-    ticker: 'BTC',
-    assetClass: 'CRYPTO',
-    type: 'BUY',
-    dateText: '25 Out',
-    amountText: 'R$ 250,00',
-  },
-];
-
 export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
-  transactions = DEFAULT_TRANSACTIONS,
+  transactions = [],
   isPrivacyMode = false,
   onClose,
   onSelectTransaction,
@@ -75,7 +40,7 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
-  const txList = transactions && transactions.length > 0 ? transactions : DEFAULT_TRANSACTIONS;
+  const txList = transactions || [];
   const [filterType, setFilterType] = useState<'ALL' | 'BUY' | 'SELL'>('ALL');
 
   const filteredList = txList.filter((tx) => {
@@ -134,7 +99,18 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
 
         {/* Lista de Transações */}
         <View style={[styles.card, isLight && styles.cardLight]}>
-          {filteredList.map((tx, idx) => {
+          {filteredList.length === 0 ? (
+            <View testID="all-transactions-empty" style={styles.emptyContainer}>
+              <MaterialIcons name="receipt-long" size={32} color={isLight ? '#999' : '#555'} />
+              <Text style={[styles.emptyTitle, isLight && styles.emptyTitleLight]}>
+                Nenhuma movimentação registrada
+              </Text>
+              <Text style={[styles.emptySubtitle, isLight && styles.emptySubtitleLight]}>
+                Suas operações cadastradas aparecerão listadas aqui.
+              </Text>
+            </View>
+          ) : (
+            filteredList.map((tx, idx) => {
             const config = ASSET_CLASS_ATTRIBUTE_MAP[tx.assetClass] || {
               color: colors.primary,
               name: 'Ativo',
@@ -202,7 +178,7 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
                 </View>
               </TouchableOpacity>
             );
-          })}
+          }))}
         </View>
       </ScrollView>
     </View>
@@ -336,5 +312,32 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 11,
     fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    textAlign: 'center',
+  },
+  emptyTitleLight: {
+    color: '#111315',
+  },
+  emptySubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: '#8A8C90',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  emptySubtitleLight: {
+    color: '#6E6A63',
   },
 });

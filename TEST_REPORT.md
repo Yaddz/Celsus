@@ -1942,11 +1942,56 @@
 
 | ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `implementation_plan.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `S27-T01` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Zero-Hook-Crash Transition 0 -> 1 -> 2 Portfolios in StackedWalletDeck & App Persistence` | Transição 0 → 1 → 2 carteiras no `StackedWalletDeck` e `App` sem erro de Hooks (`Expected static flag was missing`), persistindo após desmontar e remontar `<App />` | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
-| `S27-T02` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Comprehensive Zero-Mock Audit Across All Screens on Clean Database` | Auditoria zero-mocks em todas as telas com banco vazio (`App`, `StatisticsScreen`, `ClassDetailScreen`, `AllTransactionsScreen`, `SimulatorScreen`, `SettingsBackupScreen` exibem `R$ 0,00` e zero fictícios) | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
-| `S27-T03` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Asset Class Validation (FII x Class Incompatibility Prevention)` | Validação de ativos por catálogo e regras B3: bloqueia FII em Ações (`STOCK`) e Ações em FIIs, com mensagem explicativa e bloqueio de persistência | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
-| `S27-T04` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Global Speed-Dial Navigation Across All Screen Views` | Atalhos globais do `+` acionados a partir de `Análises`, `Carteiras` ou `ClassDetailScreen` abrem seus respectivos modais sobre a tela ativa | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
-| `S27-T05` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Tap on Asset Card in Category Screen Navigates to Real Asset Detail` | Clicar no card do ativo dentro de `ClassDetailScreen` navega para `TransactionDetailHistoryScreen` com os dados reais do ativo selecionado | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🔴 Fase A (Red Phase) |
+| `S27-T01` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Zero-Hook-Crash Transition 0 -> 1 -> 2 Portfolios in StackedWalletDeck & App Persistence` | Transição 0 → 1 → 2 carteiras no `StackedWalletDeck` e `App` sem erro de Hooks (`Expected static flag was missing`), persistindo após desmontar e remontar `<App />` | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🟢 PASS (0.59s) |
+| `S27-T02` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Comprehensive Zero-Mock Audit Across All Screens on Clean Database` | Auditoria zero-mocks em todas as telas com banco vazio (`App`, `StatisticsScreen`, `ClassDetailScreen`, `AllTransactionsScreen`, `SimulatorScreen`, `SettingsBackupScreen` exibem `R$ 0,00` e zero fictícios) | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🟢 PASS (0.22s) |
+| `S27-T03` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Asset Class Validation (FII x Class Incompatibility Prevention)` | Validação de ativos por catálogo e regras B3: bloqueia FII em Ações (`STOCK`) e Ações em FIIs, com mensagem explicativa e bloqueio de persistência | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🟢 PASS (0.35s) |
+| `S27-T04` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Global Speed-Dial Navigation Across All Screen Views` | Atalhos globais do `+` acionados a partir de `Análises`, `Carteiras` ou `ClassDetailScreen` abrem seus respectivos modais sobre a tela ativa | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🟢 PASS (0.35s) |
+| `S27-T05` | `src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx` | `Tap on Asset Card in Category Screen Navigates to Real Asset Detail` | Clicar no card do ativo dentro de `ClassDetailScreen` navega para `TransactionDetailHistoryScreen` com os dados reais do ativo selecionado | `3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1` | 🟢 PASS (0.18s) |
+
+#### Detalhes de Implementação da Fase B (Sprint 27)
+- **Fim do Crash de Hooks na Transição 0 → 1 → 2 Carteiras (`StackedWalletDeck.tsx`):**
+  - Movidas todas as declarações de Hooks incondicionalmente para o topo do componente (`useState`, `useRef`, `PanResponder`, `useEffect`) antes de qualquer retorno antecipado (`early return`).
+  - Removido fallback `DEFAULT_PORTFOLIOS` que injetava dados fictícios (`Principal` e `Reserva`).
+  - Adicionada exibição do saldo zerado (`R$ 0,00` ou máscara `R$ ••••••` se privacidade ativa) no card de estado vazio (`stacked-wallet-empty-card`).
+- **Eliminação Completa de Dados Fictícios e Mocks em Todas as Telas:**
+  - `ClassDetailScreen.tsx`: Eliminado `DEFAULT_ASSETS_MAP`; inicializa com lista vazia e estado visual `class-empty-assets` caso não haja ativos reais cadastrados.
+  - `AllTransactionsScreen.tsx`: Eliminado `DEFAULT_TRANSACTIONS`; inicializa com lista vazia e estado visual `all-transactions-empty`.
+  - `StatisticsScreen.tsx`: Eliminado `DEFAULT_SAMPLE_CURVE`; inicializa patrimônio com `R$ 0,00` e curva vazia quando não há dados consolidados.
+  - `SimulatorScreen.tsx`: Eliminados portfólio e ativos mockados (`PETR4`, `HGLG11`, `CDB DI`, `BTC`). Alerta de validação exibido quando o usuário tenta simular sem ativos.
+  - `SettingsBackupScreen.tsx`: Eliminados valores hardcoded (`R$ 32.468,00` e `R$ 8.120,00`), exibindo `R$ 0,00` em estado inicial.
+  - `DotMatrixAllocationCard.tsx`: Inicializa com valores zerados (`0,00` / `0%`) e `totalBalance = 'R$ 0,00'`.
+- **Validação de Ativo por Catálogo e Classe (`assetCatalogValidation.ts` & `PortfolioManagementScreen.tsx`):**
+  - Implementadas funções de domínio `detectAssetClassFromTicker` e `validateTickerForAssetClass` com base no catálogo oficial B3 e convenções de tickers (final 11 para FIIs/ETFs, final 3/4/5/6 para ações, etc.).
+  - Bloqueio ativo no modal de adição de ativos (`PortfolioManagementScreen.tsx`): exibe mensagem clara de erro (`testID="asset-validation-error"`) e impede gravação no SQLite caso o usuário tente cadastrar um FII (ex: `HGLG11`) sob a aba de Ações (`STOCK`).
+- **Navegação Global e Speed-Dial em Todas as Telas (`App.tsx` & `FloatingBottomDock.tsx`):**
+  - `FloatingBottomDock.tsx` suporta os acionamentos de atalho `floating-dock-action-button` e `dock-item-add-fab`, permitindo abrir o speed-dial diretamente de qualquer tela ativa (`home`, `stats`, `wallets`).
+  - Modais globais elevados acima da barra de navegação e telas de categorias, permitindo fluxo contínuo de criação e aportes.
+  - Conectado evento `onAssetPress` em `ClassDetailScreen` para abrir a tela de detalhe real daquele ativo (`TransactionDetailHistoryScreen`).
+- **Suporte a Renderização Síncrona no Ambiente de Testes (`apps/mobile/jest.setup.js`):**
+  - Atualizado wrapper de testes para sincronização segura do ciclo de vida React sem chamadas concorrentes de `act()`.
+
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test`):**
+  ```text
+  Test Suites: 39 passed, 39 total
+  Tests:       303 passed, 303 total
+  Snapshots:   0 total
+  Time:        10.067 s
+  Total Mobile: 39 suítes | 303 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Execução da Suíte de Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	1.293s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.945s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.134s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.112s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	1.340s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	3.081s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 27 Concluída):**
+  - **47 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **328 testes automatizados aprovados (25 em Go + 303 em TypeScript/Jest)**
+  - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
 
 
 

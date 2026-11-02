@@ -309,7 +309,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               </View>
               <Text style={[styles.walletCardTitle, isLight && styles.walletCardTitleLight]}>{mainPortfolioName}</Text>
               <Text style={[styles.walletCardBalance, isLight && styles.walletCardBalanceLight]}>
-                {isPrivacyMode ? PRIVACY_CURRENCY_MASK : 'R$ 32.468,00'}
+                {isPrivacyMode ? PRIVACY_CURRENCY_MASK : 'R$ 0,00'}
               </Text>
               <Text style={[styles.walletCardSub, isLight && styles.walletCardSubLight]}>Patrimônio Principal</Text>
             </View>
@@ -322,7 +322,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               </View>
               <Text style={[styles.walletCardTitle, isLight && styles.walletCardTitleLight]}>Reserva / Oportunidade</Text>
               <Text style={[styles.walletCardBalance, isLight && styles.walletCardBalanceLight]}>
-                {isPrivacyMode ? PRIVACY_CURRENCY_MASK : 'R$ 8.120,00'}
+                {isPrivacyMode ? PRIVACY_CURRENCY_MASK : 'R$ 0,00'}
               </Text>
               <Text style={[styles.walletCardSub, isLight && styles.walletCardSubLight]}>Liquidez Imediata (CDI)</Text>
             </View>

@@ -44,6 +44,12 @@ jest.mock('react-native-safe-area-context', () => {
 const React = require('react');
 const RNTL = require('@testing-library/react-native');
 const actModule = require('@testing-library/react-native/dist/act.js');
+const renderModule = require('@testing-library/react-native/dist/render.js');
+const screenModule = require('@testing-library/react-native/dist/screen.js');
+const testRendererModule = require('test-renderer');
+const withinModule = require('@testing-library/react-native/dist/within.js');
+const hostComponentNames = require('@testing-library/react-native/dist/helpers/host-component-names.js');
+const cleanupModule = require('@testing-library/react-native/dist/cleanup.js');
 
 const origAct = actModule.act;
 actModule.act = function (callback) {
@@ -64,6 +70,75 @@ actModule.act = function (callback) {
   }
   return Promise.resolve(result);
 };
+
+function syncRender(element, options = {}) {
+  const { wrapper: Wrapper } = options || {};
+  const wrap = (el) => (Wrapper ? React.createElement(Wrapper, null, el) : el);
+  const rendererOptions = {
+    textComponentTypes: hostComponentNames.HOST_TEXT_NAMES,
+    publicTextComponentTypes: ['Text'],
+  };
+
+  const renderer = testRendererModule.createRoot(rendererOptions);
+  React.act(() => {
+    renderer.render(wrap(element));
+  });
+
+  const rerender = (newElement) => {
+    React.act(() => {
+      renderer.render(wrap(newElement));
+    });
+    return Promise.resolve();
+  };
+
+  const unmount = () => {
+    React.act(() => {
+      renderer.unmount();
+    });
+    return Promise.resolve();
+  };
+
+  const toJSON = () => {
+    const json = renderer.container.toJSON();
+    if (json?.children?.length === 0) return null;
+    if (json?.children?.length === 1 && typeof json.children[0] !== 'string') {
+      return json.children[0];
+    }
+    return json;
+  };
+
+  cleanupModule.addToCleanupQueue(unmount);
+
+  const queries = withinModule.getQueriesForInstance(renderer.container);
+
+  const result = {
+    ...queries,
+    rerender,
+    unmount,
+    toJSON,
+    debug: () => {
+      const json = renderer.container.toJSON();
+      if (json) console.log(JSON.stringify(json, null, 2));
+    },
+    get container() {
+      return renderer.container;
+    },
+    get root() {
+      return renderer.container.children[0];
+    },
+  };
+
+  screenModule.setRenderResult(result);
+
+  const promise = Promise.resolve(result);
+  Object.assign(promise, result);
+  promise.rerender = rerender;
+  promise.unmount = unmount;
+  return promise;
+}
+
+renderModule.render = syncRender;
+RNTL.render = syncRender;
 
 const { cleanup } = RNTL;
 afterEach(async () => {

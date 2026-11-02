@@ -50,143 +50,6 @@ export const DONUT_SLICE_COLORS = [
   '#AC4B25',
 ];
 
-const DEFAULT_ASSETS_MAP: Record<AssetClass, ClassAssetDetailItem[]> = {
-  STOCK: [
-    {
-      id: 'stock-1',
-      ticker: 'PETR4',
-      name: 'Petróleo Brasileiro S.A.',
-      assetClass: 'STOCK',
-      currentAllocationPercentage: 50.0,
-      grossBalance: 'R$ 5.400,00',
-      quantity: '150',
-      averagePrice: 'R$ 32,50',
-      currentPrice: 'R$ 36,00',
-      profitabilityPercentage: '+10,77%',
-      profitabilityAmount: 'R$ +525,00',
-      sliceColor: '#DB5A42',
-    },
-    {
-      id: 'stock-2',
-      ticker: 'VALE3',
-      name: 'Vale S.A.',
-      assetClass: 'STOCK',
-      currentAllocationPercentage: 30.0,
-      grossBalance: 'R$ 3.240,00',
-      quantity: '45',
-      averagePrice: 'R$ 68,00',
-      currentPrice: 'R$ 72,00',
-      profitabilityPercentage: '+5,88%',
-      profitabilityAmount: 'R$ +180,00',
-      sliceColor: '#F1CA78',
-    },
-    {
-      id: 'stock-3',
-      ticker: 'ITUB4',
-      name: 'Itaú Unibanco Holding S.A.',
-      assetClass: 'STOCK',
-      currentAllocationPercentage: 20.0,
-      grossBalance: 'R$ 2.160,00',
-      quantity: '60',
-      averagePrice: 'R$ 34,00',
-      currentPrice: 'R$ 36,00',
-      profitabilityPercentage: '+5,88%',
-      profitabilityAmount: 'R$ +120,00',
-      sliceColor: '#72743D',
-    },
-  ],
-  FII: [
-    {
-      id: 'fii-1',
-      ticker: 'HGLG11',
-      name: 'CSHG Logística FII',
-      assetClass: 'FII',
-      currentAllocationPercentage: 60.0,
-      grossBalance: 'R$ 4.772,80',
-      quantity: '30',
-      averagePrice: 'R$ 152,00',
-      currentPrice: 'R$ 159,10',
-      profitabilityPercentage: '+4,67%',
-      profitabilityAmount: 'R$ +213,00',
-      sliceColor: '#D5CAA8',
-    },
-    {
-      id: 'fii-2',
-      ticker: 'KNRI11',
-      name: 'Kinea Renda Imobiliária',
-      assetClass: 'FII',
-      currentAllocationPercentage: 40.0,
-      grossBalance: 'R$ 3.181,86',
-      quantity: '22',
-      averagePrice: 'R$ 140,50',
-      currentPrice: 'R$ 144,63',
-      profitabilityPercentage: '+2,94%',
-      profitabilityAmount: 'R$ +90,86',
-      sliceColor: '#EDE8B8',
-    },
-  ],
-  FIXED_INCOME: [
-    {
-      id: 'rf-1',
-      ticker: 'CDB 110%',
-      name: 'CDB Banco Inter Liquidez Diária',
-      assetClass: 'FIXED_INCOME',
-      currentAllocationPercentage: 70.0,
-      grossBalance: 'R$ 7.272,83',
-      quantity: '7272',
-      averagePrice: 'R$ 1,00',
-      currentPrice: 'R$ 1,08',
-      profitabilityPercentage: '+8,00%',
-      profitabilityAmount: 'R$ +581,83',
-      sliceColor: '#2E4A44',
-    },
-    {
-      id: 'rf-2',
-      ticker: 'IPCA+ 6%',
-      name: 'Tesouro IPCA+ 2029',
-      assetClass: 'FIXED_INCOME',
-      currentAllocationPercentage: 30.0,
-      grossBalance: 'R$ 3.116,93',
-      quantity: '1',
-      averagePrice: 'R$ 2.900,00',
-      currentPrice: 'R$ 3.116,93',
-      profitabilityPercentage: '+7,48%',
-      profitabilityAmount: 'R$ +216,93',
-      sliceColor: '#72743D',
-    },
-  ],
-  CRYPTO: [
-    {
-      id: 'crypto-1',
-      ticker: 'BTC',
-      name: 'Bitcoin (BRL)',
-      assetClass: 'CRYPTO',
-      currentAllocationPercentage: 75.0,
-      grossBalance: 'R$ 2.435,10',
-      quantity: '0.0042',
-      averagePrice: 'R$ 520.000,00',
-      currentPrice: 'R$ 579.785,00',
-      profitabilityPercentage: '+11,50%',
-      profitabilityAmount: 'R$ +251,00',
-      sliceColor: '#C49A45',
-    },
-    {
-      id: 'crypto-2',
-      ticker: 'ETH',
-      name: 'Ethereum (BRL)',
-      assetClass: 'CRYPTO',
-      currentAllocationPercentage: 25.0,
-      grossBalance: 'R$ 811,70',
-      quantity: '0.052',
-      averagePrice: 'R$ 14.800,00',
-      currentPrice: 'R$ 15.609,61',
-      profitabilityPercentage: '+5,47%',
-      profitabilityAmount: 'R$ +42,10',
-      sliceColor: '#D1DDF7',
-    },
-  ],
-};
-
 export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   assetClass = 'STOCK',
   className,
@@ -208,9 +71,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   };
   const title = className || classConfig.name;
 
-  const assetList: ClassAssetDetailItem[] = (assets && assets.length > 0)
-    ? assets
-    : (DEFAULT_ASSETS_MAP[assetClass] || DEFAULT_ASSETS_MAP.STOCK);
+  const assetList: ClassAssetDetailItem[] = assets || [];
 
   const [activeTooltipAsset, setActiveTooltipAsset] = useState<ClassAssetDetailItem | null>(null);
   const [cardPositions, setCardPositions] = useState<Record<string, number>>({});
@@ -413,7 +274,18 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         <View style={styles.cardsSection}>
           <Text style={[styles.sectionHeader, isLight && styles.sectionHeaderLight]}>ATIVOS DA CARTEIRA</Text>
 
-          {assetList.map((asset) => {
+          {assetList.length === 0 ? (
+            <View testID="class-empty-assets" style={styles.emptyContainer}>
+              <MaterialIcons name="inventory-2" size={32} color={isLight ? '#999' : '#555'} />
+              <Text style={[styles.emptyTitle, isLight && styles.emptyTitleLight]}>
+                Nenhum ativo nesta categoria
+              </Text>
+              <Text style={[styles.emptySubtitle, isLight && styles.emptySubtitleLight]}>
+                Adicione ativos nesta classe na aba Carteiras para acompanhar a composição.
+              </Text>
+            </View>
+          ) : (
+            assetList.map((asset) => {
             const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
             const isSelected = activeTooltipAsset?.ticker === asset.ticker;
             const grossBalanceDisplay = isPrivacyMode ? '••••••' : asset.grossBalance;
@@ -517,7 +389,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                 </View>
               </TouchableOpacity>
             );
-          })}
+          }))}
         </View>
       </ScrollView>
     </View>
@@ -941,6 +813,33 @@ const styles = StyleSheet.create({
     borderTopColor: '#EAE4D7',
   },
   profitAmountTextLight: {
+    color: '#6E6A63',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 20,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    textAlign: 'center',
+  },
+  emptyTitleLight: {
+    color: '#111315',
+  },
+  emptySubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: '#8A8C90',
+    textAlign: 'center',
+    lineHeight: 18,
+  },
+  emptySubtitleLight: {
     color: '#6E6A63',
   },
 });

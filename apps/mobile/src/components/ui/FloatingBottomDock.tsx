@@ -235,9 +235,16 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
         onPress={toggleSheet}
         style={styles.actionButton}
       >
-        <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-          <MaterialIcons name="add" size={28} color="#FFFFFF" />
-        </Animated.View>
+        <TouchableOpacity
+          testID="dock-item-add-fab"
+          activeOpacity={0.85}
+          onPress={toggleSheet}
+          style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
+            <MaterialIcons name="add" size={28} color="#FFFFFF" />
+          </Animated.View>
+        </TouchableOpacity>
       </TouchableOpacity>
     </View>
   );

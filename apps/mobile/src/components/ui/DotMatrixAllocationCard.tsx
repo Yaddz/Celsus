@@ -23,14 +23,14 @@ export interface DotMatrixAllocationCardProps {
 }
 
 const DEFAULT_ALLOCATIONS: CategoryAllocationData[] = [
-  { assetClass: 'FIXED_INCOME', currentPercentage: 32.0, targetPercentage: 30.0, marketValue: '10.389,76' },
-  { assetClass: 'FII', currentPercentage: 24.5, targetPercentage: 25.0, marketValue: '7.954,66' },
-  { assetClass: 'STOCK', currentPercentage: 33.5, targetPercentage: 35.0, marketValue: '10.876,78' },
-  { assetClass: 'CRYPTO', currentPercentage: 10.0, targetPercentage: 10.0, marketValue: '3.246,80' },
+  { assetClass: 'FIXED_INCOME', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'FII', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'STOCK', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
+  { assetClass: 'CRYPTO', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
 ];
 
 export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = ({
-  totalBalance = 'R$ 32.468,00',
+  totalBalance = 'R$ 0,00',
   allocations = DEFAULT_ALLOCATIONS,
   isPrivacyMode = false,
   testID,
@@ -66,7 +66,7 @@ export const DotMatrixAllocationCard: React.FC<DotMatrixAllocationCardProps> = (
         ) : (
           <View style={[styles.balanceBadge, isLight && styles.balanceBadgeLight]} testID="card-header-total-balance">
             <Text style={styles.balanceText}>
-              {isPrivacyMode ? 'R$ ••••••••' : totalBalance}
+              {isPrivacyMode ? 'R$ ••••••' : totalBalance}
             </Text>
           </View>
         )}

@@ -37,21 +37,8 @@ export interface StackedWalletDeckProps {
   testID?: string;
   style?: StyleProp<ViewStyle>;
   themeMode?: 'dark' | 'light';
+  isPrivacyMode?: boolean;
 }
-
-const DEFAULT_PORTFOLIOS: StackedWalletItem[] = [
-  {
-    id: 'default-portfolio',
-    name: 'Carteira Principal',
-    docketCode: 'REV-CART-001',
-    accountCode: '•••• 001',
-    balance: 'R$ 32.468,00',
-    subtitle: 'Patrimônio Total',
-    profitText: '+12,4% no ano',
-    accentColor: '#D96628',
-    paletteId: 'classic',
-  },
-];
 
 const ADD_WALLET_CARD_ITEM: StackedWalletItem = {
   id: '__add_wallet_card__',
@@ -66,7 +53,7 @@ const ADD_WALLET_CARD_ITEM: StackedWalletItem = {
 };
 
 export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
-  portfolios = DEFAULT_PORTFOLIOS,
+  portfolios = [],
   activeIndex = 0,
   onPortfolioChange,
   onCreatePortfolioPress,
@@ -75,67 +62,12 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   testID = 'stacked-wallet-deck',
   style,
   themeMode = 'dark',
+  isPrivacyMode = false,
 }) => {
-  // Empty State: quando explicitamente passado array vazio
-  if (portfolios && portfolios.length === 0) {
-    return (
-      <View testID={testID} style={[styles.heroWrapper, style]}>
-        <View testID="stacked-wallet-empty-card" style={styles.heroCard}>
-          <View style={[styles.coloredBody, styles.emptyCardBody]}>
-            {/* Camadas orgânicas difusas */}
-            <View testID="wallet-organic-blur-layers" style={styles.organicBlurContainer} pointerEvents="none">
-              <View
-                style={[
-                  styles.organicShape,
-                  {
-                    top: -20,
-                    left: -20,
-                    width: 140,
-                    height: 110,
-                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                    borderRadius: 70,
-                  },
-                ]}
-              />
-              <View
-                style={[
-                  styles.organicShape,
-                  {
-                    top: 20,
-                    right: -20,
-                    width: 120,
-                    height: 120,
-                    backgroundColor: 'rgba(0, 0, 0, 0.20)',
-                    borderRadius: 60,
-                  },
-                ]}
-              />
-            </View>
-
-            <View style={styles.emptyCardContent}>
-              <Text style={styles.emptyCardTitle}>Nenhuma carteira cadastrada</Text>
-              <Text style={styles.emptyCardSubtitle}>
-                Crie sua primeira carteira para começar a acompanhar seu patrimônio
-              </Text>
-              <TouchableOpacity
-                testID="empty-wallet-create-cta"
-                style={styles.emptyCardCta}
-                onPress={onCreatePortfolioPress}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.emptyCardCtaText}>+ Criar primeira carteira</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
   const shouldIncludeAddCard = portfolios.length >= 1 && Boolean(onCreatePortfolioPress);
   const items: StackedWalletItem[] = shouldIncludeAddCard
     ? [...portfolios, ADD_WALLET_CARD_ITEM]
-    : (portfolios.length > 0 ? portfolios : DEFAULT_PORTFOLIOS);
+    : portfolios;
 
   const [currentIndex, setCurrentIndex] = useState(activeIndex);
   const currentIndexRef = useRef(currentIndex);
@@ -153,6 +85,7 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   }, [activeIndex]);
 
   const cycleNext = () => {
+    if (items.length === 0) return;
     const nextIndex = (currentIndexRef.current + 1) % items.length;
     currentIndexRef.current = nextIndex;
     const act = (React as any).act;
@@ -168,6 +101,7 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   };
 
   const cyclePrev = () => {
+    if (items.length === 0) return;
     const prevIndex = (currentIndexRef.current - 1 + items.length) % items.length;
     currentIndexRef.current = prevIndex;
     const act = (React as any).act;
@@ -210,6 +144,63 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
       onPanResponderTerminate: (e, gesture) => handleRelease(e, gesture),
     })
   ).current;
+
+  // Empty State: quando explicitamente passado array vazio
+  if (portfolios && portfolios.length === 0) {
+    return (
+      <View testID={testID} style={[styles.heroWrapper, style]}>
+        <View testID="stacked-wallet-empty-card" style={styles.heroCard}>
+          <View style={[styles.coloredBody, styles.emptyCardBody]}>
+            {/* Camadas orgânicas difusas */}
+            <View testID="wallet-organic-blur-layers" style={styles.organicBlurContainer} pointerEvents="none">
+              <View
+                style={[
+                  styles.organicShape,
+                  {
+                    top: -20,
+                    left: -20,
+                    width: 140,
+                    height: 110,
+                    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                    borderRadius: 70,
+                  },
+                ]}
+              />
+              <View
+                style={[
+                  styles.organicShape,
+                  {
+                    top: 20,
+                    right: -20,
+                    width: 120,
+                    height: 120,
+                    backgroundColor: 'rgba(0, 0, 0, 0.20)',
+                    borderRadius: 60,
+                  },
+                ]}
+              />
+            </View>
+
+            <View style={styles.emptyCardContent}>
+              <Text style={styles.emptyCardTitle}>Nenhuma carteira cadastrada</Text>
+              <Text style={styles.emptyCardBalance}>{isPrivacyMode ? 'R$ ••••••' : 'R$ 0,00'}</Text>
+              <Text style={styles.emptyCardSubtitle}>
+                Crie sua primeira carteira para começar a acompanhar seu patrimônio
+              </Text>
+              <TouchableOpacity
+                testID="empty-wallet-create-cta"
+                style={styles.emptyCardCta}
+                onPress={onCreatePortfolioPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.emptyCardCtaText}>+ Criar primeira carteira</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   const currentItem = items[currentIndex] || items[0];
   const isAddCard = currentItem.id === '__add_wallet_card__';
@@ -631,6 +622,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: colors.parchmentPale,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptyCardBalance: {
+    fontFamily: typography.fontFamily,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
     marginBottom: 6,
     textAlign: 'center',
   },
