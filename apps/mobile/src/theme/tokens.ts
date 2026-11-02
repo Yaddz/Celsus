@@ -75,6 +75,7 @@ export interface BorderTokens {
   radiusLg: number;
   radiusXl: number;
   radiusPill: number;
+  radiusFull: number;
   hairline: number;
 }
 
@@ -207,6 +208,7 @@ export const borders: BorderTokens = {
   radiusLg: 22,
   radiusXl: 28,
   radiusPill: 9999,
+  radiusFull: 9999,
   hairline: 1,
 };
 

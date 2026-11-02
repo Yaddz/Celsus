@@ -268,7 +268,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         {/* 3. Card de Métricas Financeiras Consolidadas */}
         {consolidatedData ? (
           <View style={[styles.metricsCard, isLight && styles.metricsCardLight]}>
-            <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight]}>RESUMO DO DOSSIÊ</Text>
+            <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight]}>PANORAMA GERAL</Text>
             <View style={styles.metricsGrid}>
               <View style={[styles.metricBox, isLight && styles.metricBoxLight]}>
                 <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Capital Aportado</Text>

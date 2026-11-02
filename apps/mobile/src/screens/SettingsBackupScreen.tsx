@@ -92,7 +92,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
       type: 'info',
       title: val ? 'BLOQUEIO BIOMÉTRICO ATIVADO' : 'BLOQUEIO BIOMÉTRICO DESATIVADO',
       message: val
-        ? 'O Dossiê Celsus exigirá autenticação biométrica ou PIN nativo ao ser bloqueado.'
+        ? 'O Celsus exigirá autenticação biométrica ou PIN ao abrir o app.'
         : 'A exigência de biometria ao iniciar foi desativada.',
     });
   };
@@ -104,7 +104,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
     setIsAppLocked(locked.isLocked);
 
     const authResult = await privacyAndAuthService.authenticateAndUnlock(
-      'Autenticar acesso ao Dossiê Celsus'
+      'Autenticar acesso ao Celsus'
     );
 
     if (authResult.authenticated) {
@@ -139,7 +139,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
     } catch (err: any) {
       setStatusBanner({
         type: 'error',
-        title: 'ERRO AO EXPORTAR DOSSIÊ',
+        title: 'ERRO AO EXPORTAR BACKUP',
         message: err?.message || 'Falha inesperada na geração do pacote .celsus.zip.',
       });
     }
@@ -159,7 +159,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
         title:
           res.mode === 'RESTORE'
             ? 'RESTAURAÇÃO COMPLETA CONCLUÍDA'
-            : 'MESCLAGEM POR UUID v4 CONCLUÍDA',
+            : 'DADOS MESCLADOS COM SUCESSO',
         message:
           `Integridade SHA-256 verificada em todos os 4 CSVs.\n` +
           `Carteiras: ${res.importedCounts.portfolios} | Ativos: ${res.importedCounts.assets} | Transações: ${res.importedCounts.transactions}`,
@@ -168,7 +168,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
     } catch (err: any) {
       setStatusBanner({
         type: 'error',
-        title: 'PROTOCOLO DE SEGURANÇA: IMPORTAÇÃO ABORTADA',
+        title: 'IMPORTAÇÃO NÃO REALIZADA: ARQUIVO INVÁLIDO',
         message: err?.message || 'Arquivo .celsus.zip corrompido ou inválido.',
       });
     }
@@ -211,7 +211,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               <View style={styles.sealAndStatusRow}>
                 <View testID="profile-seal" style={[styles.profileSeal, isLight && styles.profileSealLight]}>
                   <Text style={[styles.profileSealText, isLight && styles.profileSealTextLight]}>
-                    Celsus | Dossiê Local
+                    Celsus | Dados no Aparelho
                   </Text>
                 </View>
                 <View testID="profile-status-pill" style={[styles.profileStatusPill, isLight && styles.profileStatusPillLight]}>
@@ -235,16 +235,16 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             )}
           </View>
 
-          {/* Barra horizontal de nível: Local-First ─── Sovereign */}
+          {/* Barra de privacidade e segurança local */}
           <View testID="profile-level-bar" style={[styles.levelBarContainer, isLight && styles.levelBarContainerLight]}>
             <View style={styles.levelLabelsRow}>
               <View style={styles.levelIndicatorGroup}>
                 <MaterialIcons name="security" size={12} color={isLight ? '#A0522D' : colors.tertiary} />
-                <Text style={[styles.levelLabel, isLight && styles.levelLabelLight]}>Local-First</Text>
+                <Text style={[styles.levelLabel, isLight && styles.levelLabelLight]}>Privacidade</Text>
               </View>
-              <Text style={[styles.levelDividerText, isLight && styles.levelDividerTextLight]}>────────</Text>
+              <Text style={[styles.levelDividerText, isLight && styles.levelDividerTextLight]}>•</Text>
               <View style={styles.levelIndicatorGroup}>
-                <Text style={[styles.levelLabel, isLight && styles.levelLabelLight]}>Sovereign</Text>
+                <Text style={[styles.levelLabel, isLight && styles.levelLabelLight]}>100% no Dispositivo</Text>
                 <MaterialIcons name="verified" size={12} color={isLight ? '#2E4A44' : '#AECDC5'} />
               </View>
             </View>
@@ -297,7 +297,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>DADOS DAS CARTEIRAS</Text>
           </View>
           <Text style={[styles.cardHelperText, isLight && styles.cardHelperTextLight]}>
-            Visão consolidada das carteiras registradas no dossiê soberano local.
+            Visão consolidada de todas as carteiras salvas neste dispositivo.
           </Text>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.walletCardsScroll}>
@@ -433,7 +433,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               testID="test-biometric-btn"
               label={
                 isAppLocked
-                  ? 'Dossiê Bloqueado — Autenticar Agora'
+                  ? 'Aplicativo Bloqueado — Autenticar Agora'
                   : 'Testar Autenticação Biométrica'
               }
               variant="secondary"
@@ -452,7 +452,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             </Text>
           </View>
           <Text style={[styles.cardHelperText, isLight && styles.cardHelperTextLight]}>
-            Gera um arquivo compactado legível contendo 4 arquivos CSV (portfolios, class_targets, assets, transactions) e o manifesto criptográfico manifest.json com hashes SHA-256.
+            Gera um arquivo de backup seguro (.celsus.zip) com suas carteiras, ativos e histórico de movimentações.
           </Text>
 
           <View style={{ marginTop: 12 }}>
@@ -491,7 +491,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             IMPORTAR E VALIDAR INTEGRIDADE
           </Text>
           <Text style={[styles.cardHelperText, isLight && styles.cardHelperTextLight, { marginTop: 4 }]}>
-            Antes de tocar no banco SQLite local, o Celsus valida o hash SHA-256 de cada CSV. Qualquer adulteração de 1 byte aborta a operação.
+            Antes de importar, a integridade do arquivo é verificada para assegurar que nenhum dado foi corrompido.
           </Text>
 
           {/* Seletor de Modo: MERGE vs RESTORE */}
@@ -518,10 +518,10 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
                   selectedImportMode === 'MERGE' && styles.modeOptionTitleActive,
                 ]}
               >
-                MESCLAR (UUID)
+                MESCLAR DADOS
               </Text>
               <Text style={[styles.modeOptionSub, isLight && styles.modeOptionSubLight]}>
-                Preserva dados atuais e recalcula PM sem duplicar
+                Mantém dados atuais e inclui novos registros sem duplicar
               </Text>
             </TouchableOpacity>
 
@@ -547,10 +547,10 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
                   selectedImportMode === 'RESTORE' && styles.modeOptionTitleActive,
                 ]}
               >
-                RESTORE TOTAL
+                RESTAURAR TUDO
               </Text>
               <Text style={[styles.modeOptionSub, isLight && styles.modeOptionSubLight]}>
-                Substitui todas as tabelas pelo arquivo importado
+                Substitui todos os dados pelo conteúdo do backup
               </Text>
             </TouchableOpacity>
           </View>
@@ -560,8 +560,8 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               testID="import-dossier-btn"
               label={
                 selectedImportMode === 'MERGE'
-                  ? 'Importar e Mesclar por UUID v4'
-                  : 'Restaurar Substituindo Banco Local'
+                  ? 'Importar e Mesclar Dados'
+                  : 'Restaurar e Substituir Dados'
               }
               variant="secondary"
               materialIcon="file-upload"

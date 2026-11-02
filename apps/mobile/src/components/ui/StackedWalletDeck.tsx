@@ -46,7 +46,7 @@ const ADD_WALLET_CARD_ITEM: StackedWalletItem = {
   docketCode: 'REV-CART-NEW',
   accountCode: '•••• +',
   balance: '+ Adicionar',
-  subtitle: 'EXPANDIR DOSSIÊ',
+  subtitle: 'NOVA CARTEIRA',
   profitText: 'Cadastrar nova carteira',
   accentColor: '#25282B',
   paletteId: 'classic',

@@ -19,11 +19,13 @@ import {
   recalculateUnlockedTargets,
   convertWeightsToPercentagesWithLocks,
 } from '../domain/finance';
-import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader } from '../components/ui';
+import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui';
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
+import { transactionRepository } from '../repositories/transactionRepository';
 import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
+import { AllTransactionsScreen } from './AllTransactionsScreen';
 
 interface PortfolioItem {
   id: string;
@@ -126,6 +128,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [newPortfolioName, setNewPortfolioName] = useState('');
   const [portfolioBalances, setPortfolioBalances] = useState<Record<string, number>>({});
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
+  const [isExtratoModalOpen, setIsExtratoModalOpen] = useState(false);
+  const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>([]);
 
   useEffect(() => {
     if (autoOpenNewPortfolioModal) {
@@ -256,6 +261,51 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     };
     calculateBalances();
   }, [portfolios, assets]);
+
+  // Carrega movimentações da carteira ativa
+  useEffect(() => {
+    const loadTransactions = async () => {
+      if (!activePortfolioId) {
+        setPortfolioTransactions([]);
+        return;
+      }
+      try {
+        const txs = await transactionRepository.getTransactionsByPortfolio(activePortfolioId);
+        const dbAssets = await assetRepository.getAssetsByPortfolio(activePortfolioId);
+        const assetMap = new Map<string, any>();
+        (initialAssets || []).forEach((a) => assetMap.set(a.id, a));
+        (assets || []).forEach((a) => assetMap.set(a.id, a));
+        (dbAssets || []).forEach((a) => {
+          assetMap.set(a.id, {
+            id: a.id,
+            ticker: a.ticker,
+            name: a.name,
+            assetClass: a.asset_class,
+          });
+        });
+
+        const mapped = (txs || []).map((t) => {
+          const a = assetMap.get(t.asset_id);
+          const qtyNum = parseFloat(t.quantity || '0') || 0;
+          const priceNum = parseFloat(t.unit_price || '0') || 0;
+          const totalVal = qtyNum * priceNum;
+          return {
+            id: t.id,
+            ticker: a?.ticker || (t as any).ticker || 'ATIVO',
+            name: a?.name || (t as any).name || '',
+            assetClass: (a?.assetClass || a?.asset_class || (t as any).assetClass || 'STOCK') as AssetClass,
+            type: t.type as 'BUY' | 'SELL',
+            dateText: t.trade_date,
+            amountText: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          };
+        });
+        setPortfolioTransactions(mapped);
+      } catch {
+        setPortfolioTransactions([]);
+      }
+    };
+    loadTransactions();
+  }, [activePortfolioId, assets]);
 
   // Modal para Adicionar Ativo (Módulo 5)
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
@@ -704,82 +754,39 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </View>
         )}
 
-        {/* 2. Metas por Classe com Rebalanceamento Reativo 100% e Cadeado (Lista Vertical) */}
-        <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
-                Metas por Classe
-              </Text>
-              <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>
-                Alocação ideal entre classes na carteira (100% automático)
-              </Text>
-            </View>
-          </View>
+        {/* 2. Barra de Ações Rápidas: Botão "Metas" e "+ Adicionar Ativo" */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            testID="open-metas-modal-btn"
+            activeOpacity={0.8}
+            onPress={() => setIsMetasModalOpen(true)}
+            style={[styles.primaryActionBtn, isLight && styles.primaryActionBtnLight]}
+          >
+            <MaterialIcons name="tune" size={18} color={isLight ? '#111315' : colors.parchmentPale} />
+            <Text style={[styles.primaryActionBtnText, isLight && styles.primaryActionBtnTextLight]}>
+              Metas
+            </Text>
+          </TouchableOpacity>
 
-          <View style={styles.verticalClassList}>
-            {classTargets.map((ct) => {
-              const color = getClassColor(ct.assetClass);
-              return (
-                <View
-                  key={ct.assetClass}
-                  testID={`class-list-row-${ct.assetClass}`}
-                  style={[styles.verticalClassRow, isLight && styles.verticalClassRowLight]}
-                >
-                  <View style={styles.classRowLeft}>
-                    <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
-                    <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
-                      {getClassName(ct.assetClass)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.classRowRight}>
-                    {/* Botão de Cadeado Macro */}
-                    <TouchableOpacity
-                      testID={`lock-class-${ct.assetClass}`}
-                      onPress={() => handleToggleClassLock(ct.assetClass)}
-                      style={[
-                        styles.lockBtn,
-                        ct.isLocked && styles.lockBtnActive,
-                        isLight && styles.lockBtnLight,
-                        isLight && ct.isLocked && styles.lockBtnActiveLight,
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialIcons
-                        name={ct.isLocked ? 'lock' : 'lock-open'}
-                        size={15}
-                        color={ct.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
-                      />
-                    </TouchableOpacity>
-
-                    {/* Input Numérico Editável Macro */}
-                    <View
-                      testID={`input-wrapper-class-${ct.assetClass}`}
-                      style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}
-                    >
-                      <TextInput
-                        testID={`input-class-${ct.assetClass}`}
-                        keyboardType="numeric"
-                        value={String(ct.targetPercentage)}
-                        onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
-                        style={[styles.numericInputText, { color }]}
-                      />
-                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>% meta</Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
+          <TouchableOpacity
+            testID="open-add-asset-modal-btn"
+            activeOpacity={0.8}
+            onPress={() => setIsAddAssetModalOpen(true)}
+            style={[styles.secondaryActionBtn, isLight && styles.secondaryActionBtnLight]}
+          >
+            <MaterialIcons name="add" size={18} color="#FFFFFF" />
+            <Text style={styles.secondaryActionBtnText}>
+              + Novo Ativo
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* 3. Ativos e Metas na Classe (Lista Vertical + Edição Rápida Inline + Excluir) */}
-        <View style={[styles.cardSection, isLight && styles.cardSectionLight]}>
+        {/* 3. Configurações de Ativos (Meus Ativos) */}
+        <View testID="portfolio-assets-section" style={[styles.cardSection, isLight && styles.cardSectionLight]}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
-                Ativos na Categoria
+                {`MEUS ATIVOS (${assets.length})`}
               </Text>
               <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>
                 {`Ativos em ${getClassName(selectedClassTab)} (Meta Macro: ${currentClassTarget}%)`}
@@ -864,105 +871,227 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </View>
 
           {/* Lista Vertical de Ativos com Edição Rápida, Cadeado e Excluir */}
-          <View style={styles.assetsList}>
-            {currentClassAssets.map((asset) => {
-              const globalTarget = calculateGlobalTarget(currentClassTarget, asset.targetInClass);
-              const color = getClassColor(asset.assetClass);
+          {currentClassAssets.length === 0 ? (
+            <View testID="portfolio-assets-empty" style={styles.emptyContainer}>
+              <MaterialIcons name="inventory-2" size={28} color={isLight ? '#A09C94' : '#55585C'} />
+              <Text style={[styles.emptyTitle, isLight && styles.emptyTitleLight]}>
+                Nenhum ativo cadastrado nesta categoria
+              </Text>
+              <Text style={[styles.emptySubtitle, isLight && styles.emptySubtitleLight]}>
+                Adicione ativos para acompanhar a evolução e rebalanceamento da carteira.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.assetsList}>
+              {currentClassAssets.map((asset) => {
+                const globalTarget = calculateGlobalTarget(currentClassTarget, asset.targetInClass);
+                const color = getClassColor(asset.assetClass);
 
-              return (
-                <View
-                  key={asset.id}
-                  testID={`asset-list-row-${asset.id}`}
-                  style={[styles.verticalAssetRow, isLight && styles.verticalAssetRowLight]}
-                >
-                  <View style={styles.assetRowLeft}>
-                    <View style={styles.assetTickerRow}>
-                      <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>
-                        {asset.ticker}
+                return (
+                  <View
+                    key={asset.id}
+                    testID={`asset-list-row-${asset.id}`}
+                    style={[styles.verticalAssetRow, isLight && styles.verticalAssetRowLight]}
+                  >
+                    <View style={styles.assetRowLeft}>
+                      <View style={styles.assetTickerRow}>
+                        <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>
+                          {asset.ticker}
+                        </Text>
+                        <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
+                          <Text style={[styles.globalBadgeValue, { color }]}>
+                            {globalTarget.toFixed(1)}% global
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
+                        {asset.name}
                       </Text>
-                      <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
-                        <Text style={[styles.globalBadgeValue, { color }]}>
-                          {globalTarget.toFixed(1)}% global
+                    </View>
+
+                    <View style={styles.assetRowRight}>
+                      {/* Botão de Excluir Ativo (Bug #8) */}
+                      <TouchableOpacity
+                        testID={`delete-asset-${asset.id}`}
+                        onPress={() => handleDeleteAsset(asset.id)}
+                        style={styles.deleteAssetBtn}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Excluir ativo ${asset.ticker}`}
+                      >
+                        <MaterialIcons name="delete-outline" size={18} color="#FF6B6B" />
+                      </TouchableOpacity>
+
+                      {/* Botão de Cadeado do Ativo */}
+                      <TouchableOpacity
+                        testID={`lock-asset-${asset.id}`}
+                        onPress={() => handleToggleAssetLock(asset.id)}
+                        style={[
+                          styles.lockBtn,
+                          asset.isLocked && styles.lockBtnActive,
+                          isLight && styles.lockBtnLight,
+                          isLight && asset.isLocked && styles.lockBtnActiveLight,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons
+                          name={asset.isLocked ? 'lock' : 'lock-open'}
+                          size={15}
+                          color={asset.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Input Numérico Editável do Ativo */}
+                      <View style={[styles.assetNumericInputWrapper, isLight && styles.assetNumericInputWrapperLight]}>
+                        <TextInput
+                          testID={`input-asset-${asset.id}`}
+                          keyboardType="numeric"
+                          value={
+                            portfolioMode === 'percent'
+                              ? String(asset.targetInClass)
+                              : String(asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1))
+                          }
+                          onChangeText={(t) =>
+                            portfolioMode === 'percent'
+                              ? handleAssetPercentageChange(asset.id, t)
+                              : handleAssetWeightChange(asset.id, t)
+                          }
+                          style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
+                        />
+                        <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
+                          {portfolioMode === 'percent' ? '% meta' : 'pts'}
                         </Text>
                       </View>
                     </View>
-                    <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
-                      {asset.name}
-                    </Text>
                   </View>
+                );
+              })}
+            </View>
+          )}
 
-                  <View style={styles.assetRowRight}>
-                    {/* Botão de Excluir Ativo (Bug #8) */}
-                    <TouchableOpacity
-                      testID={`delete-asset-${asset.id}`}
-                      onPress={() => handleDeleteAsset(asset.id)}
-                      style={styles.deleteAssetBtn}
-                      activeOpacity={0.7}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Excluir ativo ${asset.ticker}`}
-                    >
-                      <MaterialIcons name="delete-outline" size={18} color="#FF6B6B" />
-                    </TouchableOpacity>
+          {/* Botão para abrir o modal de adicionar ativo */}
+          <TouchableOpacity
+            testID="open-add-asset-modal-btn-sub"
+            activeOpacity={0.8}
+            onPress={() => setIsAddAssetModalOpen(true)}
+            style={[styles.addAssetBtn, isLight && styles.addAssetBtnLight]}
+          >
+            <MaterialIcons name="add" size={16} color={colors.primary} />
+            <Text style={styles.addAssetBtnText}>
+              {`Adicionar Ativo em ${getClassName(selectedClassTab)}`}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-                    {/* Botão de Cadeado do Ativo */}
-                    <TouchableOpacity
-                      testID={`lock-asset-${asset.id}`}
-                      onPress={() => handleToggleAssetLock(asset.id)}
-                      style={[
-                        styles.lockBtn,
-                        asset.isLocked && styles.lockBtnActive,
-                        isLight && styles.lockBtnLight,
-                        isLight && asset.isLocked && styles.lockBtnActiveLight,
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <MaterialIcons
-                        name={asset.isLocked ? 'lock' : 'lock-open'}
-                        size={15}
-                        color={asset.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
-                      />
-                    </TouchableOpacity>
-
-                    {/* Input Numérico Editável do Ativo */}
-                    <View style={[styles.assetNumericInputWrapper, isLight && styles.assetNumericInputWrapperLight]}>
-                      <TextInput
-                        testID={`input-asset-${asset.id}`}
-                        keyboardType="numeric"
-                        value={
-                          portfolioMode === 'percent'
-                            ? String(asset.targetInClass)
-                            : String(asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1))
-                        }
-                        onChangeText={(t) =>
-                          portfolioMode === 'percent'
-                            ? handleAssetPercentageChange(asset.id, t)
-                            : handleAssetWeightChange(asset.id, t)
-                        }
-                        style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
-                      />
-                      <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
-                        {portfolioMode === 'percent' ? '% meta' : 'pts'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-
-            {/* Botão para abrir o modal de adicionar ativo */}
-            <TouchableOpacity
-              testID="open-add-asset-modal-btn"
-              activeOpacity={0.8}
-              onPress={() => setIsAddAssetModalOpen(true)}
-              style={[styles.addAssetBtn, isLight && styles.addAssetBtnLight]}
-            >
-              <MaterialIcons name="add" size={16} color={colors.primary} />
-              <Text style={styles.addAssetBtnText}>
-                {`Adicionar Ativo em ${getClassName(selectedClassTab)}`}
+        {/* 4. Movimentações da Carteira */}
+        <View testID="portfolio-transactions-section" style={[styles.cardSection, isLight && styles.cardSectionLight]}>
+          <View style={styles.sectionHeaderRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
+                MOVIMENTAÇÕES DA CARTEIRA
               </Text>
+              <Text style={[styles.sectionHelper, isLight && styles.sectionHelperLight]}>
+                Transações vinculadas a esta carteira
+              </Text>
+            </View>
+            <TouchableOpacity
+              testID="view-portfolio-transactions-btn"
+              activeOpacity={0.7}
+              onPress={() => setIsExtratoModalOpen(true)}
+              style={styles.viewAllBtn}
+            >
+              <Text style={[styles.viewAllBtnText, isLight && styles.viewAllBtnTextLight]}>
+                Ver extrato
+              </Text>
+              <MaterialIcons name="chevron-right" size={16} color={colors.primary} />
             </TouchableOpacity>
           </View>
+
+          {portfolioTransactions.length === 0 ? (
+            <View testID="wallet-transactions-empty" style={styles.emptyTransactionsContainer}>
+              <MaterialIcons name="receipt-long" size={32} color={isLight ? '#A09C94' : '#55585C'} />
+              <Text style={[styles.emptyTransactionsTitle, isLight && styles.emptyTransactionsTitleLight]}>
+                Nenhuma movimentação registrada nesta carteira
+              </Text>
+              <Text style={[styles.emptyTransactionsSubtitle, isLight && styles.emptyTransactionsSubtitleLight]}>
+                As operações cadastradas nesta carteira aparecerão listadas aqui.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.transactionsList}>
+              {portfolioTransactions.slice(0, 5).map((tx, idx) => {
+                const config = ASSET_CLASS_ATTRIBUTE_MAP[tx.assetClass] || {
+                  color: colors.primary,
+                  name: 'Ativo',
+                };
+                const isBuy = tx.type === 'BUY';
+                const isLast = idx === Math.min(portfolioTransactions.length, 5) - 1;
+                return (
+                  <View
+                    key={tx.id}
+                    testID={`wallet-tx-row-${tx.ticker}`}
+                    style={[
+                      styles.txRow,
+                      !isLast && (isLight ? styles.txBorderBottomLight : styles.txBorderBottom),
+                    ]}
+                  >
+                    <View style={[styles.txAvatar, { backgroundColor: config.color }]}>
+                      <MaterialIcons
+                        name={
+                          tx.assetClass === 'FIXED_INCOME'
+                            ? 'account-balance'
+                            : tx.assetClass === 'FII'
+                            ? 'apartment'
+                            : tx.assetClass === 'CRYPTO'
+                            ? 'currency-bitcoin'
+                            : 'trending-up'
+                        }
+                        size={18}
+                        color="#111315"
+                      />
+                    </View>
+                    <View style={styles.txInfo}>
+                      <View style={styles.txTopRow}>
+                        <Text style={[styles.txTicker, isLight && styles.txTickerLight]}>{tx.ticker}</Text>
+                        <Text
+                          style={[
+                            styles.txAmount,
+                            isLight && styles.txAmountLight,
+                            { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
+                          ]}
+                        >
+                          {tx.amountText}
+                        </Text>
+                      </View>
+                      <View style={styles.txBottomRow}>
+                        <Text style={[styles.txDate, isLight && styles.txDateLight]}>{tx.dateText}</Text>
+                        <View
+                          style={[
+                            styles.txTypeBadge,
+                            {
+                              backgroundColor: isBuy
+                                ? (isLight ? '#E5F3EE' : '#1D2E28')
+                                : (isLight ? '#FCEBEA' : '#331C18'),
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.txTypeText,
+                              { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
+                            ]}
+                          >
+                            {isBuy ? 'Compra' : 'Venda'}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </View>
 
         <View style={{ height: 60 }} />
       </ScrollView>
@@ -973,12 +1102,12 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
             <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>CRIAR NOVA CARTEIRA</Text>
             <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
-              Informe o nome ou finalidade do Dossiê
+              Informe o nome ou objetivo da carteira
             </Text>
             <TextInput
               testID="new-portfolio-name-input"
               style={[styles.modalInput, isLight && styles.modalInputLight]}
-              placeholder="Ex: Aposentadoria, Férias, Reserva"
+              placeholder="Informe o nome ou objetivo da carteira"
               placeholderTextColor={isLight ? '#999' : '#666'}
               value={newPortfolioName}
               onChangeText={setNewPortfolioName}
@@ -1001,7 +1130,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                 onPress={handleCreatePortfolio}
                 style={styles.modalConfirmBtn}
               >
-                <Text style={styles.modalConfirmText}>Criar Dossiê</Text>
+                <Text style={styles.modalConfirmText}>Criar Carteira</Text>
                 <TouchableOpacity
                   testID="create-portfolio-submit-btn"
                   onPress={handleCreatePortfolio}
@@ -1200,6 +1329,160 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Modal / Bottom Sheet: Metas por Tipo de Ativo */}
+      <View
+        testID="metas-modal-sheet"
+        pointerEvents={isMetasModalOpen ? 'auto' : 'none'}
+        style={[
+          styles.sheetOverlay,
+          !isMetasModalOpen && { opacity: 0, height: 0, width: 0, overflow: 'hidden' },
+        ]}
+      >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={() => setIsMetasModalOpen(false)}
+        />
+        <View style={[styles.sheetContainer, isLight && styles.sheetContainerLight]}>
+            {/* Header com X */}
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.sheetHeaderTitle, isLight && styles.sheetHeaderTitleLight]}>
+                Porcentagem ideal por tipo de ativo
+              </Text>
+              <TouchableOpacity
+                testID="close-metas-modal-btn"
+                onPress={() => setIsMetasModalOpen(false)}
+                style={styles.sheetCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Fechar metas"
+              >
+                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Banner de Ajuda estilo Investidor10 */}
+            <View style={[styles.metasHelpBox, isLight && styles.metasHelpBoxLight]}>
+              <MaterialIcons name="info-outline" size={18} color={isLight ? '#7C786F' : colors.tertiary} />
+              <Text style={[styles.metasHelpText, isLight && styles.metasHelpTextLight]}>
+                Defina como você gostaria de distribuir diferentes tipos de ativos em sua carteira.
+              </Text>
+            </View>
+
+            {/* Lista das 4 classes com Cadeado e Input */}
+            <View style={styles.verticalClassList}>
+              {classTargets.map((ct) => {
+                const color = getClassColor(ct.assetClass);
+                return (
+                  <View
+                    key={ct.assetClass}
+                    testID={`class-list-row-${ct.assetClass}`}
+                    style={[styles.verticalClassRow, isLight && styles.verticalClassRowLight]}
+                  >
+                    <View style={styles.classRowLeft}>
+                      <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
+                      <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
+                        {getClassName(ct.assetClass)}
+                      </Text>
+                    </View>
+
+                    <View style={styles.classRowRight}>
+                      {/* Botão de Cadeado Macro */}
+                      <TouchableOpacity
+                        testID={`lock-class-${ct.assetClass}`}
+                        onPress={() => handleToggleClassLock(ct.assetClass)}
+                        style={[
+                          styles.lockBtn,
+                          ct.isLocked && styles.lockBtnActive,
+                          isLight && styles.lockBtnLight,
+                          isLight && ct.isLocked && styles.lockBtnActiveLight,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons
+                          name={ct.isLocked ? 'lock' : 'lock-open'}
+                          size={15}
+                          color={ct.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
+                        />
+                      </TouchableOpacity>
+
+                      {/* Input Numérico Editável Macro */}
+                      <View
+                        testID={`input-wrapper-class-${ct.assetClass}`}
+                        style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}
+                      >
+                        <TextInput
+                          testID={`input-class-${ct.assetClass}`}
+                          keyboardType="numeric"
+                          value={String(ct.targetPercentage)}
+                          onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
+                          style={[styles.numericInputText, { color }]}
+                        />
+                        <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>% meta</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Indicador de 100% estilo Investidor10 */}
+            <View testID="metas-total-indicator" style={[styles.metasTotalIndicator, isLight && styles.metasTotalIndicatorLight]}>
+              <View style={styles.metasTotalLeft}>
+                <MaterialIcons name="check-circle" size={18} color="#2E4A44" />
+                <Text style={[styles.metasTotalLabel, isLight && styles.metasTotalLabelLight]}>
+                  Distribuição total dos ativos
+                </Text>
+              </View>
+              <Text style={styles.metasTotalValue}>100%</Text>
+            </View>
+
+            {/* Botões de Ação Cancelar / Salvar */}
+            <View style={styles.sheetButtonsRow}>
+              <TouchableOpacity
+                testID="metas-cancel-btn"
+                onPress={() => setIsMetasModalOpen(false)}
+                style={[styles.metasCancelBtn, isLight && styles.metasCancelBtnLight]}
+              >
+                <Text style={[styles.metasCancelText, isLight && styles.metasCancelTextLight]}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="metas-save-btn"
+                onPress={async () => {
+                  if (activePortfolioId) {
+                    await portfolioRepository.saveClassTargets(
+                      activePortfolioId,
+                      classTargets.map((c) => ({
+                        portfolio_id: activePortfolioId,
+                        asset_class: c.assetClass,
+                        target_percentage: c.targetPercentage,
+                      }))
+                    );
+                  }
+                  setIsMetasModalOpen(false);
+                }}
+                style={styles.metasSaveBtn}
+              >
+                <Text style={styles.metasSaveText}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+      {/* Modal: Extrato Completo Filtrado por esta Carteira */}
+      <Modal
+        visible={isExtratoModalOpen}
+        animationType="slide"
+        onRequestClose={() => setIsExtratoModalOpen(false)}
+      >
+        <AllTransactionsScreen
+          transactions={portfolioTransactions}
+          onClose={() => setIsExtratoModalOpen(false)}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+        />
       </Modal>
     </View>
   );
@@ -2026,5 +2309,329 @@ const styles = StyleSheet.create({
   },
   modalTargetUnitSuffixLight: {
     color: colors.primary,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
+  primaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1E2124',
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: borders.hairline,
+    borderColor: '#2D3135',
+  },
+  primaryActionBtnLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  primaryActionBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+  },
+  primaryActionBtnTextLight: {
+    color: '#111315',
+  },
+  secondaryActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    borderRadius: 16,
+  },
+  secondaryActionBtnLight: {
+    backgroundColor: colors.primary,
+  },
+  secondaryActionBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewAllBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  viewAllBtnTextLight: {
+    color: colors.primary,
+  },
+  emptyTransactionsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 28,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  emptyTransactionsTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    textAlign: 'center',
+  },
+  emptyTransactionsTitleLight: {
+    color: '#111315',
+  },
+  emptyTransactionsSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8C90',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  emptyTransactionsSubtitleLight: {
+    color: '#6E6A63',
+  },
+  transactionsList: {
+    marginTop: 4,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  txBorderBottom: {
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#26292C',
+  },
+  txBorderBottomLight: {
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#F0ECE1',
+  },
+  txAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  txInfo: {
+    flex: 1,
+  },
+  txTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  txTicker: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+  },
+  txTickerLight: {
+    color: '#111315',
+  },
+  txAmount: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  txAmountLight: {},
+  txBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  txDate: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8A8E',
+  },
+  txDateLight: {
+    color: '#8A8A8E',
+  },
+  txTypeBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  txTypeText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    gap: 6,
+  },
+  emptyTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.parchmentPale,
+  },
+  emptyTitleLight: {
+    color: '#111315',
+  },
+  emptySubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8C90',
+    textAlign: 'center',
+  },
+  emptySubtitleLight: {
+    color: '#6E6A63',
+  },
+  sheetOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+    zIndex: 9999,
+  },
+  sheetContainer: {
+    backgroundColor: '#191B1D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+    maxHeight: '85%',
+  },
+  sheetContainerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  sheetHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sheetHeaderTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+  },
+  sheetHeaderTitleLight: {
+    color: '#111315',
+  },
+  sheetCloseBtn: {
+    padding: 6,
+  },
+  metasHelpBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#202326',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  metasHelpBoxLight: {
+    backgroundColor: '#F5F2EB',
+  },
+  metasHelpText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: '#C5C0B6',
+    flex: 1,
+    lineHeight: 16,
+  },
+  metasHelpTextLight: {
+    color: '#55524B',
+  },
+  metasTotalIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1C2321',
+    padding: 14,
+    borderRadius: 14,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#2E4A44',
+  },
+  metasTotalIndicatorLight: {
+    backgroundColor: '#EAF4F0',
+    borderColor: '#B8DFD1',
+  },
+  metasTotalLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  metasTotalLabel: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.parchmentPale,
+  },
+  metasTotalLabelLight: {
+    color: '#111315',
+  },
+  metasTotalValue: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2E4A44',
+  },
+  sheetButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18,
+  },
+  metasCancelBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#24272B',
+  },
+  metasCancelBtnLight: {
+    backgroundColor: '#F0ECE1',
+  },
+  metasCancelText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.parchmentPale,
+  },
+  metasCancelTextLight: {
+    color: '#6E6A63',
+  },
+  metasSaveBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+  },
+  metasSaveText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

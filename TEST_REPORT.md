@@ -37,7 +37,8 @@
 | **Sprint 28** | Grupo P1: Consistência Visual, Legendas Comparativas e Gráfico de Linha | 1 | 4 | 4 | 0 | `VERIFIED (48 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 29** | Grupos P2 e P3: Sincronização de Saldos do Deck, Exclusão em Cascata e Animações | 1 | 4 | 4 | 0 | `VERIFIED (49 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 30** | Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade | 1 | 7 | 7 | 0 | `VERIFIED (50 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S30)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **50** | **348** | **348** | **0** | **`VERIFIED (50 arquivos)`** | **🟢 100% Aprovado (348 PASS)** |
+| **Sprint 31** | Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira | 1 (+3 mod) | 10 | 10 | 0 | `VERIFIED (51 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S31)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **51** | **358** | **358** | **0** | **`VERIFIED (51 arquivos)`** | **🟢 100% Aprovado (358 PASS)** |
 
 ---
 
@@ -2169,13 +2170,54 @@
 ### 2.31. Sprint 31: Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira
 
 #### 2.31.1. Especificação dos Casos de Teste da Fase A (Red Phase & Lock)
-| Caso de Teste | Arquivo de Teste | Funcionalidade Avaliada | Critério de Aceite Fidedigno | Hash SHA-256 Bloqueado | Status Fase A |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| `S31-T01` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Notch Neutral Background & AmbientOrb Removal | Ausência de AmbientOrb vazando no notch; preenchimento neutro sólido do tema na barra de status | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
-| `S31-T02` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Filter Buttons / Pills Border Radius (radiusFull = 9999) | `borders.radiusFull` definido como 9999; pílulas de filtro do Extrato Completo e telas filhas perfeitamente arredondadas | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
-| `S31-T03` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Text Audit & Jargon Elimination | Renomeação para "PANORAMA GERAL", eliminação de "Dossiê Local", "Local-First ─── Sovereign", "Criar Dossiê" e termos de banco de dados | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
-| `S31-T04` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Redesigned Wallet Screen Hierarchy and Metas Modal | Hierarquia de 4 seções na Carteira (Card, Botão Metas, Ativos, Movimentações); modal bottom sheet de metas com recálculo 100% | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
-| `S31-T05` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Portfolio-Specific Transactions & Shortcut to Extrato | Listagem estrita de transações da carteira ativa, atalho para extrato filtrado e estado vazio descritivo | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+| Caso de Teste | Arquivo de Teste | Funcionalidade Avaliada | Critério de Aceite Fidedigno | Hash SHA-256 Bloqueado | Status Fase A | Status Fase B |
+| :--- | :--- | :--- | :--- | :--- | :--- | :---: |
+| `S31-T01` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Notch Neutral Background & AmbientOrb Removal | Ausência de AmbientOrb vazando no notch; preenchimento neutro sólido do tema na barra de status | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED | 🟢 PASS (0.35s) |
+| `S31-T02` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Filter Buttons / Pills Border Radius (radiusFull = 9999) | `borders.radiusFull` definido como 9999; pílulas de filtro do Extrato Completo e telas filhas perfeitamente arredondadas | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED | 🟢 PASS (0.12s) |
+| `S31-T03` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Text Audit & Jargon Elimination | Renomeação para "PANORAMA GERAL", eliminação de "Dossiê Local", "Local-First ─── Sovereign", "Criar Dossiê" e termos de banco de dados | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED | 🟢 PASS (0.28s) |
+| `S31-T04` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Redesigned Wallet Screen Hierarchy and Metas Modal | Hierarquia de 4 seções na Carteira (Card, Botão Metas, Ativos, Movimentações); modal bottom sheet de metas com recálculo 100% | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED | 🟢 PASS (0.45s) |
+| `S31-T05` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Portfolio-Specific Transactions & Shortcut to Extrato | Listagem estrita de transações da carteira ativa, atalho para extrato filtrado e estado vazio descritivo | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED | 🟢 PASS (0.39s) |
+
+#### 2.31.2. Relatório de Execução da Fase B (100% Green Phase)
+- **Status do Bloqueio:** 51 arquivos de teste protegidos sob SHA-256 e modo ReadOnly.
+- **Validação de Integridade (`node scripts/test-lock.js verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 51 arquivos de teste confirmada via SHA-256.
+  ```
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test -- --runInBand`):**
+  ```text
+  Test Suites: 43 passed, 43 total
+  Tests:       333 passed, 333 total
+  Snapshots:   0 total
+  Time:        14.764 s
+  Total Mobile: 43 suítes | 333 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Execução da Suíte de Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	0.091s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.035s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.009s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.008s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	0.118s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	2.700s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Consolidação do Projeto Celsus (Sprint 31 Concluída):**
+  - **51 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **358 testes automatizados aprovados (25 em Go + 333 em TypeScript/Jest)**
+  - **Zero regressões e conformidade estrita com o Protocolo TDD Lock.**
+
+#### 2.31.3. Matriz de Validação e Evidências (Definição de Pronto)
+Conforme regra do projeto ("Definição de pronto = evidência. Teste automatizado passando e validação manual em dispositivo/emulador registrada no `TEST_REPORT.md`. O que não foi validado deve constar como 'não validado'"):
+
+| Item / Funcionalidade | Validação Automatizada (Jest / Go) | Validação Manual em Dispositivo / Emulador | Status Geral |
+| :--- | :--- | :--- | :--- |
+| **1. Círculos no Notch / AmbientOrb** | 🟢 PASS (`S31-T01`, `S12-T01`) — Remoção completa do `AmbientOrb` e assert de ausência no header e árvore de componentes | 🟡 Não validado em dispositivo físico com notch (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **2. Botões Quadrados no Extrato** | 🟢 PASS (`S31-T02`) — `borders.radiusFull = 9999` em `tokens.ts` e assert de `borderRadius: 9999` nas pílulas de filtro | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **3. Textos e Desjargonização** | 🟢 PASS (`S31-T03`) — "PANORAMA GERAL", "Criar Carteira", remoção de termos SQL/UUID/bytes e jargões | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **4. Redesenho da Carteira (4 seções)** | 🟢 PASS (`S31-T04`, `S31-T05`, `S29-T02`, `S18-T07`, `S25-T06`) — Deck + Botão Metas + Ativos + Movimentações da carteira ativa | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **5. Modal de Metas (Soma 100%)** | 🟢 PASS (`S31-T04`) — Bottom Sheet com 4 classes, rebalanceamento proporcional e travas de cadeado | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+
 
 
 

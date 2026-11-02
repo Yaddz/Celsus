@@ -249,7 +249,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Seleção de Carteira */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>CARTEIRA (DOSSIÊ)</Text>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>CARTEIRA</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
             {portfolios.map((p) => {
               const isSelected = p.id === selectedPortfolioId;

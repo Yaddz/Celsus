@@ -766,13 +766,6 @@ function AppContent() {
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
 
-        {/* Esfera luminosa difusa no topo sincronizada com a paleta da carteira ativa */}
-        <AmbientOrb
-          testID="ambient-orb"
-          palette={activePalette}
-          themeMode={themeMode}
-        />
-
         <ScrollView
           testID="home-scroll-content"
           contentContainerStyle={[
