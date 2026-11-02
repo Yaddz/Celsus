@@ -33,8 +33,11 @@
 | **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 8 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 25** | Estabilização E2E: Persistência Real SQLite, Zero Dados Fictícios, Criação Automática na Compra, Adicionar Carteira no Deck, Layout Vertical de Classes/Ativos e Tratamento Offline | 1 (+1 mod) | 7 | 7 | 0 | `VERIFIED (45 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 26** | Estabilização e Conformidade: Máscara Unificada `R$ ••••••`, Auditoria de Contraste Dark Mode (WCAG AA), Remoção de Switch Redundante e Floating Navbar | 1 (+4 mod) | 7 | 7 | 0 | `VERIFIED (46 arquivos)` | 🟢 Aprovado (100% Green) |
-| **Sprint 27** | Grupo P0: Persistência Real, Fim dos Mocks, Validação FII × Classe e Navegação Global | 1 | 5 | 0 | 5 | `VERIFIED (47 arquivos)` | 🔴 Fase A Bloqueada (Red Phase) |
-| **TOTAL (S1–S27)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **47** | **333** | **328** | **5** | **`VERIFIED (47 arquivos)`** | **🟡 Fase A Concluída / Fase B em Progresso** |
+| **Sprint 27** | Grupo P0: Persistência Real, Fim dos Mocks, Validação FII × Classe e Navegação Global | 1 | 5 | 5 | 0 | `VERIFIED (47 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 28** | Grupo P1: Consistência Visual, Legendas Comparativas e Gráfico de Linha | 1 | 4 | 4 | 0 | `VERIFIED (48 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 29** | Grupos P2 e P3: Sincronização de Saldos do Deck, Exclusão em Cascata e Animações | 1 | 4 | 4 | 0 | `VERIFIED (49 arquivos)` | 🟢 Aprovado (100% Green) |
+| **Sprint 30** | Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade | 1 | 7 | 7 | 0 | `VERIFIED (50 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S30)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **50** | **348** | **348** | **0** | **`VERIFIED (50 arquivos)`** | **🟢 100% Aprovado (348 PASS)** |
 
 ---
 
@@ -2120,20 +2123,46 @@
 
 ---
 
-### 2.30. Sprint 30 — Consolidação Canônica do `SPEC.md`, Auditoria Final e Estabilização Concluída
+### 2.30. Sprint 30 — Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade
 
-#### Sprint 30 — Consolidação e Auditoria Final (2026-11-02)
-- **Status do Bloqueio:** Auditoria completa dos 49 arquivos de teste sob o protocolo rigoroso TDD Lock (`.agents/rules/tdd-lock.md`).
-- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action verify`):**
+#### 2.30.1. Tabela de Casos de Teste (Fase A)
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S30-T01` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | Navbar Speed-Dial "Nova Carteira" Opens the New Portfolio Modal Directly | Clique em "Nova Carteira" na navbar abre diretamente o modal de criação de portfólio | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.75s) |
+| `S30-T02` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | Navbar Speed-Dial "Adicionar Ativo" Opens Dedicated Add Asset Modal (Not TransactionScreen) | Clique em "Adicionar Ativo" na navbar abre modal exclusivo de ativo da carteira ativa sem desviar para transações | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.42s) |
+| `S30-T03` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | StackedWalletDeck Visible Depth Layers and Subsequent Palette Binding | Camadas de profundidade visíveis no topo com offsets físicos, cores das carteiras subsequentes e tap-to-cycle | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.15s) |
+| `S30-T04` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | Horizontal Portfolio List Selector in PortfolioManagementScreen & Home Indicator Pills | Seletor horizontal com chips para cada carteira permitindo alternância em 1 toque e indicador na Home | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.61s) |
+| `S30-T05` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | Individual Real Balances per Portfolio in Deck and Reactive Data Refresh | Saldo individual real por carteira no deck e atualização reativa dos ativos/transações ao alternar carteira | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.83s) |
+| `S30-T06` | `apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx` | Clean State on Delete and Safe Cycling Without __add_wallet_card__ Leaks | Limpeza de ativos ao deletar última carteira e isolamento do card especial de criação | `8b769de5ce375e136c311f40545dfda4335d1cecf4125650a1c98a5e1fd2f673` | 🟢 PASS (0.44s) |
+
+#### 2.30.2. Relatório de Execução da Fase B (100% Green Phase)
+- **Status do Bloqueio:** 50 arquivos de teste protegidos sob SHA-256 e modo ReadOnly.
+- **Validação de Integridade (`node scripts/test-lock.js verify`):**
   ```text
-  [TDD VERIFIED] Integridade de todos os 49 arquivos de teste confirmada via SHA-256.
+  [TDD VERIFIED] Integridade de todos os 50 arquivos de teste confirmada via SHA-256.
   ```
-- **Consolidação Documental:**
-  - `SPEC.md` atualizado canonicamente como única fonte da verdade, unificando os conceitos e implementações das Sprints 1 a 29 (incluindo o motor em Go, bridge Yahoo/COTAHIST, regras de cálculo financeiro, design system bento v2 e lista de itens fora de escopo).
-- **Resultados de Execução Automatizada:**
-  - **Mobile (`npm --prefix apps/mobile test`):** 41 suítes de teste, 316 testes aprovados, 0 falhas.
-  - **Backend Go (`cd services/market-api && go test -count=1 ./...`):** 25 testes aprovados, 0 falhas.
-  - **Total Geral do Projeto:** **341 testes automatizados aprovados**, zero mocks nas telas de produção, banco de dados 100% local SQLite e integridade SHA-256 verificada.
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test`):**
+  ```text
+  Test Suites: 42 passed, 42 total
+  Tests:       323 passed, 323 total
+  Snapshots:   0 total
+  Time:        17.635 s
+  Total Mobile: 42 suítes | 323 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Execução da Suíte de Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	0.096s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.047s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.019s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.014s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	0.126s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	3.249s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 30 Concluída):**
+  - **50 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **348 testes automatizados aprovados (25 em Go + 323 em TypeScript/Jest)**
+  - **Zero regressões e conformidade estrita com o Protocolo TDD Lock.**
 
 
 

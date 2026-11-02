@@ -205,12 +205,36 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
   const currentItem = items[currentIndex] || items[0];
   const isAddCard = currentItem.id === '__add_wallet_card__';
 
+  const nextItem1 = items.length > 1 ? items[(currentIndex + 1) % items.length] : null;
+  const nextItem2 = items.length > 2 ? items[(currentIndex + 2) % items.length] : null;
+
+  const getCardColor = (item: StackedWalletItem, idx: number) => {
+    if (item.accentColor && item.accentColor !== '#25282B') return item.accentColor;
+    const pal = item.paletteId
+      ? PORTFOLIO_PALETTES[item.paletteId as keyof typeof PORTFOLIO_PALETTES] || PORTFOLIO_PALETTES.classic
+      : getPortfolioPalette(idx);
+    return pal.cardBg || pal.primary;
+  };
+
+  const layerOneColor = nextItem1 ? getCardColor(nextItem1, (currentIndex + 1) % items.length) : '#1A1C1E';
+  const layerTwoColor = nextItem2 ? getCardColor(nextItem2, (currentIndex + 2) % items.length) : '#151719';
+
   const palette: PortfolioPalette = currentItem.paletteId
     ? PORTFOLIO_PALETTES[currentItem.paletteId as keyof typeof PORTFOLIO_PALETTES] || PORTFOLIO_PALETTES.classic
     : getPortfolioPalette(currentIndex);
 
   const cardBgColor = currentItem.accentColor || palette.cardBg;
   const notchBgColor = '#191B1D';
+
+  const selectIndex = (targetIndex: number) => {
+    if (items.length === 0) return;
+    const normalized = targetIndex % items.length;
+    currentIndexRef.current = normalized;
+    setCurrentIndex(normalized);
+    if (items[normalized].id !== '__add_wallet_card__') {
+      onPortfolioChange?.(normalized, items[normalized]);
+    }
+  };
 
   // Interpolações para rotação sutil de cartas (±2.5°) e leve escala elástica
   const tiltInterpolation = panY.interpolate({
@@ -227,16 +251,47 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
 
   return (
     <View testID={testID} style={[styles.heroWrapper, style]}>
-      {/* Camadas inferiores empilhadas (Stacked Depth Layers) */}
+      {/* Camadas inferiores empilhadas (Stacked Depth Layers com cores reais das próximas carteiras) */}
       <TouchableOpacity
-        testID={shouldIncludeAddCard && !isAddCard ? 'stacked-wallet-add-card' : undefined}
-        style={styles.heroLayerTwo}
-        onPress={onCreatePortfolioPress}
+        testID="wallet-depth-layer-2"
+        style={[styles.heroLayerTwo, { backgroundColor: layerTwoColor }]}
+        onPress={() => {
+          if (nextItem2?.id === '__add_wallet_card__') {
+            onCreatePortfolioPress?.();
+          } else {
+            selectIndex(currentIndex + 2);
+          }
+        }}
         activeOpacity={0.9}
         accessibilityRole="button"
-        accessibilityLabel="Adicionar nova carteira"
+        accessibilityLabel="Carteira ao fundo da pilha"
+      >
+        {shouldIncludeAddCard && !isAddCard && (
+          <TouchableOpacity
+            testID="stacked-wallet-add-card"
+            style={StyleSheet.absoluteFillObject}
+            onPress={onCreatePortfolioPress}
+            activeOpacity={0.9}
+            accessibilityRole="button"
+            accessibilityLabel="Adicionar nova carteira"
+          />
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        testID="wallet-depth-layer-1"
+        style={[styles.heroLayerOne, { backgroundColor: layerOneColor }]}
+        onPress={() => {
+          if (nextItem1?.id === '__add_wallet_card__') {
+            onCreatePortfolioPress?.();
+          } else {
+            selectIndex(currentIndex + 1);
+          }
+        }}
+        activeOpacity={0.9}
+        accessibilityRole="button"
+        accessibilityLabel="Próxima carteira na pilha"
       />
-      <View style={styles.heroLayerOne} />
 
       {/* Cartão Ativo Principal ou Card Móvel de Adicionar */}
       <Animated.View
@@ -430,21 +485,22 @@ const styles = StyleSheet.create({
     width: '100%',
     zIndex: 999,
     elevation: 24,
+    paddingTop: 18,
   },
   heroLayerTwo: {
     position: 'absolute',
-    top: 18,
+    top: 0,
     width: '88%',
-    height: 32,
+    height: 48,
     backgroundColor: '#151719',
     borderRadius: 24,
-    opacity: 0.8,
+    opacity: 0.85,
   },
   heroLayerOne: {
     position: 'absolute',
     top: 9,
     width: '94%',
-    height: 32,
+    height: 48,
     backgroundColor: '#1A1C1E',
     borderRadius: 24,
     opacity: 0.95,

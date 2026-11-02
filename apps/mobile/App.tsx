@@ -99,6 +99,8 @@ function AppContent() {
 
   // Modais de Navegação
   const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(false);
+  const [openCreatePortfolioModal, setOpenCreatePortfolioModal] = useState(false);
+  const [openAddAssetModal, setOpenAddAssetModal] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
@@ -180,15 +182,23 @@ function AppContent() {
         const formattedProfit = `${parseFloat(dossier.totalProfit || '0') >= 0 ? '+' : ''}${dossier.totalProfitPercentage || '0,0'}% total`;
         setTotalPatrimony(formattedTotal);
         setProfitSummary(formattedProfit);
+        const breakdownMap = new Map((dossier.portfolioBreakdown || []).map((b) => [b.portfolioId, b]));
         setWalletsList(
-          allPortfolios.map((p, idx) => ({
-            id: p.id,
-            name: p.name.toUpperCase(),
-            code: p.docket_code || `•••• 00${idx + 1}`,
-            balance: formattedTotal,
-            profitText: formattedProfit,
-            accentColor: idx % 2 === 0 ? colors.primary : colors.secondary,
-          }))
+          allPortfolios.map((p, idx) => {
+            const b = breakdownMap.get(p.id);
+            const pMv = parseFloat(b?.marketValue || '0');
+            const pBalance = `R$ ${pMv.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            const pProfitNum = parseFloat(b?.profit || '0');
+            const pProfitText = `${pProfitNum >= 0 ? '+' : ''}${b?.profitPercentage || '0,0'}% total`;
+            return {
+              id: p.id,
+              name: p.name.toUpperCase(),
+              code: p.docket_code || `•••• 00${idx + 1}`,
+              balance: pBalance,
+              profitText: pProfitText,
+              accentColor: idx % 2 === 0 ? colors.primary : colors.secondary,
+            };
+          })
         );
 
         setCategoryAllocations([
@@ -294,6 +304,39 @@ function AppContent() {
       unsub();
     };
   }, []);
+
+  useEffect(() => {
+    const updateActiveWalletData = async () => {
+      try {
+        const allPortfolios = await portfolioRepository.listPortfolios(false);
+        const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+        if (activePortId) {
+          const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
+          setPortfolioAssets(pAssets || []);
+          const txs = await transactionService.getTransactionsByPortfolio(activePortId);
+          if (txs && txs.length > 0) {
+            const mapped: RecentTransactionItem[] = await Promise.all(
+              txs.slice(0, 5).map(async (t) => {
+                const asset = await assetRepository.getAssetById(t.asset_id);
+                return {
+                  id: t.id,
+                  ticker: asset?.ticker || (t.ticker || (t.asset_id === 'asset-petr' ? 'PETR4' : 'ATIVO')),
+                  assetClass: (asset?.asset_class as any) || 'STOCK',
+                  type: t.type as 'BUY' | 'SELL',
+                  dateText: t.trade_date,
+                  amountText: `R$ ${t.total_amount}`,
+                };
+              })
+            );
+            setTransactionsList(mapped);
+          } else {
+            setTransactionsList([]);
+          }
+        }
+      } catch {}
+    };
+    updateActiveWalletData();
+  }, [activeWalletIndex]);
 
   const balanceDisplay = isPrivacyMode ? PRIVACY_CURRENCY_MASK : totalPatrimony;
   const profitDisplay = isPrivacyMode ? PRIVACY_MASK : profitSummary;
@@ -435,11 +478,13 @@ function AppContent() {
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
             setSelectedRecentTransaction(null);
+            setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setSelectedRecentTransaction(null);
+            setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
@@ -484,11 +529,13 @@ function AppContent() {
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
             setIsAllTransactionsModalOpen(false);
+            setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setIsAllTransactionsModalOpen(false);
+            setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
@@ -585,11 +632,13 @@ function AppContent() {
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
             setSelectedClassDetail(null);
+            setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setSelectedClassDetail(null);
+            setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
@@ -617,8 +666,14 @@ function AppContent() {
         <PortfolioManagementScreen
           isPrivacyMode={isPrivacyMode}
           themeMode={themeMode}
+          initialActiveIndex={activeWalletIndex}
+          autoOpenNewPortfolioModal={openCreatePortfolioModal}
+          autoOpenAddAssetModal={openAddAssetModal}
+          onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
           onClose={() => {
             setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
             setActiveTab('home');
             refreshAppData();
           }}
@@ -627,15 +682,19 @@ function AppContent() {
           activeTab={activeTab}
           onTabChange={(tab) => {
             setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
             setActiveTab(tab);
           }}
           onActionPress={() => setIsTransactionModalOpen(true)}
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
+            setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
+            setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
@@ -667,10 +726,12 @@ function AppContent() {
           onActionPress={() => setIsTransactionModalOpen(true)}
           onNovoAportePress={() => setIsTransactionModalOpen(true)}
           onNovaCarteiraPress={() => {
+            setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
+            setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
             setActiveTab('wallets');
           }}
@@ -747,15 +808,61 @@ function AppContent() {
           <StackedWalletDeck
             portfolios={walletsList.map((w, idx) => ({
               ...w,
-              balance: isPrivacyMode ? PRIVACY_CURRENCY_MASK : (idx === 0 ? balanceDisplay : w.balance),
-              profitText: isPrivacyMode ? PRIVACY_MASK : (idx === 0 ? profitDisplay : w.profitText),
+              balance: isPrivacyMode ? PRIVACY_CURRENCY_MASK : (walletsList.length === 1 && idx === 0 ? balanceDisplay : w.balance),
+              profitText: isPrivacyMode ? PRIVACY_MASK : (walletsList.length === 1 && idx === 0 ? profitDisplay : w.profitText),
             }))}
             activeIndex={activeWalletIndex}
             onPortfolioChange={(idx) => setActiveWalletIndex(idx)}
-            onCreatePortfolioPress={() => setIsPortfolioManagerModalOpen(true)}
+            onCreatePortfolioPress={() => {
+              setOpenCreatePortfolioModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
             isPrivacyMode={isPrivacyMode}
             testID="home-wallet-deck"
           />
+
+          {/* 1.1 Indicadores / Pílulas de Seleção de Carteiras na Home */}
+          {walletsList.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.homePillsScroll}
+              testID="home-wallet-pills"
+            >
+              {walletsList.map((w, idx) => {
+                const isSelected = idx === activeWalletIndex;
+                const pal = getPortfolioPalette(idx);
+                return (
+                  <TouchableOpacity
+                    key={w.id}
+                    testID={`home-wallet-pill-${w.id}`}
+                    activeOpacity={0.8}
+                    onPress={() => setActiveWalletIndex(idx)}
+                    style={[
+                      styles.homePill,
+                      isLight && styles.homePillLight,
+                      isSelected && {
+                        borderColor: pal.primary,
+                        backgroundColor: isLight ? '#EAE4D7' : '#222528',
+                      },
+                    ]}
+                  >
+                    <View style={[styles.homePillDot, { backgroundColor: pal.primary }]} />
+                    <Text
+                      style={[
+                        styles.homePillText,
+                        isLight && styles.homePillTextLight,
+                        isSelected && { color: pal.primary, fontWeight: '700' },
+                      ]}
+                    >
+                      {w.name.charAt(0).toUpperCase() + w.name.slice(1).toLowerCase()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
 
           {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
           <QuickActionBentoRow
@@ -764,7 +871,11 @@ function AppContent() {
             onSimular={() => setIsSimulatorModalOpen(true)}
             onMais={() => Alert.alert('Funcionalidade em desenvolvimento')}
             onNovoAportePress={() => setIsTransactionModalOpen(true)}
-            onNovaCarteiraPress={() => setIsPortfolioManagerModalOpen(true)}
+            onNovaCarteiraPress={() => {
+              setOpenCreatePortfolioModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
             themeMode={themeMode}
           />
 
@@ -811,10 +922,15 @@ function AppContent() {
         onActionPress={() => setIsTransactionModalOpen(true)}
         onNovoAportePress={() => setIsTransactionModalOpen(true)}
         onNovaCarteiraPress={() => {
+          setOpenCreatePortfolioModal(true);
           setIsPortfolioManagerModalOpen(true);
           setActiveTab('wallets');
         }}
-        onAdicionarAtivoPress={() => setIsTransactionModalOpen(true)}
+        onAdicionarAtivoPress={() => {
+          setOpenAddAssetModal(true);
+          setIsPortfolioManagerModalOpen(true);
+          setActiveTab('wallets');
+        }}
         themeMode={themeMode}
       />
     </SafeAreaView>
@@ -933,5 +1049,40 @@ const styles = StyleSheet.create({
     fontSize: typography.labelSm.fontSize + 1,
     color: colors.parchmentPale,
     lineHeight: 18,
+  },
+  homePillsScroll: {
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    gap: 8,
+    marginBottom: spacing.xs,
+  },
+  homePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    backgroundColor: '#1E2023',
+    borderWidth: 1,
+    borderColor: '#2F3236',
+  },
+  homePillLight: {
+    backgroundColor: '#F5F1E8',
+    borderColor: '#D8D2C5',
+  },
+  homePillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  homePillText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.parchmentPale,
+  },
+  homePillTextLight: {
+    color: '#191B1D',
   },
 });

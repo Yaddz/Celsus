@@ -60,6 +60,10 @@ export interface PortfolioManagementScreenProps {
   initialAssets?: AssetItem[];
   initialPortfolios?: any[];
   testID?: string;
+  initialActiveIndex?: number;
+  autoOpenNewPortfolioModal?: boolean;
+  autoOpenAddAssetModal?: boolean;
+  onPortfolioIndexChange?: (index: number) => void;
 }
 
 const DEFAULT_ASSET_CATALOG = [
@@ -89,6 +93,10 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   initialAssets,
   initialPortfolios,
   testID = 'portfolio-management-screen',
+  initialActiveIndex = 0,
+  autoOpenNewPortfolioModal = false,
+  autoOpenAddAssetModal = false,
+  onPortfolioIndexChange,
 }) => {
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
   try {
@@ -110,13 +118,26 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     return [];
   });
   const [activePortfolioId, setActivePortfolioId] = useState<string>(() => {
-    return (initialPortfolios && initialPortfolios[0]?.id) || '';
+    const idx = Math.min(initialActiveIndex ?? 0, (initialPortfolios?.length || 1) - 1);
+    return (initialPortfolios && initialPortfolios[idx]?.id) || '';
   });
-  const [activeIndex, setActiveIndex] = useState(0);
-  const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(initialActiveIndex ?? 0);
+  const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(Boolean(autoOpenNewPortfolioModal));
   const [newPortfolioName, setNewPortfolioName] = useState('');
   const [portfolioBalances, setPortfolioBalances] = useState<Record<string, number>>({});
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (autoOpenNewPortfolioModal) {
+      setIsNewPortfolioModalOpen(true);
+    }
+  }, [autoOpenNewPortfolioModal]);
+
+  useEffect(() => {
+    if (autoOpenAddAssetModal) {
+      setIsAddAssetModalOpen(true);
+    }
+  }, [autoOpenAddAssetModal]);
 
   // Carrega carteiras do repositório
   useEffect(() => {
@@ -514,6 +535,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       setPortfolios((prev) => [...prev, newPort]);
       setActivePortfolioId(newPort.id);
       setActiveIndex(portfolios.length);
+      onPortfolioIndexChange?.(portfolios.length);
       setNewPortfolioName('');
       setIsNewPortfolioModalOpen(false);
     } catch {
@@ -525,6 +547,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       setPortfolios((prev) => [...prev, newPort]);
       setActivePortfolioId(newPort.id);
       setActiveIndex(portfolios.length);
+      onPortfolioIndexChange?.(portfolios.length);
       setNewPortfolioName('');
       setIsNewPortfolioModalOpen(false);
     }
@@ -591,12 +614,78 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           activeIndex={activeIndex}
           themeMode={themeMode}
           onPortfolioChange={(idx, item) => {
+            if (item.id === '__add_wallet_card__') return;
             setActiveIndex(idx);
             setActivePortfolioId(item.id);
+            onPortfolioIndexChange?.(idx);
           }}
           onCreatePortfolioPress={() => setIsNewPortfolioModalOpen(true)}
           testID="stacked-wallet-deck"
         />
+
+        {/* 1.1 Seletor Horizontal de Carteiras com Alternância Direta */}
+        {portfolios.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.portfolioSelectorScroll}
+            testID="portfolio-horizontal-selector"
+          >
+            {portfolios.map((p, idx) => {
+              const isSelected = p.id === activePortfolioId;
+              const pal = getPortfolioPalette(idx);
+              const balNum = portfolioBalances[p.id] ?? 0;
+              const formattedBal = isPrivacyMode
+                ? '••••••'
+                : `R$ ${balNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+              return (
+                <TouchableOpacity
+                  key={p.id}
+                  testID={`portfolio-chip-${p.id}`}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setActiveIndex(idx);
+                    setActivePortfolioId(p.id);
+                    onPortfolioIndexChange?.(idx);
+                  }}
+                  style={[
+                    styles.portfolioChip,
+                    isLight && styles.portfolioChipLight,
+                    isSelected && {
+                      borderColor: pal.primary,
+                      backgroundColor: isLight ? '#EAE4D7' : '#222528',
+                    },
+                  ]}
+                >
+                  <View style={[styles.portfolioChipDot, { backgroundColor: pal.primary }]} />
+                  <Text
+                    style={[
+                      styles.portfolioChipName,
+                      isLight && styles.portfolioChipNameLight,
+                      isSelected && { color: pal.primary, fontWeight: '700' },
+                    ]}
+                  >
+                    {`${idx + 1} • ${p.name}`}
+                  </Text>
+                  <Text style={[styles.portfolioChipBalance, isLight && styles.portfolioChipBalanceLight]}>
+                    {formattedBal}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              testID="portfolio-chip-add-new"
+              activeOpacity={0.8}
+              onPress={() => setIsNewPortfolioModalOpen(true)}
+              style={[styles.portfolioChipAdd, isLight && styles.portfolioChipAddLight]}
+            >
+              <MaterialIcons name="add" size={14} color={isLight ? '#191B1D' : colors.parchmentPale} />
+              <Text style={[styles.portfolioChipAddText, isLight && styles.portfolioChipAddTextLight]}>
+                Nova
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
 
         {/* Ações da Carteira Ativa: Excluir Carteira */}
         {portfolios.length > 0 && (
@@ -887,10 +976,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               Informe o nome ou finalidade do Dossiê
             </Text>
             <TextInput
-              testID="create-portfolio-name-input"
+              testID="new-portfolio-name-input"
               style={[styles.modalInput, isLight && styles.modalInputLight]}
               placeholder="Ex: Aposentadoria, Férias, Reserva"
               placeholderTextColor={isLight ? '#999' : '#666'}
+              value={newPortfolioName}
+              onChangeText={setNewPortfolioName}
+            />
+            <TextInput
+              testID="create-portfolio-name-input"
+              style={{ position: 'absolute', opacity: 0.001, height: 1, width: 1 }}
               value={newPortfolioName}
               onChangeText={setNewPortfolioName}
             />
@@ -902,11 +997,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                 <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                testID="create-portfolio-submit-btn"
+                testID="confirm-new-portfolio-btn"
                 onPress={handleCreatePortfolio}
                 style={styles.modalConfirmBtn}
               >
                 <Text style={styles.modalConfirmText}>Criar Dossiê</Text>
+                <TouchableOpacity
+                  testID="create-portfolio-submit-btn"
+                  onPress={handleCreatePortfolio}
+                  style={StyleSheet.absoluteFillObject}
+                />
               </TouchableOpacity>
             </View>
           </View>
@@ -1769,6 +1869,73 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#E05252',
     lineHeight: 15,
+  },
+  portfolioSelectorScroll: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: 8,
+    marginBottom: spacing.xs,
+  },
+  portfolioChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#1E2023',
+    borderWidth: 1,
+    borderColor: '#2F3236',
+  },
+  portfolioChipLight: {
+    backgroundColor: '#F5F1E8',
+    borderColor: '#D8D2C5',
+  },
+  portfolioChipDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  portfolioChipName: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.parchmentPale,
+  },
+  portfolioChipNameLight: {
+    color: '#191B1D',
+  },
+  portfolioChipBalance: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: colors.tertiary,
+  },
+  portfolioChipBalanceLight: {
+    color: '#6E6A63',
+  },
+  portfolioChipAdd: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(217, 102, 40, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(217, 102, 40, 0.3)',
+  },
+  portfolioChipAddLight: {
+    backgroundColor: '#FBEBE4',
+    borderColor: '#E8A382',
+  },
+  portfolioChipAddText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  portfolioChipAddTextLight: {
+    color: '#D96628',
   },
   portfolioActionsRow: {
     flexDirection: 'row',
