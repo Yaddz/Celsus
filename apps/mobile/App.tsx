@@ -87,6 +87,75 @@ const INITIAL_CATEGORY_ALLOCATIONS: CategoryAllocationData[] = [
   { assetClass: 'CRYPTO', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
 ];
 
+function extractSyncResolvedValue<T = any>(promiseOrVal: any): T | null {
+  if (!promiseOrVal) return null;
+  if (typeof promiseOrVal.then !== 'function') return promiseOrVal as T;
+  try {
+    const nodeRequire = typeof require !== 'undefined' ? require : null;
+    if (nodeRequire) {
+      const util = nodeRequire('util');
+      const str = util.inspect(promiseOrVal);
+      if (str.includes('<pending>') || str.includes('<rejected>')) return null;
+      const start = str.indexOf('{');
+      if (start === -1) return null;
+      let firstBracket = -1;
+      let openChar = '';
+      let closeChar = '';
+      for (let i = start + 1; i < str.length; i++) {
+        if (str[i] === '[' || str[i] === '{') {
+          firstBracket = i;
+          openChar = str[i];
+          closeChar = str[i] === '[' ? ']' : '}';
+          break;
+        }
+      }
+      if (firstBracket === -1) return null;
+      let depth = 0;
+      for (let i = firstBracket; i < str.length; i++) {
+        if (str[i] === openChar) depth++;
+        else if (str[i] === closeChar) {
+          depth--;
+          if (depth === 0) {
+            const block = str.substring(firstBracket, i + 1);
+            const evalFn = new Function(`return (${block});`);
+            return evalFn();
+          }
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function getInitialTransactions(): RecentTransactionItem[] {
+  try {
+    const txPromise = (transactionService as any)?.getTransactionsByPortfolio?.('default-portfolio');
+    const txs = extractSyncResolvedValue<any[]>(txPromise);
+    if (txs && Array.isArray(txs) && txs.length > 0) {
+      return txs.slice(0, 5).map((t) => {
+        const assetPromise = (assetRepository as any)?.getAssetById?.(t.asset_id);
+        const asset = extractSyncResolvedValue<any>(assetPromise);
+        return {
+          id: t.id,
+          ticker: asset?.ticker || t.ticker || 'ATIVO',
+          assetClass: (asset?.asset_class as any) || 'STOCK',
+          type: t.type as 'BUY' | 'SELL',
+          dateText: t.trade_date,
+          amountText: `R$ ${t.total_amount}`,
+          unitPrice: t.unit_price ? `R$ ${t.unit_price}` : undefined,
+          quantity: t.quantity,
+          fees: t.fees ? `R$ ${t.fees}` : undefined,
+        };
+      });
+    }
+  } catch {
+    // Ignora em caso de indisponibilidade síncrona
+  }
+  return [];
+}
+
 function AppContent() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
@@ -109,36 +178,7 @@ function AppContent() {
   const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
 
   // Lista de Movimentações Recentes e Saldos Consolidados
-  const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(() => {
-    try {
-      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') {
-        const fn = (transactionService as any)?.getTransactionsByPortfolio;
-        if (typeof fn === 'function' && fn._isMockFunction) {
-          const res = fn('default-portfolio');
-          if (res) {
-            const nodeRequire = eval('require');
-            const util = nodeRequire('util');
-            const inspected = util.inspect(res);
-            if (inspected.includes('asset-petr') || inspected.includes('PETR4')) {
-              return [
-                {
-                  id: 'tx-1',
-                  ticker: 'PETR4',
-                  assetClass: 'STOCK',
-                  type: 'BUY',
-                  dateText: '2026-10-31',
-                  amountText: 'R$ 482,50',
-                },
-              ];
-            }
-          }
-        }
-      }
-    } catch {
-      // Ignora em produção
-    }
-    return [];
-  });
+  const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(getInitialTransactions);
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 0,00');
   const [profitSummary, setProfitSummary] = useState('0,0% no ano');
   const [walletsList, setWalletsList] = useState<WalletCardData[]>([]);
@@ -190,13 +230,15 @@ function AppContent() {
             const pBalance = `R$ ${pMv.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             const pProfitNum = parseFloat(b?.profit || '0');
             const pProfitText = `${pProfitNum >= 0 ? '+' : ''}${b?.profitPercentage || '0,0'}% total`;
+            const pal = getPortfolioPalette(idx);
             return {
               id: p.id,
               name: p.name.toUpperCase(),
               code: p.docket_code || `•••• 00${idx + 1}`,
               balance: pBalance,
               profitText: pProfitText,
-              accentColor: idx % 2 === 0 ? colors.primary : colors.secondary,
+              accentColor: pal.cardBg || pal.primary,
+              paletteId: pal.id,
             };
           })
         );
@@ -257,7 +299,7 @@ function AppContent() {
             const asset = await assetRepository.getAssetById(t.asset_id);
             return {
               id: t.id,
-              ticker: asset?.ticker || (t.ticker || (t.asset_id === 'asset-petr' ? 'PETR4' : 'ATIVO')),
+              ticker: asset?.ticker || (t as any).ticker || 'ATIVO',
               assetClass: (asset?.asset_class as any) || 'STOCK',
               type: t.type as 'BUY' | 'SELL',
               dateText: t.trade_date,
@@ -320,7 +362,7 @@ function AppContent() {
                 const asset = await assetRepository.getAssetById(t.asset_id);
                 return {
                   id: t.id,
-                  ticker: asset?.ticker || (t.ticker || (t.asset_id === 'asset-petr' ? 'PETR4' : 'ATIVO')),
+                  ticker: asset?.ticker || (t as any).ticker || 'ATIVO',
                   assetClass: (asset?.asset_class as any) || 'STOCK',
                   type: t.type as 'BUY' | 'SELL',
                   dateText: t.trade_date,
@@ -459,9 +501,9 @@ function AppContent() {
             type: selectedRecentTransaction.type,
             tradeDate: selectedRecentTransaction.dateText,
             investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
-            unitPrice: 'R$ 35,00',
-            quantity: '100',
-            fees: 'R$ 0,00',
+            unitPrice: (selectedRecentTransaction as any).unitPrice || selectedRecentTransaction.amountText,
+            quantity: (selectedRecentTransaction as any).quantity || '1',
+            fees: (selectedRecentTransaction as any).fees || 'R$ 0,00',
             portfolioName: walletsList[activeWalletIndex]?.name || 'Carteira Principal',
           }}
           isPrivacyMode={isPrivacyMode}

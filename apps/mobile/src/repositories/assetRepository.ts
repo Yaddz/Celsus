@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { getDatabase } from '../db/client';
+import { getDatabase, onDatabaseReset } from '../db/client';
 import { assets, Asset, NewAsset } from '../db/schema';
 
 function generateUUID(): string {
@@ -11,8 +11,20 @@ function generateUUID(): string {
 }
 
 export class AssetRepository {
+  private inMemoryCache: Asset[] = [];
+
+  constructor() {
+    onDatabaseReset(() => {
+      this.inMemoryCache = [];
+    });
+  }
+
   protected get db() {
     return getDatabase();
+  }
+
+  getAssetsByPortfolioSync(portfolioId: string): Asset[] {
+    return this.inMemoryCache.filter((a) => a.portfolio_id === portfolioId);
   }
 
   async createAsset(
@@ -44,14 +56,22 @@ export class AssetRepository {
     };
 
     await this.db.insert(assets).values(newAsset);
+    this.inMemoryCache = this.inMemoryCache.filter((a) => a.id !== id);
+    this.inMemoryCache.push(newAsset);
     return newAsset;
   }
 
   async getAssetsByPortfolio(portfolioId: string): Promise<Asset[]> {
-    return this.db
+    const list = await this.db
       .select()
       .from(assets)
       .where(eq(assets.portfolio_id, portfolioId));
+    for (const item of list) {
+      if (!this.inMemoryCache.some((c) => c.id === item.id)) {
+        this.inMemoryCache.push(item);
+      }
+    }
+    return list;
   }
 
   async getAssetsByClass(
@@ -83,7 +103,11 @@ export class AssetRepository {
       .update(assets)
       .set({ ...params, updated_at: now })
       .where(eq(assets.id, id));
-    return this.getAssetById(id);
+    const updated = await this.getAssetById(id);
+    if (updated) {
+      this.inMemoryCache = this.inMemoryCache.map((a) => (a.id === id ? updated : a));
+    }
+    return updated;
   }
 
   async updateAssetTargetInClass(
@@ -97,6 +121,7 @@ export class AssetRepository {
 
   async deleteAsset(id: string): Promise<boolean> {
     await this.db.delete(assets).where(eq(assets.id, id));
+    this.inMemoryCache = this.inMemoryCache.filter((a) => a.id !== id);
     return true;
   }
 }

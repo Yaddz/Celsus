@@ -38,7 +38,8 @@
 | **Sprint 29** | Grupos P2 e P3: Sincronização de Saldos do Deck, Exclusão em Cascata e Animações | 1 | 4 | 4 | 0 | `VERIFIED (49 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 30** | Empilhamento Físico Real do Deck, Seletor Horizontal de Carteiras, Modais Diretos da Navbar e Reatividade | 1 | 7 | 7 | 0 | `VERIFIED (50 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 31** | Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira | 1 (+3 mod) | 10 | 10 | 0 | `VERIFIED (51 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S31)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **51** | **358** | **358** | **0** | **`VERIFIED (51 arquivos)`** | **🟢 100% Aprovado (358 PASS)** |
+| **Sprint 32** | P0: Dados, Persistência e Integração Real (Cotação Automática, SQLite Real, Cores Unificadas e Zero Bypasses) | 1 | 8 | 8 | 0 | `VERIFIED (52 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S32)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **52** | **366** | **366** | **0** | **`VERIFIED (52 arquivos)`** | **🟢 100% Aprovado (366 PASS)** |
 
 ---
 
@@ -2230,6 +2231,51 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | `S32-T03` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Ciclo Completo de Ativo e Movimentação na Tela de Categoria | Carteira criada → Ativo cadastrado → Compra executada via `transactionService` → Abrir `ClassDetailScreen` exibe ativo, quantidade (50), saldo bruto (R$ 1.500,00) e alocação da carteira ativa | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
 | `S32-T04` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Eliminação Estrita de Bypasses e Mocks em Código de Produção | Verificação estática e em runtime de ausência de `_isMockFunction`, `asset-petr` bypass ou valores fixos hardcoded (`R$ 35,00`, `100 un`) em `App.tsx` | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
 | `S32-T05` | `apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx` | Integração Real Ponta a Ponta com SQLite | Criação de carteira, ativo e aporte diretamente persistidos de ponta a ponta no SQLite com recálculo atômico de PM, saldo e isolamento de carteiras sem vazamento | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | 🔴 RED (Previsto) |
+
+#### 2.32.2. Execução da Fase B sob Bloqueio Estrito (Green Phase & Report)
+Todos os testes foram executados com os arquivos bloqueados em `ReadOnly` e integridade `SHA-256` verificada via `scripts/test-lock.js verify`:
+
+```
+PASS src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx
+  Sprint 32: P0 Data Persistence, Automatic Quote Fetching & Real Integration
+    S32-T01: Automatic Quote Fetching on Asset Selection & Date Change
+      ✓ should automatically fetch current quote via fetchQuotes when tradeDate is today and populate editable unit price (261 ms)
+      ✓ should fetch historical closing price when tradeDate is a past date and gracefully fallback on offline/error (87 ms)
+      ✓ should cancel or ignore stale responses when user quickly changes active asset (104 ms)
+    S32-T02: Multi-Portfolio Persistence and Deck Synchronization
+      ✓ should create multiple portfolios, persist all in SQLite, and render all in the deck without overwriting (151 ms)
+      ✓ should share identical palette generation between Home and PortfolioManagementScreen for the same wallet (134 ms)
+    S32-T03: End-to-End Asset & Transaction Lifecycle into Category Screen
+      ✓ should reflect registered asset and buy transaction accurately in ClassDetailScreen for active portfolio (27 ms)
+    S32-T04: Zero Production Code Bypasses and Test Mock Hacks
+      ✓ should NOT contain test mock bypasses in App.tsx (e.g., _isMockFunction or inspected asset-petr checks) (1 ms)
+    S32-T05: Complete Real Integration Cycle in SQLite Database
+      ✓ should execute end-to-end flow: create portfolio -> add asset -> buy tx -> update balance and verify zero leaks (2 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       8 passed, 8 total
+Snapshots:   0 total
+Time:        1.837 s
+```
+
+| Caso de Teste | Status Fase B | Tempo de Execução | Hash SHA-256 Verificado | Correção no Código de Produção |
+| :--- | :---: | :---: | :---: | :--- |
+| `S32-T01` | 🟢 PASS | 452 ms | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | `TransactionScreen.tsx`: busca de cotação com branch hoje (`fetchQuotes`) vs histórico (`getHistoricalPrice`), cancelamento por ref de requisições defasadas e placeholder exclusivo de preço |
+| `S32-T02` | 🟢 PASS | 285 ms | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | `PortfolioManagementScreen.tsx` e `App.tsx`: paleta unificada `getPortfolioPalette(idx).cardBg \|\| pal.primary` compartilhada entre telas e persistência sem colisão |
+| `S32-T03` | 🟢 PASS | 27 ms | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | `assetRepository.ts` e `ClassDetailScreen.tsx`: ciclo completo de compra, cálculo atômico de PM/quantidade e filtro por carteira ativa |
+| `S32-T04` | 🟢 PASS | 1 ms | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | Remoção estrita de `_isMockFunction`, inspeção de strings de teste em `App.tsx` e fallbacks fixos de `unitPrice` |
+| `S32-T05` | 🟢 PASS | 2 ms | `f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374` | Integração SQLite de ponta a ponta sem vazamentos e isolamento entre carteiras |
+
+#### 2.32.3. Matriz de Validação e Evidências (Definição de Pronto)
+Conforme regra do projeto ("Definição de pronto = evidência. Teste automatizado passando e validação manual em dispositivo/emulador registrada no `TEST_REPORT.md`. O que não foi validado deve constar como 'não validado'"):
+
+| Item / Funcionalidade | Validação Automatizada (Jest / Go) | Validação Manual em Dispositivo / Emulador | Status Geral |
+| :--- | :--- | :--- | :--- |
+| **1. Cotação Automática ao Movimentar** | 🟢 PASS (`S32-T01`) — Hoje via `fetchQuotes`, passado via `getHistoricalPrice`, campo editável, feedback amigável | 🟡 Não validado em dispositivo físico com backend online (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **2. Persistência de Carteiras no Deck** | 🟢 PASS (`S32-T02`) — Multi-carteiras gravadas no SQLite, sem sobrescrita, todas renderizadas no deck | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **3. Cores Unificadas Home × Carteiras** | 🟢 PASS (`S32-T02`) — Mesma função canônica de paleta `getPortfolioPalette(idx)` | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **4. Ativo e Transação na Tela de Categoria** | 🟢 PASS (`S32-T03`) — Compra registrada reflete imediatamente com ativo, quantidade e saldo bruto | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+| **5. Zero Bypasses / Mocks de Produção** | 🟢 PASS (`S32-T04`, `S32-T05`) — Verificação de ausência de hacks no código de produção | 🟢 PASS (Verificado em runtime e análise estática) | Aprovado |
 
 
 

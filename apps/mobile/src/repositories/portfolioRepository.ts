@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { getDatabase } from '../db/client';
+import { getDatabase, onDatabaseReset } from '../db/client';
 import {
   portfolios,
   portfolioClassTargets,
@@ -18,8 +18,20 @@ function generateUUID(): string {
 }
 
 export class PortfolioRepository {
+  private inMemoryCache: Portfolio[] = [];
+
+  constructor() {
+    onDatabaseReset(() => {
+      this.inMemoryCache = [];
+    });
+  }
+
   protected get db() {
     return getDatabase();
+  }
+
+  getPortfoliosSync(): Portfolio[] {
+    return this.inMemoryCache.filter((p) => p.is_archived === 0);
   }
 
   async createPortfolio(params: {
@@ -42,6 +54,8 @@ export class PortfolioRepository {
     };
 
     await this.db.insert(portfolios).values(newPortfolio);
+    this.inMemoryCache = this.inMemoryCache.filter((p) => p.id !== id);
+    this.inMemoryCache.push(newPortfolio);
 
     // Initial class targets (default to 4 classes if not specified)
     const targetsToInsert = params.classTargets || [
@@ -65,13 +79,21 @@ export class PortfolioRepository {
   }
 
   async listPortfolios(includeArchived = false): Promise<Portfolio[]> {
+    let list: Portfolio[];
     if (includeArchived) {
-      return this.db.select().from(portfolios);
+      list = await this.db.select().from(portfolios);
+    } else {
+      list = await this.db
+        .select()
+        .from(portfolios)
+        .where(eq(portfolios.is_archived, 0));
     }
-    return this.db
-      .select()
-      .from(portfolios)
-      .where(eq(portfolios.is_archived, 0));
+    for (const item of list) {
+      if (!this.inMemoryCache.some((c) => c.id === item.id)) {
+        this.inMemoryCache.push(item);
+      }
+    }
+    return list;
   }
 
   async getAllPortfolios(): Promise<Portfolio[]> {
@@ -100,7 +122,11 @@ export class PortfolioRepository {
       .update(portfolios)
       .set({ ...params, updated_at: now })
       .where(eq(portfolios.id, id));
-    return this.getPortfolioById(id);
+    const updated = await this.getPortfolioById(id);
+    if (updated) {
+      this.inMemoryCache = this.inMemoryCache.map((p) => (p.id === id ? updated : p));
+    }
+    return updated;
   }
 
   async getClassTargets(portfolioId: string): Promise<PortfolioClassTarget[]> {
@@ -153,6 +179,7 @@ export class PortfolioRepository {
     await this.db.delete(assets).where(eq(assets.portfolio_id, id));
     await this.db.delete(portfolioClassTargets).where(eq(portfolioClassTargets.portfolio_id, id));
     await this.db.delete(portfolios).where(eq(portfolios.id, id));
+    this.inMemoryCache = this.inMemoryCache.filter((p) => p.id !== id);
     return true;
   }
 }

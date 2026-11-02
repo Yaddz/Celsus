@@ -215,9 +215,22 @@ function createInMemoryDatabase(): ReturnType<typeof drizzle> {
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
 let _rawSqliteDb: SQLiteDatabase | null = null;
 
+const resetListeners: Array<() => void> = [];
+
+export function onDatabaseReset(listener: () => void) {
+  resetListeners.push(listener);
+}
+
 export function resetDatabase() {
   for (const k of Object.keys(inMemoryStore)) {
     inMemoryStore[k] = [];
+  }
+  for (const listener of resetListeners) {
+    try {
+      listener();
+    } catch {
+      // Ignora erro em listener
+    }
   }
 }
 

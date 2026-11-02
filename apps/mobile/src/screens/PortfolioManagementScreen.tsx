@@ -644,7 +644,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       balance: formattedBalance,
       subtitle: 'Patrimônio Total',
       profitText: isPrivacyMode ? 'R$ ••••••' : '0,0% no ano',
-      accentColor: palette.primary,
+      accentColor: palette.cardBg || (palette as any).primary,
       paletteId: palette.id,
     };
   });

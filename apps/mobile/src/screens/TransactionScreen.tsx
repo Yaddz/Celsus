@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Decimal from 'decimal.js';
 import { colors, typography, spacing, borders } from '../theme/tokens';
 import { transactionService } from '../services/transactionService';
+import { marketApiService } from '../services/marketApi';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { Asset, Portfolio } from '../db/schema';
@@ -20,9 +21,11 @@ import { DirectiveButton } from '../components/ui/DirectiveButton';
 import { LedgerInput } from '../components/ui/LedgerInput';
 
 export interface TransactionScreenProps {
-  onClose: () => void;
+  onClose?: () => void;
   onTransactionSuccess?: () => void;
   initialPortfolioId?: string;
+  initialAssetId?: string;
+  initialTradeDate?: string;
   themeMode?: 'dark' | 'light';
   testID?: string;
 }
@@ -31,18 +34,44 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   onClose,
   onTransactionSuccess = () => {},
   initialPortfolioId,
+  initialAssetId,
+  initialTradeDate,
   themeMode = 'dark',
   testID = 'transaction-screen',
 }) => {
   const isLight = themeMode === 'light';
-  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
+  const [portfolios, setPortfolios] = useState<Portfolio[]>(() => {
+    return portfolioRepository.getPortfoliosSync ? portfolioRepository.getPortfoliosSync() : [];
+  });
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(() => {
+    if (initialPortfolioId) return initialPortfolioId;
+    const syncPorts = portfolioRepository.getPortfoliosSync ? portfolioRepository.getPortfoliosSync() : [];
+    return syncPorts.length > 0 ? syncPorts[0].id : '';
+  });
+  const [assets, setAssets] = useState<Asset[]>(() => {
+    const portId =
+      initialPortfolioId ||
+      (portfolioRepository.getPortfoliosSync ? portfolioRepository.getPortfoliosSync()[0]?.id : '');
+    if (portId) {
+      return assetRepository.getAssetsByPortfolioSync(portId);
+    }
+    return [];
+  });
+  const [selectedAssetId, setSelectedAssetId] = useState<string>(() => {
+    if (initialAssetId) return initialAssetId;
+    const portId =
+      initialPortfolioId ||
+      (portfolioRepository.getPortfoliosSync ? portfolioRepository.getPortfoliosSync()[0]?.id : '');
+    if (portId) {
+      const syncAssets = assetRepository.getAssetsByPortfolioSync(portId);
+      return syncAssets.length > 0 ? syncAssets[0].id : '';
+    }
+    return '';
+  });
 
   const [type, setType] = useState<'BUY' | 'SELL'>('BUY');
   const [tradeDate, setTradeDate] = useState<string>(
-    new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    initialTradeDate || new Date().toISOString().slice(0, 10) // YYYY-MM-DD
   );
   const [quantity, setQuantity] = useState<string>('');
   const [unitPrice, setUnitPrice] = useState<string>('');
@@ -53,73 +82,130 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const lastQuoteReqRef = useRef(0);
+
   useEffect(() => {
-    loadPortfolios();
+    let isMounted = true;
+    const init = async () => {
+      try {
+        const list = await portfolioRepository.getAllPortfolios();
+        if (!isMounted) return;
+        setPortfolios(list);
+        const portIdToUse = selectedPortfolioId || (list.length > 0 ? list[0].id : '');
+        if (portIdToUse) {
+          if (!selectedPortfolioId) setSelectedPortfolioId(portIdToUse);
+          const pAssets = await assetRepository.getAssetsByPortfolio(portIdToUse);
+          if (!isMounted) return;
+          setAssets(pAssets);
+          if (initialAssetId && pAssets.some((a) => a.id === initialAssetId)) {
+            setSelectedAssetId(initialAssetId);
+          } else if (pAssets.length > 0 && !selectedAssetId) {
+            setSelectedAssetId(pAssets[0].id);
+          }
+        }
+      } catch {
+        if (isMounted) {
+          setPortfolios([]);
+          setAssets([]);
+        }
+      }
+    };
+    init();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (selectedPortfolioId) {
-      loadAssets(selectedPortfolioId);
-    }
+    if (!selectedPortfolioId) return;
+    let isMounted = true;
+    assetRepository
+      .getAssetsByPortfolio(selectedPortfolioId)
+      .then((pAssets) => {
+        if (!isMounted) return;
+        setAssets(pAssets);
+        if (selectedAssetId && pAssets.some((a) => a.id === selectedAssetId)) {
+          // Mantém
+        } else if (initialAssetId && pAssets.some((a) => a.id === initialAssetId)) {
+          setSelectedAssetId(initialAssetId);
+        } else if (pAssets.length > 0) {
+          setSelectedAssetId(pAssets[0].id);
+        } else {
+          setSelectedAssetId('');
+        }
+      })
+      .catch(() => {
+        if (isMounted) setAssets([]);
+      });
+    return () => {
+      isMounted = false;
+    };
   }, [selectedPortfolioId]);
 
-  const loadPortfolios = async () => {
+  // Busca automática da cotação
+  const fetchQuoteForAsset = async (asset: Asset | undefined, date: string) => {
+    if (!asset || !date) return;
+    const reqId = ++lastQuoteReqRef.current;
+    setIsLoadingAutoFill(true);
+    setAutoFillMessage(null);
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const isToday = date === todayStr;
+
     try {
-      const list = await portfolioRepository.getAllPortfolios();
-      setPortfolios(list);
-      if (list.length > 0 && !selectedPortfolioId) {
-        setSelectedPortfolioId(list[0].id);
+      let price: string | null = null;
+      if (isToday) {
+        // Cotação em tempo real para o pregão de hoje
+        const quotes = await marketApiService.fetchQuotes([asset.ticker]);
+        if (quotes && quotes.length > 0) {
+          const q = quotes[0];
+          price = String(q.price || q.close_price || '');
+        }
+      } else {
+        // Cotação histórica para datas anteriores
+        price = await marketApiService.getHistoricalPrice(asset.ticker, date);
+      }
+
+      // Se outra requisição mais nova foi iniciada, descarta resposta defasada
+      if (reqId !== lastQuoteReqRef.current) return;
+
+      if (price && parseFloat(price) > 0) {
+        setUnitPrice(price);
+        setAutoFillMessage(`Cotação sugerida (${price}) preenchida.`);
+      } else {
+        setAutoFillMessage('Cotação não encontrada para esta data (digite manualmente).');
       }
     } catch {
-      setPortfolios([]);
+      if (reqId === lastQuoteReqRef.current) {
+        setAutoFillMessage('Cotação não disponível (digite manualmente).');
+      }
+    } finally {
+      if (reqId === lastQuoteReqRef.current) {
+        setIsLoadingAutoFill(false);
+      }
     }
   };
 
-  const loadAssets = async (portId: string) => {
-    try {
-      const list = await assetRepository.getAssetsByPortfolio(portId);
-      setAssets(list);
-      if (list.length > 0) {
-        setSelectedAssetId(list[0].id);
-      } else {
-        setSelectedAssetId('');
-      }
-    } catch {
-      setAssets([]);
+  useEffect(() => {
+    const curAsset = assets.find((a) => a.id === selectedAssetId);
+    if (curAsset && tradeDate) {
+      fetchQuoteForAsset(curAsset, tradeDate);
     }
-  };
+  }, [selectedAssetId, tradeDate, assets]);
 
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);
 
-  // Auto-fill preço via COTAHIST
+  // Auto-fill preço manual via COTAHIST
   const handleAutoFillPrice = async () => {
     if (!selectedAsset) {
-      Alert.alert('Atenção', 'Selecione um ativo para buscar a cotação histórica.');
+      Alert.alert('Atenção', 'Selecione um ativo para buscar a cotação.');
       return;
     }
     if (!tradeDate) {
       Alert.alert('Atenção', 'Informe a data da operação (AAAA-MM-DD).');
       return;
     }
-
-    setIsLoadingAutoFill(true);
-    setAutoFillMessage(null);
-    try {
-      const price = await transactionService.getAutoFillPrice(
-        selectedAsset.ticker,
-        tradeDate
-      );
-      if (price) {
-        setUnitPrice(price);
-        setAutoFillMessage(`Preço de fechamento (${price}) carregado do COTAHIST.`);
-      } else {
-        setAutoFillMessage('Cotação não encontrada para esta data (digite manualmente).');
-      }
-    } catch {
-      setAutoFillMessage('Erro ao consultar histórico COTAHIST.');
-    } finally {
-      setIsLoadingAutoFill(false);
-    }
+    await fetchQuoteForAsset(selectedAsset, tradeDate);
   };
 
   // Cálculo do total estimado
@@ -289,6 +375,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
                 return (
                   <TouchableOpacity
                     key={a.id}
+                    testID={`asset-chip-${a.id}`}
                     onPress={() => setSelectedAssetId(a.id)}
                     style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
                   >
@@ -317,6 +404,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
           <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
             <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />
             <TextInput
+              testID="transaction-trade-date-input"
               style={[styles.textInput, isLight && styles.textInputLight]}
               value={tradeDate}
               onChangeText={setTradeDate}
@@ -349,6 +437,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
           <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
             <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
             <TextInput
+              testID="transaction-unit-price-input"
               style={[styles.textInput, isLight && styles.textInputLight]}
               value={unitPrice}
               onChangeText={setUnitPrice}
@@ -387,7 +476,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
               style={[styles.textInput, isLight && styles.textInputLight]}
               value={fees}
               onChangeText={setFees}
-              placeholder="0.00"
+              placeholder="0.00 (opcional)"
               placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
               keyboardType="decimal-pad"
             />
