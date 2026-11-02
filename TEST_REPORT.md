@@ -2413,11 +2413,25 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
   ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	0.280s
   Total Backend Go: 25 testes | 25 PASS | 0 FAIL
   ```
-- **Consolidação Final do Projeto Celsus (Sprint 35 Concluída):**
-  - **55 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
-  - **385 testes automatizados aprovados (25 em Go + 360 em TypeScript/Jest)**
-  - **Zero adulterações em testes bloqueados (`node scripts/test-lock.js verify` = APROVADO)**
-  - **Conformidade estrita com o Protocolo TDD Lock.**
+### 2.36. Sprint 36: Troca de Carteira Ativa pelo Baralho (SPEC V5 — Item A)
+
+#### 2.36.1. Tabela de Casos de Teste (Fase A — Red Phase & Lock)
+
+| ID | Arquivo de Teste | Caso de Teste | Descrição da Regra / Comportamento Verificado | Hash SHA-256 do Teste Bloqueado | Status Fase A |
+|---|---|---|---|---|---|
+| `S36-T01` | `apps/mobile/src/stores/__tests__/walletStore.test.tsx` | Central State Management & Listener Notifications | Gerenciamento de estado de índice e portfolioId ativo com notificação reativa aos inscritos | `16d3020c40cfc7ed859edbd073d4166747c1fe4f5f8825677d914c499d79e2ca` | 🟢 PASS |
+| `S36-T02` | `apps/mobile/src/stores/__tests__/walletStore.test.tsx` | Reset State Preserves Active Subscribers | `reset()` redefine estado padrão sem limpar listeners (evita quebra de assinantes ativos) | `16d3020c40cfc7ed859edbd073d4166747c1fe4f5f8825677d914c499d79e2ca` | 🔴 FAIL (Bug B17) |
+| `S36-T03` | `apps/mobile/src/stores/__tests__/walletStore.test.tsx` | Reactive Hooks (useActiveWalletIndex and useActivePortfolioId) | Hooks reativos `useActiveWalletIndex` e `useActivePortfolioId` reagem a mudanças do store | `16d3020c40cfc7ed859edbd073d4166747c1fe4f5f8825677d914c499d79e2ca` | 🟢 PASS |
+| `S36-T04` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | PanResponder Gesture Dispatch with GestureState Threshold | Disparo de gesto vertical com |dy| >= 50% da altura do card confirma transição para a próxima carteira | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🟢 PASS |
+| `S36-T05` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | Single Release Invocation per Gesture | Manipulador de release executado exatamente uma vez por gesto sem chamadas duplicadas | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🟢 PASS |
+| `S36-T06` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | PanResponder Interacts with Updated Items after Dynamic Re-render | Deck re-renderizado com nova lista assíncrona usa itens atuais (sem closure obsoleta) | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🟢 PASS |
+| `S36-T07` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | Cyclic Gesture Never Emits "__add_wallet_card__" | Ciclo por gesto pula card especial "Nova Carteira" e nunca o emite em onPortfolioChange | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🔴 FAIL (Bug B2) |
+| `S36-T08` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | Home Dashboard Reflects Active Wallet (Patrimony, Allocation, Transactions) | Home reflete dados da carteira ativa via `consolidatePortfolios([carteiraAtiva])` (Decisão Q1) | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🟢 PASS |
+| `S36-T09` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | Statistics Screen Displays Consolidated Dossier Independent of Active Wallet | Tela de Estatísticas exibe consolidado de todas as carteiras e não muda com a carteira ativa | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🟢 PASS |
+| `S36-T10` | `apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx` | Indicator Pills HitSlop Touch Area >= 44dp | Pills indicadoras de carteira na Home possuem `hitSlop` garantindo área de toque >= 44dp | `993aa4a32ed14f52948e9f37a8c16507d696683a571f2fb3514c81e78d9d13e7` | 🔴 FAIL (Bug B4) |
+
+- **Status da Fase A (Sprint 36):** 10 novos testes especificados, bloqueados no `tests.lock.json` com SHA-256 e protegidos contra modificações. 3 testes em falha esperada (Red Phase) comprovando os bugs B2, B4 e B17 catalogados no SPEC V5.
+
 
 
 

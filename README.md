@@ -45,7 +45,7 @@
 
 O **Celsus** é um gestor de carteiras de investimentos mobile desenhado sob o princípio **100% Local-First**: todas as suas carteiras, metas de alocação, saldos e histórico de aportes vivem exclusivamente dentro de um banco **SQLite** no seu celular. Nenhum dado pessoal, conta ou transação é enviado ou armazenado em servidores externos.
 
-Para alimentar os gráficos de evolução patrimonial e cotações em tempo real sem comprometer a privacidade, o Celsus utiliza um **Market Data Engine Stateless em Go**, que processa os arquivos históricos oficiais **COTAHIST da B3**, faz proxy autenticado para a API da **BRAPI** e consolida as curvas diárias de **CDI e IPCA** do Banco Central.
+Para alimentar os gráficos de evolução patrimonial e cotações em tempo real sem comprometer a privacidade, o Celsus utiliza um **Market Data Engine Stateless em Go**, que processa os arquivos históricos oficiais **COTAHIST da B3**, usa o **Yahoo Finance** apenas para consultas pontuais de cotação (carga inicial e histórico vêm do COTAHIST local; **BRAPI** é opcional, com token) — ver `SPEC_V5.md` §0 — e consolida as curvas diárias de **CDI e IPCA** do Banco Central.
 
 ---
 
@@ -111,7 +111,7 @@ flowchart TB
 ### Mobile (`apps/mobile`)
 ![Expo](https://img.shields.io/badge/Expo_Router_v4-000020?style=flat-square&logo=expo&logoColor=white)
 ![NativeWind](https://img.shields.io/badge/NativeWind_v4-38B2AC?style=flat-square&logo=tailwindcss&logoColor=white)
-![Zustand](https://img.shields.io/badge/Zustand-443E38?style=flat-square&logo=react&logoColor=white)
+![State](https://img.shields.io/badge/State-useSyncExternalStore-443E38?style=flat-square&logo=react&logoColor=white)
 ![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=flat-square&logo=reactquery&logoColor=white)
 ![Decimal.js](https://img.shields.io/badge/Decimal.js-Precisão_Financeira-2E4A44?style=flat-square)
 ![Jest](https://img.shields.io/badge/Jest-C21325?style=flat-square&logo=jest&logoColor=white)

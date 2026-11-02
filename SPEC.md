@@ -87,7 +87,7 @@ flowchart TB
 - **Framework:** React Native com **Expo SDK 52+** (Expo Router v4 para navegação file-based).
 - **Linguagem:** TypeScript (strict mode).
 - **Banco de Dados Local:** `expo-sqlite` (API síncrona moderna `openDatabaseSync`) + **Drizzle ORM** (`drizzle-orm/expo-sqlite`) e migrations embarcadas.
-- **Gerenciamento de Estado & Cache:** `Zustand` (estado global de UI, carteira ativa, modo privacidade) + `@tanstack/react-query` (sincronização de cotações com o backend Go).
+- **Gerenciamento de Estado & Cache:** store próprio baseado em `useSyncExternalStore` (`src/stores/walletStore.ts`: carteira ativa) + serviços com cache SQLite (cotações). *Atualizado por SPEC_V5 (Q8): Zustand e `@tanstack/react-query` não foram adotados; navegação por estado em `App.tsx`, sem Expo Router.*
 - **Estilização & Fontes:** `NativeWind v4` (Tailwind CSS configurado com os tokens exatos do [DESIGN_SYSTEM.md](file:///c:/Users/Pedro/Documents/Projetos/Celsus/DESIGN_SYSTEM.md)) + `@expo-google-fonts/space-mono`.
 - **Gráficos:** `react-native-wagmi-charts` ou `victory-native` (Skia) estilizados com linhas retas, cores `#D96628`, `#2E4A44`, `#D5CAA8` e fundo `#191B1D`.
 - **Manipulação de Arquivos e ZIP:** `expo-file-system`, `expo-sharing`, `expo-document-picker`, `fflate` (compactação/descompactação ZIP pura em JS ultra-rápida), `expo-crypto` (hash SHA-256 do `manifest.json`).

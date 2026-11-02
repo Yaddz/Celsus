@@ -113,6 +113,7 @@
      3. **Nova Movimentação** (`testID="fab-action-novo-aporte"`)
 2. **Interceptação de Botões em Desenvolvimento:**
    - Nos botões **Globo** (`header-globe-button`), **Card Bento "Mais"** (`bento-action-mais`) e **3º ícone da barra de navegação inferior** (`dock-tab-history`), interceptar o clique para exibir alerta/toast `"Funcionalidade em desenvolvimento"` (`testID="dev-placeholder-banner"` + `Alert.alert`), bloqueando qualquer navegação ou abertura de menu secundário.
+   > **Atualização (SPEC_V5 §0, Q5):** o 3º ícone da dock deixa de ser placeholder e será substituído pela tela de **Pesquisa de Ativos** (Sprint 40). Globo e "Mais" continuam como placeholder.
 3. **Correção da Rota "Ver todas as transações":**
    - Clicar em `"Ver tudo >"` (`testID="recent-tx-view-all-btn"`) no card `Movimentações Recentes` da Home **não** deve abrir a tela de criar transação (`TransactionScreen`), mas sim navegar para a tela de **Extrato Completo de Movimentações (`AllTransactionsScreen` / visualização de todas as transações registradas)** (`testID="all-transactions-screen"`).
 
