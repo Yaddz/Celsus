@@ -218,6 +218,10 @@ describe('Sprint 18 — Módulo 4 & 5: Rebalanceamento Reativo 100% com Cadeado 
     it('S18-T07: deve renderizar inputs numéricos editáveis e botões de cadeado para as 4 classes macro', async () => {
       await render(<PortfolioManagementScreen />);
 
+      // Abre o modal de metas por categoria
+      const openMetasBtn = screen.getByTestId('open-metas-modal-btn');
+      fireEvent.press(openMetasBtn);
+
       // Inputs de cada classe macro
       expect(screen.getByTestId('input-class-STOCK')).toBeDefined();
       expect(screen.getByTestId('input-class-FIXED_INCOME')).toBeDefined();

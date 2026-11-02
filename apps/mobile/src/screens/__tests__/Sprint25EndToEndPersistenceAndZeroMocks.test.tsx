@@ -105,7 +105,7 @@ describe('Sprint 25: TestEndToEndPersistenceAndZeroMocks', () => {
       await render(<PortfolioManagementScreen />);
       await waitFor(() => {
         expect(listSpy).toHaveBeenCalled();
-        expect(screen.getByText('Carteira Dividendos')).toBeDefined();
+        expect(screen.getAllByText('Carteira Dividendos').length).toBeGreaterThan(0);
       });
     });
   });
@@ -336,16 +336,17 @@ describe('Sprint 25: TestEndToEndPersistenceAndZeroMocks', () => {
         />
       );
 
-      // Vertical class row should exist
-      expect(screen.getByTestId('class-list-row-STOCK')).toBeDefined();
-      expect(screen.getByTestId('lock-class-STOCK')).toBeDefined();
-      expect(screen.getByTestId('input-class-STOCK')).toBeDefined();
-
       // Vertical asset row should exist with lock, input and delete action
       expect(screen.getByTestId('asset-list-row-a1')).toBeDefined();
       expect(screen.getByTestId('lock-asset-a1')).toBeDefined();
       expect(screen.getByTestId('input-asset-a1')).toBeDefined();
       expect(screen.getByTestId('delete-asset-a1')).toBeDefined();
+
+      // Open metas modal to access vertical macro class row
+      fireEvent.press(screen.getByTestId('open-metas-modal-btn'));
+      expect(screen.getByTestId('class-list-row-STOCK')).toBeDefined();
+      expect(screen.getByTestId('lock-class-STOCK')).toBeDefined();
+      expect(screen.getByTestId('input-class-STOCK')).toBeDefined();
 
       // Pressing delete button should trigger assetRepository.deleteAsset
       fireEvent.press(screen.getByTestId('delete-asset-a1'));

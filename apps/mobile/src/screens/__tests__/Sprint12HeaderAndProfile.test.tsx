@@ -60,9 +60,9 @@ describe('S12-T01: TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal', () =>
       expect(screen.getByTestId('xp-minimal-header')).toBeDefined();
     });
 
-    it('should render AmbientOrb glowing in background on Home screen', async () => {
+    it('should NOT render AmbientOrb on Home screen (solid neutral background in notch)', async () => {
       await render(<App />);
-      expect(screen.getByTestId('ambient-orb')).toBeDefined();
+      expect(screen.queryByTestId('ambient-orb')).toBeNull();
     });
 
     it('should NOT render the legacy header title "GESTÃO DE CARTEIRAS" on Home screen', async () => {

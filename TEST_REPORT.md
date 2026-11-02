@@ -2159,10 +2159,24 @@
   ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	3.249s
   Total Backend Go: 25 testes | 25 PASS | 0 FAIL
   ```
-- **Consolidação Final do Projeto Celsus (Sprint 30 Concluída):**
+- **Consolidação do Projeto Celsus (Sprint 30 Concluída):**
   - **50 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **348 testes automatizados aprovados (25 em Go + 323 em TypeScript/Jest)**
   - **Zero regressões e conformidade estrita com o Protocolo TDD Lock.**
+
+---
+
+### 2.31. Sprint 31: Ajustes Visuais (Notch e Botões), Desjargonização de Textos e Redesenho da Carteira
+
+#### 2.31.1. Especificação dos Casos de Teste da Fase A (Red Phase & Lock)
+| Caso de Teste | Arquivo de Teste | Funcionalidade Avaliada | Critério de Aceite Fidedigno | Hash SHA-256 Bloqueado | Status Fase A |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `S31-T01` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Notch Neutral Background & AmbientOrb Removal | Ausência de AmbientOrb vazando no notch; preenchimento neutro sólido do tema na barra de status | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+| `S31-T02` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Filter Buttons / Pills Border Radius (radiusFull = 9999) | `borders.radiusFull` definido como 9999; pílulas de filtro do Extrato Completo e telas filhas perfeitamente arredondadas | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+| `S31-T03` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Text Audit & Jargon Elimination | Renomeação para "PANORAMA GERAL", eliminação de "Dossiê Local", "Local-First ─── Sovereign", "Criar Dossiê" e termos de banco de dados | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+| `S31-T04` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Redesigned Wallet Screen Hierarchy and Metas Modal | Hierarquia de 4 seções na Carteira (Card, Botão Metas, Ativos, Movimentações); modal bottom sheet de metas com recálculo 100% | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+| `S31-T05` | `apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx` | Portfolio-Specific Transactions & Shortcut to Extrato | Listagem estrita de transações da carteira ativa, atalho para extrato filtrado e estado vazio descritivo | `87bd4920d0697daaa47ff96c9e9cccf140800597d0b1f2d4788a27aaffd5da3e` | 🔴 RED (Previsto) |
+
 
 
 
