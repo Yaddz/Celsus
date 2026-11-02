@@ -61,14 +61,14 @@ describe('S12-T02: TestPrivacyAsteriskMaskAndLightThemeTokens', () => {
   });
 
   describe('Asterisk Privacy Mask Specification (redactWithAsterisks)', () => {
-    it('should define exact PRIVACY_ASTERISK_MASK as *******', () => {
-      expect(PRIVACY_ASTERISK_MASK).toBe('*******');
+    it('should define exact PRIVACY_ASTERISK_MASK as R$ ••••••', () => {
+      expect(PRIVACY_ASTERISK_MASK).toBe('R$ ••••••');
     });
 
     it('should redact currency value with asterisks when privacy mode is enabled', () => {
-      expect(redactWithAsterisks('R$ 32.468,00', true)).toBe('*******');
-      expect(redactWithAsterisks('R$ 1.500,00', true)).toBe('*******');
-      expect(redactWithAsterisks(32468, true)).toBe('*******');
+      expect(redactWithAsterisks('R$ 32.468,00', true)).toBe('R$ ••••••');
+      expect(redactWithAsterisks('R$ 1.500,00', true)).toBe('R$ ••••••');
+      expect(redactWithAsterisks(32468, true)).toBe('R$ ••••••');
     });
 
     it('should preserve original value when privacy mode is disabled', () => {
@@ -76,8 +76,8 @@ describe('S12-T02: TestPrivacyAsteriskMaskAndLightThemeTokens', () => {
       expect(redactWithAsterisks('+12,4% no ano', false)).toBe('+12,4% no ano');
     });
 
-    it('should keep redactCurrencyValue intact for backward compatibility with S6-T04', () => {
-      expect(redactCurrencyValue('R$ 32.468,00', true)).toBe('R$ ██████,██');
+    it('should keep redactCurrencyValue unified with R$ •••••• for backward compatibility', () => {
+      expect(redactCurrencyValue('R$ 32.468,00', true)).toBe('R$ ••••••');
       expect(redactCurrencyValue('R$ 32.468,00', false)).toBe('R$ 32.468,00');
     });
   });
@@ -103,9 +103,9 @@ describe('S12-T02: TestPrivacyAsteriskMaskAndLightThemeTokens', () => {
       // Ativa o modo de privacidade na Home
       fireEvent.press(privacyButton);
 
-      // Verifica que a máscara asterisco '*******' é exibida na Home
-      const asteriskElements = screen.getAllByText('*******');
-      expect(asteriskElements.length).toBeGreaterThanOrEqual(1);
+      // Verifica que a máscara 'R$ ••••••' é exibida na Home
+      const maskedElements = screen.getAllByText('R$ ••••••');
+      expect(maskedElements.length).toBeGreaterThanOrEqual(1);
 
       // Verifica que o valor aberto não está mais visível
       expect(screen.queryByText('R$ 32.468,00')).toBeNull();

@@ -9,14 +9,15 @@ import {
 } from '../privacyAndAuth';
 
 describe('S6-T04: TestPrivacyRedactionAndBiometricLock', () => {
-  describe('Privacy Mode Value Redaction (██████,██)', () => {
-    it('should redact numeric and formatted BRL values with ██████,██ when privacy mode is enabled', () => {
+  describe('Privacy Mode Value Redaction (••••••)', () => {
+    it('should redact numeric and formatted BRL values with •••••• when privacy mode is enabled', () => {
       expect(redactCurrencyValue('R$ 32.468,00', true)).toBe(PRIVACY_CURRENCY_MASK);
       expect(redactCurrencyValue(32468.0, true)).toBe(PRIVACY_CURRENCY_MASK);
       expect(
         redactCurrencyValue('32.468,00', true, { includeSymbol: false })
       ).toBe(PRIVACY_MASK);
-      expect(PRIVACY_MASK).toBe('██████,██');
+      expect(PRIVACY_MASK).toBe('••••••');
+      expect(PRIVACY_CURRENCY_MASK).toBe('R$ ••••••');
     });
 
     it('should display formatted BRL values normally when privacy mode is disabled', () => {
@@ -42,9 +43,9 @@ describe('S6-T04: TestPrivacyRedactionAndBiometricLock', () => {
       // Enable privacy mode
       const afterToggle = service.togglePrivacyMode();
       expect(afterToggle.isPrivacyModeEnabled).toBe(true);
-      expect(service.formatValue('R$ 10.000,00')).toBe('R$ ██████,██');
+      expect(service.formatValue('R$ 10.000,00')).toBe('R$ ••••••');
       expect(service.formatValue('10.000,00', { includeSymbol: false })).toBe(
-        '██████,██'
+        '••••••'
       );
       expect(service.formatPercentage('+8,5%')).toBe(PRIVACY_PERCENT_MASK);
 

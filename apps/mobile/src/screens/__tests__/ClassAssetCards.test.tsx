@@ -79,7 +79,7 @@ describe('S10-T02: TestAssetDetailInformationCards', () => {
       expect(screen.getByText(/\+5,88%/)).toBeTruthy(); // Rentabilidade
     });
 
-    it('deve ocultar valores em modo privacidade (██████,██)', async () => {
+    it('deve ocultar valores em modo privacidade (••••••)', async () => {
       await render(
         <ClassDetailScreen
           assetClass="STOCK"
@@ -91,7 +91,7 @@ describe('S10-T02: TestAssetDetailInformationCards', () => {
 
       // Valores numéricos monetários devem ser redigidos
       expect(screen.queryByText('R$ 5.400,00')).toBeNull();
-      expect(screen.getAllByText(/██████,██/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/••••••|██████,██/).length).toBeGreaterThan(0);
     });
   });
 

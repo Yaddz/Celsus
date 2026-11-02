@@ -136,12 +136,11 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(getByTestId('wallet-summary-card-reserve')).toBeDefined();
     });
 
-    it('S19-T04: deve conter bloco agrupado "Personalização" com Modo Privacidade e Seletor de Aparência', async () => {
-      const mockTogglePrivacy = jest.fn();
-      const { getByTestId } = await render(
+    it('S19-T04: deve conter bloco agrupado "Personalização" com Seletor de Aparência e ausência de switch redundante de privacidade', async () => {
+      const { getByTestId, queryByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
-          onTogglePrivacyMode={mockTogglePrivacy}
+          onTogglePrivacyMode={jest.fn()}
         />
       );
 
@@ -149,8 +148,8 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const section = getByTestId('settings-section-personalizacao');
       expect(section).toBeDefined();
 
-      // Modo Privacidade
-      expect(getByTestId('privacy-mode-switch')).toBeDefined();
+      // Modo Privacidade controlado exclusivamente pelo ícone de olho no Header XP (zero switch redundante)
+      expect(queryByTestId('privacy-mode-switch')).toBeNull();
 
       // Seletor de Tema (Aparência: Escuro / Claro)
       expect(getByTestId('theme-option-dark')).toBeDefined();

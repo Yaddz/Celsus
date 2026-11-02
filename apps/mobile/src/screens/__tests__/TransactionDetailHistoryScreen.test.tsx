@@ -138,7 +138,7 @@ describe('S10-T03: TestTransactionHistoryNavigationAndDetails', () => {
       expect(screen.getByText(/2026-10-31/)).toBeTruthy(); // Data
     });
 
-    it('deve ocultar valores monetários em modo privacidade (██████,██)', async () => {
+    it('deve ocultar valores monetários em modo privacidade (••••••)', async () => {
       await render(
         <TransactionDetailHistoryScreen
           transaction={MOCK_TRANSACTION}
@@ -148,7 +148,7 @@ describe('S10-T03: TestTransactionHistoryNavigationAndDetails', () => {
       );
 
       expect(screen.queryByText('R$ 1.500,00')).toBeNull();
-      expect(screen.getAllByText(/██████,██/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/••••••|██████,██/).length).toBeGreaterThan(0);
     });
   });
 
