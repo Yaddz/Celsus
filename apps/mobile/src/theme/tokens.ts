@@ -3,9 +3,11 @@ export interface ColorTokens {
   background: string;
   neutral: string;
   surfaceContainerLow: string;
+  surfaceCard?: string;
   primary: string;
   secondary: string;
   secondaryLight?: string;
+  secondaryText?: string;
   tertiary: string;
   parchmentPale: string;
   parchmentLight?: string;
@@ -86,9 +88,11 @@ export const colors: ColorTokens = {
   background: '#111315',
   neutral: '#191B1D',
   surfaceContainerLow: '#1A1C1E',
+  surfaceCard: '#191B1D',
   primary: '#D96628',
   secondary: '#2E4A44',
   secondaryLight: '#AECDC5',
+  secondaryText: '#9CA3AF',
   tertiary: '#D5CAA8',
   parchmentPale: '#E6DECA',
   parchmentLight: '#E6DECA',

@@ -1,10 +1,10 @@
-export const PRIVACY_MASK = '██████,██';
-export const PRIVACY_CURRENCY_MASK = 'R$ ██████,██';
-export const PRIVACY_PERCENT_MASK = '████%';
-export const PRIVACY_ASTERISK_MASK = '*******';
+export const PRIVACY_MASK = '••••••';
+export const PRIVACY_CURRENCY_MASK = 'R$ ••••••';
+export const PRIVACY_PERCENT_MASK = '••••••';
+export const PRIVACY_ASTERISK_MASK = 'R$ ••••••';
 
 /**
- * S12: Redige valores substituindo por asteriscos quando o Modo Privacidade está ativo.
+ * S12 & S26: Redige valores substituindo por bullets 'R$ ••••••' quando o Modo Privacidade está ativo.
  */
 export function redactWithAsterisks(
   value: string | number,
@@ -113,9 +113,22 @@ export class PrivacyAndAuthService {
   };
 
   private authProvider: BiometricAuthProvider;
+  private listeners: Set<(state: PrivacyAndAuthState) => void> = new Set();
 
   constructor(authProvider: BiometricAuthProvider = defaultBiometricProvider) {
     this.authProvider = authProvider;
+  }
+
+  subscribe(listener: (state: PrivacyAndAuthState) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private notify() {
+    const current = this.getState();
+    this.listeners.forEach((l) => l(current));
   }
 
   getState(): PrivacyAndAuthState {
@@ -124,11 +137,13 @@ export class PrivacyAndAuthService {
 
   setPrivacyMode(enabled: boolean): PrivacyAndAuthState {
     this.state.isPrivacyModeEnabled = enabled;
+    this.notify();
     return this.getState();
   }
 
   togglePrivacyMode(): PrivacyAndAuthState {
     this.state.isPrivacyModeEnabled = !this.state.isPrivacyModeEnabled;
+    this.notify();
     return this.getState();
   }
 

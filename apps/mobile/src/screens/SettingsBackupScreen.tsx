@@ -336,26 +336,6 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
             <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>PERSONALIZAÇÃO</Text>
           </View>
 
-          {/* Modo Privacidade */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingTextCol}>
-              <Text style={[styles.settingTitle, isLight && styles.settingTitleLight]}>Modo Privacidade (Tarja)</Text>
-              <Text style={[styles.settingDesc, isLight && styles.settingDescLight]}>
-                Oculta saldos em BRL como{' '}
-                <Text style={styles.codeHighlight}>{PRIVACY_CURRENCY_MASK}</Text>
-              </Text>
-            </View>
-            <Switch
-              testID="privacy-mode-switch"
-              value={isPrivacyMode}
-              onValueChange={handleTogglePrivacy}
-              trackColor={{ false: isLight ? '#EAE4D7' : '#2A2D30', true: colors.secondary }}
-              thumbColor={isPrivacyMode ? colors.primary : isLight ? '#C5BEB3' : '#8A8C90'}
-            />
-          </View>
-
-          <View style={[styles.divider, isLight && styles.dividerLight]} />
-
           {/* Aparência: Tema Escuro / Claro */}
           <View style={styles.settingRowNoPadding}>
             <View style={styles.settingTextCol}>

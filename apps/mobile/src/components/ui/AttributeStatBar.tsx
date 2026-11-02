@@ -128,8 +128,8 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
     : 'R$ 0,00';
 
   const metricsText = variant === 'v2'
-    ? (isPrivacyMode ? '*******' : `${formattedMarketValue} • ${safeCurrent.toFixed(1)}%`)
-    : (isPrivacyMode ? '*******' : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`);
+    ? (isPrivacyMode ? 'R$ ••••••' : `${formattedMarketValue} • ${safeCurrent.toFixed(1)}%`)
+    : (isPrivacyMode ? '••••••' : `${safeCurrent.toFixed(1)}% / META ${safeTarget.toFixed(1)}%`);
 
   const content = (
     <View style={[styles.container, isLight && styles.containerLight]}>
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   classLabel: {
     fontFamily: typography.fontFamily,
     fontSize: typography.labelSm.fontSize,
-    color: '#8A8A8E',
+    color: colors.secondaryText || '#9CA3AF',
     flexShrink: 1,
   },
   classLabelLight: {

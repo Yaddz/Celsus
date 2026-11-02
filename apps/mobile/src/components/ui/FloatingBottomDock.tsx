@@ -215,6 +215,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
               style={styles.tabButton}
             >
               <View
+                testID={isActive ? 'dock-active-indicator' : undefined}
                 style={[
                   styles.tabIconCircle,
                   isActive && (isLight ? styles.activeTabIconCircleLight : styles.activeTabIconCircle),
@@ -287,6 +288,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },

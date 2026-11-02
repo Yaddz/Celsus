@@ -117,9 +117,9 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   };
 
   const isBuy = tx.type === 'BUY';
-  const investedDisplay = isPrivacyMode ? '██████,██' : tx.investedAmount;
-  const unitPriceDisplay = isPrivacyMode ? '██████,██' : tx.unitPrice;
-  const feesDisplay = isPrivacyMode ? '██████,██' : tx.fees;
+  const investedDisplay = isPrivacyMode ? '••••••' : tx.investedAmount;
+  const unitPriceDisplay = isPrivacyMode ? '••••••' : tx.unitPrice;
+  const feesDisplay = isPrivacyMode ? '••••••' : tx.fees;
 
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
@@ -230,7 +230,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 
           {historyList.map((item, idx) => {
             const itemIsBuy = item.type === 'BUY';
-            const totalDisplay = isPrivacyMode ? '██████,██' : item.totalAmount;
+            const totalDisplay = isPrivacyMode ? '••••••' : item.totalAmount;
 
             return (
               <View key={item.id || `history-${idx}`} style={styles.timelineItem}>

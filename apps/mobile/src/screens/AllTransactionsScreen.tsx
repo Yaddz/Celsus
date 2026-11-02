@@ -142,7 +142,7 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
             const iconName = CATEGORY_ICONS[tx.assetClass] || 'trending-up';
             const isBuy = tx.type === 'BUY';
             const isLast = idx === filteredList.length - 1;
-            const displayAmount = isPrivacyMode ? '*******' : tx.amountText;
+            const displayAmount = isPrivacyMode ? 'R$ ••••••' : tx.amountText;
 
             return (
               <TouchableOpacity

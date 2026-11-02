@@ -416,10 +416,10 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
           {assetList.map((asset) => {
             const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
             const isSelected = activeTooltipAsset?.ticker === asset.ticker;
-            const grossBalanceDisplay = isPrivacyMode ? '██████,██' : asset.grossBalance;
-            const avgPriceDisplay = isPrivacyMode ? '██████,██' : asset.averagePrice;
-            const curPriceDisplay = isPrivacyMode ? '██████,██' : asset.currentPrice;
-            const profitDisplay = isPrivacyMode ? '██████,██' : asset.profitabilityPercentage;
+            const grossBalanceDisplay = isPrivacyMode ? '••••••' : asset.grossBalance;
+            const avgPriceDisplay = isPrivacyMode ? '••••••' : asset.averagePrice;
+            const curPriceDisplay = isPrivacyMode ? '••••••' : asset.currentPrice;
+            const profitDisplay = isPrivacyMode ? '••••••' : asset.profitabilityPercentage;
             const nameDisplay = isSelected ? 'Ativo em destaque' : asset.name;
 
             return (

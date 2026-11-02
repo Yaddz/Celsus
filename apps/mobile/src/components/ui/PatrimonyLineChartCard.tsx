@@ -244,7 +244,16 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#191B1D',
+    borderWidth: 1,
+    borderColor: '#2A2D30',
+    borderRadius: 24,
+    overflow: 'hidden',
     marginBottom: spacing.lg,
+  },
+  containerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
   },
   chartHeader: {
     backgroundColor: colors.surfaceCard,

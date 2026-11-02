@@ -98,7 +98,7 @@
    - **Header Padrão:** `XpMinimalHeader` no topo com botão voltar.
    - **Bloco de Perfil Superior (`testID="investor-profile-card"`):** Avatar circular `PL` com ícone de edição, selo `Celsus | Dossiê Local`, nome `Pedro`, barra horizontal de nível (`Local-First ─── Sovereign`) e pílula de status.
    - **Módulo `Dados das carteiras`:** Cards horizontais lado a lado resumindo Carteira Principal e Reserva/Consolidado.
-   - **Módulo `Personalização`:** Card agrupado com switches e linhas com chevron `>` para *Modo Privacidade (`*******`)* e *Aparência (Tema Escuro / Claro)*.
+   - **Módulo Personalização:** Card agrupado com Seletor de *Aparência (Tema Escuro / Claro)*. O Modo Privacidade é controlado exclusivamente pelo ícone de olho no Header XP superior (zero switch redundante).
    - **Módulo `Segurança`:** Card agrupado com *Bloqueio Biométrico / PIN* e *Validar Biometria*.
    - **Módulo `Gestão de dados (.celsus.zip)`:** Card agrupado com *Exportar Dossiê (.celsus.zip)*, *Modo de Importação (Mesclar / Restaurar)* e *Importar Backup*.
 

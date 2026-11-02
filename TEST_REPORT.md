@@ -32,7 +32,8 @@
 | **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 10 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 8 | 0 | `VERIFIED (44 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 25** | Estabilização E2E: Persistência Real SQLite, Zero Dados Fictícios, Criação Automática na Compra, Adicionar Carteira no Deck, Layout Vertical de Classes/Ativos e Tratamento Offline | 1 (+1 mod) | 7 | 7 | 0 | `VERIFIED (45 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S25)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **45** | **321** | **321** | **0** | **`VERIFIED (45 arquivos)`** | **🟢 100% Aprovado** |
+| **Sprint 26** | Estabilização e Conformidade: Máscara Unificada `R$ ••••••`, Auditoria de Contraste Dark Mode (WCAG AA), Remoção de Switch Redundante e Floating Navbar | 1 (+4 mod) | 7 | 7 | 0 | `VERIFIED (46 arquivos)` | 🟢 Aprovado (100% Green) |
+| **TOTAL (S1–S26)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **46** | **328** | **328** | **0** | **`VERIFIED (46 arquivos)`** | **🟢 100% Aprovado** |
 
 ---
 
@@ -1902,6 +1903,36 @@
 - **Consolidação do Projeto Celsus (Sprint 25 Concluída):**
   - **45 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **314 testes automatizados aprovados (25 em Go + 289 em TypeScript/Jest)**
+  - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
+
+---
+
+### 2.26. Sprint 26 — Estabilização e Conformidade: Máscara Unificada `R$ ••••••`, Auditoria de Contraste Dark Mode (WCAG AA), Remoção de Switch Redundante e Floating Navbar (`apps/mobile`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da `SPEC.md` / `implementation_plan.md` Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S26-T01` | `src/screens/__tests__/Sprint26PrivacyContrastAndNavbarStabilization.test.tsx` | `Floating Bottom Dock Circular Styling and MaterialIcons Preload` | Estilização circular do indicador ativo na dock (`borderRadius: 22`, `overflow: 'hidden'`) e disponibilidade de dicionário de fontes MaterialIcons para zero layout shift | `1b09728a59b027f8ec52c68c7937d4da55cb5eeae4b9080629f2fda6dd9cead2` | 🟢 PASS (0.25s) |
+| `S26-T02` | `src/screens/__tests__/Sprint26PrivacyContrastAndNavbarStabilization.test.tsx` | `Global Privacy Store and Unified Mask (R$ ••••••)` | Unificação da máscara de privacidade em `R$ ••••••` (6 bullets) para moeda e `••••••` para percentuais, com propagação reativa global | `1b09728a59b027f8ec52c68c7937d4da55cb5eeae4b9080629f2fda6dd9cead2` | 🟢 PASS (0.40s) |
+| `S26-T03` | `src/screens/__tests__/Sprint26PrivacyContrastAndNavbarStabilization.test.tsx` | `Redundant Privacy Switch Removal in Settings Screen (Bug #5)` | Ausência do switch redundante `privacy-mode-switch` em `SettingsBackupScreen`, preservando personalização de aparência e controle exclusivo pelo Header XP | `1b09728a59b027f8ec52c68c7937d4da55cb5eeae4b9080629f2fda6dd9cead2` | 🟢 PASS (0.05s) |
+| `S26-T04` | `src/screens/__tests__/Sprint26PrivacyContrastAndNavbarStabilization.test.tsx` | `Dark Mode WCAG AA Contrast Audit (Ratio >= 4.5:1)` | Conformidade do ratio de contraste WCAG AA $\ge 4.5:1$ para textos secundários no Dark Mode e estilização de `PatrimonyLineChartCard` com fundo `surfaceCard` (`#191B1D`) e borda visível | `1b09728a59b027f8ec52c68c7937d4da55cb5eeae4b9080629f2fda6dd9cead2` | 🟢 PASS (0.01s) |
+
+#### Detalhes de Implementação da Fase B (Sprint 26)
+- **Máscara Unificada Global:** Padronizados `PRIVACY_CURRENCY_MASK = 'R$ ••••••'` e `PRIVACY_MASK = '••••••'` em `privacyAndAuth.ts`, estendendo `PrivacyAndAuthService` com padrão pub/sub e sincronizando `App.tsx`, `AttributeStatBar.tsx`, `PatrimonyLineChartCard.tsx`, `ClassDetailScreen.tsx`, `TransactionDetailHistoryScreen.tsx`, `AllTransactionsScreen.tsx` e `StatisticsScreen.tsx`.
+- **Remoção de Switch Redundante (Bug #5):** Eliminado `privacy-mode-switch` em `SettingsBackupScreen.tsx`, mantendo o controle do modo privacidade centralizado no ícone do Header XP e atualizando a documentação de arquitetura em `REFACTORING_SPEC.md` Módulo 7.
+- **Auditoria de Contraste Dark Mode (WCAG AA - Bug #6):** Atualizado token `colors.secondaryText` para `#9CA3AF`, garantindo ratio de contraste $\ge 4.5:1$ contra fundos escuros (`#111315` e `#191B1D`). `PatrimonyLineChartCard.tsx` estilizado com `backgroundColor: '#191B1D'`, `borderRadius: 24`, borda sutil e `overflow: 'hidden'`.
+- **Dock Flutuante e Pré-Carregamento de Fontes (Bug #8):** `FloatingBottomDock.tsx` estilizada com `borderRadius: 22` e `overflow: 'hidden'` no indicador ativo circular `dock-active-indicator`. `App.tsx` configurado com pré-carregamento assíncrono de `MaterialIcons.font` via `expo-font` para prevenir qualquer shift visual.
+
+- **Execução da Suíte de Testes Mobile (`npm --prefix apps/mobile test -- --runInBand`):**
+  ```text
+  Test Suites: 38 passed, 38 total
+  Tests:       296 passed, 296 total
+  Snapshots:   0 total
+  Time:        25.709 s
+  Total Mobile: 38 suítes | 296 PASS | 0 FAIL (100% Green Phase aprovada)
+  ```
+- **Consolidação Final do Projeto Celsus (Sprint 26 Concluída):**
+  - **46 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **321 testes automatizados aprovados (25 em Go + 296 em TypeScript/Jest)**
   - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
 
 

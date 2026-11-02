@@ -46,8 +46,11 @@ import {
   redactPercentageValue,
   redactWithAsterisks,
   PRIVACY_ASTERISK_MASK,
+  PRIVACY_CURRENCY_MASK,
+  PRIVACY_MASK,
   privacyAndAuthService,
 } from './src/services/privacyAndAuth';
+import * as Font from 'expo-font';
 import {
   getPortfolioPalette,
   themeModeService,
@@ -210,6 +213,15 @@ function AppContent() {
   };
 
   useEffect(() => {
+    // Pré-carregamento de fontes MaterialIcons para evitar layout shift
+    if (MaterialIcons?.font && typeof Font?.loadAsync === 'function') {
+      Font.loadAsync(MaterialIcons.font).catch(() => {});
+    }
+
+    const unsub = privacyAndAuthService.subscribe((state) => {
+      setIsPrivacyMode(state.isPrivacyModeEnabled);
+    });
+
     refreshAppData();
     marketApiService.fetchQuotes(['PETR4'])
       .then(() => {
@@ -225,6 +237,10 @@ function AppContent() {
       .catch(() => {
         setIsOffline(true);
       });
+
+    return () => {
+      unsub();
+    };
   }, []);
 
   const handleSimulate = () => {
@@ -259,8 +275,8 @@ function AppContent() {
     );
   };
 
-  const balanceDisplay = redactWithAsterisks(totalPatrimony, isPrivacyMode);
-  const profitDisplay = redactWithAsterisks(profitSummary, isPrivacyMode);
+  const balanceDisplay = isPrivacyMode ? PRIVACY_CURRENCY_MASK : totalPatrimony;
+  const profitDisplay = isPrivacyMode ? PRIVACY_MASK : profitSummary;
 
   // Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
   if (isSettingsBackupModalOpen) {
@@ -634,8 +650,8 @@ function AppContent() {
           <StackedWalletDeck
             portfolios={walletsList.map((w, idx) => ({
               ...w,
-              balance: isPrivacyMode ? PRIVACY_ASTERISK_MASK : (idx === 0 ? balanceDisplay : w.balance),
-              profitText: isPrivacyMode ? PRIVACY_ASTERISK_MASK : (idx === 0 ? profitDisplay : w.profitText),
+              balance: isPrivacyMode ? PRIVACY_CURRENCY_MASK : (idx === 0 ? balanceDisplay : w.balance),
+              profitText: isPrivacyMode ? PRIVACY_MASK : (idx === 0 ? profitDisplay : w.profitText),
             }))}
             activeIndex={activeWalletIndex}
             onPortfolioChange={(idx) => setActiveWalletIndex(idx)}
@@ -658,7 +674,7 @@ function AppContent() {
           <RecentTransactionsCard
             transactions={transactionsList.map((tx) => ({
               ...tx,
-              amountText: isPrivacyMode ? PRIVACY_ASTERISK_MASK : tx.amountText,
+              amountText: isPrivacyMode ? PRIVACY_CURRENCY_MASK : tx.amountText,
             }))}
             onViewAll={() => setIsAllTransactionsModalOpen(true)}
             onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}

@@ -2,10 +2,12 @@
 jest.mock('@expo/vector-icons/MaterialIcons', () => {
   const React = require('react');
   const { Text } = require('react-native');
-  return function MockMaterialIcons(props) {
+  function MockMaterialIcons(props) {
     const { name, testID, ...rest } = props;
     return React.createElement(Text, { testID: testID, ...rest }, name);
-  };
+  }
+  MockMaterialIcons.font = { 'material-icons': 1 };
+  return MockMaterialIcons;
 });
 
 jest.mock('@expo/vector-icons', () => {
