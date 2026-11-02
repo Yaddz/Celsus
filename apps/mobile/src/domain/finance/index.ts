@@ -6,3 +6,4 @@ export * from './rebalance';
 export * from './portfolioHistory';
 export * from './consolidatedView';
 export * from './reactiveWeights';
+export * from './corporateEvents';

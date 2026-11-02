@@ -30,7 +30,8 @@
 | **Sprint 21** | Motor SQLite Go: Precedência `COTAHIST > YAHOO`, `adj_close`, Eventos Corporativos, Filtro `.ZIP` e Licenciamento Seed | 2 mod | 4 | 4 | 0 | `VERIFIED (41 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 22** | Fachada Mobile Go (`pkg/mobilebridge`), JSON API Gomobile e Sincronização Sob Demanda | 1 | 7 | 0 | 7 | `VERIFIED (42 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
 | **Sprint 23** | Expo Module Nativo Android (`modules/celsus-market`), Integração `MarketApiService` e Cache 15m TTL | 1 | 10 | 10 | 0 | `VERIFIED (43 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S23)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **43** | **306** | **299** | **7** | **`VERIFIED (43 arquivos)`** | **⏳ 299 PASS / 7 Red Phase** |
+| **Sprint 24** | Eventos Corporativos: Desdobramentos (`Splits`) e Grupamentos (`Inplits`), Ajuste de PM e Idempotência | 1 | 8 | 1 | 7 | `VERIFIED (44 arquivos)` | ⏳ Red Phase (Aguardando Fase B) |
+| **TOTAL (S1–S24)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **44** | **314** | **300** | **14** | **`VERIFIED (44 arquivos)`** | **⏳ 300 PASS / 14 Red Phase** |
 
 ---
 
@@ -289,6 +290,17 @@
 | `S23-T01` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Zero HTTP / Invocação Direta da Bridge Nativa` | `MarketApiService` delega `fetchQuotes`, `getHistoricalPrice`, `searchCatalog`, `fetchMacroRates` e `checkHealth` para `nativeBridge` sem chamar `global.fetch` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | 🟢 PASS (0.07s) |
 | `S23-T02` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Cache SQLite com TTL de 15 Minutos e Force Refresh` | Cotações com `updated_at` < 15 min retornadas do SQLite com `isStale: false`; `updated_at` >= 15 min ou `forceRefresh: true` acionam `nativeBridge.fetchQuotes` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | 🟢 PASS (0.01s) |
 | `S23-T03` | `src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts` | `Fallback Offline / Stale e Sanitização de Ticker (.SA)` | Se a rede/bridge falhar, retorna cotação do SQLite com `isStale: true` e preserva `updatedAt` original intacto; sanitiza tickers removendo qualquer sufixo `.SA` | `d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6` | 🟢 PASS (0.01s) |
+
+---
+
+### 2.21. Sprint 24 — Eventos Corporativos na Carteira: Desdobramentos (`Splits`) e Grupamentos (`Inplits`) (`SPEC_V3.md`)
+
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S24-T01` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Desdobramento / Stock Split (Proporção > 1)` | Ajuste de quantidade e preço médio em desdobramentos inteiros (4:1) e fracionários (3:2) preservando rigorosamente o custo total fiscal de aquisição | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
+| `S24-T02` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Grupamento / Inplit (Proporção < 1)` | Ajuste de quantidade e preço médio em grupamentos (10:1), invariante fiscal e rejeição de proporções com numerador/denominador <= 0 | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
+| `S24-T03` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Ordem Cronológica Mista com calculatePositionFromTransactions` | Reconstrução cronológica de carteira combinando Compra Pré-Split, Split, Compra Pós-Split e Venda Parcial, bem como múltiplos eventos consecutivos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
+| `S24-T04` | `src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts` | `Idempotência na Reconciliação de Eventos Corporativos` | Geração de `external_id` determinístico (`YAHOO_SPLIT_${ticker}_${date}_${ratio}`), dedup evitando reaplicação em sincronizações sucessivas e descarte de dividendos | `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144` | ❌ FAIL (Red Phase) |
 
 ---
 
@@ -1729,6 +1741,44 @@
   - **43 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
   - **299 testes automatizados com 100% de aprovação (25 em Go + 274 em TypeScript/Jest)**
   - **Integridade de código e imutabilidade de testes rigorosamente auditadas**
+
+---
+
+### Sprint 24 — Fase A: Autoria e Bloqueio dos Testes de Eventos Corporativos (Splits e Inplits) (2026-11-01)
+- **Status do Bloqueio:** 44 arquivos de teste protegidos com atributo `ReadOnly` e registrados com hash `SHA-256` em `tests.lock.json` (incluindo a nova suíte `apps/mobile/src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts`).
+- **Validação de Integridade (`powershell ./scripts/test-lock.ps1 -Action lock` / `verify`):**
+  ```text
+  [TDD LOCK] 44 arquivo(s) de teste bloqueado(s) com ReadOnly e registrados em tests.lock.json.
+  [TDD VERIFIED] Integridade de todos os 44 arquivos de teste confirmada via SHA-256.
+  ```
+- **Arquivo de Teste Criado e Bloqueado:**
+  - `apps/mobile/src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts`: `3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144`
+- **Execução dos Testes da Sprint 24 sob Stubs (Red Phase Confirmada no Jest):**
+  ```text
+  FAIL src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts
+    Sprint 24: Corporate Events (Stock Splits & Inplits) Specification
+      S24-T01: Desdobramento / Stock Split (Proporção > 1)
+        × deve ajustar quantidade e preço médio em desdobramento 4:1 preservando custo total de aquisição (1 ms)
+        × deve processar desdobramentos fracionários mantendo precisão decimal sem resíduos (5 ms)
+      S24-T02: Grupamento / Reverse Stock Split - Inplit (Proporção < 1)
+        × deve ajustar quantidade e preço médio em grupamento 10:1 preservando custo total de aquisição (1 ms)
+        √ deve rejeitar proporções inválidas (numerador ou denominador <= 0) (2 ms)
+      S24-T03: Ordem Cronológica Mista com calculatePositionFromTransactions
+        × deve reconstruir posição com Compra Pré-Split, Split, Compra Pós-Split e Venda Parcial (4 ms)
+        × deve aplicar múltiplos desdobramentos e grupamentos consecutivos na ordem cronológica correta (1 ms)
+      S24-T04: Idempotência na Reconciliação de Eventos Corporativos
+        × deve aplicar split novo gerando external_id determinístico e ignorar quando já aplicado
+        × deve ignorar eventos de dividendos em dinheiro sem alterar posição acionária
+
+    Test Suites: 1 failed, 1 total
+    Tests:       7 failed, 1 passed, 8 total
+    Snapshots:   0 total
+    Time:        3.18 s
+    Ran all test suites matching src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts.
+  ```
+- **Total da Sprint 24 em Red Phase:** 8 novos casos | 1 PASS | 7 FAIL (Fase A Red Phase confirmada sob stubs).
+- **Total Geral do Projeto Celsus:** 44 arquivos de teste bloqueados | 314 casos de teste automatizados (300 PASS / 14 FAIL aguardando implementação da Fase B).
+
 
 
 

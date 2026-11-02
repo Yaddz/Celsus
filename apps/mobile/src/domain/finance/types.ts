@@ -52,13 +52,19 @@ export interface SellOperationResult {
   realizedPnl: string;
 }
 
+export interface SplitRatio {
+  numerator: number;
+  denominator: number;
+}
+
 export interface PositionTransaction {
-  type: 'BUY' | 'SELL';
+  type: 'BUY' | 'SELL' | 'SPLIT' | 'INPLIT';
   quantity: string | number;
   unitPrice?: string | number;
   price?: string | number;
   fees?: string | number;
   tradeDate?: string;
+  splitRatio?: SplitRatio;
 }
 
 export interface PositionResult {
