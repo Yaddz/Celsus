@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/sync/singleflight"
 	"github.com/pedro/celsus/services/market-api/internal/quotes"
 )
 
@@ -21,8 +22,10 @@ const (
 )
 
 type cachedQuote struct {
-	quote     quotes.Quote
-	expiresAt time.Time
+	quote      quotes.Quote
+	expiresAt  time.Time
+	isNegative bool
+	err        error
 }
 
 // Client interacts with Yahoo Finance v8 chart API with failover, User-Agent, concurrency semaphore, and TTL cache.
@@ -35,6 +38,7 @@ type Client struct {
 	cache           map[string]cachedQuote
 	mu              sync.RWMutex
 	sem             chan struct{}
+	requestGroup    singleflight.Group
 }
 
 // NewClient creates a new Yahoo Finance Client with configurable primary and fallback base URLs.
@@ -192,7 +196,78 @@ func (c *Client) fetchChartWithFailover(ctx context.Context, yahooSymbol, rangeP
 	return nil, err
 }
 
-// FetchQuotes fetches quotes for B3 stocks, FIIs, and crypto in batch with TTL caching and query1->query2 failover.
+func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quotes.Quote, error) {
+	val, err, _ := c.requestGroup.Do(cleanTicker, func() (interface{}, error) {
+		now := time.Now()
+		c.mu.RLock()
+		if cached, ok := c.cache[cleanTicker]; ok && now.Before(cached.expiresAt) {
+			if cached.isNegative {
+				c.mu.RUnlock()
+				return quotes.Quote{}, cached.err
+			}
+			c.mu.RUnlock()
+			return cached.quote, nil
+		}
+		c.mu.RUnlock()
+
+		yahooSym := ToYahooSymbol(cleanTicker, "")
+		chartRes, err := c.fetchChartWithFailover(ctx, yahooSym, "5d", "1d", false)
+		if err != nil {
+			if strings.Contains(err.Error(), "429") {
+				c.mu.Lock()
+				c.cache[cleanTicker] = cachedQuote{
+					isNegative: true,
+					err:        err,
+					expiresAt:  time.Now().Add(60 * time.Second),
+				}
+				c.mu.Unlock()
+			}
+			return quotes.Quote{}, err
+		}
+
+		price := chartRes.Meta.RegularMarketPrice
+		prevClose := chartRes.Meta.ChartPreviousClose
+		change24h := chartRes.Meta.RegularMarketChangePercent
+		if change24h == 0 && prevClose > 0 {
+			change24h = ((price - prevClose) / prevClose) * 100.0
+		}
+
+		var updatedAt time.Time
+		if chartRes.Meta.RegularMarketTime > 0 {
+			updatedAt = time.Unix(chartRes.Meta.RegularMarketTime, 0).UTC()
+		} else {
+			updatedAt = time.Now().UTC()
+		}
+
+		clean := FromYahooSymbol(chartRes.Meta.Symbol)
+		if clean == "" {
+			clean = cleanTicker
+		}
+
+		q := quotes.Quote{
+			Ticker:    clean,
+			Price:     price,
+			Change24h: change24h,
+			UpdatedAt: updatedAt,
+			Source:    "YAHOO",
+		}
+
+		c.mu.Lock()
+		c.cache[cleanTicker] = cachedQuote{
+			quote:     q,
+			expiresAt: time.Now().Add(c.cacheTTL),
+		}
+		c.mu.Unlock()
+		return q, nil
+	})
+
+	if err != nil {
+		return quotes.Quote{}, err
+	}
+	return val.(quotes.Quote), nil
+}
+
+// FetchQuotes fetches quotes for B3 stocks, FIIs, and crypto in batch with TTL caching, singleflight and query1->query2 failover.
 func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]quotes.Quote, error) {
 	if len(tickers) == 0 {
 		return map[string]quotes.Quote{}, nil
@@ -202,19 +277,23 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 	var missing []string
 	now := time.Now()
 
-	c.mu.RLock()
 	for _, raw := range tickers {
 		clean := FromYahooSymbol(raw)
 		if clean == "" {
 			continue
 		}
-		if cached, ok := c.cache[clean]; ok && now.Before(cached.expiresAt) {
+		c.mu.RLock()
+		cached, ok := c.cache[clean]
+		c.mu.RUnlock()
+		if ok && now.Before(cached.expiresAt) {
+			if cached.isNegative {
+				return nil, cached.err
+			}
 			results[clean] = cached.quote
 		} else {
 			missing = append(missing, clean)
 		}
 	}
-	c.mu.RUnlock()
 
 	if len(missing) == 0 {
 		return results, nil
@@ -233,41 +312,8 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 		wg.Add(1)
 		go func(tkr string) {
 			defer wg.Done()
-			yahooSym := ToYahooSymbol(tkr, "")
-			chartRes, err := c.fetchChartWithFailover(ctx, yahooSym, "5d", "1d", false)
-			if err != nil {
-				outcomes <- fetchOutcome{cleanTicker: tkr, err: err}
-				return
-			}
-
-			price := chartRes.Meta.RegularMarketPrice
-			prevClose := chartRes.Meta.ChartPreviousClose
-			change24h := chartRes.Meta.RegularMarketChangePercent
-			if change24h == 0 && prevClose > 0 {
-				change24h = ((price - prevClose) / prevClose) * 100.0
-			}
-
-			var updatedAt time.Time
-			if chartRes.Meta.RegularMarketTime > 0 {
-				updatedAt = time.Unix(chartRes.Meta.RegularMarketTime, 0).UTC()
-			} else {
-				updatedAt = now.UTC()
-			}
-
-			clean := FromYahooSymbol(chartRes.Meta.Symbol)
-			if clean == "" {
-				clean = tkr
-			}
-
-			outcomes <- fetchOutcome{
-				cleanTicker: clean,
-				quote: quotes.Quote{
-					Ticker:    clean,
-					Price:     price,
-					Change24h: change24h,
-					UpdatedAt: updatedAt,
-				},
-			}
+			q, err := c.fetchSingleQuote(ctx, tkr)
+			outcomes <- fetchOutcome{cleanTicker: tkr, quote: q, err: err}
 		}(cleanTicker)
 	}
 
@@ -275,7 +321,6 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 	close(outcomes)
 
 	var firstErr error
-	c.mu.Lock()
 	for out := range outcomes {
 		if out.err != nil {
 			if firstErr == nil {
@@ -283,13 +328,8 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 			}
 			continue
 		}
-		c.cache[out.cleanTicker] = cachedQuote{
-			quote:     out.quote,
-			expiresAt: now.Add(c.cacheTTL),
-		}
 		results[out.cleanTicker] = out.quote
 	}
-	c.mu.Unlock()
 
 	if len(results) == 0 && firstErr != nil {
 		return nil, firstErr

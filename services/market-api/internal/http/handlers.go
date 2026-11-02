@@ -3,10 +3,14 @@ package http
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/pedro/celsus/services/market-api/internal/macro"
+	"github.com/pedro/celsus/services/market-api/internal/yahoo"
 )
+
+var tickerRegex = regexp.MustCompile(`^[A-Z0-9.\-_]{1,15}$`)
 
 // handleHealth returns server status, cotahist last date, and brapi status.
 func (s *Server) handleHealth() http.HandlerFunc {
@@ -101,6 +105,13 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 		}
 
 		rawTickers := strings.Split(tickersParam, ",")
+		if len(rawTickers) > 20 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "maximum 20 tickers allowed"})
+			return
+		}
+
 		var stockTickers []string
 		var cryptoCoins []string
 
@@ -108,6 +119,12 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 			clean := strings.ToUpper(strings.TrimSpace(item))
 			if clean == "" {
 				continue
+			}
+			if !tickerRegex.MatchString(clean) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": "invalid ticker format"})
+				return
 			}
 			if isCryptoTicker(clean) {
 				cryptoCoins = append(cryptoCoins, clean)
@@ -117,11 +134,17 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 		}
 
 		quotesMap := make(map[string]interface{})
+		var firstErr error
 
 		if len(stockTickers) > 0 && s.quoteProvider != nil {
 			stkQuotes, err := s.quoteProvider.FetchQuotes(r.Context(), stockTickers)
-			if err == nil {
+			if err != nil {
+				firstErr = err
+			} else {
 				for k, v := range stkQuotes {
+					if v.Source == "" {
+						v.Source = "YAHOO"
+					}
 					quotesMap[k] = v
 				}
 			}
@@ -129,11 +152,25 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 
 		if len(cryptoCoins) > 0 && s.quoteProvider != nil {
 			cryptoQuotes, err := s.quoteProvider.FetchCryptoQuotes(r.Context(), cryptoCoins)
-			if err == nil {
+			if err != nil {
+				if firstErr == nil {
+					firstErr = err
+				}
+			} else {
 				for k, v := range cryptoQuotes {
+					if v.Source == "" {
+						v.Source = "YAHOO"
+					}
 					quotesMap[k] = v
 				}
 			}
+		}
+
+		if len(quotesMap) == 0 && firstErr != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadGateway)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "upstream provider failure: " + firstErr.Error()})
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -160,6 +197,14 @@ func (s *Server) handleHistory() http.HandlerFunc {
 			return
 		}
 
+		rawTickers := strings.Split(tickersParam, ",")
+		if len(rawTickers) > 20 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "maximum 20 tickers allowed"})
+			return
+		}
+
 		from := strings.TrimSpace(r.URL.Query().Get("from"))
 		if from == "" {
 			from = "0000-01-01"
@@ -170,7 +215,6 @@ func (s *Server) handleHistory() http.HandlerFunc {
 		}
 
 		historyMap := make(map[string][]historyPoint)
-		rawTickers := strings.Split(tickersParam, ",")
 
 		for _, item := range rawTickers {
 			ticker := strings.ToUpper(strings.TrimSpace(item))
@@ -179,16 +223,27 @@ func (s *Server) handleHistory() http.HandlerFunc {
 			}
 
 			quotes, err := s.cotahistRepo.GetQuotes(r.Context(), ticker, from, to)
-			if err != nil {
-				continue
-			}
-
-			points := make([]historyPoint, 0, len(quotes))
-			for _, q := range quotes {
-				points = append(points, historyPoint{
-					Date:  q.Date,
-					Close: q.Close,
-				})
+			points := make([]historyPoint, 0)
+			if err == nil && len(quotes) > 0 {
+				for _, q := range quotes {
+					points = append(points, historyPoint{
+						Date:  q.Date,
+						Close: q.Close,
+					})
+				}
+			} else if yClient, ok := s.quoteProvider.(*yahoo.Client); ok {
+				// Fallback para Yahoo quando COTAHIST não contiver o ticker
+				bars, _, errFallback := yClient.FetchChartHistory(r.Context(), ticker, "1y")
+				if errFallback == nil {
+					for _, b := range bars {
+						if (from == "" || b.Date >= from) && (to == "" || b.Date <= to) {
+							points = append(points, historyPoint{
+								Date:  b.Date,
+								Close: b.Close,
+							})
+						}
+					}
+				}
 			}
 			historyMap[ticker] = points
 		}

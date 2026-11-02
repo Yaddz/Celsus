@@ -54,6 +54,7 @@ export interface IMarketApiService {
   fetchMacroRates(from: string): Promise<MacroRateData[]>;
   getCorporateEvents?(tickers: string[], fromDate: string): Promise<any[]>;
   ingestCotahistZip?(zipPath: string, allowedTickers?: string[]): Promise<any>;
+  isNativeBridgeAvailable?(): boolean;
 }
 
 export class MarketApiService implements IMarketApiService {
@@ -62,10 +63,11 @@ export class MarketApiService implements IMarketApiService {
   protected nativeBridge?: INativeMarketBridge | null;
 
   constructor(
-    apiBaseUrlOrBridge: string | INativeMarketBridge | null = 'http://localhost:8080',
+    apiBaseUrlOrBridge: string | INativeMarketBridge | null = process.env.EXPO_PUBLIC_MARKET_API_URL || 'http://localhost:8080',
     db?: any,
     nativeBridge?: INativeMarketBridge | null
   ) {
+    const defaultUrl = process.env.EXPO_PUBLIC_MARKET_API_URL || 'http://localhost:8080';
     if (typeof apiBaseUrlOrBridge === 'string') {
       this.apiBaseUrl = apiBaseUrlOrBridge;
       this.customDb = db;
@@ -73,8 +75,12 @@ export class MarketApiService implements IMarketApiService {
     } else {
       this.nativeBridge = apiBaseUrlOrBridge !== undefined ? apiBaseUrlOrBridge : CelsusMarketModule;
       this.customDb = db;
-      this.apiBaseUrl = 'http://localhost:8080';
+      this.apiBaseUrl = defaultUrl;
     }
+  }
+
+  isNativeBridgeAvailable(): boolean {
+    return Boolean(this.nativeBridge);
   }
 
   protected get db() {
@@ -275,6 +281,7 @@ export class MarketApiService implements IMarketApiService {
             ),
             updatedAt: q.updated_at || q.updatedAt || new Date().toISOString(),
             isStale: Boolean(q.is_stale ?? q.isStale ?? false),
+            source: q.source || (q.provider ? q.provider : 'YAHOO'),
           }));
 
           // Atualiza o cache local no SQLite
@@ -347,6 +354,7 @@ export class MarketApiService implements IMarketApiService {
           ),
           updatedAt: q.updated_at || q.updatedAt || new Date().toISOString(),
           isStale: false,
+          source: q.source || (q.provider ? q.provider : 'YAHOO'),
         }));
 
         // Atualiza cache local

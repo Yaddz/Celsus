@@ -11,6 +11,7 @@ type Quote struct {
 	Price     float64   `json:"price"`
 	Change24h float64   `json:"change_24h"`
 	UpdatedAt time.Time `json:"updated_at"`
+	Source    string    `json:"source,omitempty"`
 }
 
 // HistoricalBar represents a single OHLCV + AdjClose daily trading bar.

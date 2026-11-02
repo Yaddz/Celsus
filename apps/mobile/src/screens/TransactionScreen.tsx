@@ -28,6 +28,7 @@ export interface TransactionScreenProps {
   initialTradeDate?: string;
   themeMode?: 'dark' | 'light';
   testID?: string;
+  isNativeBridgeAvailable?: boolean;
 }
 
 export const TransactionScreen: React.FC<TransactionScreenProps> = ({
@@ -38,8 +39,19 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   initialTradeDate,
   themeMode = 'dark',
   testID = 'transaction-screen',
+  isNativeBridgeAvailable,
 }) => {
   const isLight = themeMode === 'light';
+
+  const bridgeAvailable =
+    isNativeBridgeAvailable !== undefined
+      ? isNativeBridgeAvailable
+      : marketApiService.isNativeBridgeAvailable
+      ? marketApiService.isNativeBridgeAvailable()
+      : true;
+
+  const getTodayLocal = () => new Date().toLocaleDateString('sv-SE');
+
   const [portfolios, setPortfolios] = useState<Portfolio[]>(() => {
     return portfolioRepository.getPortfoliosSync ? portfolioRepository.getPortfoliosSync() : [];
   });
@@ -69,9 +81,13 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     return '';
   });
 
+  const [tickerQuery, setTickerQuery] = useState('');
+  const [tickerSuggestions, setTickerSuggestions] = useState<any[]>([]);
+  const [isSaveBlocked, setIsSaveBlocked] = useState(false);
+
   const [type, setType] = useState<'BUY' | 'SELL'>('BUY');
   const [tradeDate, setTradeDate] = useState<string>(
-    initialTradeDate || new Date().toISOString().slice(0, 10) // YYYY-MM-DD
+    initialTradeDate || getTodayLocal() // YYYY-MM-DD em horário local
   );
   const [quantity, setQuantity] = useState<string>('');
   const [unitPrice, setUnitPrice] = useState<string>('');
@@ -149,7 +165,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     setIsLoadingAutoFill(true);
     setAutoFillMessage(null);
 
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getTodayLocal();
     const isToday = date === todayStr;
 
     try {
@@ -159,7 +175,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         const quotes = await marketApiService.fetchQuotes([asset.ticker]);
         if (quotes && quotes.length > 0) {
           const q = quotes[0];
-          price = String(q.price || q.close_price || '');
+          price = String(q.currentPrice || (q as any).price || (q as any).close_price || '');
         }
       } else {
         // Cotação histórica para datas anteriores
@@ -177,13 +193,80 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
       }
     } catch {
       if (reqId === lastQuoteReqRef.current) {
-        setAutoFillMessage('Cotação não disponível (digite manualmente).');
+        setAutoFillMessage('Sem conexão com o motor de cotações (digite manualmente).');
       }
     } finally {
       if (reqId === lastQuoteReqRef.current) {
         setIsLoadingAutoFill(false);
       }
     }
+  };
+
+  const handleTickerSearch = async (text: string) => {
+    setTickerQuery(text);
+    if (!text || text.trim().length === 0) {
+      setTickerSuggestions([]);
+      return;
+    }
+    try {
+      const results = await marketApiService.searchCatalog(text.trim());
+      setTickerSuggestions(results || []);
+    } catch {
+      setTickerSuggestions([]);
+    }
+  };
+
+  const handleSelectSuggestion = (item: { ticker: string; name?: string; asset_class?: string }) => {
+    const upperTicker = item.ticker.trim().toUpperCase();
+    const existing = assets.find((a) => a.ticker.toUpperCase() === upperTicker);
+
+    if (existing) {
+      setSelectedAssetId(existing.id);
+      setIsSaveBlocked(false);
+      setTickerSuggestions([]);
+      setTickerQuery(upperTicker);
+      return;
+    }
+
+    // Ativo fora da carteira: confirmação interativa com o usuário
+    Alert.alert(
+      'Adicionar ativo à carteira?',
+      `O ativo ${upperTicker} não foi encontrado na carteira selecionada. Deseja adicionar à carteira para continuar?`,
+      [
+        {
+          text: 'Não',
+          style: 'cancel',
+          onPress: () => {
+            // Decisão Q3: Rejeição bloqueia o salvamento
+            setSelectedAssetId('');
+            setIsSaveBlocked(true);
+            setTickerSuggestions([]);
+          },
+        },
+        {
+          text: 'Sim',
+          onPress: async () => {
+            try {
+              const newAsset = await assetRepository.createAsset({
+                portfolio_id: selectedPortfolioId,
+                name: item.name || upperTicker,
+                ticker: upperTicker,
+                asset_class: (item.asset_class as any) || 'STOCK',
+                quantity: '0',
+                average_price: '0.00',
+              });
+              setAssets((prev) => [...prev, newAsset]);
+              setSelectedAssetId(newAsset.id);
+              setIsSaveBlocked(false);
+              setTickerSuggestions([]);
+              setTickerQuery(upperTicker);
+            } catch (err: any) {
+              Alert.alert('Erro', err.message || 'Falha ao vincular ativo à carteira.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   useEffect(() => {
@@ -276,6 +359,16 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
       )}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* Aviso de Motor Go Nativo Indisponível (Expo Go / Fallback) */}
+        {!bridgeAvailable && (
+          <View testID="native-bridge-unavailable-notice" style={[styles.envNotice, isLight && styles.envNoticeLight]}>
+            <MaterialIcons name="info-outline" size={16} color={isLight ? '#8A531B' : '#E5A93C'} />
+            <Text style={[styles.envNoticeText, isLight && styles.envNoticeTextLight]}>
+              Motor local indisponível neste ambiente (modo desenvolvimento / fallback HTTP).
+            </Text>
+          </View>
+        )}
+
         {/* Seletor Tipo: COMPRA vs VENDA */}
         <View style={styles.typeSelectorRow}>
           <TouchableOpacity
@@ -357,6 +450,42 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
               );
             })}
           </ScrollView>
+        </View>
+
+        {/* Busca e Entrada Livre de Ticker */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>BUSCAR OU DIGITAR TICKER</Text>
+          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
+            <MaterialIcons name="search" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />
+            <TextInput
+              testID="transaction-ticker-search-input"
+              style={[styles.textInput, isLight && styles.textInputLight]}
+              value={tickerQuery}
+              onChangeText={handleTickerSearch}
+              placeholder="Buscar ou digitar ticker (Ex: WEGE3, PETR4)..."
+              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
+              autoCapitalize="characters"
+            />
+          </View>
+          {tickerSuggestions.length > 0 && (
+            <View style={[styles.suggestionsBox, isLight && styles.suggestionsBoxLight]}>
+              {tickerSuggestions.map((item) => (
+                <TouchableOpacity
+                  key={item.ticker}
+                  testID={`ticker-autocomplete-suggestion-${item.ticker}`}
+                  style={[styles.suggestionItem, isLight && styles.suggestionItemLight]}
+                  onPress={() => handleSelectSuggestion(item)}
+                >
+                  <Text style={[styles.suggestionTicker, isLight && styles.suggestionTickerLight]}>
+                    {item.ticker}
+                  </Text>
+                  <Text style={[styles.suggestionName, isLight && styles.suggestionNameLight]}>
+                    {item.name || item.ticker}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Seleção do Ativo */}
@@ -512,9 +641,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Botão de Registro */}
         <DirectiveButton
+          testID="transaction-save-submit-btn"
           label={isSubmitting ? 'REGISTRANDO...' : 'REGISTRAR NO LIVRO-RAZÃO'}
           variant={type === 'BUY' ? 'primary' : 'secondary'}
-          disabled={isSubmitting}
+          disabled={isSubmitting || isSaveBlocked || !selectedAssetId}
           onPress={handleSubmit}
           themeMode={themeMode}
           style={{ marginTop: spacing.md }}
@@ -779,6 +909,71 @@ const styles = StyleSheet.create({
   },
   containerLight: {
     backgroundColor: '#F4F1EA',
+  },
+  envNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2A1F11',
+    borderWidth: 1,
+    borderColor: '#543D1A',
+    borderRadius: borders.radiusSm,
+    padding: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  envNoticeLight: {
+    backgroundColor: '#FEF3E2',
+    borderColor: '#F3D29E',
+  },
+  envNoticeText: {
+    flex: 1,
+    fontFamily: typography.fontFamilyMono,
+    fontSize: typography.fontSizeXs,
+    color: '#E5A93C',
+  },
+  envNoticeTextLight: {
+    color: '#8A531B',
+  },
+  suggestionsBox: {
+    backgroundColor: colors.ebonyCard,
+    borderWidth: 1,
+    borderColor: colors.neutral,
+    borderRadius: borders.radiusSm,
+    marginTop: spacing.xs,
+    overflow: 'hidden',
+  },
+  suggestionsBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E8E5DD',
+  },
+  suggestionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.neutral,
+  },
+  suggestionItemLight: {
+    borderBottomColor: '#E8E5DD',
+  },
+  suggestionTicker: {
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: '700',
+    fontSize: typography.fontSizeSm,
+    color: colors.parchmentPale,
+  },
+  suggestionTickerLight: {
+    color: '#111315',
+  },
+  suggestionName: {
+    fontFamily: typography.fontFamily,
+    fontSize: typography.fontSizeXs,
+    color: colors.parchmentMuted,
+  },
+  suggestionNameLight: {
+    color: '#6E6A63',
   },
 });
 
