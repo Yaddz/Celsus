@@ -738,4 +738,6 @@ const styles = StyleSheet.create({
   },
 });
 
+export const PortfolioCardStack = StackedWalletDeck;
+
 export default StackedWalletDeck;

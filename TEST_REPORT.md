@@ -41,7 +41,8 @@
 | **Sprint 32** | P0: Dados, Persistência e Integração Real (Cotação Automática, SQLite Real, Cores Unificadas e Zero Bypasses) | 1 | 8 | 8 | 0 | `VERIFIED (52 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 33** | P1: Pilha de Carteiras, Exclusão no Rodapé, Floating Dock e Animação de Modais | 1 | 5 | 5 | 0 | `VERIFIED (53 arquivos)` | 🟢 Aprovado (100% Green) |
 | **Sprint 34** | P2: Header XP Padrão e Aceite Ponta a Ponta E2E | 1 | 4 | 4 | 0 | `VERIFIED (54 arquivos)` | 🟢 Aprovado (100% Green) |
-| **TOTAL (S1–S34)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **54** | **375** | **375** | **0** | **`VERIFIED (54 arquivos)`** | **🟢 100% Aprovado (375 PASS)** |
+| **Sprint 35** | Baralho Empilhado de Carteiras (Card Stack), Gestos Verticais 50% e Loop Cíclico | 1 | 8 | 0 | 8 | `LOCKED (55 arquivos)` | 🔴 Fase A Concluída (Red Phase) |
+| **TOTAL (S1–S35)** | **Suíte Integrada (Backend Go + Mobile React Native/Expo)** | **55** | **383** | **375** | **8** | **`LOCKED (55 arquivos)`** | **🟡 Em Execução (Fase A Red)** |
 
 ---
 
@@ -2376,6 +2377,23 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | **2. Header XP Interno (Voltar + Título + Olho + Globo)** | 🟢 PASS (`S34-T01`) — Botão voltar com seta, título da tela, olho e globo em todas as telas internas | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
 | **3. Ausência de Headers Pesados Legados** | 🟢 PASS (`S34-T02`) — Zero headers pesados duplicados em toda a árvore de telas | 🟢 PASS (Validado em análise estrutural da árvore de componentes) | Aprovado |
 | **4. Fluxo Ponta a Ponta E2E Completo** | 🟢 PASS (`S34-T03`) — Criar carteira → Adicionar ativo → Movimentar compra → Ver no deck e extrato | 🟡 Não validado em dispositivo físico (Aguardando teste manual do usuário) | Pronto para teste físico |
+
+---
+
+### 2.35. Sprint 35: Baralho Empilhado de Carteiras (Portfolio Card Stack)
+
+#### 2.35.1. Tabela de Casos de Teste (Fase A)
+| ID | Arquivo de Teste | Caso de Teste | Regra da Especificação Verificada | Hash SHA-256 do Arquivo | Resultado |
+| :--- | :--- | :--- | :--- | :---: | :---: |
+| `S35-T01` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Visible Depth Layers Render Real Full Content | Renderização com conteúdo real completo nos cards de profundidade (Card 1 e Card 2 com saldos, nomes e badges visíveis) | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T02` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | "Nova Carteira" Special Card is Always the Last Card | Card especial "Nova Carteira" é sempre o último card do baralho quando ação de criação existe | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T03` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Full Cyclic Loop Around the Deck | Loop cíclico completo ao arrastar além do último card da pilha, voltando ao card inicial | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T04` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Reverts on Drag < 50% | Arraste vertical menor que 50% da altura do card é cancelado e card volta com mola elástica | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T05` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | 50% Height Threshold - Confirms Swap on Drag >= 50% | Arraste vertical >= 50% da altura confirma troca para próxima (ou anterior) carteira | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T06` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Edge Cases - Empty Deck and Single Portfolio Deck | Casos de borda: 0 carteiras exibe empty state; 1 carteira isolada bloqueia troca por gesto | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T07` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Privacy Mode Masks Balances Across All Rendered Cards | Mascaramento de privacidade (`R$ ••••••`) aplicado em todos os cards visíveis da pilha | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+| `S35-T08` | `apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx` | Central walletStore Reactive Synchronization | Sincronização central via `walletStore` notificando subscribers e gerindo índice ativo | `38404cf39d6a6d2cb6f18ec05066366941200da29eded3460c289414a9081840` | 🔴 RED (Fase A) |
+
 
 
 
