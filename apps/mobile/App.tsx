@@ -568,9 +568,20 @@ function AppContent() {
           themeMode={themeMode}
           onClose={() => {
             setIsTransactionModalOpen(false);
+            setOpenAddAssetModal(false);
+            setOpenCreatePortfolioModal(false);
+            setIsPortfolioManagerModalOpen(false);
+            setActiveTab('home');
             refreshAppData();
           }}
-          onTransactionSuccess={() => refreshAppData()}
+          onTransactionSuccess={() => {
+            setIsTransactionModalOpen(false);
+            setOpenAddAssetModal(false);
+            setOpenCreatePortfolioModal(false);
+            setIsPortfolioManagerModalOpen(false);
+            setActiveTab('home');
+            refreshAppData();
+          }}
         />
       </SafeAreaView>
     );
@@ -679,8 +690,18 @@ function AppContent() {
             setSelectedRecentTransaction(null);
             setActiveTab(tab);
           }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
           onNovaCarteiraPress={() => {
             setSelectedRecentTransaction(null);
             setOpenCreatePortfolioModal(true);
@@ -730,8 +751,18 @@ function AppContent() {
             setIsAllTransactionsModalOpen(false);
             setActiveTab(tab);
           }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
           onNovaCarteiraPress={() => {
             setIsAllTransactionsModalOpen(false);
             setOpenCreatePortfolioModal(true);
@@ -850,8 +881,18 @@ function AppContent() {
             setSelectedClassDetail(null);
             setActiveTab(tab);
           }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
           onNovaCarteiraPress={() => {
             setSelectedClassDetail(null);
             setOpenCreatePortfolioModal(true);
@@ -908,8 +949,18 @@ function AppContent() {
             setOpenAddAssetModal(false);
             setActiveTab(tab);
           }}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
@@ -945,8 +996,18 @@ function AppContent() {
         <FloatingBottomDock
           activeTab={activeTab}
           onTabChange={(tab) => setActiveTab(tab)}
-          onActionPress={() => setIsTransactionModalOpen(true)}
-          onNovoAportePress={() => setIsTransactionModalOpen(true)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setIsTransactionModalOpen(true);
+          }}
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
