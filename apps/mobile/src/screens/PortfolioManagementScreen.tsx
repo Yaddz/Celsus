@@ -1094,11 +1094,13 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           <View style={styles.portfolioFooterActions}>
             <TouchableOpacity
               testID="delete-portfolio-btn"
+              accessibilityRole="button"
+              accessibilityLabel="Excluir carteira ativa"
               activeOpacity={0.8}
               onPress={() => setIsDeleteModalOpen(true)}
               style={[styles.deletePortfolioBtn, isLight && styles.deletePortfolioBtnLight]}
             >
-              <MaterialIcons name="delete-outline" size={16} color="#E05252" />
+              <MaterialIcons name="delete-outline" size={18} color="#E05252" />
               <Text style={[styles.deletePortfolioBtnText, isLight && styles.deletePortfolioBtnTextLight]}>
                 Excluir Carteira
               </Text>
@@ -2240,18 +2242,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   portfolioFooterActions: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    width: '100%',
     marginTop: 24,
     marginBottom: 8,
-    paddingHorizontal: 16,
   },
   deletePortfolioBtn: {
+    alignSelf: 'stretch',
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: 'rgba(224, 82, 82, 0.12)',
     borderWidth: 1,
@@ -2263,7 +2266,7 @@ const styles = StyleSheet.create({
   },
   deletePortfolioBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.labelMd.fontSize,
     fontWeight: '700',
     color: '#E05252',
   },

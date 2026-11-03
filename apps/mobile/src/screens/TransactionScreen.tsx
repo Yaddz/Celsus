@@ -165,8 +165,9 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     setIsLoadingAutoFill(true);
     setAutoFillMessage(null);
 
-    const todayStr = getTodayLocal();
-    const isToday = date === todayStr;
+    const todayLocal = getTodayLocal();
+    const todayUtc = new Date().toISOString().slice(0, 10);
+    const isToday = date === todayLocal || date === todayUtc;
 
     try {
       let price: string | null = null;

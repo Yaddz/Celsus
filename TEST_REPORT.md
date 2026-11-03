@@ -2502,20 +2502,46 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 
 ### 2.38. Sprint 38: ScreenContainer, AppHeader e Padronização de Layout (SPEC V5 — Item C)
 
-#### 2.38.1. Tabela de Casos de Teste (Fase A — Red Phase & Lock)
+#### 2.38.1. Tabela de Casos de Teste (Fase B — 100% Green)
 
-| ID | Arquivo de Teste | Caso de Teste | Descrição da Regra / Comportamento Verificado | Hash SHA-256 do Teste Bloqueado | Status Fase A |
+| ID | Arquivo de Teste | Caso de Teste | Descrição da Regra / Comportamento Verificado | Hash SHA-256 do Teste Bloqueado | Status Fase B |
 |---|---|---|---|---|---|
-| `S38-T01` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Layout & Lateral Inset | Header slot renderizado fora do ScrollView; padding lateral de conteúdo padronizado em 16dp (`spacing.md`); suporte a modo estático (`scroll={false}`) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T02` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Footer Slot and Dock Spacing | Slot `footer` renderizado abaixo do ScrollView com espaçamento de dock (`hasBottomDock={true}`, paddingBottom >= 96) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T03` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Theme Background Colors | Aplica `colors.voidFloor` no tema dark e `#F4F1EA` no tema light dinamicamente | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T04` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "home" | Variante `home` exibe avatar, nome, botão de privacidade e globo, sem botão voltar | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T05` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "title" | Variante `title` exibe título sem botão voltar e sem avatar, mantendo ações na direita | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T06` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "back" | Variante `back` exibe botão circular de voltar, dispara `onBack`, com título e subtítulo | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T07` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | Delete Portfolio Button Geometry and Accessibility | Botão `delete-portfolio-btn` com largura total (`alignSelf: 'stretch'`), altura >= 48dp, `accessibilityRole="button"` e tipografia `labelMd` | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
-| `S38-T08` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | Home Screen Layout and Header Outside ScrollView | Home (`App.tsx`) posiciona header fora do ScrollView e conteúdo com recuo lateral padronizado em 16dp (`spacing.md`, Decisão Q4) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🔴 FAIL (Item C) |
+| `S38-T01` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Layout & Lateral Inset | Header slot renderizado fora do ScrollView; padding lateral de conteúdo padronizado em 16dp (`spacing.md`); suporte a modo estático (`scroll={false}`) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.12s) |
+| `S38-T02` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Footer Slot and Dock Spacing | Slot `footer` renderizado abaixo do ScrollView com espaçamento de dock (`hasBottomDock={true}`, paddingBottom >= 96) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.01s) |
+| `S38-T03` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | ScreenContainer Theme Background Colors | Aplica `colors.voidFloor` no tema dark e `#F4F1EA` no tema light dinamicamente | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.01s) |
+| `S38-T04` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "home" | Variante `home` exibe avatar, nome, botão de privacidade e globo, sem botão voltar | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.02s) |
+| `S38-T05` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "title" | Variante `title` exibe título sem botão voltar e sem avatar, mantendo ações na direita | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.01s) |
+| `S38-T06` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | AppHeader Variant "back" | Variante `back` exibe botão circular de voltar, dispara `onBack`, com título e subtítulo | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.01s) |
+| `S38-T07` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | Delete Portfolio Button Geometry and Accessibility | Botão `delete-portfolio-btn` com largura total (`alignSelf: 'stretch'`), altura >= 48dp, `accessibilityRole="button"` e tipografia `labelMd` | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.18s) |
+| `S38-T08` | `apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx` | Home Screen Layout and Header Outside ScrollView | Home (`App.tsx`) posiciona header fora do ScrollView e conteúdo com recuo lateral padronizado em 16dp (`spacing.md`, Decisão Q4) | `b6ec643630304b41639565d4fd9646ed869c7e30d32365361e57e8c664833d75` | 🟢 PASS (0.14s) |
 
-- **Status da Fase A (Sprint 38):** 1 novo arquivo de teste contendo 8 casos de teste especificados, bloqueado no `tests.lock.json` com SHA-256 e protegido contra modificações. 9 asserções em falha esperada (Red Phase) comprovando as divergências de layout, dimensões e posicionamento de header descritas no Item C do SPEC V5.
+#### 2.38.2. Evidência de Execução da Fase B
+- **Execução dos Testes Mobile (`npm --prefix apps/mobile test`):**
+  ```text
+  PASS src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx (9 PASS)
+  Total Mobile Test Suites: 51 passed, 51 total
+  Total Mobile Tests:       386 passed, 386 total
+  Snapshots:                0 total
+  Time:                     10.754 s
+  ```
+- **Execução dos Testes Backend Go (`cd services/market-api && go test -count=1 ./...`):**
+  ```text
+  ok  	github.com/pedro/celsus/services/market-api/internal/brapi	0.090s
+  ok  	github.com/pedro/celsus/services/market-api/internal/cotahist	0.019s
+  ok  	github.com/pedro/celsus/services/market-api/internal/http	0.013s
+  ok  	github.com/pedro/celsus/services/market-api/internal/macro	0.009s
+  ok  	github.com/pedro/celsus/services/market-api/internal/yahoo	0.152s
+  ok  	github.com/pedro/celsus/services/market-api/pkg/mobilebridge	0.278s
+  Total Backend Go: 25 testes | 25 PASS | 0 FAIL
+  ```
+- **Validação de Integridade TDD Lock (`node scripts/test-lock.js verify`):**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 61 arquivos de teste confirmada via SHA-256.
+  ```
+- **Consolidação Final da Sprint 38:**
+  - **61 arquivos de teste protegidos por `SHA-256` (`tests.lock.json`)**
+  - **411 casos de teste automatizados executados (25 em Go + 386 em TypeScript/Jest)**
+  - **100% de aprovação (411 PASS / 0 FAIL) sob regime estrito de TDD Lock**
 
 
 

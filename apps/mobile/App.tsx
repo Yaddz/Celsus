@@ -883,30 +883,30 @@ function AppContent() {
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
 
+        {/* Header Minimalista XP (Avatar + Nome na esquerda, Globo + Olho na direita) */}
+        <XpMinimalHeader
+          testID="xp-minimal-header"
+          userName="Pedro"
+          userInitials="PL"
+          isPrivacyModeEnabled={isPrivacyMode}
+          onAvatarPress={() => setIsSettingsBackupModalOpen(true)}
+          onGlobePress={() => Alert.alert('Funcionalidade em desenvolvimento')}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
+          palette={activePalette}
+          themeMode={themeMode}
+        />
+
         <ScrollView
-          testID="home-scroll-content"
+          testID="home-scroll-view"
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: Math.max(insets.bottom, 16) + 96 },
           ]}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Minimalista XP (Avatar + Nome na esquerda, Globo + Olho na direita) */}
-          <XpMinimalHeader
-            testID="xp-minimal-header"
-            userName="Pedro"
-            userInitials="PL"
-            isPrivacyModeEnabled={isPrivacyMode}
-            onAvatarPress={() => setIsSettingsBackupModalOpen(true)}
-            onGlobePress={() => Alert.alert('Funcionalidade em desenvolvimento')}
-            onTogglePrivacy={() => {
-              const next = privacyAndAuthService.togglePrivacyMode();
-              setIsPrivacyMode(next.isPrivacyModeEnabled);
-            }}
-            palette={activePalette}
-            themeMode={themeMode}
-          />
-
           {isOffline && (
             <View testID="market-status-indicator" style={styles.offlineBanner}>
               <MaterialIcons name="cloud-off" size={16} color={colors.secondary} />
@@ -1090,7 +1090,7 @@ const styles = StyleSheet.create({
     opacity: 0.12,
   },
   scrollContent: {
-    paddingHorizontal: spacing.margin,
+    paddingHorizontal: spacing.md,
     paddingTop: spacing.xs,
   },
   header: {
