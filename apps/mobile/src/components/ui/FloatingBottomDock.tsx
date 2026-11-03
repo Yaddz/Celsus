@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -60,6 +60,14 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   const slideAnim = useRef(new Animated.Value(20)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    if (!isSheetOpen) {
+      rotateAnim.setValue(0);
+      slideAnim.setValue(20);
+      fadeAnim.setValue(0);
+    }
+  }, [isSheetOpen]);
+
   const toggleSheet = () => {
     const nextState = !isSheetOpen;
     setIsSheetOpen(nextState);
@@ -90,23 +98,9 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
 
   const closeSheet = () => {
     setIsSheetOpen(false);
-    Animated.parallel([
-      Animated.spring(rotateAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 6,
-      }),
-      Animated.spring(slideAnim, {
-        toValue: 20,
-        useNativeDriver: true,
-        friction: 6,
-      }),
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    rotateAnim.setValue(0);
+    slideAnim.setValue(20);
+    fadeAnim.setValue(0);
   };
 
   const handleTabPress = (tabId: DockTab) => {
@@ -249,8 +243,8 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
           testID="dock-item-add-fab"
           style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
         >
-          <Animated.View style={{ transform: [{ rotate: rotation }] }}>
-            <MaterialIcons name="add" size={28} color="#FFFFFF" />
+          <Animated.View style={{ transform: [{ rotate: isSheetOpen ? rotation : '0deg' }] }}>
+            <MaterialIcons name={isSheetOpen ? 'close' : 'add'} size={28} color="#FFFFFF" />
           </Animated.View>
         </View>
       </TouchableOpacity>
@@ -261,10 +255,10 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
 const styles = StyleSheet.create({
   backdrop: {
     position: 'absolute',
-    top: -2000,
-    bottom: -100,
-    left: -100,
-    right: -100,
+    top: -3000,
+    bottom: -1000,
+    left: -1000,
+    right: -1000,
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     zIndex: 90,
   },

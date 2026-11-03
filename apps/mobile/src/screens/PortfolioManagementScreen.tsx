@@ -70,6 +70,7 @@ export interface PortfolioManagementScreenProps {
   autoOpenNewPortfolioModal?: boolean;
   autoOpenAddAssetModal?: boolean;
   onPortfolioIndexChange?: (index: number) => void;
+  onPortfolioCreated?: (newPortfolioId: string) => void;
 }
 
 const DEFAULT_ASSET_CATALOG = [
@@ -104,6 +105,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   autoOpenNewPortfolioModal = false,
   autoOpenAddAssetModal = false,
   onPortfolioIndexChange,
+  onPortfolioCreated,
 }) => {
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
   try {
@@ -365,6 +367,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const currentClassAssets = assets.filter((a) => a.assetClass === selectedClassTab);
   const currentClassTarget = classTargets.find((c) => c.assetClass === selectedClassTab)?.targetPercentage || 0;
 
+  const [classInputText, setClassInputText] = useState<Record<string, string>>({});
+
   // -------------------------------------------------------------------------
   // Handlers: Metas Macro e Cadeado
   // -------------------------------------------------------------------------
@@ -375,6 +379,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleToggleClassActive = (assetClass: AssetClass) => {
+    setClassInputText({});
     setClassTargets((prev) => {
       const target = prev.find((c) => c.assetClass === assetClass);
       if (!target) return prev;
@@ -383,27 +388,46 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
       let updated: EnhancedClassTarget[];
       if (isCurrentlyActive) {
-        // Desativar: targetPercentage vai a 0 e o valor é redistribuído para as demais categorias ativas
+        // Desativar: targetPercentage vai a 0 e o valor é redistribuído com números limpos
         const activeRemaining = prev.filter(
           (c) => c.assetClass !== assetClass && !c.isDeactivated && (c.targetPercentage ?? 0) > 0
         );
-        const freed = target.targetPercentage ?? 0;
 
         if (activeRemaining.length > 0) {
           const unlocked = activeRemaining.filter((c) => !c.isLocked);
           const targetsToDistribute = unlocked.length > 0 ? unlocked : activeRemaining;
-          const share = Math.floor(freed / targetsToDistribute.length);
-          let rem = freed - share * targetsToDistribute.length;
-          const distSet = new Set(targetsToDistribute.map((c) => c.assetClass));
+
+          const lockedClasses = prev.filter(
+            (c) => c.assetClass !== assetClass && !c.isDeactivated && c.isLocked
+          );
+          const lockedSum = lockedClasses.reduce((acc, c) => acc + (c.targetPercentage ?? 0), 0);
+          const available = Math.max(0, 100 - lockedSum);
+
+          const sumOfDist = targetsToDistribute.reduce((acc, c) => acc + (c.targetPercentage ?? 0), 0);
+          const lastDistClass = targetsToDistribute[targetsToDistribute.length - 1].assetClass;
+          let accDistributed = 0;
+
+          const distMap = new Map<AssetClass, number>();
+          targetsToDistribute.forEach((c) => {
+            if (c.assetClass === lastDistClass) return;
+            let share: number;
+            if (sumOfDist > 0) {
+              share = Math.round(((c.targetPercentage ?? 0) / sumOfDist) * available * 10) / 10;
+            } else {
+              share = Math.round((available / targetsToDistribute.length) * 10) / 10;
+            }
+            accDistributed += share;
+            distMap.set(c.assetClass, share);
+          });
+          const lastShare = Math.round((available - accDistributed) * 100) / 100;
+          distMap.set(lastDistClass, Math.max(0, lastShare));
 
           updated = prev.map((c) => {
             if (c.assetClass === assetClass) {
               return { ...c, targetPercentage: 0, percentage: 0, isLocked: false, isDeactivated: true };
             }
-            if (distSet.has(c.assetClass)) {
-              const extra = rem > 0 ? 1 : 0;
-              rem = Math.max(0, rem - 1);
-              const newPct = (c.targetPercentage ?? 0) + share + extra;
+            if (distMap.has(c.assetClass)) {
+              const newPct = distMap.get(c.assetClass)!;
               return { ...c, targetPercentage: newPct, percentage: newPct };
             }
             return c;
@@ -416,8 +440,10 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           );
         }
       } else {
-        // Reativar categoria: atribui meta inicial de 10% e recalcula
-        const newPct = 10;
+        // Reativar categoria: atribui meta inicial limpa de 10% (ou 100% se for a única) e redistribui proporcionalmente
+        const otherActive = prev.filter((c) => c.assetClass !== assetClass && !c.isDeactivated);
+        const newPct = otherActive.length > 0 ? 10 : 100;
+
         const recalculated = recalculateUnlockedTargets(
           prev.map((p) => ({
             ...p,
@@ -429,7 +455,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         updated = recalculated.map((r) => ({
           ...r,
           targetPercentage: r.percentage,
-          isDeactivated: r.percentage === 0,
+          isDeactivated: r.assetClass === assetClass ? false : (r.percentage === 0 && r.isDeactivated),
         }));
       }
 
@@ -449,7 +475,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleClassPercentageChange = (assetClass: AssetClass, text: string) => {
-    const val = parseFloat(text) || 0;
+    setClassInputText((prev) => ({ ...prev, [assetClass]: text }));
+    const sanitized = text.replace(',', '.');
+    const val = parseFloat(sanitized);
+    if (isNaN(val)) return;
+
     setClassTargets((prev) => {
       let updated: EnhancedClassTarget[];
       if (prev.length <= 1) {
@@ -704,6 +734,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       setActivePortfolioId(newPort.id);
       setActiveIndex(portfolios.length);
       onPortfolioIndexChange?.(portfolios.length);
+      onPortfolioCreated?.(created.id);
       setNewPortfolioName('');
       setIsNewPortfolioModalOpen(false);
     } catch {
@@ -716,6 +747,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       setActivePortfolioId(newPort.id);
       setActiveIndex(portfolios.length);
       onPortfolioIndexChange?.(portfolios.length);
+      onPortfolioCreated?.(newPort.id);
       setNewPortfolioName('');
       setIsNewPortfolioModalOpen(false);
     }
@@ -1219,10 +1251,28 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       </ScrollView>
 
       {/* Modal: Nova Carteira */}
-      <Modal visible={isNewPortfolioModalOpen} transparent animationType="fade">
+      <Modal visible={isNewPortfolioModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setIsNewPortfolioModalOpen(false)}
+          />
           <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
-            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>CRIAR NOVA CARTEIRA</Text>
+            <View style={styles.sheetDragHandleContainer}>
+              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+            </View>
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.modalTitle, isLight && styles.modalTitleLight, { marginBottom: 0 }]}>
+                CRIAR NOVA CARTEIRA
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsNewPortfolioModalOpen(false)}
+                style={styles.sheetCloseBtn}
+              >
+                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
               Informe o nome ou objetivo da carteira
             </Text>
@@ -1265,10 +1315,28 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       </Modal>
 
       {/* Modal: Adicionar Ativo (Módulo 5) */}
-      <Modal visible={isAddAssetModalOpen} transparent animationType="fade">
+      <Modal visible={isAddAssetModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setIsAddAssetModalOpen(false)}
+          />
           <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
-            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>ADICIONAR ATIVO</Text>
+            <View style={styles.sheetDragHandleContainer}>
+              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+            </View>
+            <View style={styles.sheetHeaderRow}>
+              <Text style={[styles.modalTitle, isLight && styles.modalTitleLight, { marginBottom: 0 }]}>
+                ADICIONAR ATIVO
+              </Text>
+              <TouchableOpacity
+                onPress={() => setIsAddAssetModalOpen(false)}
+                style={styles.sheetCloseBtn}
+              >
+                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            </View>
             <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
               {`Classe: ${getClassName(selectedClassTab)}`}
             </Text>
@@ -1567,7 +1635,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         <TextInput
                           testID={`input-class-${ct.assetClass}`}
                           keyboardType="numeric"
-                          value={String(ct.targetPercentage)}
+                          value={
+                            classInputText[ct.assetClass] !== undefined
+                              ? classInputText[ct.assetClass]
+                              : (ct.targetPercentage === 0 && isDeactivated ? '0' : String(ct.targetPercentage))
+                          }
+                          onBlur={() => {
+                            setClassInputText((prev) => {
+                              const next = { ...prev };
+                              delete next[ct.assetClass];
+                              return next;
+                            });
+                          }}
                           onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
                           style={[styles.numericInputText, { color: isDeactivated ? (isLight ? '#999' : '#666') : color }]}
                         />
@@ -2091,18 +2170,21 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
   },
   modalContainer: {
-    backgroundColor: colors.neutral,
-    borderRadius: 24,
-    padding: 20,
+    backgroundColor: '#191B1D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
     width: '100%',
-    maxWidth: 420,
-    borderWidth: 1,
+    maxHeight: '88%',
+    borderWidth: borders.hairline,
     borderColor: '#26292C',
   },
   modalContainerLight: {

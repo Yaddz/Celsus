@@ -69,6 +69,60 @@ const WalletCardFace: React.FC<WalletCardFaceProps> = ({
 }) => {
   const isAddCard = item.id === '__add_wallet_card__';
 
+  if (isAddCard) {
+    return (
+      <View
+        testID={isDepthLayer ? undefined : 'wallet-colored-body'}
+        style={[styles.coloredBody, styles.emptyCardBody]}
+      >
+        {/* Camadas orgânicas difusas */}
+        <View testID={isDepthLayer ? undefined : 'wallet-organic-blur-layers'} style={styles.organicBlurContainer} pointerEvents="none">
+          <View
+            style={[
+              styles.organicShape,
+              {
+                top: -20,
+                left: -20,
+                width: 140,
+                height: 110,
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                borderRadius: 70,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.organicShape,
+              {
+                top: 20,
+                right: -20,
+                width: 120,
+                height: 120,
+                backgroundColor: 'rgba(0, 0, 0, 0.20)',
+                borderRadius: 60,
+              },
+            ]}
+          />
+        </View>
+
+        <View style={styles.emptyCardContent}>
+          <Text style={styles.emptyCardTitle}>Nova Carteira</Text>
+          <Text style={styles.emptyCardSubtitle}>
+            Cadastre uma nova carteira para organizar seus investimentos
+          </Text>
+          <TouchableOpacity
+            testID={isDepthLayer ? undefined : 'add-wallet-card-cta'}
+            style={styles.emptyCardCta}
+            onPress={onCreatePortfolioPress}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.emptyCardCtaText}>+ Criar nova carteira</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   const getCardColor = (it: StackedWalletItem, idx: number) => {
     if (it.accentColor && it.accentColor !== '#25282B') return it.accentColor;
     const pal = it.paletteId

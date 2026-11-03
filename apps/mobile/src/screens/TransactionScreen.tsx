@@ -806,34 +806,12 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
               placeholder="Ex: 2024-03-15"
               placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
             />
-            <TouchableOpacity
-              onPress={() => setIsDatePickerVisible(true)}
-              style={[styles.calendarTriggerBtn, isLight && styles.calendarTriggerBtnLight]}
-            >
-              <Text style={[styles.calendarTriggerText, isLight && styles.calendarTriggerTextLight]}>CALENDÁRIO</Text>
-            </TouchableOpacity>
           </View>
         </View>
 
-        {/* Preço Unitário + Botão Auto-Fill COTAHIST */}
+        {/* Preço Unitário */}
         <View style={styles.inputGroup}>
-          <View style={styles.labelWithActionRow}>
-            <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>PREÇO UNITÁRIO (R$)</Text>
-            <TouchableOpacity
-              onPress={handleAutoFillPrice}
-              style={[styles.autoFillBtn, isLight && styles.autoFillBtnLight]}
-              disabled={isLoadingAutoFill}
-            >
-              {isLoadingAutoFill ? (
-                <ActivityIndicator size="small" color={isLight ? '#8A531B' : colors.tertiary} />
-              ) : (
-                <>
-                  <MaterialIcons name="sync" size={14} color={isLight ? '#8A531B' : colors.tertiary} />
-                  <Text style={[styles.autoFillBtnText, isLight && styles.autoFillBtnTextLight]}>COTAHIST AUTO</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>PREÇO UNITÁRIO (R$)</Text>
 
           <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
             <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
@@ -900,15 +878,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Resumo Financeiro da Operação */}
         <View style={[styles.summaryCard, isLight && styles.summaryCardLight]}>
-          <View style={styles.summaryRow}>
-            <Text style={[styles.summaryLabel, isLight && styles.summaryLabelLight]}>TOTAL DA OPERAÇÃO:</Text>
-            <Text style={styles.summaryValue}>R$ {calculateTotal()}</Text>
-          </View>
-          {selectedAsset && (
-            <Text style={[styles.summarySub, isLight && styles.summarySubLight]}>
-              Posição atual: {selectedAsset.quantity} un @ PM R$ {selectedAsset.average_price}
-            </Text>
-          )}
+          <Text style={[styles.summaryLabel, isLight && styles.summaryLabelLight, { textAlign: 'center' }]}>
+            TOTAL DA OPERAÇÃO:
+          </Text>
+          <Text style={[styles.summaryValueLarge, { textAlign: 'center', marginVertical: 8 }]}>
+            R$ {calculateTotal()}
+          </Text>
+          <Text style={[styles.summarySub, isLight && styles.summarySubLight, { textAlign: 'center', marginTop: 0 }]}>
+            Posição atual {selectedAsset?.quantity || '0'} un: PM: R$ {parseFloat(selectedAsset?.average_price || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Text>
         </View>
 
         {/* Botão de Registro */}
@@ -1123,6 +1101,12 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontFamily: typography.fontFamily,
     fontSize: typography.headlineSm.fontSize,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  summaryValueLarge: {
+    fontFamily: typography.fontFamily,
+    fontSize: 26,
     color: colors.primary,
     fontWeight: '700',
   },

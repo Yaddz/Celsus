@@ -68,11 +68,17 @@ export function recalculateUnlockedTargets<T extends LockableAllocationItem>(
     new Decimal(0)
   );
 
-  return items.map((item) => {
+  const lastUnlockedId = otherUnlocked[otherUnlocked.length - 1]?.id;
+  let distributedSum = new Decimal(0);
+
+  const intermediate = items.map((item) => {
     if (item.id === changedId) {
       return { ...item, percentage: clampedNewVal };
     }
     if (item.isLocked) {
+      return item;
+    }
+    if (item.id === lastUnlockedId) {
       return item;
     }
 
@@ -88,10 +94,23 @@ export function recalculateUnlockedTargets<T extends LockableAllocationItem>(
       newPercent = remaining.div(otherUnlocked.length).toNumber();
     }
 
+    const rounded = roundToTwo(newPercent);
+    distributedSum = distributedSum.plus(rounded);
     return {
       ...item,
-      percentage: roundToTwo(newPercent),
+      percentage: rounded,
     };
+  });
+
+  return intermediate.map((item) => {
+    if (item.id === lastUnlockedId) {
+      const targetForLast = remaining.minus(distributedSum).toNumber();
+      return {
+        ...item,
+        percentage: roundToTwo(targetForLast),
+      };
+    }
+    return item;
   });
 }
 

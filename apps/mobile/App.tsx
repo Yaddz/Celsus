@@ -568,34 +568,33 @@ function AppContent() {
   const balanceDisplay = isPrivacyMode ? PRIVACY_CURRENCY_MASK : totalPatrimony;
   const profitDisplay = isPrivacyMode ? PRIVACY_MASK : profitSummary;
 
-  // 1. Modal: Nova Movimentação
-  if (isTransactionModalOpen) {
-    return (
-      <Modal
-        visible={true}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => {
-          setIsTransactionModalOpen(false);
-          setOpenAddAssetModal(false);
-          setOpenCreatePortfolioModal(false);
-          setIsPortfolioManagerModalOpen(false);
-          setActiveTab('home');
-          refreshAppData();
-        }}
-      >
-        <SafeAreaView
+  // Modal Helpers (Bottom Sheets sobre qualquer tela)
+  const renderTransactionModal = () => (
+    <Modal
+      visible={isTransactionModalOpen}
+      transparent
+      animationType="slide"
+      onRequestClose={() => {
+        setIsTransactionModalOpen(false);
+        refreshAppData();
+      }}
+    >
+      <View style={styles.sheetOverlay}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={() => {
+            setIsTransactionModalOpen(false);
+            refreshAppData();
+          }}
+        />
+        <View
           style={[
-            styles.safeArea,
-            {
-              backgroundColor: isLight
-                ? LIGHT_THEME_TOKENS.backgroundPrimary
-                : colors.voidFloor,
-            },
+            styles.sheetContainer,
+            isLight && styles.sheetContainerLight,
+            { maxHeight: '88%', width: '100%', flex: 1 },
           ]}
-          edges={['top', 'left', 'right']}
         >
-          <StatusBar style={isLight ? 'dark' : 'light'} />
           <View style={styles.sheetDragHandleContainer}>
             <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
           </View>
@@ -605,25 +604,83 @@ function AppContent() {
             themeMode={themeMode}
             onClose={() => {
               setIsTransactionModalOpen(false);
-              setOpenAddAssetModal(false);
-              setOpenCreatePortfolioModal(false);
-              setIsPortfolioManagerModalOpen(false);
-              setActiveTab('home');
               refreshAppData();
             }}
             onTransactionSuccess={() => {
               setIsTransactionModalOpen(false);
-              setOpenAddAssetModal(false);
-              setOpenCreatePortfolioModal(false);
-              setIsPortfolioManagerModalOpen(false);
-              setActiveTab('home');
               refreshAppData();
             }}
           />
-        </SafeAreaView>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderPortfolioManagerModal = () => {
+    if (!isPortfolioManagerModalOpen || activeTab === 'wallets') return null;
+    return (
+      <Modal
+        visible={isPortfolioManagerModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {
+          setIsPortfolioManagerModalOpen(false);
+          setOpenCreatePortfolioModal(false);
+          setOpenAddAssetModal(false);
+          refreshAppData();
+        }}
+      >
+        <View style={styles.sheetOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              refreshAppData();
+            }}
+          />
+          <View
+            style={[
+              styles.sheetContainer,
+              isLight && styles.sheetContainerLight,
+              { maxHeight: '88%', width: '100%', flex: 1, paddingHorizontal: 0, paddingTop: 4 },
+            ]}
+          >
+            <View style={styles.sheetDragHandleContainer}>
+              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+            </View>
+            <PortfolioManagementScreen
+              isPrivacyMode={isPrivacyMode}
+              onTogglePrivacy={() => {
+                const next = privacyAndAuthService.togglePrivacyMode();
+                setIsPrivacyMode(next.isPrivacyModeEnabled);
+              }}
+              themeMode={themeMode}
+              initialActiveIndex={activeWalletIndex}
+              autoOpenNewPortfolioModal={openCreatePortfolioModal}
+              autoOpenAddAssetModal={openAddAssetModal}
+              onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
+              onPortfolioCreated={() => {
+                setIsPortfolioManagerModalOpen(false);
+                setOpenCreatePortfolioModal(false);
+                setOpenAddAssetModal(false);
+                setActiveTab('wallets');
+                refreshAppData();
+              }}
+              onClose={() => {
+                setIsPortfolioManagerModalOpen(false);
+                setOpenCreatePortfolioModal(false);
+                setOpenAddAssetModal(false);
+                refreshAppData();
+              }}
+            />
+          </View>
+        </View>
       </Modal>
     );
-  }
+  };
 
   // 2. Modal: Simulador de Novo Aporte
   if (isSimulatorModalOpen) {
@@ -765,13 +822,11 @@ function AppContent() {
               setSelectedRecentTransaction(null);
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             onAdicionarAtivoPress={() => {
               setSelectedRecentTransaction(null);
               setOpenAddAssetModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             themeMode={themeMode}
           />
@@ -827,13 +882,11 @@ function AppContent() {
             setIsAllTransactionsModalOpen(false);
             setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setIsAllTransactionsModalOpen(false);
             setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           themeMode={themeMode}
         />
@@ -965,13 +1018,11 @@ function AppContent() {
               setSelectedClassDetail(null);
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             onAdicionarAtivoPress={() => {
               setSelectedClassDetail(null);
               setOpenAddAssetModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             themeMode={themeMode}
           />
@@ -981,7 +1032,7 @@ function AppContent() {
   }
 
   // 7. Modal / Tela: Carteiras & Alocação
-  if (activeTab === 'wallets' || isPortfolioManagerModalOpen) {
+  if (activeTab === 'wallets') {
     return (
       <SafeAreaView
         style={[
@@ -1006,11 +1057,13 @@ function AppContent() {
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
           autoOpenAddAssetModal={openAddAssetModal}
           onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
+          onPortfolioCreated={() => {
+            refreshAppData();
+          }}
           onClose={() => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setActiveTab('home');
             refreshAppData();
           }}
         />
@@ -1022,30 +1075,19 @@ function AppContent() {
             setOpenAddAssetModal(false);
             setActiveTab(tab);
           }}
-          onActionPress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            openTransactionModal();
-          }}
-          onNovoAportePress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            openTransactionModal();
-          }}
+          onActionPress={openTransactionModal}
+          onNovoAportePress={openTransactionModal}
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           themeMode={themeMode}
         />
+        {renderTransactionModal()}
       </SafeAreaView>
     );
   }
@@ -1084,15 +1126,15 @@ function AppContent() {
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           onAdicionarAtivoPress={() => {
             setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
           }}
           themeMode={themeMode}
         />
+        {renderTransactionModal()}
+        {renderPortfolioManagerModal()}
       </SafeAreaView>
     );
   }
@@ -1170,7 +1212,6 @@ function AppContent() {
             onCreatePortfolioPress={() => {
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             isPrivacyMode={isPrivacyMode}
             testID="home-wallet-deck"
@@ -1220,7 +1261,6 @@ function AppContent() {
             onNovaCarteiraPress={() => {
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
-              setActiveTab('wallets');
             }}
             themeMode={themeMode}
           />
@@ -1270,15 +1310,15 @@ function AppContent() {
         onNovaCarteiraPress={() => {
           setOpenCreatePortfolioModal(true);
           setIsPortfolioManagerModalOpen(true);
-          setActiveTab('wallets');
         }}
         onAdicionarAtivoPress={() => {
           setOpenAddAssetModal(true);
           setIsPortfolioManagerModalOpen(true);
-          setActiveTab('wallets');
         }}
         themeMode={themeMode}
       />
+      {renderTransactionModal()}
+      {renderPortfolioManagerModal()}
     </SafeAreaView>
   );
 }
@@ -1287,6 +1327,27 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.voidFloor,
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: '#191B1D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 24,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+    maxHeight: '88%',
+    width: '100%',
+  },
+  sheetContainerLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
   },
   sheetDragHandleContainer: {
     alignItems: 'center',
