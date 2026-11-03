@@ -78,7 +78,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
 
   // Segmentos radiais para o gráfico circular Donut (72 divisões a 360°)
   const assetSlicesData = React.useMemo(() => {
-    const TOTAL_DONUT_SEGMENTS = 72;
+    const TOTAL_DONUT_SEGMENTS = 144;
     const totalAlloc =
       assetList.reduce((acc, a) => acc + (a.currentAllocationPercentage || 0), 0) || 100;
 
@@ -101,8 +101,8 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         const cy = 100 + radius * Math.sin(angleRad);
 
         sliceSegments.push({
-          segX: cx - 4.5,
-          segY: cy - 16,
+          segX: cx - 2.5,
+          segY: cy - 18,
           rotate: angleDeg + 90,
         });
         currentSegmentIndex++;
@@ -111,8 +111,8 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
       const color = asset.sliceColor || DONUT_SLICE_COLORS[idx % DONUT_SLICE_COLORS.length];
       const minX = Math.max(0, Math.min(...sliceSegments.map((s) => s.segX)) - 4);
       const minY = Math.max(0, Math.min(...sliceSegments.map((s) => s.segY)) - 4);
-      const maxX = Math.min(200, Math.max(...sliceSegments.map((s) => s.segX + 9)) + 4);
-      const maxY = Math.min(200, Math.max(...sliceSegments.map((s) => s.segY + 32)) + 4);
+      const maxX = Math.min(200, Math.max(...sliceSegments.map((s) => s.segX + 5)) + 4);
+      const maxY = Math.min(200, Math.max(...sliceSegments.map((s) => s.segY + 36)) + 4);
 
       return {
         asset,
@@ -463,6 +463,8 @@ const styles = StyleSheet.create({
   donutRingContainer: {
     width: 200,
     height: 200,
+    borderRadius: 100,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -484,9 +486,9 @@ const styles = StyleSheet.create({
   },
   donutSegmentArc: {
     position: 'absolute',
-    width: 9,
-    height: 32,
-    borderRadius: 2,
+    width: 5,
+    height: 36,
+    borderRadius: 0,
   },
   donutHoleContainer: {
     width: 132,

@@ -355,7 +355,8 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
       Animated.spring(panY, {
         toValue: 0,
         useNativeDriver: false,
-        friction: 6,
+        friction: 8,
+        tension: 40,
       }).start();
       return;
     }
@@ -368,15 +369,25 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
 
     if (dy >= effectiveThreshold) {
       cycleNext();
-      panY.setValue(0);
+      Animated.spring(panY, {
+        toValue: 0,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 45,
+      }).start();
     } else if (dy <= -effectiveThreshold) {
       cyclePrev();
-      panY.setValue(0);
+      Animated.spring(panY, {
+        toValue: 0,
+        useNativeDriver: false,
+        friction: 8,
+        tension: 45,
+      }).start();
     } else {
       Animated.spring(panY, {
         toValue: 0,
         useNativeDriver: false,
-        friction: 6,
+        friction: 8,
         tension: 40,
       }).start();
     }
@@ -476,6 +487,13 @@ export const StackedWalletDeck: React.FC<StackedWalletDeckProps> = ({
     if (items[normalized].id !== '__add_wallet_card__') {
       onPortfolioChange?.(normalized, items[normalized]);
     }
+    panY.setValue(-16);
+    Animated.spring(panY, {
+      toValue: 0,
+      useNativeDriver: false,
+      friction: 8,
+      tension: 45,
+    }).start();
   };
 
   // Interpolações para rotação sutil de cartas (±2.5°) e leve escala elástica

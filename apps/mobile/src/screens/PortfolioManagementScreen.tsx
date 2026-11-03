@@ -27,6 +27,7 @@ import { transactionRepository } from '../repositories/transactionRepository';
 import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
 import { walletStore } from '../stores/walletStore';
+import { privacyAndAuthService } from '../services/privacyAndAuth';
 
 interface PortfolioItem {
   id: string;
@@ -58,6 +59,7 @@ interface EnhancedClassTarget {
 export interface PortfolioManagementScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   themeMode?: 'dark' | 'light';
   initialClassTargets?: ClassTarget[];
   initialAssets?: AssetItem[];
@@ -91,6 +93,7 @@ const DEFAULT_ASSET_CATALOG = [
 export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps> = ({
   onClose,
   isPrivacyMode = false,
+  onTogglePrivacy,
   themeMode = 'dark',
   initialClassTargets,
   initialAssets,
@@ -108,6 +111,33 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     // fallback for test without SafeAreaProvider
   }
   const isLight = themeMode === 'light';
+
+  const [privacyMode, setPrivacyMode] = useState<boolean>(
+    Boolean(isPrivacyMode || (privacyAndAuthService?.getState ? privacyAndAuthService.getState().isPrivacyModeEnabled : false))
+  );
+
+  useEffect(() => {
+    setPrivacyMode(isPrivacyMode);
+  }, [isPrivacyMode]);
+
+  useEffect(() => {
+    if (privacyAndAuthService?.subscribe) {
+      return privacyAndAuthService.subscribe((st) => {
+        setPrivacyMode(st.isPrivacyModeEnabled);
+      });
+    }
+  }, []);
+
+  const handleTogglePrivacy = () => {
+    if (onTogglePrivacy) {
+      onTogglePrivacy();
+    } else if (privacyAndAuthService?.togglePrivacyMode) {
+      const next = privacyAndAuthService.togglePrivacyMode();
+      setPrivacyMode(next.isPrivacyModeEnabled);
+    } else {
+      setPrivacyMode((prev) => !prev);
+    }
+  };
 
   // 1. Estado de Carteiras
   const [portfolios, setPortfolios] = useState<PortfolioItem[]>(() => {
@@ -646,7 +676,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const deckPortfolios: StackedWalletItem[] = portfolios.map((p, idx) => {
     const palette = getPortfolioPalette(idx);
     const balanceNum = portfolioBalances[p.id] ?? 0;
-    const formattedBalance = isPrivacyMode
+    const formattedBalance = privacyMode
       ? 'R$ ••••••'
       : `R$ ${balanceNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return {
@@ -656,7 +686,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       accountCode: p.docketCode,
       balance: formattedBalance,
       subtitle: 'Patrimônio Total',
-      profitText: isPrivacyMode ? 'R$ ••••••' : '0,0% no ano',
+      profitText: privacyMode ? '••••••' : '0,0% no ano',
       accentColor: palette.cardBg || (palette as any).primary,
       paletteId: palette.id,
     };
@@ -667,7 +697,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       <XpMinimalHeader
         title="Carteiras"
         onBack={onClose}
-        isPrivacyModeEnabled={isPrivacyMode}
+        isPrivacyModeEnabled={privacyMode}
+        onTogglePrivacy={handleTogglePrivacy}
         themeMode={themeMode}
       />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -676,6 +707,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           portfolios={deckPortfolios}
           activeIndex={activeIndex}
           themeMode={themeMode}
+          isPrivacyMode={privacyMode}
           onPortfolioChange={(idx, item) => {
             if (item.id === '__add_wallet_card__') return;
             setActiveIndex(idx);
@@ -699,7 +731,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               const isSelected = p.id === activePortfolioId;
               const pal = getPortfolioPalette(idx);
               const balNum = portfolioBalances[p.id] ?? 0;
-              const formattedBal = isPrivacyMode
+              const formattedBal = privacyMode
                 ? '••••••'
                 : `R$ ${balNum.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
               return (
@@ -1056,7 +1088,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                             { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
                           ]}
                         >
-                          {tx.amountText}
+                          {privacyMode ? '••••••' : tx.amountText}
                         </Text>
                       </View>
                       <View style={styles.txBottomRow}>
@@ -1495,7 +1527,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         <AllTransactionsScreen
           transactions={portfolioTransactions}
           onClose={() => setIsExtratoModalOpen(false)}
-          isPrivacyMode={isPrivacyMode}
+          isPrivacyMode={privacyMode}
           themeMode={themeMode}
         />
       </Modal>

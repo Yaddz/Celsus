@@ -928,6 +928,10 @@ function AppContent() {
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <PortfolioManagementScreen
           isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
