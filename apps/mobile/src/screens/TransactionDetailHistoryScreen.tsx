@@ -98,7 +98,7 @@ const DEFAULT_HISTORY: TransactionHistoryItem[] = [
 
 export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistoryScreenProps> = ({
   transaction = DEFAULT_TRANSACTION,
-  history = DEFAULT_HISTORY,
+  history,
   isPrivacyMode = false,
   onClose = () => {},
   testID = 'transaction-detail-history-screen',
@@ -107,7 +107,9 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
   const tx = transaction || DEFAULT_TRANSACTION;
-  const historyList = history && history.length > 0 ? history : DEFAULT_HISTORY;
+  const historyList = history !== undefined
+    ? history
+    : (tx.id === DEFAULT_TRANSACTION.id ? DEFAULT_HISTORY : []);
 
   const assetClass = tx.assetClass || 'STOCK';
   const classConfig = ASSET_CLASS_ATTRIBUTE_MAP[assetClass] || {
@@ -228,7 +230,15 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
         <View testID="tx-history-list" style={styles.historySection}>
           <Text style={[styles.historySectionTitle, isLight && styles.historySectionTitleLight]}>HISTÓRICO DE OPERAÇÕES</Text>
 
-          {historyList.map((item, idx) => {
+          {historyList.length === 0 ? (
+            <View style={[styles.timelineContentCard, isLight && styles.timelineContentCardLight, { alignItems: 'center', paddingVertical: 18 }]}>
+              <MaterialIcons name="history" size={24} color={isLight ? '#8A857B' : '#8A8A8E'} style={{ marginBottom: 6 }} />
+              <Text style={{ color: isLight ? '#6E6A63' : '#8A8A8E', fontSize: 13, fontFamily: 'monospace' }}>
+                Nenhuma outra movimentação deste ativo
+              </Text>
+            </View>
+          ) : (
+            historyList.map((item, idx) => {
             const itemIsBuy = item.type === 'BUY';
             const totalDisplay = isPrivacyMode ? '••••••' : item.totalAmount;
 
@@ -275,7 +285,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
                 </View>
               </View>
             );
-          })}
+          }))}
         </View>
       </ScrollView>
     </View>

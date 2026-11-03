@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -213,6 +214,17 @@ func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quot
 		yahooSym := ToYahooSymbol(cleanTicker, "")
 		chartRes, err := c.fetchChartWithFailover(ctx, yahooSym, "5d", "1d", false)
 		if err != nil {
+			if isKnownCryptoTicker(cleanTicker) {
+				if qCrypto, errCrypto := c.fetchCryptoFallback(ctx, cleanTicker); errCrypto == nil {
+					c.mu.Lock()
+					c.cache[cleanTicker] = cachedQuote{
+						quote:     qCrypto,
+						expiresAt: time.Now().Add(c.cacheTTL),
+					}
+					c.mu.Unlock()
+					return qCrypto, nil
+				}
+			}
 			if strings.Contains(err.Error(), "429") {
 				c.mu.Lock()
 				c.cache[cleanTicker] = cachedQuote{
@@ -444,4 +456,61 @@ func (c *Client) CheckHealth(ctx context.Context) error {
 		return fmt.Errorf("primaryBaseURL nao configurada")
 	}
 	return nil
+}
+
+func (c *Client) fetchCryptoFallback(ctx context.Context, cleanTicker string) (quotes.Quote, error) {
+	sym := strings.ToUpper(strings.TrimSpace(cleanTicker))
+	url := fmt.Sprintf("https://economia.awesomeapi.com.br/last/%s-BRL", sym)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return quotes.Quote{}, err
+	}
+	req.Header.Set("User-Agent", c.userAgent)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return quotes.Quote{}, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return quotes.Quote{}, fmt.Errorf("crypto fallback status: %d", resp.StatusCode)
+	}
+
+	var raw map[string]struct {
+		Bid       string `json:"bid"`
+		PctChange string `json:"pctChange"`
+		Timestamp string `json:"timestamp"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return quotes.Quote{}, err
+	}
+
+	key := sym + "BRL"
+	data, ok := raw[key]
+	if !ok {
+		return quotes.Quote{}, fmt.Errorf("crypto data missing for %s", key)
+	}
+
+	price, err := strconv.ParseFloat(data.Bid, 64)
+	if err != nil {
+		return quotes.Quote{}, err
+	}
+
+	change, _ := strconv.ParseFloat(data.PctChange, 64)
+
+	var updatedAt time.Time
+	if ts, err := strconv.ParseInt(data.Timestamp, 10, 64); err == nil && ts > 0 {
+		updatedAt = time.Unix(ts, 0).UTC()
+	} else {
+		updatedAt = time.Now().UTC()
+	}
+
+	return quotes.Quote{
+		Ticker:    sym,
+		Price:     price,
+		Change24h: change,
+		UpdatedAt: updatedAt,
+		Source:    "CRYPTO_API",
+	}, nil
 }

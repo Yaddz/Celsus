@@ -5,6 +5,64 @@ import { CelsusMarketModule, INativeMarketBridge } from '../../modules/celsus-ma
 
 export const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
+export const STATIC_CATALOG_ASSETS = [
+  // Ações
+  { ticker: 'PETR4', name: 'Petróleo Brasileiro S.A. PN', asset_class: 'STOCK', price: '38.50' },
+  { ticker: 'VALE3', name: 'Vale S.A. ON', asset_class: 'STOCK', price: '60.00' },
+  { ticker: 'WEGE3', name: 'WEG S.A. ON', asset_class: 'STOCK', price: '42.50' },
+  { ticker: 'ITUB4', name: 'Itaú Unibanco PN', asset_class: 'STOCK', price: '34.00' },
+  { ticker: 'BBAS3', name: 'Banco do Brasil S.A. ON', asset_class: 'STOCK', price: '28.00' },
+  { ticker: 'BBDC4', name: 'Banco Bradesco S.A. PN', asset_class: 'STOCK', price: '14.50' },
+  { ticker: 'ALUP11', name: 'Alupar Investimento Units', asset_class: 'STOCK', price: '31.50' },
+  { ticker: 'RENT3', name: 'Localiza Rent a Car ON', asset_class: 'STOCK', price: '45.00' },
+  { ticker: 'MGLU3', name: 'Magazine Luiza ON', asset_class: 'STOCK', price: '9.20' },
+  { ticker: 'ABEV3', name: 'Ambev S.A. ON', asset_class: 'STOCK', price: '12.80' },
+  { ticker: 'PRIO3', name: 'PRIO S.A. ON', asset_class: 'STOCK', price: '46.00' },
+  { ticker: 'ITSA4', name: 'Itaúsa PN', asset_class: 'STOCK', price: '10.50' },
+  { ticker: 'ELET3', name: 'Eletrobras ON', asset_class: 'STOCK', price: '39.00' },
+
+  // FIIs (Fundos Imobiliários)
+  { ticker: 'HGLG11', name: 'CSHG Logística FII', asset_class: 'FII', price: '162.00' },
+  { ticker: 'MXRF11', name: 'Maxi Renda FII', asset_class: 'FII', price: '10.20' },
+  { ticker: 'BTLG11', name: 'BTG Pactual Logística FII', asset_class: 'FII', price: '101.00' },
+  { ticker: 'XPML11', name: 'XP Malls FII', asset_class: 'FII', price: '110.00' },
+  { ticker: 'KNIP11', name: 'Kinea Rendimentos Imobiliários FII', asset_class: 'FII', price: '92.00' },
+  { ticker: 'VISC11', name: 'Vinci Shopping Centers FII', asset_class: 'FII', price: '118.00' },
+  { ticker: 'KNCR11', name: 'Kinea Rendimentos FII', asset_class: 'FII', price: '102.50' },
+  { ticker: 'XPLG11', name: 'XP Log FII', asset_class: 'FII', price: '105.00' },
+  { ticker: 'HGRU11', name: 'CSHG Renda Urbana FII', asset_class: 'FII', price: '124.00' },
+  { ticker: 'TGAR11', name: 'TG Ativo Real FII', asset_class: 'FII', price: '115.00' },
+  { ticker: 'CPTS11', name: 'Capitânia Securities II FII', asset_class: 'FII', price: '8.40' },
+  { ticker: 'IRDM11', name: 'Iridium Recebíveis Imobiliários', asset_class: 'FII', price: '75.00' },
+  { ticker: 'RBRR11', name: 'RBR Rendimento High Grade FII', asset_class: 'FII', price: '89.00' },
+  { ticker: 'ALZR11', name: 'Alianza Trust Renda Imobiliária', asset_class: 'FII', price: '112.00' },
+
+  // Renda Fixa (Títulos Públicos, Bancários e Crédito Privado)
+  { ticker: 'TESOURO SELIC 2029', name: 'Tesouro Selic 2029 (LFT)', asset_class: 'FIXED_INCOME', price: '15000.00' },
+  { ticker: 'TESOURO IPCA+ 2035', name: 'Tesouro IPCA+ 2035 (NTN-B)', asset_class: 'FIXED_INCOME', price: '3200.00' },
+  { ticker: 'TESOURO IPCA+ 2029', name: 'Tesouro IPCA+ 2029 (NTN-B)', asset_class: 'FIXED_INCOME', price: '3400.00' },
+  { ticker: 'TESOURO PREFIXADO 2027', name: 'Tesouro Prefixado 2027 (LTN)', asset_class: 'FIXED_INCOME', price: '820.00' },
+  { ticker: 'CDB 100% CDI', name: 'CDB Liquidez Diária 100% CDI', asset_class: 'FIXED_INCOME', price: '1.00' },
+  { ticker: 'CDB DI 110%', name: 'CDB Banco Master 110% CDI', asset_class: 'FIXED_INCOME', price: '1.00' },
+  { ticker: 'CDB BANCO MASTER 115%', name: 'CDB Banco Master 115% CDI', asset_class: 'FIXED_INCOME', price: '1.00' },
+  { ticker: 'LCI 95% CDI', name: 'LCI Isenta de IR 95% CDI', asset_class: 'FIXED_INCOME', price: '1.00' },
+  { ticker: 'LCA BANCO DO BRASIL', name: 'LCA BB 93% CDI Isenta de IR', asset_class: 'FIXED_INCOME', price: '1.00' },
+  { ticker: 'CRI/CRA IPCA+ 7%', name: 'CRI/CRA Crédito Privado IPCA+ 7% a.a.', asset_class: 'FIXED_INCOME', price: '1000.00' },
+  { ticker: 'DEBÊNTURE INCENTIVADA', name: 'Debênture Incentivada de Infraestrutura', asset_class: 'FIXED_INCOME', price: '1000.00' },
+
+  // Criptomoedas
+  { ticker: 'BTC', name: 'Bitcoin (BTC)', asset_class: 'CRYPTO', price: '422000.00' },
+  { ticker: 'ETH', name: 'Ethereum (ETH)', asset_class: 'CRYPTO', price: '12350.00' },
+  { ticker: 'SOL', name: 'Solana (SOL)', asset_class: 'CRYPTO', price: '505.00' },
+  { ticker: 'USDT', name: 'Tether USD (USDT)', asset_class: 'CRYPTO', price: '5.80' },
+  { ticker: 'USDC', name: 'USD Coin (USDC)', asset_class: 'CRYPTO', price: '5.80' },
+  { ticker: 'BNB', name: 'Binance Coin (BNB)', asset_class: 'CRYPTO', price: '3400.00' },
+  { ticker: 'ADA', name: 'Cardano (ADA)', asset_class: 'CRYPTO', price: '2.10' },
+  { ticker: 'AVAX', name: 'Avalanche (AVAX)', asset_class: 'CRYPTO', price: '150.00' },
+  { ticker: 'DOT', name: 'Polkadot (DOT)', asset_class: 'CRYPTO', price: '25.00' },
+  { ticker: 'LINK', name: 'Chainlink (LINK)', asset_class: 'CRYPTO', price: '68.00' },
+];
+
 export function cleanTicker(ticker: string): string {
   if (!ticker) return '';
   return ticker.replace(/\.SA$/i, '').trim().toUpperCase();
@@ -193,6 +251,41 @@ export class MarketApiService implements IMarketApiService {
     } catch (e) {
       // Falha de rede ou servidor offline
     }
+
+    // 4. Fallback Direto Yahoo / Crypto para datas passadas (quando backend offline)
+    try {
+      const isCrypto = ['BTC', 'ETH', 'SOL', 'USDT', 'BNB'].includes(normalizedTicker);
+      const yahooSymbol = isCrypto ? `${normalizedTicker}-USD` : (normalizedTicker.includes('.') ? normalizedTicker : `${normalizedTicker}.SA`);
+      const yRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=2y&interval=1d`);
+      if (yRes.ok) {
+        const yData = await yRes.json();
+        const result = yData?.chart?.result?.[0];
+        const timestamps = result?.timestamp || [];
+        const closes = result?.indicators?.quote?.[0]?.close || [];
+        let foundPrice: number | null = null;
+        for (let i = 0; i < timestamps.length; i++) {
+          const barDate = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+          if (barDate === date) {
+            foundPrice = closes[i];
+            break;
+          }
+        }
+        if (foundPrice === null && timestamps.length > 0) {
+          for (let i = timestamps.length - 1; i >= 0; i--) {
+            const barDate = new Date(timestamps[i] * 1000).toISOString().slice(0, 10);
+            if (barDate <= date && closes[i] !== null && closes[i] !== undefined) {
+              foundPrice = closes[i];
+              break;
+            }
+          }
+        }
+        if (foundPrice !== null && foundPrice > 0) {
+          const finalPrice = foundPrice.toFixed(2);
+          await this.saveHistoricalPrice(normalizedTicker, date, finalPrice);
+          return finalPrice;
+        }
+      }
+    } catch {}
 
     return null;
   }
@@ -432,17 +525,26 @@ export class MarketApiService implements IMarketApiService {
    * Busca empresas, FIIs ou Cripto no catálogo de mercado (/v1/catalog/search ou NativeBridge).
    */
   async searchCatalog(query: string, assetClass?: string): Promise<any[]> {
+    const filterStatic = () => {
+      const q = (query || '').trim().toUpperCase();
+      const cls = assetClass ? assetClass.toUpperCase() : '';
+      return STATIC_CATALOG_ASSETS.filter((item) => {
+        const matchesClass = !cls || item.asset_class === cls;
+        const matchesQuery = !q || item.ticker.includes(q) || item.name.toUpperCase().includes(q);
+        return matchesClass && matchesQuery;
+      });
+    };
+
     if (this.nativeBridge) {
       try {
         const jsonStr = await this.nativeBridge.searchCatalog(query, assetClass || '');
         if (jsonStr) {
           const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-          return data?.results || (Array.isArray(data) ? data : []);
+          const res = data?.results || (Array.isArray(data) ? data : []);
+          if (res.length > 0) return res;
         }
-      } catch {
-        return [];
-      }
-      return [];
+      } catch {}
+      return filterStatic();
     }
 
     try {
@@ -451,10 +553,12 @@ export class MarketApiService implements IMarketApiService {
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        return data?.results || (Array.isArray(data) ? data : []);
+        const results = data?.results || (Array.isArray(data) ? data : []);
+        if (results.length > 0) return results;
       }
     } catch {}
-    return [];
+
+    return filterStatic();
   }
 
   /**

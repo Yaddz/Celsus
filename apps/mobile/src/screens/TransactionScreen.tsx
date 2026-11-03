@@ -8,12 +8,13 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Decimal from 'decimal.js';
 import { colors, typography, spacing, borders } from '../theme/tokens';
 import { transactionService } from '../services/transactionService';
-import { marketApiService } from '../services/marketApi';
+import { marketApiService, STATIC_CATALOG_ASSETS } from '../services/marketApi';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { Asset, Portfolio } from '../db/schema';
@@ -81,13 +82,45 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     return '';
   });
 
+  const toDisplayDate = (iso: string): string => {
+    if (!iso) return '';
+    const clean = iso.trim();
+    if (clean.includes('-')) {
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        return `${parts[2].padStart(2, '0')}/${parts[1].padStart(2, '0')}/${parts[0]}`;
+      }
+    }
+    return clean;
+  };
+
+  const toIsoDate = (display: string): string => {
+    if (!display) return '';
+    const clean = display.trim();
+    if (clean.includes('-')) return clean;
+    const digits = clean.replace(/\D/g, '');
+    if (digits.length === 8) {
+      const d = digits.slice(0, 2);
+      const m = digits.slice(2, 4);
+      const y = digits.slice(4, 8);
+      return `${y}-${m}-${d}`;
+    }
+    return clean;
+  };
+
   const [tickerQuery, setTickerQuery] = useState('');
   const [tickerSuggestions, setTickerSuggestions] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const [calendarViewDate, setCalendarViewDate] = useState(() => new Date());
   const [isSaveBlocked, setIsSaveBlocked] = useState(false);
 
   const [type, setType] = useState<'BUY' | 'SELL'>('BUY');
   const [tradeDate, setTradeDate] = useState<string>(
     initialTradeDate || getTodayLocal() // YYYY-MM-DD em horário local
+  );
+  const [displayDate, setDisplayDate] = useState<string>(() =>
+    toDisplayDate(initialTradeDate || getTodayLocal())
   );
   const [quantity, setQuantity] = useState<string>('');
   const [unitPrice, setUnitPrice] = useState<string>('');
@@ -97,6 +130,21 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   const [isLoadingAutoFill, setIsLoadingAutoFill] = useState(false);
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const resetForm = () => {
+    setQuantity('');
+    setUnitPrice('');
+    setFees('0.00');
+    setNotes('');
+    setTickerQuery('');
+    setTickerSuggestions([]);
+    setSelectedCategory('ALL');
+    setIsSaveBlocked(false);
+    setAutoFillMessage(null);
+    const today = getTodayLocal();
+    setTradeDate(today);
+    setDisplayDate(toDisplayDate(today));
+  };
 
   const lastQuoteReqRef = useRef(0);
 
@@ -203,17 +251,68 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     }
   };
 
-  const handleTickerSearch = async (text: string) => {
+  const handleCategorySelect = (catKey: string) => {
+    setSelectedCategory(catKey);
+    if (catKey === 'ALL') {
+      if (tickerQuery.trim().length > 0) {
+        handleTickerSearch(tickerQuery, 'ALL');
+      } else {
+        setTickerSuggestions([]);
+      }
+    } else {
+      if (tickerQuery.trim().length > 0) {
+        handleTickerSearch(tickerQuery, catKey);
+      } else {
+        const categoryAssets = STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === catKey);
+        setTickerSuggestions(categoryAssets);
+      }
+    }
+  };
+
+  const handleTickerSearch = async (text: string, overrideCategory?: string) => {
     setTickerQuery(text);
+    const cat = overrideCategory !== undefined ? overrideCategory : selectedCategory;
     if (!text || text.trim().length === 0) {
-      setTickerSuggestions([]);
+      if (cat !== 'ALL') {
+        setTickerSuggestions(STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === cat));
+      } else {
+        setTickerSuggestions([]);
+      }
       return;
     }
     try {
       const results = await marketApiService.searchCatalog(text.trim());
-      setTickerSuggestions(results || []);
+      const filtered = cat === 'ALL'
+        ? (results || [])
+        : (results || []).filter((r) => r.asset_class === cat);
+      setTickerSuggestions(filtered);
     } catch {
       setTickerSuggestions([]);
+    }
+  };
+
+  const handleDateChangeText = (text: string) => {
+    if (text.includes('-') && text.length === 10) {
+      setTradeDate(text);
+      setDisplayDate(toDisplayDate(text));
+      return;
+    }
+
+    const digits = text.replace(/\D/g, '').slice(0, 8);
+    let formatted = digits;
+    if (digits.length > 2 && digits.length <= 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    } else if (digits.length > 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    }
+    setDisplayDate(formatted);
+
+    if (digits.length === 8) {
+      const day = digits.slice(0, 2);
+      const month = digits.slice(2, 4);
+      const year = digits.slice(4, 8);
+      const iso = `${year}-${month}-${day}`;
+      setTradeDate(iso);
     }
   };
 
@@ -352,6 +451,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         'Sucesso',
         `Movimentação de ${type === 'BUY' ? 'Compra' : 'Venda'} registrada com sucesso!`
       );
+      resetForm();
       onTransactionSuccess();
       onClose();
     } catch (e: any) {
@@ -361,12 +461,135 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     }
   };
 
+  const renderDatePickerModal = () => {
+    const year = calendarViewDate.getFullYear();
+    const month = calendarViewDate.getMonth();
+    const monthNames = [
+      'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+    ];
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayIndex = new Date(year, month, 1).getDay();
+
+    const dayCells = [];
+    for (let i = 0; i < firstDayIndex; i++) {
+      dayCells.push(<View key={`blank-${i}`} style={styles.calendarDayBlank} />);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dStr = String(d).padStart(2, '0');
+      const mStr = String(month + 1).padStart(2, '0');
+      const isoStr = `${year}-${mStr}-${dStr}`;
+      const isSelected = isoStr === tradeDate;
+
+      dayCells.push(
+        <TouchableOpacity
+          key={`day-${d}`}
+          testID={`calendar-day-${d}`}
+          onPress={() => {
+            setTradeDate(isoStr);
+            setDisplayDate(toDisplayDate(isoStr));
+            setIsDatePickerVisible(false);
+          }}
+          style={[
+            styles.calendarDayCell,
+            isSelected && styles.calendarDayCellSelected,
+          ]}
+        >
+          <Text
+            style={[
+              styles.calendarDayText,
+              isLight && styles.calendarDayTextLight,
+              isSelected && styles.calendarDayTextSelected,
+            ]}
+          >
+            {d}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+
+    return (
+      <Modal
+        visible={isDatePickerVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsDatePickerVisible(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsDatePickerVisible(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={[styles.calendarCard, isLight && styles.calendarCardLight]}>
+            <View style={styles.calendarHeaderRow}>
+              <TouchableOpacity
+                onPress={() => setCalendarViewDate(new Date(year, month - 1, 1))}
+                style={styles.calendarNavBtn}
+              >
+                <MaterialIcons name="chevron-left" size={24} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+              <Text style={[styles.calendarMonthTitle, isLight && styles.calendarMonthTitleLight]}>
+                {monthNames[month]} {year}
+              </Text>
+              <TouchableOpacity
+                onPress={() => setCalendarViewDate(new Date(year, month + 1, 1))}
+                style={styles.calendarNavBtn}
+              >
+                <MaterialIcons name="chevron-right" size={24} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.calendarWeekRow}>
+              {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((wd, idx) => (
+                <Text key={idx} style={[styles.calendarWeekText, isLight && styles.calendarWeekTextLight]}>
+                  {wd}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarDaysGrid}>{dayCells}</View>
+
+            <View style={styles.calendarFooterRow}>
+              <TouchableOpacity
+                onPress={() => {
+                  const today = getTodayLocal();
+                  setTradeDate(today);
+                  setDisplayDate(toDisplayDate(today));
+                  setCalendarViewDate(new Date());
+                  setIsDatePickerVisible(false);
+                }}
+                style={[styles.calendarTodayBtn, isLight && styles.calendarTodayBtnLight]}
+              >
+                <Text style={styles.calendarTodayBtnText}>Hoje</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setIsDatePickerVisible(false)}
+                style={[styles.calendarCloseBtn, isLight && styles.calendarCloseBtnLight]}
+              >
+                <Text style={[styles.calendarCloseBtnText, isLight && styles.calendarCloseBtnTextLight]}>
+                  Fechar
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+    );
+  };
+
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       {/* Top Close Action (sem header) */}
       {onClose && (
         <View style={styles.topActionsRow}>
-          <TouchableOpacity onPress={onClose} style={[styles.closeBtn, isLight && styles.closeBtnLight]} testID="close-transaction-btn">
+          <TouchableOpacity
+            onPress={() => {
+              resetForm();
+              onClose();
+            }}
+            style={[styles.closeBtn, isLight && styles.closeBtnLight]}
+            testID="close-transaction-btn"
+          >
             <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
           </TouchableOpacity>
         </View>
@@ -474,6 +697,34 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
           )}
         </View>
 
+        {/* Filtro por Categoria */}
+        <View style={styles.inputGroup}>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>CATEGORIA DO ATIVO</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+            {[
+              { key: 'ALL', label: 'TODOS' },
+              { key: 'FIXED_INCOME', label: 'RENDA FIXA' },
+              { key: 'FII', label: 'FIIs' },
+              { key: 'STOCK', label: 'AÇÕES' },
+              { key: 'CRYPTO', label: 'CRIPTO' },
+            ].map((cat) => {
+              const isSelected = selectedCategory === cat.key;
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  testID={`category-filter-${cat.key}`}
+                  onPress={() => handleCategorySelect(cat.key)}
+                  style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
+                >
+                  <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
+                    {cat.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* Busca e Entrada Livre de Ticker */}
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>BUSCAR OU DIGITAR TICKER</Text>
@@ -551,17 +802,25 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Data da Operação */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>DATA DO PREGÃO (AAAA-MM-DD)</Text>
+          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>DATA DA OPERAÇÃO (DD/MM/AAAA)</Text>
           <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />
+            <TouchableOpacity onPress={() => setIsDatePickerVisible(true)} style={{ marginRight: 6 }}>
+              <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A531B' : colors.tertiary} />
+            </TouchableOpacity>
             <TextInput
               testID="transaction-trade-date-input"
               style={[styles.textInput, isLight && styles.textInputLight]}
-              value={tradeDate}
-              onChangeText={setTradeDate}
+              value={displayDate}
+              onChangeText={handleDateChangeText}
               placeholder="Ex: 2024-03-15"
               placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
             />
+            <TouchableOpacity
+              onPress={() => setIsDatePickerVisible(true)}
+              style={[styles.calendarTriggerBtn, isLight && styles.calendarTriggerBtnLight]}
+            >
+              <Text style={[styles.calendarTriggerText, isLight && styles.calendarTriggerTextLight]}>CALENDÁRIO</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -674,6 +933,8 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {renderDatePickerModal()}
     </View>
   );
 };
@@ -996,6 +1257,161 @@ const styles = StyleSheet.create({
   },
   suggestionNameLight: {
     color: '#6E6A63',
+  },
+  calendarTriggerBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.outline,
+    marginLeft: 6,
+  },
+  calendarTriggerBtnLight: {
+    backgroundColor: '#EAE5D9',
+    borderColor: '#D4CEBF',
+  },
+  calendarTriggerText: {
+    color: colors.tertiary,
+    fontSize: 10,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: '700',
+  },
+  calendarTriggerTextLight: {
+    color: '#8A531B',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  calendarCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#1E2229',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#2A303C',
+    padding: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  calendarCardLight: {
+    backgroundColor: '#FDFBF7',
+    borderColor: '#D8D2C4',
+    shadowOpacity: 0.1,
+  },
+  calendarHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  calendarNavBtn: {
+    padding: 6,
+  },
+  calendarMonthTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    fontFamily: typography.fontFamilyDisplay,
+  },
+  calendarMonthTitleLight: {
+    color: '#111315',
+  },
+  calendarWeekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 8,
+  },
+  calendarWeekText: {
+    width: 36,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#8A8A8E',
+    fontFamily: typography.fontFamilyMono,
+  },
+  calendarWeekTextLight: {
+    color: '#8A857B',
+  },
+  calendarDaysGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+  },
+  calendarDayBlank: {
+    width: '14.28%',
+    height: 40,
+  },
+  calendarDayCell: {
+    width: '14.28%',
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  calendarDayCellSelected: {
+    backgroundColor: colors.primary,
+  },
+  calendarDayText: {
+    fontSize: 14,
+    color: colors.parchmentPale,
+    fontFamily: typography.fontFamilyMono,
+    fontWeight: '600',
+  },
+  calendarDayTextLight: {
+    color: '#111315',
+  },
+  calendarDayTextSelected: {
+    color: '#000',
+    fontWeight: '800',
+  },
+  calendarFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: '#2A303C',
+  },
+  calendarTodayBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  calendarTodayBtnLight: {
+    backgroundColor: '#B57C1E',
+  },
+  calendarTodayBtnText: {
+    color: '#000',
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  calendarCloseBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: '#2A303C',
+    borderRadius: 8,
+  },
+  calendarCloseBtnLight: {
+    backgroundColor: '#EAE5D9',
+  },
+  calendarCloseBtnText: {
+    color: colors.parchmentPale,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  calendarCloseBtnTextLight: {
+    color: '#111315',
   },
 });
 

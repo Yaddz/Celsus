@@ -40,6 +40,21 @@ func SeedProductionCatalogAndMacro(ctx context.Context, cotahistRepo *SQLiteRepo
 		{Ticker: "VISC11", Name: "VINCI SHOPPING CENTERS FII", AssetClass: "FII"},
 		{Ticker: "XPML11", Name: "XP MALLS FII", AssetClass: "FII"},
 		{Ticker: "HGRU11", Name: "CSHG RENDA URBANA FII", AssetClass: "FII"},
+		{Ticker: "HGRE11", Name: "CSHG REAL ESTATE FII", AssetClass: "FII"},
+		{Ticker: "IRDM11", Name: "IRIDIUM RECEBIVEIS IMOBILIARIOS FII", AssetClass: "FII"},
+		{Ticker: "CPTS11", Name: "CAPITANIA SECURITIES II FII", AssetClass: "FII"},
+		{Ticker: "TGAR11", Name: "TG ATIVO REAL FII", AssetClass: "FII"},
+		{Ticker: "RBRR11", Name: "RBR RENDIMENTO HIGH GRADE FII", AssetClass: "FII"},
+		{Ticker: "ALZR11", Name: "ALIANZA TRUST RENDA IMOBILIARIA FII", AssetClass: "FII"},
+
+		// Renda Fixa (Fixed Income)
+		{Ticker: "TESOURO_SELIC", Name: "Tesouro Selic 2029 (LFT)", AssetClass: "FIXED_INCOME"},
+		{Ticker: "TESOURO_IPCA", Name: "Tesouro IPCA+ 2035 (NTN-B)", AssetClass: "FIXED_INCOME"},
+		{Ticker: "TESOURO_PREFIXADO", Name: "Tesouro Prefixado 2026 (LTN)", AssetClass: "FIXED_INCOME"},
+		{Ticker: "CDB_100_CDI", Name: "CDB 100% CDI Liquidez Diária", AssetClass: "FIXED_INCOME"},
+		{Ticker: "LCI_90_CDI", Name: "LCI 90% CDI Isento IR", AssetClass: "FIXED_INCOME"},
+		{Ticker: "LCA_90_CDI", Name: "LCA 90% CDI Isento IR", AssetClass: "FIXED_INCOME"},
+		{Ticker: "DEB_INCENTIVADA", Name: "Debênture Incentivada de Infraestrutura", AssetClass: "FIXED_INCOME"},
 
 		// Criptomoedas (Crypto)
 		{Ticker: "BTC", Name: "BITCOIN", AssetClass: "CRYPTO"},

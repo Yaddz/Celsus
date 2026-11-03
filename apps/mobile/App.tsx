@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  Modal,
 } from 'react-native';
 import {
   SafeAreaProvider,
@@ -177,6 +178,7 @@ function AppContent() {
   const [openCreatePortfolioModal, setOpenCreatePortfolioModal] = useState(false);
   const [openAddAssetModal, setOpenAddAssetModal] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
@@ -201,6 +203,11 @@ function AppContent() {
   const [cachedQuotes, setCachedQuotes] = useState<Record<string, MarketQuote>>({});
   const [categoryAllocations, setCategoryAllocations] = useState<CategoryAllocationData[]>(INITIAL_CATEGORY_ALLOCATIONS);
   const [isOffline, setIsOffline] = useState(false);
+
+  const openTransactionModal = () => {
+    setTransactionModalKey((k) => k + 1);
+    setIsTransactionModalOpen(true);
+  };
 
   const refreshAppData = async () => {
     try {
@@ -548,42 +555,57 @@ function AppContent() {
   // 1. Modal: Nova Movimentação
   if (isTransactionModalOpen) {
     return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => {
+          setIsTransactionModalOpen(false);
+          setOpenAddAssetModal(false);
+          setOpenCreatePortfolioModal(false);
+          setIsPortfolioManagerModalOpen(false);
+          setActiveTab('home');
+          refreshAppData();
+        }}
       >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <View style={styles.sheetDragHandleContainer}>
-          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-        </View>
-        <TransactionScreen
-          initialPortfolioId={walletsList[activeWalletIndex]?.id}
-          themeMode={themeMode}
-          onClose={() => {
-            setIsTransactionModalOpen(false);
-            setOpenAddAssetModal(false);
-            setOpenCreatePortfolioModal(false);
-            setIsPortfolioManagerModalOpen(false);
-            setActiveTab('home');
-            refreshAppData();
-          }}
-          onTransactionSuccess={() => {
-            setIsTransactionModalOpen(false);
-            setOpenAddAssetModal(false);
-            setOpenCreatePortfolioModal(false);
-            setIsPortfolioManagerModalOpen(false);
-            setActiveTab('home');
-            refreshAppData();
-          }}
-        />
-      </SafeAreaView>
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            {
+              backgroundColor: isLight
+                ? LIGHT_THEME_TOKENS.backgroundPrimary
+                : colors.voidFloor,
+            },
+          ]}
+          edges={['top', 'left', 'right']}
+        >
+          <StatusBar style={isLight ? 'dark' : 'light'} />
+          <View style={styles.sheetDragHandleContainer}>
+            <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+          </View>
+          <TransactionScreen
+            key={`tx-modal-${transactionModalKey}`}
+            initialPortfolioId={walletsList[activeWalletIndex]?.id}
+            themeMode={themeMode}
+            onClose={() => {
+              setIsTransactionModalOpen(false);
+              setOpenAddAssetModal(false);
+              setOpenCreatePortfolioModal(false);
+              setIsPortfolioManagerModalOpen(false);
+              setActiveTab('home');
+              refreshAppData();
+            }}
+            onTransactionSuccess={() => {
+              setIsTransactionModalOpen(false);
+              setOpenAddAssetModal(false);
+              setOpenCreatePortfolioModal(false);
+              setIsPortfolioManagerModalOpen(false);
+              setActiveTab('home');
+              refreshAppData();
+            }}
+          />
+        </SafeAreaView>
+      </Modal>
     );
   }
 
@@ -653,70 +675,92 @@ function AppContent() {
 
   // 4. Tela: Detalhe / Histórico da Movimentação ou do Ativo
   if (selectedRecentTransaction) {
+    const assetHistory = transactionsList
+      .filter((t) => t.ticker === selectedRecentTransaction.ticker && t.id !== selectedRecentTransaction.id)
+      .map((t) => ({
+        id: t.id,
+        type: t.type,
+        tradeDate: t.dateText,
+        quantity: t.quantity || '1',
+        unitPrice: t.unitPrice || t.amountText,
+        totalAmount: t.amountText,
+        fees: t.fees || 'R$ 0,00',
+      }));
+
     return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setSelectedRecentTransaction(null)}
       >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <TransactionDetailHistoryScreen
-          transaction={{
-            id: selectedRecentTransaction.id,
-            ticker: selectedRecentTransaction.ticker,
-            assetName: selectedRecentTransaction.assetName || (selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : selectedRecentTransaction.ticker),
-            assetClass: selectedRecentTransaction.assetClass,
-            type: selectedRecentTransaction.type,
-            tradeDate: selectedRecentTransaction.dateText,
-            investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
-            unitPrice: selectedRecentTransaction.unitPrice || selectedRecentTransaction.amountText,
-            quantity: selectedRecentTransaction.quantity || '1',
-            fees: selectedRecentTransaction.fees || 'R$ 0,00',
-            portfolioName: walletsList[activeWalletIndex]?.name || 'Carteira Principal',
-          }}
-          isPrivacyMode={isPrivacyMode}
-          themeMode={themeMode}
-          onClose={() => setSelectedRecentTransaction(null)}
-        />
-        <FloatingBottomDock
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setSelectedRecentTransaction(null);
-            setActiveTab(tab);
-          }}
-          onActionPress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
-          }}
-          onNovoAportePress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
-          }}
-          onNovaCarteiraPress={() => {
-            setSelectedRecentTransaction(null);
-            setOpenCreatePortfolioModal(true);
-            setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
-          }}
-          onAdicionarAtivoPress={() => {
-            setSelectedRecentTransaction(null);
-            setOpenAddAssetModal(true);
-            setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
-          }}
-          themeMode={themeMode}
-        />
-      </SafeAreaView>
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            {
+              backgroundColor: isLight
+                ? LIGHT_THEME_TOKENS.backgroundPrimary
+                : colors.voidFloor,
+            },
+          ]}
+          edges={['top', 'left', 'right']}
+        >
+          <StatusBar style={isLight ? 'dark' : 'light'} />
+          <TransactionDetailHistoryScreen
+            transaction={{
+              id: selectedRecentTransaction.id,
+              ticker: selectedRecentTransaction.ticker,
+              assetName: selectedRecentTransaction.assetName || (selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : selectedRecentTransaction.ticker),
+              assetClass: selectedRecentTransaction.assetClass,
+              type: selectedRecentTransaction.type,
+              tradeDate: selectedRecentTransaction.dateText,
+              investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
+              unitPrice: selectedRecentTransaction.unitPrice || selectedRecentTransaction.amountText,
+              quantity: selectedRecentTransaction.quantity || '1',
+              fees: selectedRecentTransaction.fees || 'R$ 0,00',
+              portfolioName: walletsList[activeWalletIndex]?.name || 'Carteira Principal',
+            }}
+            history={assetHistory}
+            isPrivacyMode={isPrivacyMode}
+            themeMode={themeMode}
+            onClose={() => setSelectedRecentTransaction(null)}
+          />
+          <FloatingBottomDock
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setSelectedRecentTransaction(null);
+              setActiveTab(tab);
+            }}
+            onActionPress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              setTransactionModalKey((k) => k + 1);
+              setIsTransactionModalOpen(true);
+            }}
+            onNovoAportePress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              setTransactionModalKey((k) => k + 1);
+              setIsTransactionModalOpen(true);
+            }}
+            onNovaCarteiraPress={() => {
+              setSelectedRecentTransaction(null);
+              setOpenCreatePortfolioModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
+            onAdicionarAtivoPress={() => {
+              setSelectedRecentTransaction(null);
+              setOpenAddAssetModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
+            themeMode={themeMode}
+          />
+        </SafeAreaView>
+      </Modal>
     );
   }
 
@@ -755,13 +799,13 @@ function AppContent() {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovoAportePress={() => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovaCarteiraPress={() => {
             setIsAllTransactionsModalOpen(false);
@@ -815,99 +859,108 @@ function AppContent() {
       });
 
     return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
+      <Modal
+        visible={true}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setSelectedClassDetail(null)}
       >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <ClassDetailScreen
-          assetClass={selectedClassDetail}
-          assets={classAssetsForDetail}
-          isPrivacyMode={isPrivacyMode}
-          themeMode={themeMode}
-          onClose={() => setSelectedClassDetail(null)}
-          onAssetPress={async (tickerOrId) => {
-            try {
-              const allPortfolios = await portfolioRepository.listPortfolios(false);
-              const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
-              let targetAsset: any = null;
-              if (activePortId) {
-                const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
-                targetAsset = pAssets.find((a) => a.id === tickerOrId || a.ticker === tickerOrId);
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            {
+              backgroundColor: isLight
+                ? LIGHT_THEME_TOKENS.backgroundPrimary
+                : colors.voidFloor,
+            },
+          ]}
+          edges={['top', 'left', 'right']}
+        >
+          <StatusBar style={isLight ? 'dark' : 'light'} />
+          <ClassDetailScreen
+            assetClass={selectedClassDetail}
+            assets={classAssetsForDetail}
+            isPrivacyMode={isPrivacyMode}
+            themeMode={themeMode}
+            onClose={() => setSelectedClassDetail(null)}
+            onAssetPress={async (tickerOrId) => {
+              try {
+                const allPortfolios = await portfolioRepository.listPortfolios(false);
+                const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+                let targetAsset: any = null;
+                if (activePortId) {
+                  const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
+                  targetAsset = pAssets.find((a) => a.id === tickerOrId || a.ticker === tickerOrId);
+                }
+                const ticker = targetAsset?.ticker || tickerOrId;
+                const name = targetAsset?.name || ticker;
+                const qty = targetAsset?.quantity || '0';
+                const avgPrice = targetAsset?.average_price || '0.00';
+                const invested = (parseFloat(qty) * parseFloat(avgPrice)).toFixed(2);
+                setSelectedRecentTransaction({
+                  id: `asset-detail-${ticker}`,
+                  ticker: ticker,
+                  assetName: name,
+                  assetClass: (targetAsset?.asset_class as AssetClass) || selectedClassDetail,
+                  type: 'BUY',
+                  dateText: new Date().toLocaleDateString('pt-BR'),
+                  amountText: `R$ ${parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  unitPrice: `R$ ${parseFloat(avgPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  quantity: qty,
+                  fees: 'R$ 0,00',
+                });
+              } catch (err) {
+                console.error('[App] Failed to load asset onAssetPress:', err);
+                setSelectedRecentTransaction({
+                  id: `asset-detail-${tickerOrId}`,
+                  ticker: tickerOrId,
+                  assetClass: selectedClassDetail,
+                  type: 'BUY',
+                  dateText: new Date().toLocaleDateString('pt-BR'),
+                  amountText: 'R$ 0,00',
+                  unitPrice: 'R$ 0,00',
+                  quantity: '0',
+                  fees: 'R$ 0,00',
+                });
               }
-              const ticker = targetAsset?.ticker || tickerOrId;
-              const name = targetAsset?.name || ticker;
-              const qty = targetAsset?.quantity || '0';
-              const avgPrice = targetAsset?.average_price || '0.00';
-              const invested = (parseFloat(qty) * parseFloat(avgPrice)).toFixed(2);
-              setSelectedRecentTransaction({
-                id: `asset-detail-${ticker}`,
-                ticker: ticker,
-                assetName: name,
-                assetClass: (targetAsset?.asset_class as AssetClass) || selectedClassDetail,
-                type: 'BUY',
-                dateText: new Date().toLocaleDateString('pt-BR'),
-                amountText: `R$ ${parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                unitPrice: `R$ ${parseFloat(avgPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                quantity: qty,
-                fees: 'R$ 0,00',
-              });
-            } catch (err) {
-              console.error('[App] Failed to load asset onAssetPress:', err);
-              setSelectedRecentTransaction({
-                id: `asset-detail-${tickerOrId}`,
-                ticker: tickerOrId,
-                assetClass: selectedClassDetail,
-                type: 'BUY',
-                dateText: new Date().toLocaleDateString('pt-BR'),
-                amountText: 'R$ 0,00',
-                unitPrice: 'R$ 0,00',
-                quantity: '0',
-                fees: 'R$ 0,00',
-              });
-            }
-          }}
-        />
-        <FloatingBottomDock
-          activeTab={activeTab}
-          onTabChange={(tab) => {
-            setSelectedClassDetail(null);
-            setActiveTab(tab);
-          }}
-          onActionPress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
-          }}
-          onNovoAportePress={() => {
-            setIsPortfolioManagerModalOpen(false);
-            setOpenCreatePortfolioModal(false);
-            setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
-          }}
-          onNovaCarteiraPress={() => {
-            setSelectedClassDetail(null);
-            setOpenCreatePortfolioModal(true);
-            setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
-          }}
-          onAdicionarAtivoPress={() => {
-            setSelectedClassDetail(null);
-            setOpenAddAssetModal(true);
-            setIsPortfolioManagerModalOpen(true);
-            setActiveTab('wallets');
-          }}
-          themeMode={themeMode}
-        />
-      </SafeAreaView>
+            }}
+          />
+          <FloatingBottomDock
+            activeTab={activeTab}
+            onTabChange={(tab) => {
+              setSelectedClassDetail(null);
+              setActiveTab(tab);
+            }}
+            onActionPress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              setTransactionModalKey((k) => k + 1);
+              setIsTransactionModalOpen(true);
+            }}
+            onNovoAportePress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              setTransactionModalKey((k) => k + 1);
+              setIsTransactionModalOpen(true);
+            }}
+            onNovaCarteiraPress={() => {
+              setSelectedClassDetail(null);
+              setOpenCreatePortfolioModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
+            onAdicionarAtivoPress={() => {
+              setSelectedClassDetail(null);
+              setOpenAddAssetModal(true);
+              setIsPortfolioManagerModalOpen(true);
+              setActiveTab('wallets');
+            }}
+            themeMode={themeMode}
+          />
+        </SafeAreaView>
+      </Modal>
     );
   }
 
@@ -957,13 +1010,13 @@ function AppContent() {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovoAportePress={() => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
@@ -1004,13 +1057,13 @@ function AppContent() {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovoAportePress={() => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
-            setIsTransactionModalOpen(true);
+            openTransactionModal();
           }}
           onNovaCarteiraPress={() => {
             setOpenCreatePortfolioModal(true);
@@ -1144,10 +1197,10 @@ function AppContent() {
           {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
           <QuickActionBentoRow
             variant="v2"
-            onAportar={() => setIsTransactionModalOpen(true)}
+            onAportar={openTransactionModal}
             onSimular={() => setIsSimulatorModalOpen(true)}
             onMais={() => Alert.alert('Funcionalidade em desenvolvimento')}
-            onNovoAportePress={() => setIsTransactionModalOpen(true)}
+            onNovoAportePress={openTransactionModal}
             onNovaCarteiraPress={() => {
               setOpenCreatePortfolioModal(true);
               setIsPortfolioManagerModalOpen(true);
@@ -1196,8 +1249,8 @@ function AppContent() {
             setActiveTab(tab);
           }
         }}
-        onActionPress={() => setIsTransactionModalOpen(true)}
-        onNovoAportePress={() => setIsTransactionModalOpen(true)}
+        onActionPress={openTransactionModal}
+        onNovoAportePress={openTransactionModal}
         onNovaCarteiraPress={() => {
           setOpenCreatePortfolioModal(true);
           setIsPortfolioManagerModalOpen(true);

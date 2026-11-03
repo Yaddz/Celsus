@@ -523,6 +523,28 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 				}
 				return string(bytes), nil
 			}
+
+			// Fallback: se a data for final de semana ou feriado, busca o pregão imediatamente anterior
+			priorQuotes, errPrior := eng.cotahistRepo.GetQuotes(ctx, cleanTicker, "", cleanDate)
+			if errPrior == nil && len(priorQuotes) > 0 {
+				q := priorQuotes[len(priorQuotes)-1]
+				adj := q.AdjClose
+				if adj == 0 {
+					adj = q.Close
+				}
+				resp := historicalPriceResponse{
+					Ticker:     cleanTicker,
+					Date:       q.Date,
+					ClosePrice: q.Close,
+					AdjClose:   adj,
+					Source:     q.Source,
+				}
+				bytes, err := json.Marshal(resp)
+				if err != nil {
+					return "", err
+				}
+				return string(bytes), nil
+			}
 		}
 	}
 
