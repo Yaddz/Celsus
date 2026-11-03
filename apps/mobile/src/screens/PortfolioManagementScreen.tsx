@@ -54,6 +54,7 @@ interface EnhancedClassTarget {
   targetPercentage: number;
   percentage: number;
   isLocked: boolean;
+  isDeactivated?: boolean;
 }
 
 export interface PortfolioManagementScreenProps {
@@ -371,6 +372,80 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     setClassTargets((prev) =>
       prev.map((c) => (c.assetClass === assetClass ? { ...c, isLocked: !c.isLocked } : c))
     );
+  };
+
+  const handleToggleClassActive = (assetClass: AssetClass) => {
+    setClassTargets((prev) => {
+      const target = prev.find((c) => c.assetClass === assetClass);
+      if (!target) return prev;
+
+      const isCurrentlyActive = (target.targetPercentage ?? 0) > 0 && !target.isDeactivated;
+
+      let updated: EnhancedClassTarget[];
+      if (isCurrentlyActive) {
+        // Desativar: targetPercentage vai a 0 e o valor é redistribuído para as demais categorias ativas
+        const activeRemaining = prev.filter(
+          (c) => c.assetClass !== assetClass && !c.isDeactivated && (c.targetPercentage ?? 0) > 0
+        );
+        const freed = target.targetPercentage ?? 0;
+
+        if (activeRemaining.length > 0) {
+          const unlocked = activeRemaining.filter((c) => !c.isLocked);
+          const targetsToDistribute = unlocked.length > 0 ? unlocked : activeRemaining;
+          const share = Math.floor(freed / targetsToDistribute.length);
+          let rem = freed - share * targetsToDistribute.length;
+          const distSet = new Set(targetsToDistribute.map((c) => c.assetClass));
+
+          updated = prev.map((c) => {
+            if (c.assetClass === assetClass) {
+              return { ...c, targetPercentage: 0, percentage: 0, isLocked: false, isDeactivated: true };
+            }
+            if (distSet.has(c.assetClass)) {
+              const extra = rem > 0 ? 1 : 0;
+              rem = Math.max(0, rem - 1);
+              const newPct = (c.targetPercentage ?? 0) + share + extra;
+              return { ...c, targetPercentage: newPct, percentage: newPct };
+            }
+            return c;
+          });
+        } else {
+          updated = prev.map((c) =>
+            c.assetClass === assetClass
+              ? { ...c, targetPercentage: 0, percentage: 0, isLocked: false, isDeactivated: true }
+              : c
+          );
+        }
+      } else {
+        // Reativar categoria: atribui meta inicial de 10% e recalcula
+        const newPct = 10;
+        const recalculated = recalculateUnlockedTargets(
+          prev.map((p) => ({
+            ...p,
+            percentage: p.assetClass === assetClass ? newPct : (p.targetPercentage ?? 0),
+          })),
+          assetClass,
+          newPct
+        );
+        updated = recalculated.map((r) => ({
+          ...r,
+          targetPercentage: r.percentage,
+          isDeactivated: r.percentage === 0,
+        }));
+      }
+
+      if (activePortfolioId) {
+        portfolioRepository
+          .setClassTargets(
+            activePortfolioId,
+            updated.map((u) => ({
+              asset_class: u.assetClass,
+              target_percentage: u.targetPercentage,
+            }))
+          )
+          .catch(() => {});
+      }
+      return updated;
+    });
   };
 
   const handleClassPercentageChange = (assetClass: AssetClass, text: string) => {
@@ -1421,17 +1496,41 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             <View style={styles.verticalClassList}>
               {classTargets.map((ct) => {
                 const color = getClassColor(ct.assetClass);
+                const isDeactivated = Boolean(ct.isDeactivated || ct.targetPercentage === 0);
                 return (
                   <View
                     key={ct.assetClass}
                     testID={`class-list-row-${ct.assetClass}`}
-                    style={[styles.verticalClassRow, isLight && styles.verticalClassRowLight]}
+                    style={[
+                      styles.verticalClassRow,
+                      isLight && styles.verticalClassRowLight,
+                      isDeactivated && { opacity: 0.6 },
+                    ]}
                   >
                     <View style={styles.classRowLeft}>
-                      <View style={[styles.classColorIndicator, { backgroundColor: color }]} />
-                      <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
-                        {getClassName(ct.assetClass)}
-                      </Text>
+                      <TouchableOpacity
+                        testID={`toggle-class-active-${ct.assetClass}`}
+                        onPress={() => handleToggleClassActive(ct.assetClass)}
+                        style={styles.classActiveToggleBtn}
+                        activeOpacity={0.7}
+                      >
+                        <MaterialIcons
+                          name={isDeactivated ? 'check-box-outline-blank' : 'check-box'}
+                          size={18}
+                          color={isDeactivated ? (isLight ? '#999' : '#666') : (isLight ? '#2E4A44' : colors.primary)}
+                        />
+                      </TouchableOpacity>
+                      <View style={[styles.classColorIndicator, { backgroundColor: isDeactivated ? (isLight ? '#CCC' : '#555') : color }]} />
+                      <View>
+                        <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
+                          {getClassName(ct.assetClass)}
+                        </Text>
+                        {isDeactivated && (
+                          <Text style={{ fontSize: 10, color: isLight ? '#8A857B' : '#8A8A8E', fontFamily: typography.fontFamilyMono }}>
+                            (Desativada)
+                          </Text>
+                        )}
+                      </View>
                     </View>
 
                     <View style={styles.classRowRight}>
@@ -1439,11 +1538,13 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                       <TouchableOpacity
                         testID={`lock-class-${ct.assetClass}`}
                         onPress={() => handleToggleClassLock(ct.assetClass)}
+                        disabled={isDeactivated}
                         style={[
                           styles.lockBtn,
                           ct.isLocked && styles.lockBtnActive,
                           isLight && styles.lockBtnLight,
                           isLight && ct.isLocked && styles.lockBtnActiveLight,
+                          isDeactivated && { opacity: 0.3 },
                         ]}
                         activeOpacity={0.7}
                       >
@@ -1457,14 +1558,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                       {/* Input Numérico Editável Macro */}
                       <View
                         testID={`input-wrapper-class-${ct.assetClass}`}
-                        style={[styles.numericInputWrapper, isLight && styles.numericInputWrapperLight]}
+                        style={[
+                          styles.numericInputWrapper,
+                          isLight && styles.numericInputWrapperLight,
+                          isDeactivated && { opacity: 0.4 },
+                        ]}
                       >
                         <TextInput
                           testID={`input-class-${ct.assetClass}`}
                           keyboardType="numeric"
                           value={String(ct.targetPercentage)}
                           onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
-                          style={[styles.numericInputText, { color }]}
+                          style={[styles.numericInputText, { color: isDeactivated ? (isLight ? '#999' : '#666') : color }]}
                         />
                         <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>% meta</Text>
                       </View>
@@ -1742,6 +1847,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  classActiveToggleBtn: {
+    marginRight: 6,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   classColorIndicator: {
     width: 8,

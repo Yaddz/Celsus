@@ -253,19 +253,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
   const handleCategorySelect = (catKey: string) => {
     setSelectedCategory(catKey);
-    if (catKey === 'ALL') {
-      if (tickerQuery.trim().length > 0) {
-        handleTickerSearch(tickerQuery, 'ALL');
-      } else {
-        setTickerSuggestions([]);
-      }
+    if (tickerQuery.trim().length > 0) {
+      handleTickerSearch(tickerQuery, catKey);
     } else {
-      if (tickerQuery.trim().length > 0) {
-        handleTickerSearch(tickerQuery, catKey);
-      } else {
-        const categoryAssets = STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === catKey);
-        setTickerSuggestions(categoryAssets);
-      }
+      setTickerSuggestions([]);
     }
   };
 
@@ -273,11 +264,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     setTickerQuery(text);
     const cat = overrideCategory !== undefined ? overrideCategory : selectedCategory;
     if (!text || text.trim().length === 0) {
-      if (cat !== 'ALL') {
-        setTickerSuggestions(STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === cat));
-      } else {
-        setTickerSuggestions([]);
-      }
+      setTickerSuggestions([]);
       return;
     }
     try {
@@ -446,6 +433,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         fees: fees || '0.00',
         notes: notes || undefined,
       });
+
+      if (selectedAsset?.ticker) {
+        marketApiService.fetchQuotes([selectedAsset.ticker], { forceRefresh: true }).catch(() => {});
+      }
 
       Alert.alert(
         'Sucesso',

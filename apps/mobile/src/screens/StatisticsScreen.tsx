@@ -32,6 +32,7 @@ import {
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
+import { marketApiService } from '../services/marketApi';
 
 export interface StatisticsScreenProps {
   onClose?: () => void;
@@ -67,20 +68,41 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
           const pTargets = await portfolioRepository.getClassTargets(p.id);
 
+          const mappedAssets = await Promise.all(
+            pAssets.map(async (a) => {
+              let quotePrice: string | null = null;
+              if (a.ticker) {
+                try {
+                  const cached = await marketApiService.getCachedQuote(a.ticker);
+                  if (cached?.currentPrice) {
+                    quotePrice = cached.currentPrice;
+                  } else {
+                    const fetched = await marketApiService.fetchQuotes([a.ticker]);
+                    if (fetched && fetched.length > 0 && fetched[0].currentPrice) {
+                      quotePrice = fetched[0].currentPrice;
+                    }
+                  }
+                } catch {}
+              }
+              const currentPrice = a.manual_price_override || quotePrice || a.average_price;
+              return {
+                id: a.id,
+                ticker: a.ticker,
+                assetClass: a.asset_class as any,
+                quantity: a.quantity,
+                averagePrice: a.average_price,
+                currentPrice,
+                manualPriceOverride: a.manual_price_override,
+              };
+            })
+          );
+
           return {
             id: p.id,
             name: p.name,
             docketCode: p.docket_code,
             isArchived: p.is_archived,
-            assets: pAssets.map((a) => ({
-              id: a.id,
-              ticker: a.ticker,
-              assetClass: a.asset_class as any,
-              quantity: a.quantity,
-              averagePrice: a.average_price,
-              currentPrice: a.manual_price_override || a.average_price,
-              manualPriceOverride: a.manual_price_override,
-            })),
+            assets: mappedAssets,
             classTargets: pTargets.map((ct) => ({
               assetClass: ct.asset_class as any,
               targetPercentage: ct.target_percentage,
@@ -89,7 +111,10 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         })
       );
 
-      const dossier = consolidatePortfolios(consolidationInputs);
+      const targetInputs = selectedPortfolioId === 'all'
+        ? consolidationInputs
+        : consolidationInputs.filter((i) => i.id === selectedPortfolioId);
+      const dossier = consolidatePortfolios(targetInputs.length > 0 ? targetInputs : consolidationInputs);
       setConsolidatedData(dossier);
 
       // Coleta ativos e transações da carteira selecionada ou consolidadas
@@ -117,6 +142,20 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         }));
         setTransactionsList(mappedTxs);
 
+        const histQuotesMap: Record<string, Record<string, string>> = {};
+        const todayStr = new Date().toISOString().slice(0, 10);
+        for (const a of targetAssets) {
+          if (a.ticker) {
+            try {
+              const cached = await marketApiService.getCachedQuote(a.ticker);
+              if (cached?.currentPrice) {
+                if (!histQuotesMap[a.ticker]) histQuotesMap[a.ticker] = {};
+                histQuotesMap[a.ticker][todayStr] = cached.currentPrice;
+              }
+            } catch {}
+          }
+        }
+
         const curve = calculateDailyPatrimonyCurve({
           assets: targetAssets.map((a) => ({
             id: a.id,
@@ -127,6 +166,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
             manualPriceOverride: a.manual_price_override,
           })),
           transactions: mappedTxs,
+          historicalQuotes: Object.keys(histQuotesMap).length > 0 ? histQuotesMap : undefined,
         });
 
         if (curve && curve.length > 0) {
@@ -288,13 +328,13 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
                       color:
                         parseFloat(consolidatedData.totalProfit) >= 0
                           ? (isLight ? '#2E4A44' : '#AECDC5')
-                          : colors.primary,
+                          : (isLight ? '#A83B2B' : colors.deficit),
                     },
                   ]}
                 >
                   {isPrivacyMode
                     ? 'R$ ••••••'
-                    : `${parseFloat(consolidatedData.totalProfit) >= 0 ? '+' : ''}R$ ${parseFloat(consolidatedData.totalProfit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${consolidatedData.totalProfitPercentage}%)`}
+                    : `${parseFloat(consolidatedData.totalProfit) > 0 ? '+' : ''}R$ ${parseFloat(consolidatedData.totalProfit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${parseFloat(consolidatedData.totalProfitPercentage) > 0 ? '+' : ''}${parseFloat(consolidatedData.totalProfitPercentage).toFixed(2).replace('.', ',')}%)`}
                 </Text>
               </View>
             </View>

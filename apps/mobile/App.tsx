@@ -225,8 +225,16 @@ function AppContent() {
                 if (a.ticker) {
                   try {
                     const normTicker = a.ticker.toUpperCase();
-                    if (!quoteCacheMap[normTicker]) {
-                      const cached = await marketApiService.getCachedQuote(a.ticker);
+                    if (!quoteCacheMap[normTicker]?.currentPrice) {
+                      let cached = await marketApiService.getCachedQuote(a.ticker);
+                      if (!cached) {
+                        try {
+                          const fetched = await marketApiService.fetchQuotes([a.ticker]);
+                          if (fetched && fetched.length > 0) {
+                            cached = fetched[0];
+                          }
+                        } catch {}
+                      }
                       if (cached) {
                         quoteCacheMap[normTicker] = cached;
                       }
@@ -438,8 +446,16 @@ function AppContent() {
               if (a.ticker) {
                 try {
                   const normTicker = a.ticker.toUpperCase();
-                  if (!quoteCacheMap[normTicker]) {
-                    const cached = await marketApiService.getCachedQuote(a.ticker);
+                  if (!quoteCacheMap[normTicker]?.currentPrice) {
+                    let cached = await marketApiService.getCachedQuote(a.ticker);
+                    if (!cached) {
+                      try {
+                        const fetched = await marketApiService.fetchQuotes([a.ticker]);
+                        if (fetched && fetched.length > 0) {
+                          cached = fetched[0];
+                        }
+                      } catch {}
+                    }
                     if (cached) {
                       quoteCacheMap[normTicker] = cached;
                     }
