@@ -564,6 +564,7 @@ function AppContent() {
           <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
         </View>
         <TransactionScreen
+          initialPortfolioId={walletsList[activeWalletIndex]?.id}
           themeMode={themeMode}
           onClose={() => {
             setIsTransactionModalOpen(false);

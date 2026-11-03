@@ -229,6 +229,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
       return;
     }
 
+    if (!selectedPortfolioId) {
+      Alert.alert(
+        'Nenhuma carteira selecionada',
+        'Cadastre ou selecione uma carteira na aba Carteiras antes de adicionar ativos ou movimentações.'
+      );
+      setTickerSuggestions([]);
+      return;
+    }
+
     // Ativo fora da carteira: confirmação interativa com o usuário
     Alert.alert(
       'Adicionar ativo à carteira?',
@@ -309,6 +318,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (!selectedPortfolioId) {
+      Alert.alert('Erro', 'Selecione ou cadastre uma carteira válida.');
+      return;
+    }
     if (!selectedAssetId) {
       Alert.alert('Erro', 'Selecione um ativo válido.');
       return;
@@ -430,27 +443,35 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         {/* Seleção de Carteira */}
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>CARTEIRA</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
-            {portfolios.map((p) => {
-              const isSelected = p.id === selectedPortfolioId;
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  onPress={() => setSelectedPortfolioId(p.id)}
-                  style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
-                >
-                  <MaterialIcons
-                    name="account-balance-wallet"
-                    size={16}
-                    color={isSelected ? colors.voidFloor : (isLight ? '#6E6A63' : colors.tertiary)}
-                  />
-                  <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
-                    {p.name}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          {portfolios.length === 0 ? (
+            <View style={[styles.emptyAssetsNotice, isLight && styles.emptyAssetsNoticeLight]}>
+              <Text style={[styles.emptyAssetsText, isLight && styles.emptyAssetsTextLight]}>
+                Nenhuma carteira cadastrada. Cadastre uma carteira na aba Carteiras primeiro.
+              </Text>
+            </View>
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+              {portfolios.map((p) => {
+                const isSelected = p.id === selectedPortfolioId;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => setSelectedPortfolioId(p.id)}
+                    style={[styles.chip, isLight && styles.chipLight, isSelected && styles.chipActive]}
+                  >
+                    <MaterialIcons
+                      name="account-balance-wallet"
+                      size={16}
+                      color={isSelected ? colors.voidFloor : (isLight ? '#6E6A63' : colors.tertiary)}
+                    />
+                    <Text style={[styles.chipText, isLight && styles.chipTextLight, isSelected && styles.chipTextActive]}>
+                      {p.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
         </View>
 
         {/* Busca e Entrada Livre de Ticker */}
