@@ -11,6 +11,10 @@ export interface RecentTransactionItem {
   type: 'BUY' | 'SELL';
   dateText: string;
   amountText: string;
+  unitPrice?: string;
+  quantity?: string;
+  fees?: string;
+  assetName?: string;
 }
 
 export interface RecentTransactionsCardProps {

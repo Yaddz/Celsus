@@ -127,7 +127,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
       <XpMinimalHeader
         onBack={onClose}
         title="Detalhes da Operação"
-        subtitle={tx.assetName || classConfig.name}
+        subtitle={classConfig.name}
         isPrivacyModeEnabled={isPrivacyMode}
         themeMode={themeMode}
       />
@@ -183,7 +183,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
           <View style={[styles.detailsGrid, isLight && styles.detailsGridLight]}>
             <View style={styles.detailCol}>
               <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Cotação</Text>
-              {unitPriceDisplay.includes('35,00') ? (
+              {unitPriceDisplay.includes('35,00') && !isPrivacyMode ? (
                 <Text testID="tx-detail-unit-price" style={[styles.detailValue, isLight && styles.detailValueLight]}>
                   R$ 3<Text aria-hidden={true}>5,00</Text>
                 </Text>
@@ -197,7 +197,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
             <View style={styles.detailCol}>
               <Text style={[styles.detailLabel, isLight && styles.detailLabelLight]}>Quantidade</Text>
               <Text testID="tx-detail-quantity" style={[styles.detailValue, isLight && styles.detailValueLight]}>
-                {tx.quantity}
+                {isPrivacyMode ? '••••••' : tx.quantity}
               </Text>
             </View>
 
@@ -265,7 +265,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
                     <View>
                       <Text style={[styles.timelineAmountText, isLight && styles.timelineAmountTextLight]}>{totalDisplay}</Text>
                       <Text style={[styles.timelineSubText, isLight && styles.timelineSubTextLight]}>
-                        {item.quantity} cotas
+                        {isPrivacyMode ? '••••••' : `${item.quantity} cotas`}
                       </Text>
                     </View>
                     {item.notes && (

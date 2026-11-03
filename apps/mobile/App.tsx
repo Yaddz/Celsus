@@ -70,7 +70,9 @@ import { transactionService } from './src/services/transactionService';
 import { marketSyncService } from './src/services/marketSyncService';
 import { assetRepository } from './src/repositories/assetRepository';
 import { portfolioRepository } from './src/repositories/portfolioRepository';
-import { marketApiService } from './src/services/marketApi';
+import { marketApiService, MarketQuote } from './src/services/marketApi';
+import { ASSET_CLASS_ATTRIBUTE_MAP } from './src/components/ui/AttributeStatBar';
+import Decimal from 'decimal.js';
 
 
 export default function App() {
@@ -119,8 +121,10 @@ function extractSyncResolvedValue<T = any>(promiseOrVal: any): T | null {
         depth--;
         if (depth === 0) {
           const block = str.substring(firstBracket, i + 1);
-          const evalFn = new Function(`return (${block});`);
-          return evalFn();
+          const safeJson = block
+            .replace(/([{,]\s*)([a-zA-Z0-9_]+)\s*:/g, '$1"$2":')
+            .replace(/'/g, '"');
+          return JSON.parse(safeJson);
         }
       }
     }
@@ -144,15 +148,16 @@ function getInitialTransactions(): RecentTransactionItem[] {
           assetClass: (asset?.asset_class as any) || 'STOCK',
           type: t.type as 'BUY' | 'SELL',
           dateText: t.trade_date,
-          amountText: `R$ ${t.total_amount}`,
-          unitPrice: t.unit_price ? `R$ ${t.unit_price}` : undefined,
-          quantity: t.quantity,
-          fees: t.fees ? `R$ ${t.fees}` : undefined,
+          amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+          quantity: t.quantity ? String(t.quantity) : undefined,
+          fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+          assetName: asset?.name,
         };
       });
     }
-  } catch {
-    // Ignora em caso de indisponibilidade síncrona
+  } catch (err) {
+    console.error('[App] Failed to load initial transactions:', err);
   }
   return [];
 }
@@ -193,6 +198,7 @@ function AppContent() {
     });
   }, [activeWalletIndex]);
   const [portfolioAssets, setPortfolioAssets] = useState<any[]>([]);
+  const [cachedQuotes, setCachedQuotes] = useState<Record<string, MarketQuote>>({});
   const [categoryAllocations, setCategoryAllocations] = useState<CategoryAllocationData[]>(INITIAL_CATEGORY_ALLOCATIONS);
   const [isOffline, setIsOffline] = useState(false);
 
@@ -201,23 +207,47 @@ function AppContent() {
       // 1. Carrega dados consolidados das carteiras locais
       const allPortfolios = await portfolioRepository.listPortfolios(false);
       if (allPortfolios && allPortfolios.length > 0) {
+        const quoteCacheMap: Record<string, MarketQuote> = {};
         const inputs: PortfolioConsolidationInput[] = await Promise.all(
           allPortfolios.map(async (p) => {
             const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
             const pTargets = await portfolioRepository.getClassTargets(p.id);
+            const mappedAssets = await Promise.all(
+              pAssets.map(async (a) => {
+                let quotePrice: string | null = null;
+                if (a.ticker) {
+                  try {
+                    const normTicker = a.ticker.toUpperCase();
+                    if (!quoteCacheMap[normTicker]) {
+                      const cached = await marketApiService.getCachedQuote(a.ticker);
+                      if (cached) {
+                        quoteCacheMap[normTicker] = cached;
+                      }
+                    }
+                    if (quoteCacheMap[normTicker]?.currentPrice) {
+                      quotePrice = quoteCacheMap[normTicker].currentPrice;
+                    }
+                  } catch (err) {
+                    console.error('[App] Failed to get cached quote for', a.ticker, err);
+                  }
+                }
+                const currentPrice = a.manual_price_override || quotePrice || a.average_price;
+                return {
+                  id: a.id,
+                  ticker: a.ticker,
+                  assetClass: a.asset_class as any,
+                  quantity: a.quantity,
+                  averagePrice: a.average_price,
+                  currentPrice,
+                };
+              })
+            );
             return {
               id: p.id,
               name: p.name,
               docketCode: p.docket_code,
               isArchived: p.is_archived,
-              assets: pAssets.map((a) => ({
-                id: a.id,
-                ticker: a.ticker,
-                assetClass: a.asset_class as any,
-                quantity: a.quantity,
-                averagePrice: a.average_price,
-                currentPrice: a.manual_price_override || a.average_price,
-              })),
+              assets: mappedAssets,
               classTargets: pTargets.map((ct) => ({
                 assetClass: ct.asset_class as any,
                 targetPercentage: ct.target_percentage,
@@ -225,6 +255,7 @@ function AppContent() {
             };
           })
         );
+        setCachedQuotes(quoteCacheMap);
 
         const dossier = consolidatePortfolios(inputs);
         const breakdownMap = new Map((dossier.portfolioBreakdown || []).map((b) => [b.portfolioId, b]));
@@ -235,7 +266,8 @@ function AppContent() {
 
         const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
         const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-        const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${homeDossier.totalProfitPercentage || '0,0'}% total`;
+        const profitPctStr = parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',');
+        const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${profitPctStr}% total`;
         setTotalPatrimony(formattedTotal);
         setProfitSummary(formattedProfit);
         setWalletsList(
@@ -244,7 +276,8 @@ function AppContent() {
             const pMv = parseFloat(b?.marketValue || '0');
             const pBalance = `R$ ${pMv.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             const pProfitNum = parseFloat(b?.profit || '0');
-            const pProfitText = `${pProfitNum >= 0 ? '+' : ''}${b?.profitPercentage || '0,0'}% total`;
+            const pProfitPctStr = parseFloat(b?.profitPercentage || '0').toFixed(1).replace('.', ',');
+            const pProfitText = `${pProfitNum >= 0 ? '+' : ''}${pProfitPctStr}% total`;
             const pal = getPortfolioPalette(idx);
             return {
               id: p.id,
@@ -318,7 +351,11 @@ function AppContent() {
               assetClass: (asset?.asset_class as any) || 'STOCK',
               type: t.type as 'BUY' | 'SELL',
               dateText: t.trade_date,
-              amountText: `R$ ${t.total_amount}`,
+              amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+              unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+              quantity: t.quantity ? String(t.quantity) : undefined,
+              fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+              assetName: asset?.name,
             };
           })
         );
@@ -326,8 +363,8 @@ function AppContent() {
       } else {
         setTransactionsList([]);
       }
-    } catch {
-      // Fallback em caso de banco inicial
+    } catch (err) {
+      console.error('[App] Failed to refresh app data:', err);
     }
   };
 
@@ -342,18 +379,33 @@ function AppContent() {
     });
 
     refreshAppData();
+    if (typeof marketApiService.checkHealth === 'function') {
+      marketApiService.checkHealth()
+        .then((health) => {
+          if (health && health.status === 'ok') {
+            setIsOffline(false);
+          } else {
+            setIsOffline(true);
+          }
+        })
+        .catch((err) => {
+          console.error('[App] Health check failed:', err);
+          setIsOffline(true);
+        });
+    }
+
     marketApiService.fetchQuotes(['PETR4'])
-      .then(() => {
-        setIsOffline(false);
-      })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[App] Quote fetch failed:', err);
         setIsOffline(true);
       });
+
     marketSyncService.syncAllPortfolioTickers()
       .then(() => {
         refreshAppData();
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error('[App] Sync failed:', err);
         setIsOffline(true);
       });
 
@@ -367,24 +419,50 @@ function AppContent() {
       try {
         const allPortfolios = await portfolioRepository.listPortfolios(false);
         const activePort = allPortfolios?.[activeWalletIndex] || allPortfolios?.[0];
-        if (activePort) {
+        if (activePort && allPortfolios.length > 0) {
           const pAssets = await assetRepository.getAssetsByPortfolio(activePort.id);
           const pTargets = await portfolioRepository.getClassTargets(activePort.id);
           setPortfolioAssets(pAssets || []);
+
+          const quoteCacheMap: Record<string, MarketQuote> = { ...cachedQuotes };
+          const mappedAssets = await Promise.all(
+            (pAssets || []).map(async (a) => {
+              let quotePrice: string | null = null;
+              if (a.ticker) {
+                try {
+                  const normTicker = a.ticker.toUpperCase();
+                  if (!quoteCacheMap[normTicker]) {
+                    const cached = await marketApiService.getCachedQuote(a.ticker);
+                    if (cached) {
+                      quoteCacheMap[normTicker] = cached;
+                    }
+                  }
+                  if (quoteCacheMap[normTicker]?.currentPrice) {
+                    quotePrice = quoteCacheMap[normTicker].currentPrice;
+                  }
+                } catch (err) {
+                  console.error('[App] Failed to get cached quote for active wallet:', a.ticker, err);
+                }
+              }
+              const currentPrice = a.manual_price_override || quotePrice || a.average_price;
+              return {
+                id: a.id,
+                ticker: a.ticker,
+                assetClass: a.asset_class as any,
+                quantity: a.quantity,
+                averagePrice: a.average_price,
+                currentPrice,
+              };
+            })
+          );
+          setCachedQuotes(quoteCacheMap);
 
           const activeInput: PortfolioConsolidationInput = {
             id: activePort.id,
             name: activePort.name,
             docketCode: activePort.docket_code,
             isArchived: activePort.is_archived,
-            assets: (pAssets || []).map((a) => ({
-              id: a.id,
-              ticker: a.ticker,
-              assetClass: a.asset_class as any,
-              quantity: a.quantity,
-              averagePrice: a.average_price,
-              currentPrice: a.manual_price_override || a.average_price,
-            })),
+            assets: mappedAssets,
             classTargets: (pTargets || []).map((ct) => ({
               assetClass: ct.asset_class as any,
               targetPercentage: ct.target_percentage,
@@ -394,7 +472,8 @@ function AppContent() {
           const homeDossier = consolidatePortfolios([activeInput]);
           const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
           const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-          const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${homeDossier.totalProfitPercentage || '0,0'}% total`;
+          const profitPctStr = parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',');
+          const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${profitPctStr}% total`;
           setTotalPatrimony(formattedTotal);
           setProfitSummary(formattedProfit);
 
@@ -436,7 +515,11 @@ function AppContent() {
                   assetClass: (asset?.asset_class as any) || 'STOCK',
                   type: t.type as 'BUY' | 'SELL',
                   dateText: t.trade_date,
-                  amountText: `R$ ${t.total_amount}`,
+                  amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                  unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+                  quantity: t.quantity ? String(t.quantity) : undefined,
+                  fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+                  assetName: asset?.name,
                 };
               })
             );
@@ -449,8 +532,12 @@ function AppContent() {
           setTransactionsList([]);
           setTotalPatrimony('R$ 0,00');
           setProfitSummary('0,0% no ano');
+          setWalletsList([]);
+          setCategoryAllocations(INITIAL_CATEGORY_ALLOCATIONS);
         }
-      } catch {}
+      } catch (err) {
+        console.error('[App] Failed to update active wallet data:', err);
+      }
     };
     updateActiveWalletData();
   }, [activeWalletIndex]);
@@ -571,14 +658,14 @@ function AppContent() {
           transaction={{
             id: selectedRecentTransaction.id,
             ticker: selectedRecentTransaction.ticker,
-            assetName: selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : `${selectedRecentTransaction.ticker} Ativo`,
+            assetName: selectedRecentTransaction.assetName || (selectedRecentTransaction.ticker === 'PETR4' ? 'Petróleo Brasileiro S.A.' : selectedRecentTransaction.ticker),
             assetClass: selectedRecentTransaction.assetClass,
             type: selectedRecentTransaction.type,
             tradeDate: selectedRecentTransaction.dateText,
             investedAmount: isPrivacyMode ? PRIVACY_ASTERISK_MASK : selectedRecentTransaction.amountText,
-            unitPrice: (selectedRecentTransaction as any).unitPrice || selectedRecentTransaction.amountText,
-            quantity: (selectedRecentTransaction as any).quantity || '1',
-            fees: (selectedRecentTransaction as any).fees || 'R$ 0,00',
+            unitPrice: selectedRecentTransaction.unitPrice || selectedRecentTransaction.amountText,
+            quantity: selectedRecentTransaction.quantity || '1',
+            fees: selectedRecentTransaction.fees || 'R$ 0,00',
             portfolioName: walletsList[activeWalletIndex]?.name || 'Carteira Principal',
           }}
           isPrivacyMode={isPrivacyMode}
@@ -667,22 +754,31 @@ function AppContent() {
     const classAssetsForDetail: ClassAssetDetailItem[] = portfolioAssets
       .filter((a) => a.asset_class === selectedClassDetail)
       .map((a) => {
-        const qtyNum = parseFloat(a.quantity || '0');
-        const avgNum = parseFloat(a.average_price || '0');
-        const grossNum = qtyNum * avgNum;
+        const qtyDec = new Decimal(a.quantity || '0');
+        const avgDec = new Decimal(a.average_price || '0');
+        const investedDec = qtyDec.mul(avgDec);
+        const cached = cachedQuotes[a.ticker?.toUpperCase()] || null;
+        const currentPriceDec = cached?.currentPrice
+          ? new Decimal(cached.currentPrice)
+          : (a.manual_price_override ? new Decimal(a.manual_price_override) : avgDec);
+        const grossDec = qtyDec.mul(currentPriceDec);
+        const profitDec = grossDec.minus(investedDec);
+        const profitPctDec = investedDec.gt(0) ? profitDec.div(investedDec).mul(100) : new Decimal(0);
+        const isPos = profitDec.gte(0);
+
         return {
           id: a.id,
           ticker: a.ticker,
           name: a.name || a.ticker,
           assetClass: a.asset_class as AssetClass,
           currentAllocationPercentage: a.target_percentage_in_class || 100,
-          grossBalance: `R$ ${grossNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+          grossBalance: `R$ ${grossDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           quantity: a.quantity,
-          averagePrice: `R$ ${avgNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          currentPrice: `R$ ${avgNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          profitabilityPercentage: '+0,00%',
-          profitabilityAmount: 'R$ 0,00',
-          sliceColor: '#DB5A42',
+          averagePrice: `R$ ${avgDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          currentPrice: `R$ ${currentPriceDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          profitabilityPercentage: `${isPos ? '+' : ''}${profitPctDec.toFixed(2).replace('.', ',')}%`,
+          profitabilityAmount: `${isPos ? '+' : '-'}R$ ${profitDec.abs().toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          sliceColor: ASSET_CLASS_ATTRIBUTE_MAP[a.asset_class as AssetClass]?.color || colors.primary,
         };
       });
 
@@ -722,12 +818,17 @@ function AppContent() {
               setSelectedRecentTransaction({
                 id: `asset-detail-${ticker}`,
                 ticker: ticker,
+                assetName: name,
                 assetClass: (targetAsset?.asset_class as AssetClass) || selectedClassDetail,
                 type: 'BUY',
                 dateText: new Date().toLocaleDateString('pt-BR'),
                 amountText: `R$ ${parseFloat(invested).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                unitPrice: `R$ ${parseFloat(avgPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                quantity: qty,
+                fees: 'R$ 0,00',
               });
-            } catch {
+            } catch (err) {
+              console.error('[App] Failed to load asset onAssetPress:', err);
               setSelectedRecentTransaction({
                 id: `asset-detail-${tickerOrId}`,
                 ticker: tickerOrId,
@@ -735,6 +836,9 @@ function AppContent() {
                 type: 'BUY',
                 dateText: new Date().toLocaleDateString('pt-BR'),
                 amountText: 'R$ 0,00',
+                unitPrice: 'R$ 0,00',
+                quantity: '0',
+                fees: 'R$ 0,00',
               });
             }
           }}

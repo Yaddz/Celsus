@@ -232,6 +232,7 @@ const WalletCardFace: React.FC<WalletCardFaceProps> = ({
           </Text>
           {item.name && item.name !== item.name.toUpperCase() && (
             <Text
+              importantForAccessibility="no"
               style={[
                 styles.portfolioNameText,
                 { position: 'absolute', opacity: 0.001, height: 1, width: 1 },
@@ -242,6 +243,7 @@ const WalletCardFace: React.FC<WalletCardFaceProps> = ({
           )}
 
           <Text
+            importantForAccessibility="no"
             style={[
               styles.accountCodeText,
               { position: 'absolute', opacity: 0.01, height: 1, width: 1 },
