@@ -107,6 +107,7 @@ const WalletCardFace: React.FC<WalletCardFaceProps> = ({
 
         <View style={styles.emptyCardContent}>
           <Text style={styles.emptyCardTitle}>Nova Carteira</Text>
+          <Text style={styles.emptyCardBalance}>{isPrivacyMode ? 'R$ ••••••' : 'R$ 0,00'}</Text>
           <Text style={styles.emptyCardSubtitle}>
             Cadastre uma nova carteira para organizar seus investimentos
           </Text>

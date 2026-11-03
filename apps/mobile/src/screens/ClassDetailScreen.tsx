@@ -33,6 +33,7 @@ export interface ClassDetailScreenProps {
   portfolioId?: string;
   assets?: ClassAssetDetailItem[];
   isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   onClose?: () => void;
   onAssetPress?: (assetId: string) => void;
   testID?: string;
@@ -55,6 +56,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   className,
   assets,
   isPrivacyMode = false,
+  onTogglePrivacy,
   onClose = () => {},
   onAssetPress,
   testID = 'class-detail-screen',
@@ -138,6 +140,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         title={title}
         subtitle={`${assetList.length} ${assetList.length === 1 ? 'ativo' : 'ativos'}`}
         isPrivacyModeEnabled={isPrivacyMode}
+        onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
 

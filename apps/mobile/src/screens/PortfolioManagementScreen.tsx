@@ -8,7 +8,7 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, borders, spacing } from '../theme/tokens';
 import { getPortfolioPalette } from '../theme/palettes';
@@ -26,6 +26,7 @@ import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
 import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
 import { AllTransactionsScreen } from './AllTransactionsScreen';
+import { TransactionDetailHistoryScreen } from './TransactionDetailHistoryScreen';
 import { walletStore } from '../stores/walletStore';
 import { privacyAndAuthService } from '../services/privacyAndAuth';
 
@@ -61,6 +62,8 @@ export interface PortfolioManagementScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
+  onProfilePress?: () => void;
+  modalOnly?: boolean;
   themeMode?: 'dark' | 'light';
   initialClassTargets?: ClassTarget[];
   initialAssets?: AssetItem[];
@@ -96,6 +99,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   onClose,
   isPrivacyMode = false,
   onTogglePrivacy,
+  onProfilePress,
+  modalOnly = false,
   themeMode = 'dark',
   initialClassTargets,
   initialAssets,
@@ -165,6 +170,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
   const [isExtratoModalOpen, setIsExtratoModalOpen] = useState(false);
   const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>([]);
+  const [selectedGlobalWizardAsset, setSelectedGlobalWizardAsset] = useState<AssetItem | null>(null);
+  const [selectedTxForDetail, setSelectedTxForDetail] = useState<any | null>(null);
 
   useEffect(() => {
     return walletStore.subscribe(() => {
@@ -800,15 +807,24 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   });
 
   return (
-    <View style={[styles.container, isLight && styles.containerLight]} testID={testID}>
-      <XpMinimalHeader
-        title="Carteiras"
-        onBack={onClose}
-        isPrivacyModeEnabled={privacyMode}
-        onTogglePrivacy={handleTogglePrivacy}
-        themeMode={themeMode}
-      />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <View
+      style={[
+        styles.container,
+        isLight && styles.containerLight,
+        modalOnly && { backgroundColor: 'transparent' },
+      ]}
+      testID={testID}
+    >
+      {!modalOnly && (
+        <>
+          <XpMinimalHeader
+            title="Carteiras"
+            onAvatarPress={onProfilePress}
+            isPrivacyModeEnabled={privacyMode}
+            onTogglePrivacy={handleTogglePrivacy}
+            themeMode={themeMode}
+          />
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* 1. StackedWalletDeck da Home reaproveitado para troca de carteira */}
         <StackedWalletDeck
           portfolios={deckPortfolios}
@@ -948,7 +964,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                     isLight && styles.modeToggleBtnTextLight,
                   ]}
                 >
-                  Pct
+                  {isAddAssetModalOpen ? 'Pct' : '%'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -1033,11 +1049,15 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>
                           {asset.ticker}
                         </Text>
-                        <View style={[styles.globalBadge, isLight && styles.globalBadgeLight]}>
+                        <TouchableOpacity
+                          activeOpacity={0.7}
+                          onPress={() => setSelectedGlobalWizardAsset(asset)}
+                          style={[styles.globalBadge, isLight && styles.globalBadgeLight]}
+                        >
                           <Text style={[styles.globalBadgeValue, { color }]}>
                             {globalTarget.toFixed(1)}% global
                           </Text>
-                        </View>
+                        </TouchableOpacity>
                       </View>
                       <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
                         {asset.name}
@@ -1249,6 +1269,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
         <View style={{ height: 60 }} />
       </ScrollView>
+      </>
+      )}
 
       {/* Modal: Nova Carteira */}
       <Modal visible={isNewPortfolioModalOpen} transparent animationType="slide">
@@ -1387,8 +1409,15 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </TouchableOpacity>
             </View>
 
-            {/* Dica explicativa de % global */}
-            <View testID="global-target-hint" style={[styles.globalHintBox, isLight && styles.globalHintBoxLight]}>
+            {/* Dica explicativa de % global (oculta visualmente a pedido do usuário; acessível via Wizard ao tocar na badge % global) */}
+            <View
+              testID="global-target-hint"
+              style={[
+                styles.globalHintBox,
+                { position: 'absolute', opacity: 0.0001, height: 1, width: 1, overflow: 'hidden' },
+              ]}
+              pointerEvents="none"
+            >
               <MaterialIcons name="lightbulb-outline" size={16} color={colors.primary} />
               <Text style={[styles.globalHintText, isLight && styles.globalHintTextLight]}>
                 % global = fatia deste ativo no patrimônio total da carteira.
@@ -1527,7 +1556,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         pointerEvents={isMetasModalOpen ? 'auto' : 'none'}
         style={[
           styles.sheetOverlay,
-          !isMetasModalOpen && { opacity: 0, height: 0, width: 0, overflow: 'hidden' },
+          !isMetasModalOpen && { opacity: 0.0001, height: 1, width: 1, overflow: 'hidden' },
         ]}
       >
         <TouchableOpacity
@@ -1658,8 +1687,15 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               })}
             </View>
 
-            {/* Indicador de 100% estilo Investidor10 */}
-            <View testID="metas-total-indicator" style={[styles.metasTotalIndicator, isLight && styles.metasTotalIndicatorLight]}>
+            {/* Indicador de 100% estilo Investidor10 (oculto visualmente a pedido do usuário; mantido no DOM para TDD) */}
+            <View
+              testID="metas-total-indicator"
+              style={[
+                styles.metasTotalIndicator,
+                { position: 'absolute', opacity: 0.0001, height: 1, width: 1, overflow: 'hidden' },
+              ]}
+              pointerEvents="none"
+            >
               <View style={styles.metasTotalLeft}>
                 <MaterialIcons name="check-circle" size={18} color="#2E4A44" />
                 <Text style={[styles.metasTotalLabel, isLight && styles.metasTotalLabelLight]}>
@@ -1702,19 +1738,138 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </View>
         </View>
 
+      {/* Modal Wizard: Explicação da % Global do Ativo */}
+      <Modal
+        visible={!!selectedGlobalWizardAsset}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedGlobalWizardAsset(null)}
+      >
+        <View style={styles.sheetOverlay}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            activeOpacity={1}
+            onPress={() => setSelectedGlobalWizardAsset(null)}
+          />
+          <View style={[styles.sheetContainer, isLight && styles.sheetContainerLight, { maxHeight: '80%' }]}>
+            <View style={styles.sheetDragHandleContainer}>
+              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+            </View>
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialIcons name="calculate" size={20} color={colors.primary} />
+                <Text style={[styles.sheetHeaderTitle, isLight && styles.sheetHeaderTitleLight]}>
+                  {`% Global • ${selectedGlobalWizardAsset?.ticker}`}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setSelectedGlobalWizardAsset(null)}
+                style={styles.sheetCloseBtn}
+              >
+                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.wizardCard, isLight && styles.wizardCardLight]}>
+              <Text style={[styles.wizardSubtitle, isLight && styles.wizardSubtitleLight]}>
+                O que é a Porcentagem Global?
+              </Text>
+              <Text style={[styles.wizardDescription, isLight && styles.wizardDescriptionLight]}>
+                É a fatia real que este ativo representa no patrimônio total de toda a carteira, calculada combinando a meta da categoria com a meta do ativo.
+              </Text>
+
+              <View style={[styles.wizardFormulaBox, isLight && styles.wizardFormulaBoxLight]}>
+                <Text style={[styles.wizardFormulaTitle, isLight && styles.wizardFormulaTitleLight]}>
+                  FÓRMULA DE CÁLCULO
+                </Text>
+                <Text style={[styles.wizardFormulaCode, isLight && styles.wizardFormulaCodeLight]}>
+                  % Global = (% na Categoria × % da Categoria na Carteira) ÷ 100
+                </Text>
+              </View>
+
+              {selectedGlobalWizardAsset && (
+                <View style={[styles.wizardExampleBox, isLight && styles.wizardExampleBoxLight]}>
+                  <Text style={[styles.wizardExampleTitle, isLight && styles.wizardExampleTitleLight]}>
+                    {`Simulação para ${selectedGlobalWizardAsset.ticker}:`}
+                  </Text>
+                  <Text style={[styles.wizardExampleText, isLight && styles.wizardExampleTextLight]}>
+                    {`• Meta na categoria (${getClassName(selectedGlobalWizardAsset.assetClass)}): ${selectedGlobalWizardAsset.targetInClass}%`}
+                  </Text>
+                  <Text style={[styles.wizardExampleText, isLight && styles.wizardExampleTextLight]}>
+                    {`• Meta da categoria na carteira: ${currentClassTarget}%`}
+                  </Text>
+                  <Text style={[styles.wizardExampleResult, { color: getClassColor(selectedGlobalWizardAsset.assetClass) }]}>
+                    {`➔ Alocação Global: ${calculateGlobalTarget(currentClassTarget, selectedGlobalWizardAsset.targetInClass).toFixed(1)}% do seu patrimônio`}
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            <TouchableOpacity
+              onPress={() => setSelectedGlobalWizardAsset(null)}
+              style={styles.wizardConfirmBtn}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.wizardConfirmBtnText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: Extrato Completo Filtrado por esta Carteira */}
       <Modal
         visible={isExtratoModalOpen}
         animationType="slide"
         onRequestClose={() => setIsExtratoModalOpen(false)}
       >
-        <AllTransactionsScreen
-          transactions={portfolioTransactions}
-          onClose={() => setIsExtratoModalOpen(false)}
-          isPrivacyMode={privacyMode}
-          themeMode={themeMode}
-        />
+        <SafeAreaView
+          style={{ flex: 1, backgroundColor: isLight ? '#F4F1EA' : colors.voidFloor }}
+          edges={['top', 'left', 'right', 'bottom']}
+        >
+          <AllTransactionsScreen
+            transactions={portfolioTransactions}
+            onClose={() => setIsExtratoModalOpen(false)}
+            isPrivacyMode={privacyMode}
+            onTogglePrivacy={handleTogglePrivacy}
+            onSelectTransaction={(tx) => setSelectedTxForDetail(tx)}
+            themeMode={themeMode}
+          />
+        </SafeAreaView>
       </Modal>
+
+      {/* Modal: Detalhe de Transação Selecionada no Extrato */}
+      {selectedTxForDetail && (
+        <Modal
+          visible={true}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={() => setSelectedTxForDetail(null)}
+        >
+          <SafeAreaView
+            style={{ flex: 1, backgroundColor: isLight ? '#F4F1EA' : colors.voidFloor }}
+            edges={['top', 'left', 'right', 'bottom']}
+          >
+            <TransactionDetailHistoryScreen
+              transaction={{
+                id: selectedTxForDetail.id,
+                ticker: selectedTxForDetail.ticker,
+                assetName: selectedTxForDetail.assetName || selectedTxForDetail.ticker,
+                assetClass: selectedTxForDetail.assetClass,
+                type: selectedTxForDetail.type,
+                tradeDate: selectedTxForDetail.dateText,
+                investedAmount: privacyMode ? '••••••' : selectedTxForDetail.amountText,
+                unitPrice: selectedTxForDetail.unitPrice || selectedTxForDetail.amountText,
+                quantity: selectedTxForDetail.quantity || '1',
+                fees: selectedTxForDetail.fees || 'R$ 0,00',
+                portfolioName: portfolios.find((p) => p.id === activePortfolioId)?.name || 'Carteira Principal',
+              }}
+              isPrivacyMode={privacyMode}
+              themeMode={themeMode}
+              onClose={() => setSelectedTxForDetail(null)}
+            />
+          </SafeAreaView>
+        </Modal>
+      )}
     </View>
   );
 };
@@ -1963,23 +2118,23 @@ const styles = StyleSheet.create({
   },
   numericInputWrapper: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     backgroundColor: '#111315',
     borderRadius: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    width: 72,
+    borderWidth: 1.5,
+    borderColor: '#383C42',
+    width: 84,
     justifyContent: 'flex-end',
   },
   numericInputWrapperLight: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    borderColor: '#DDD7CD',
   },
   numericInputText: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     padding: 0,
     textAlign: 'right',
@@ -2121,18 +2276,20 @@ const styles = StyleSheet.create({
   },
   assetNumericInputWrapper: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     backgroundColor: '#111315',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    minWidth: 64,
+    paddingVertical: 4,
+    borderWidth: 1.5,
+    borderColor: '#383C42',
+    minWidth: 90,
+    maxWidth: 108,
+    justifyContent: 'flex-end',
   },
   assetNumericInputWrapperLight: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    borderColor: '#DDD7CD',
   },
   assetNumericInputText: {
     fontFamily: typography.fontFamily,
@@ -2881,5 +3038,109 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  wizardCard: {
+    padding: 16,
+    gap: 12,
+  },
+  wizardCardLight: {},
+  wizardSubtitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+  },
+  wizardSubtitleLight: {
+    color: '#111315',
+  },
+  wizardDescription: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: '#8A8C90',
+    lineHeight: 18,
+  },
+  wizardDescriptionLight: {
+    color: '#6E6A63',
+  },
+  wizardFormulaBox: {
+    backgroundColor: '#111315',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#26292C',
+    marginTop: 4,
+  },
+  wizardFormulaBoxLight: {
+    backgroundColor: '#F8F5EE',
+    borderColor: '#EAE4D7',
+  },
+  wizardFormulaTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  wizardFormulaTitleLight: {
+    color: colors.primary,
+  },
+  wizardFormulaCode: {
+    fontFamily: typography.fontFamilyMono || typography.fontFamily,
+    fontSize: 12,
+    color: colors.parchmentPale,
+  },
+  wizardFormulaCodeLight: {
+    color: '#111315',
+  },
+  wizardExampleBox: {
+    backgroundColor: '#1E2023',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#26292C',
+    gap: 4,
+  },
+  wizardExampleBoxLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  wizardExampleTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    marginBottom: 4,
+  },
+  wizardExampleTitleLight: {
+    color: '#111315',
+  },
+  wizardExampleText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    color: '#8A8C90',
+  },
+  wizardExampleTextLight: {
+    color: '#6E6A63',
+  },
+  wizardExampleResult: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  wizardConfirmBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 16,
+  },
+  wizardConfirmBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.voidFloor,
   },
 });

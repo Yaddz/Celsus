@@ -22,6 +22,7 @@ export interface FloatingBottomDockProps {
   onNovoAportePress?: () => void;
   onNovaCarteiraPress?: () => void;
   onAdicionarAtivoPress?: () => void;
+  forceClose?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   themeMode?: 'dark' | 'light';
@@ -47,6 +48,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
   onNovoAportePress,
   onNovaCarteiraPress,
   onAdicionarAtivoPress,
+  forceClose = false,
   style,
   testID = 'floating-bottom-dock',
   themeMode = 'dark',
@@ -67,6 +69,12 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
       fadeAnim.setValue(0);
     }
   }, [isSheetOpen]);
+
+  useEffect(() => {
+    if (forceClose && isSheetOpen) {
+      closeSheet();
+    }
+  }, [forceClose]);
 
   const toggleSheet = () => {
     const nextState = !isSheetOpen;
@@ -244,7 +252,7 @@ export const FloatingBottomDock: React.FC<FloatingBottomDockProps> = ({
           style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
         >
           <Animated.View style={{ transform: [{ rotate: isSheetOpen ? rotation : '0deg' }] }}>
-            <MaterialIcons name={isSheetOpen ? 'close' : 'add'} size={28} color="#FFFFFF" />
+            <MaterialIcons name="add" size={28} color="#FFFFFF" />
           </Animated.View>
         </View>
       </TouchableOpacity>

@@ -422,15 +422,20 @@ export function calculatePeriodSummary(
     netContributions = finalInvested.minus(initialInvested);
   }
 
-  const yieldAmount = finalPatrimony.minus(initialPatrimony).minus(netContributions);
+  const effectiveInitialPatrimony =
+    sortedCurve.length === 1
+      ? Decimal.max(new Decimal(0), finalPatrimony.minus(netContributions))
+      : initialPatrimony;
 
-  const baseCapital = initialPatrimony.plus(netContributions.gt(0) ? netContributions : new Decimal(0));
+  const yieldAmount = finalPatrimony.minus(effectiveInitialPatrimony).minus(netContributions);
+
+  const baseCapital = effectiveInitialPatrimony.plus(netContributions.gt(0) ? netContributions : new Decimal(0));
   const yieldPercentage = baseCapital.gt(0)
     ? yieldAmount.div(baseCapital).mul(100)
     : new Decimal(0);
 
   return {
-    initialPatrimony: initialPatrimony.toFixed(2),
+    initialPatrimony: effectiveInitialPatrimony.toFixed(2),
     netContributions: netContributions.toFixed(2),
     yieldAmount: yieldAmount.toFixed(2),
     yieldPercentage: yieldPercentage.toFixed(2),

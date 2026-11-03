@@ -618,6 +618,41 @@ function AppContent() {
 
   const renderPortfolioManagerModal = () => {
     if (!isPortfolioManagerModalOpen || activeTab === 'wallets') return null;
+
+    const isSubModalOnly = openCreatePortfolioModal || openAddAssetModal;
+
+    if (isSubModalOnly) {
+      return (
+        <PortfolioManagementScreen
+          modalOnly={true}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
+          onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          themeMode={themeMode}
+          initialActiveIndex={activeWalletIndex}
+          autoOpenNewPortfolioModal={openCreatePortfolioModal}
+          autoOpenAddAssetModal={openAddAssetModal}
+          onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
+          onPortfolioCreated={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setActiveTab('wallets');
+            refreshAppData();
+          }}
+          onClose={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            refreshAppData();
+          }}
+        />
+      );
+    }
+
     return (
       <Modal
         visible={isPortfolioManagerModalOpen}
@@ -657,6 +692,7 @@ function AppContent() {
                 const next = privacyAndAuthService.togglePrivacyMode();
                 setIsPrivacyMode(next.isPrivacyModeEnabled);
               }}
+              onProfilePress={() => setIsSettingsBackupModalOpen(true)}
               themeMode={themeMode}
               initialActiveIndex={activeWalletIndex}
               autoOpenNewPortfolioModal={openCreatePortfolioModal}
@@ -682,35 +718,48 @@ function AppContent() {
     );
   };
 
-  // 2. Modal: Simulador de Novo Aporte
-  if (isSimulatorModalOpen) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <View style={styles.sheetDragHandleContainer}>
-          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-        </View>
-        <SimulatorScreen
-          themeMode={themeMode}
-          onClose={() => {
+  // 2. Modal Padronizado: Simulador de Novo Aporte (Rebalanceamento)
+  const renderSimulatorModal = () => (
+    <Modal
+      visible={isSimulatorModalOpen}
+      animationType="slide"
+      transparent
+      onRequestClose={() => {
+        setIsSimulatorModalOpen(false);
+        refreshAppData();
+      }}
+    >
+      <View style={styles.sheetOverlay}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          activeOpacity={1}
+          onPress={() => {
             setIsSimulatorModalOpen(false);
             refreshAppData();
           }}
-          onContributionsConfirmed={() => refreshAppData()}
         />
-      </SafeAreaView>
-    );
-  }
+        <View
+          style={[
+            styles.sheetContainer,
+            isLight && styles.sheetContainerLight,
+            { maxHeight: '92%', width: '100%', flex: 1, paddingHorizontal: 0 },
+          ]}
+        >
+          <View style={styles.sheetDragHandleContainer}>
+            <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
+          </View>
+          <SimulatorScreen
+            themeMode={themeMode}
+            onClose={() => {
+              setIsSimulatorModalOpen(false);
+              refreshAppData();
+            }}
+            onContributionsConfirmed={() => refreshAppData()}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 
   // 3. Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
   if (isSettingsBackupModalOpen) {
@@ -853,6 +902,10 @@ function AppContent() {
         <AllTransactionsScreen
           transactions={transactionsList}
           isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
           themeMode={themeMode}
           onClose={() => setIsAllTransactionsModalOpen(false)}
           onSelectTransaction={(tx) => {
@@ -950,6 +1003,10 @@ function AppContent() {
             assetClass={selectedClassDetail}
             assets={classAssetsForDetail}
             isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
             themeMode={themeMode}
             onClose={() => setSelectedClassDetail(null)}
             onAssetPress={async (tickerOrId) => {
@@ -1052,6 +1109,7 @@ function AppContent() {
             const next = privacyAndAuthService.togglePrivacyMode();
             setIsPrivacyMode(next.isPrivacyModeEnabled);
           }}
+          onProfilePress={() => setIsSettingsBackupModalOpen(true)}
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
@@ -1069,6 +1127,7 @@ function AppContent() {
         />
         <FloatingBottomDock
           activeTab={activeTab}
+          forceClose={isTransactionModalOpen || isSimulatorModalOpen}
           onTabChange={(tab) => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
@@ -1088,6 +1147,7 @@ function AppContent() {
           themeMode={themeMode}
         />
         {renderTransactionModal()}
+        {renderSimulatorModal()}
       </SafeAreaView>
     );
   }
@@ -1107,9 +1167,15 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <StatisticsScreen isPrivacyMode={isPrivacyMode} themeMode={themeMode} />
+        <StatisticsScreen
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onClassPress={(cls) => setSelectedClassDetail(cls)}
+        />
         <FloatingBottomDock
           activeTab={activeTab}
+          forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
           onTabChange={(tab) => setActiveTab(tab)}
           onActionPress={() => {
             setIsPortfolioManagerModalOpen(false);
@@ -1135,6 +1201,7 @@ function AppContent() {
         />
         {renderTransactionModal()}
         {renderPortfolioManagerModal()}
+        {renderSimulatorModal()}
       </SafeAreaView>
     );
   }
@@ -1294,6 +1361,7 @@ function AppContent() {
       {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
       <FloatingBottomDock
         activeTab={activeTab}
+        forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
         onTabChange={(tab) => {
           if (tab === 'wallets') {
             setActiveTab('wallets');
@@ -1319,6 +1387,7 @@ function AppContent() {
       />
       {renderTransactionModal()}
       {renderPortfolioManagerModal()}
+      {renderSimulatorModal()}
     </SafeAreaView>
   );
 }
@@ -1340,14 +1409,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 24,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
+    borderWidth: 0,
+    borderColor: 'transparent',
     maxHeight: '88%',
     width: '100%',
   },
   sheetContainerLight: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    borderWidth: 0,
+    borderColor: 'transparent',
   },
   sheetDragHandleContainer: {
     alignItems: 'center',

@@ -570,9 +570,9 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
-      {/* Top Close Action (sem header) */}
+      {/* Top Close Action (oculto visualmente a pedido do usuário; fecha ao arrastar ou tocar fora) */}
       {onClose && (
-        <View style={styles.topActionsRow}>
+        <View style={{ position: 'absolute', opacity: 0.0001, height: 1, width: 1, overflow: 'hidden' }}>
           <TouchableOpacity
             onPress={() => {
               resetForm();

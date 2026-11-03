@@ -37,6 +37,8 @@ import { marketApiService } from '../services/marketApi';
 export interface StatisticsScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
+  onProfilePress?: () => void;
+  onClassPress?: (assetClass: any) => void;
   themeMode?: 'dark' | 'light';
   testID?: string;
 }
@@ -44,6 +46,8 @@ export interface StatisticsScreenProps {
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
+  onProfilePress,
+  onClassPress,
   themeMode = 'dark',
   testID = 'statistics-screen',
 }) => {
@@ -226,6 +230,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <XpMinimalHeader
         title="Análises"
+        onAvatarPress={onProfilePress}
         isPrivacyModeEnabled={isPrivacyMode}
         themeMode={themeMode}
       />
@@ -279,11 +284,13 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           })}
         </ScrollView>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.primary} />
-          </View>
-        ) : null}
+        {/* Skeleton progress bar suave no topo quando carregando, sem empurrar a tela */}
+        {loading && (
+          <View
+            testID="statistics-skeleton-loading"
+            style={[styles.skeletonLine, { height: 3, width: '100%', marginBottom: 8, opacity: 0.7, backgroundColor: colors.primary }]}
+          />
+        )}
 
         {/* 1. Gráfico de Linha Suave com Sombra e Card de Resumo do Período */}
         <PatrimonyLineChartCard
@@ -301,6 +308,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           totalBalance={totalBalanceStr}
           allocations={categoryAllocations}
           isPrivacyMode={isPrivacyMode}
+          onClassPress={onClassPress}
           themeMode={themeMode}
           testID="dot-matrix-allocation-card"
         />
@@ -452,6 +460,24 @@ const styles = StyleSheet.create({
   metricBoxLight: {
     backgroundColor: '#F8F6F0',
     borderColor: '#EAE4D7',
+  },
+  skeletonContainer: {
+    gap: 12,
+  },
+  skeletonCard: {
+    backgroundColor: '#191B1D',
+    borderRadius: 22,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+    padding: spacing.md,
+  },
+  skeletonCardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#EAE4D7',
+  },
+  skeletonLine: {
+    backgroundColor: '#26292C',
+    borderRadius: 6,
   },
   metricLabelLight: {
     color: '#6E6A63',
