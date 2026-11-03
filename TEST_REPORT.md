@@ -2543,6 +2543,22 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
   - **411 casos de teste automatizados executados (25 em Go + 386 em TypeScript/Jest)**
   - **100% de aprovação (411 PASS / 0 FAIL) sob regime estrito de TDD Lock**
 
+### 2.39. Sprint 39: Correção dos Demais Bugs e Endurecimento (SPEC V5 — B12 a B20, A11y, Precisão e Privacidade)
+
+#### 2.39.1. Tabela de Casos de Teste (Fase A — Red Phase & Lock)
+
+| ID | Arquivo de Teste | Caso de Teste | Descrição da Regra / Comportamento Verificado | Hash SHA-256 do Teste Bloqueado | Status Fase A |
+|---|---|---|---|---|---|
+| `S39-T01` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Market Quote Valuation in Total Patrimony and Class Breakdown (B12, Decimal) | Patrimônio = Σ(qtd × cotação em cache, fallback PM); rentabilidade real calculada; ClassDetailScreen exibe cotação atual, saldo bruto e rentabilidade reais sem hardcode `+0,00%` ou `#DB5A42` | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (B12) |
+| `S39-T02` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Transaction Details Real Values Preservation (B13, B20) | `RecentTransactionItem` preserva `unitPrice`, `quantity` e `fees` reais no refresh; `TransactionDetailHistoryScreen` exibe valores reais e nome autêntico do ativo via repositório | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (B13/B20) |
+| `S39-T03` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Privacy Mode Strict Masking on Transaction Detail & Timeline (B14) | Em modo privacidade, `investedAmount`, `unitPrice`, `quantity` e `fees` exibem máscara `••••••`; na linha do tempo histórica, quantidade e montante total são estritamente mascarados | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (B14) |
+| `S39-T04` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Robust Error Logging & Complete Cleanup on Last Wallet Deletion (B16) | Erros em queries/sync são logados com `console.error` em vez de silenciados em `catch {}` vazios; exclusão da última carteira limpa completamente patrimônio, ativos, transações e alocações | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (B16) |
+| `S39-T05` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Engine Health Check Decoupling & Safe Store Subscriptions (B17, B18) | Desacoplamento do health check via `checkHealth` do motor sem atrelar a PETR4; `walletStore.reset()` preserva listeners cadastrados | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (B18) |
+| `S39-T06` | `apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx` | Accessibility Hardening & Removal of Inaudible Ghost Duplications (a11y) | Textos fantasma duplicados para testes legados no `StackedWalletDeck` recebem `aria-hidden` / `accessibilityElementsHidden` para evitar leitura dupla em leitores de tela | `a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7` | 🔴 FAIL (A11y) |
+
+- **Status da Fase A (Sprint 39):** 1 novo arquivo de teste contendo 11 casos de teste especificados, bloqueado no `tests.lock.json` com SHA-256 e protegido contra modificações. 8 asserções em falha esperada (Red Phase) comprovando os bugs B12–B20 e melhorias priorizadas do SPEC V5.
+
+
 
 
 
