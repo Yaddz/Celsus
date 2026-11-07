@@ -34,6 +34,8 @@ import { useHeaderScrollFade } from './src/hooks/useHeaderScrollFade';
 import { waitRemaining } from './src/utils/minLoading';
 import { spreadsheetImportService } from './src/services/spreadsheetImportService';
 import { resolveBackAction, BackState } from './src/navigation/backNavigation';
+import { AppGate } from './src/components/AppGate';
+import { sessionStore } from './src/stores/sessionStore';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -81,7 +83,9 @@ import Decimal from 'decimal.js';
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppContent />
+      <AppGate bypassOnboardingUntilSprint44>
+        <AppContent />
+      </AppGate>
     </SafeAreaProvider>
   );
 }
@@ -635,6 +639,7 @@ function AppContent() {
   // A decisão está em navigation/backNavigation.ts (função pura, com matriz de testes).
   const backStateRef = React.useRef<BackState>({} as BackState);
   backStateRef.current = {
+    isLocked: sessionStore.getState().status === 'locked',
     activeTab,
     isSettingsOpen: isSettingsBackupModalOpen,
     isTransactionDetailOpen: selectedRecentTransaction !== null,
@@ -649,6 +654,9 @@ function AppContent() {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       const action = resolveBackAction(backStateRef.current);
       switch (action) {
+        case 'minimize':
+          BackHandler.exitApp();
+          return true;
         case 'close-transaction-modal':
           setIsTransactionModalOpen(false);
           return true;

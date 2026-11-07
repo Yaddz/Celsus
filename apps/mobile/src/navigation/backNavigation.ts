@@ -38,6 +38,7 @@ export type BackAction =
   | 'exit';
 
 export function resolveBackAction(state: BackState): BackAction {
+  if (state.isLocked) return 'minimize';
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';

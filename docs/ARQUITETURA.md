@@ -84,11 +84,24 @@ BCB SGS (#12 CDI, #433 IPCA). Precedência de preço histórico: COTAHIST > Yaho
 repositório: **qualquer mudança em Go só chega ao aparelho depois de `npm run build:native` e de um novo build
 nativo** (`cd apps/mobile && npx expo run:android`). Recarregar o JavaScript não basta.
 
-## 4. Design
+## 4. Segurança, Sessão e Bloqueio
+
+- **Segredo e PIN (`authService`, `secureStorage`)**: O PIN (6 dígitos numéricos) é persistido no Keystore/Keychain do sistema via `expo-secure-store` usando `SHA-256(salt + pin)`, com salt aleatório criptográfico (16 bytes hex) por instalação. Segredos nunca são gravados no banco SQLite (`app_meta`) nem vazam em backups `.celsus.zip`.
+- **Lockout e Resiliência**: Limite de tentativas persistido no storage seguro: 5 erros ativam bloqueio de 30s, progredindo para 1m, 5m e 15m. Sobrevive ao fechamento do aplicativo.
+- **Biometria Real (`biometricProvider`)**: Provedor nativo baseado em `expo-local-authentication`. Biometria depende estritamente de PIN configurado (plano B) e só é gravada como ativada após validação bem-sucedida em teste real de autenticação.
+- **Sessão e Ciclo de Vida (`sessionStore`, `AppGate`, `useAppLock`)**:
+  - Estados: `'loading' | 'onboarding' | 'locked' | 'unlocked'`.
+  - Transições no boot: sem PIN nem perfil ⇒ onboarding; com PIN ⇒ locked; sem PIN e com perfil ⇒ unlocked direto (Spec D2).
+  - Bloqueio automático: detecção de ciclo de vida via `AppState`. Ao suspender/voltar do background após tolerância configurada (`autoLockSeconds`, padrão 60s), bloqueia a sessão.
+  - Capa de privacidade (`privacy-cover`): quando o app entra em `inactive` ou `background` e o bloqueio está habilitado, renderiza camada opaca com logo, impedindo vazamento de saldos na visão multitarefa do sistema operacional.
+  - Tela de bloqueio (`LockScreen`): tela cheia nativa com `PinDots` (animação nativa de shake), `PinKeypad` (72dp JellyPressable), contador de lockout, auto-prompt de digital e modal de recuperação ("Esqueci o PIN") com biometria ou wipe local seguro exigindo confirmação explícita "APAGAR".
+  - Navegação do botão Voltar (`backNavigation`): em estado bloqueado (`isLocked`), o botão físico/gesto de voltar possui prioridade máxima retornando a ação `'minimize'` (`BackHandler.exitApp()`), impedindo evasão da tela de bloqueio.
+
+## 5. Design
 
 Ver [`DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md). Imagens de inspiração (XP, BTG, Pierre, Investidor10, paletas): `imgsinsp/`.
 
-## 5. Testes e protocolo TDD Lock
+## 6. Testes e protocolo TDD Lock
 
 - `npm run test:mobile` (Jest), `npm run test:market` (Go), `npx tsc --noEmit` em `apps/mobile`.
 - Os arquivos de teste ficam **bloqueados** (somente leitura + SHA-256 em `tests.lock.json`):
@@ -97,7 +110,7 @@ Ver [`DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md). Imagens de inspiração (XP, BTG,
 - Regras do agente em `.agents/rules/`. Estado atual dos testes em [`TEST_REPORT.md`](../TEST_REPORT.md).
 - Testes "live" (`CELSUS_LIVE=1 go test ./... -run Live -v`) consultam o Fundamentus/Yahoo reais e são pulados por padrão.
 
-## 6. Como rodar
+## 7. Como rodar
 
 ```bash
 cd apps/mobile && npm install
