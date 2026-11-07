@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { backupService, BackupImportMode, ExportArchiveResult } from '../../services/backupService';
 import { privacyAndAuthService } from '../../services/privacyAndAuth';
+import { authService } from '../../services/authService';
+import { sessionStore } from '../../stores/sessionStore';
 import { describeImportReport, spreadsheetImportService } from '../../services/spreadsheetImportService';
 import { ThemeMode, themeModeService } from '../../theme/palettes';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
@@ -29,8 +31,8 @@ interface Options {
 /** Estado e ações da tela de Perfil: tema, segurança, backup, importação e resumo local. */
 export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeModeChange, onDataRestored }: Options) {
   const [currentThemeMode, setCurrentThemeMode] = useState<ThemeMode>(themeMode || themeModeService.getThemeMode());
-  const [isBiometricEnabled, setIsBiometricEnabled] = useState(privacyAndAuthService.getState().isBiometricLockEnabled);
-  const [isAppLocked, setIsAppLocked] = useState(privacyAndAuthService.getState().isLocked);
+  const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+  const [isAppLocked, setIsAppLocked] = useState(sessionStore.getState().status === 'locked');
   const [importMode, setImportMode] = useState<BackupImportMode>('MERGE');
   const [lastExport, setLastExport] = useState<ExportArchiveResult | null>(null);
   const [banner, setBanner] = useState<StatusBanner | null>(null);
@@ -55,6 +57,7 @@ export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeMode
 
   useEffect(() => {
     loadWallets();
+    authService.isBiometricEnabled().then(setIsBiometricEnabled).catch(() => {});
   }, [loadWallets]);
 
   const afterDataChange = useCallback(() => {
@@ -73,25 +76,42 @@ export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeMode
     onTogglePrivacyMode(val);
   };
 
-  const toggleBiometrics = (val: boolean) => {
-    const next = privacyAndAuthService.setBiometricLockEnabled(val);
-    setIsBiometricEnabled(next.isBiometricLockEnabled);
-    setIsAppLocked(next.isLocked);
-    setBanner({
-      type: 'info',
-      title: val ? 'BLOQUEIO BIOMÉTRICO ATIVADO' : 'BLOQUEIO BIOMÉTRICO DESATIVADO',
-      message: val
-        ? 'O Celsus exigirá autenticação biométrica ou PIN ao abrir o app.'
-        : 'A exigência de biometria ao iniciar foi desativada.',
-    });
+  const toggleBiometrics = async (val: boolean) => {
+    if (val) {
+      const res = await authService.enableBiometrics();
+      if (res.success) {
+        setIsBiometricEnabled(true);
+        setBanner({
+          type: 'info',
+          title: 'BLOQUEIO BIOMÉTRICO ATIVADO',
+          message: 'O Celsus exigirá autenticação biométrica ou PIN ao abrir o app.',
+        });
+      } else {
+        setBanner({
+          type: 'error',
+          title: 'NÃO FOI POSSÍVEL ATIVAR',
+          message: res.reason === 'pin_required'
+            ? 'Crie um PIN antes de ativar a biometria.'
+            : 'Biometria não disponível ou cancelada.',
+        });
+      }
+    } else {
+      await authService.disableBiometrics();
+      setIsBiometricEnabled(false);
+      setBanner({
+        type: 'info',
+        title: 'BLOQUEIO BIOMÉTRICO DESATIVADO',
+        message: 'A exigência de biometria ao iniciar foi desativada.',
+      });
+    }
   };
 
   const testBiometricLock = async () => {
-    privacyAndAuthService.setBiometricLockEnabled(true);
-    setIsBiometricEnabled(true);
-    setIsAppLocked(privacyAndAuthService.lockApp().isLocked);
-    const auth = await privacyAndAuthService.authenticateAndUnlock('Autenticar acesso ao Celsus');
-    if (auth.authenticated) {
+    sessionStore.lock();
+    setIsAppLocked(true);
+    const auth = await authService.authenticateBiometric('Autenticar acesso ao Celsus');
+    if (auth.success) {
+      sessionStore.unlock();
       setIsAppLocked(false);
       setBanner({
         type: 'success',

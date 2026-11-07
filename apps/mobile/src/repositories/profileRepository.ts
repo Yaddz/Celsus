@@ -18,21 +18,20 @@ export class ProfileRepository {
   }
 
   async getProfileName(): Promise<string | null> {
-    // Stub Fase A
-    return null;
+    return this.metaRepo.get(PROFILE_NAME_KEY);
   }
 
   async setProfileName(name: string): Promise<void> {
-    // Stub Fase A
+    await this.metaRepo.set(PROFILE_NAME_KEY, name.trim());
   }
 
   async isOnboarded(): Promise<boolean> {
-    // Stub Fase A
-    return false;
+    const raw = await this.metaRepo.get(PROFILE_ONBOARDED_KEY);
+    return raw === 'true';
   }
 
   async setOnboarded(value: boolean): Promise<void> {
-    // Stub Fase A
+    await this.metaRepo.set(PROFILE_ONBOARDED_KEY, value ? 'true' : 'false');
   }
 
   async getProfile(): Promise<UserProfile> {

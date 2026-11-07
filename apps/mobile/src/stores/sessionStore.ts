@@ -27,12 +27,15 @@ class SessionStore {
   };
 
   private notify() {
-    const cur = this.getState();
-    this.listeners.forEach((l) => l(cur));
+    this.listeners.forEach((l) => l(this.state));
   }
 
   setStatus(status: SessionStatus) {
-    this.state.status = status;
+    if (this.state.status === status) return;
+    this.state = {
+      ...this.state,
+      status,
+    };
     this.notify();
   }
 
@@ -45,13 +48,23 @@ class SessionStore {
   }
 
   markBackgrounded(at: number) {
-    this.state.backgroundedAt = at;
+    this.state = {
+      ...this.state,
+      backgroundedAt: at,
+    };
     this.notify();
   }
 
   shouldLockOnResume(now: number, autoLockSeconds: number, hasPin: boolean): boolean {
-    // Stub Fase A
-    return false;
+    if (!hasPin) return false;
+    if (this.state.backgroundedAt === null) return false;
+
+    if (autoLockSeconds === 0) {
+      return true;
+    }
+
+    const elapsedMs = now - this.state.backgroundedAt;
+    return elapsedMs >= autoLockSeconds * 1000;
   }
 }
 

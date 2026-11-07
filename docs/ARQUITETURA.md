@@ -34,10 +34,10 @@ Stack: Expo SDK 58, React Native 0.88 (nova arquitetura), React 19, TypeScript, 
 | :--- | :--- |
 | `src/screens` | Home (em `App.tsx`), Carteiras, Estatísticas, Busca, Ficha do ativo, Detalhe da classe, Extrato, Simulador de aporte, Perfil/Configurações |
 | `src/components/ui` | Design system (bento, dock, header, cartões, campos, skeletons, gráficos) |
-| `src/domain/finance` | Regras puras: pesos em dois níveis, preço médio, renda fixa, aporte em duas fases, meta de patrimônio, proventos, donut, perfil/ranking de ativos |
-| `src/repositories` | Acesso ao SQLite (carteiras, ativos, transações, proventos, `app_meta`) |
-| `src/services` | `marketApi` (ponte/HTTP/cache), backup `.celsus.zip`, sincronização de cotações, privacidade/biometria, importação da planilha |
-| `src/stores` | `walletStore` (carteira ativa), `walletsStore` (lista compartilhada Home ↔ Carteiras) |
+| `src/domain` | Regras puras: financeiro (`finance/`: pesos, preço médio, renda fixa, aporte, meta, proventos, donut, perfil/ranking) e perfil do usuário (`profile.ts`: derivação de iniciais) |
+| `src/repositories` | Acesso ao SQLite (carteiras, ativos, transações, proventos, `appMetaRepository`, `profileRepository`) |
+| `src/services` | `marketApi` (ponte/HTTP/cache), `authService` (PIN com SHA-256+sal, lockout D5, biometria real, autolock), `secureStorage`, `biometricProvider`, backup `.celsus.zip`, sincronização de cotações, `privacyAndAuthService` (modo privacidade de valores), importação da planilha |
+| `src/stores` | `walletStore` (carteira ativa), `walletsStore` (lista compartilhada), `sessionStore` (status da sessão, controle de bloqueio), `profileStore` (perfil reativo) |
 | `src/db` | `schema.ts`, `client.ts` (migrações por `ALTER TABLE` protegido; banco em memória no Jest/web com `?memdb=1`) |
 | `modules/celsus-market` | Módulo Expo nativo (Kotlin) que expõe as funções Go |
 

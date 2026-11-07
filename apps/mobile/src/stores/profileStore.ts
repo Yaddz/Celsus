@@ -40,20 +40,38 @@ class ProfileStore {
   };
 
   private notify() {
-    const cur = this.getState();
-    this.listeners.forEach((l) => l(cur));
+    this.listeners.forEach((l) => l(this.state));
   }
 
   async load(): Promise<void> {
-    // Stub Fase A
+    const profile = await this.repo.getProfile();
+    this.state = {
+      name: profile.name,
+      initials: profile.initials,
+      onboarded: profile.onboarded,
+      loaded: true,
+    };
+    this.notify();
   }
 
   async setName(name: string): Promise<void> {
-    // Stub Fase A
+    const clean = name.trim();
+    await this.repo.setProfileName(clean);
+    this.state = {
+      ...this.state,
+      name: clean,
+      initials: deriveInitials(clean),
+    };
+    this.notify();
   }
 
   async setOnboarded(onboarded: boolean): Promise<void> {
-    // Stub Fase A
+    await this.repo.setOnboarded(onboarded);
+    this.state = {
+      ...this.state,
+      onboarded,
+    };
+    this.notify();
   }
 
   reset() {

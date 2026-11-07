@@ -16,40 +16,11 @@ export function redactWithAsterisks(
   return typeof value === 'number' ? String(value) : value;
 }
 
-export interface BiometricAuthProvider {
-  hasHardwareAsync(): Promise<boolean>;
-  isEnrolledAsync(): Promise<boolean>;
-  authenticateAsync(options?: {
-    promptMessage?: string;
-    cancelLabel?: string;
-    fallbackLabel?: string;
-    disableDeviceFallback?: boolean;
-  }): Promise<{ success: boolean; error?: string }>;
-}
-
-export interface BiometricAuthResult {
-  authenticated: boolean;
-  reason?: string;
-}
-
-export interface PrivacyAndAuthState {
+export interface PrivacyState {
   isPrivacyModeEnabled: boolean;
-  isBiometricLockEnabled: boolean;
-  isLocked: boolean;
-  lastAuthenticatedAt: string | null;
 }
 
-const defaultBiometricProvider: BiometricAuthProvider = {
-  async hasHardwareAsync(): Promise<boolean> {
-    return true;
-  },
-  async isEnrolledAsync(): Promise<boolean> {
-    return true;
-  },
-  async authenticateAsync(): Promise<{ success: boolean; error?: string }> {
-    return { success: true };
-  },
-};
+export type PrivacyAndAuthState = PrivacyState;
 
 function formatBrlNumber(num: number, includeSymbol: boolean): string {
   const fixed = Math.abs(num).toFixed(2);
@@ -105,21 +76,13 @@ export function redactPercentageValue(
 }
 
 export class PrivacyAndAuthService {
-  private state: PrivacyAndAuthState = {
+  private state: PrivacyState = {
     isPrivacyModeEnabled: false,
-    isBiometricLockEnabled: false,
-    isLocked: false,
-    lastAuthenticatedAt: null,
   };
 
-  private authProvider: BiometricAuthProvider;
-  private listeners: Set<(state: PrivacyAndAuthState) => void> = new Set();
+  private listeners: Set<(state: PrivacyState) => void> = new Set();
 
-  constructor(authProvider: BiometricAuthProvider = defaultBiometricProvider) {
-    this.authProvider = authProvider;
-  }
-
-  subscribe(listener: (state: PrivacyAndAuthState) => void): () => void {
+  subscribe(listener: (state: PrivacyState) => void): () => void {
     this.listeners.add(listener);
     return () => {
       this.listeners.delete(listener);
@@ -131,34 +94,19 @@ export class PrivacyAndAuthService {
     this.listeners.forEach((l) => l(current));
   }
 
-  getState(): PrivacyAndAuthState {
+  getState(): PrivacyState {
     return { ...this.state };
   }
 
-  setPrivacyMode(enabled: boolean): PrivacyAndAuthState {
+  setPrivacyMode(enabled: boolean): PrivacyState {
     this.state.isPrivacyModeEnabled = enabled;
     this.notify();
     return this.getState();
   }
 
-  togglePrivacyMode(): PrivacyAndAuthState {
+  togglePrivacyMode(): PrivacyState {
     this.state.isPrivacyModeEnabled = !this.state.isPrivacyModeEnabled;
     this.notify();
-    return this.getState();
-  }
-
-  setBiometricLockEnabled(enabled: boolean): PrivacyAndAuthState {
-    this.state.isBiometricLockEnabled = enabled;
-    if (!enabled) {
-      this.state.isLocked = false;
-    }
-    return this.getState();
-  }
-
-  lockApp(): PrivacyAndAuthState {
-    if (this.state.isBiometricLockEnabled) {
-      this.state.isLocked = true;
-    }
     return this.getState();
   }
 
@@ -171,51 +119,6 @@ export class PrivacyAndAuthService {
 
   formatPercentage(value: string | number): string {
     return redactPercentageValue(value, this.state.isPrivacyModeEnabled);
-  }
-
-  async canUseBiometrics(): Promise<boolean> {
-    const hasHardware = await this.authProvider.hasHardwareAsync();
-    if (!hasHardware) return false;
-    const isEnrolled = await this.authProvider.isEnrolledAsync();
-    return isEnrolled;
-  }
-
-  async authenticateAndUnlock(
-    promptMessage = 'Desbloquear Dossiê Celsus'
-  ): Promise<BiometricAuthResult> {
-    const hasHardware = await this.authProvider.hasHardwareAsync();
-    if (!hasHardware) {
-      return {
-        authenticated: false,
-        reason: 'biometric_hardware_unavailable',
-      };
-    }
-
-    const isEnrolled = await this.authProvider.isEnrolledAsync();
-    if (!isEnrolled) {
-      return {
-        authenticated: false,
-        reason: 'biometrics_not_enrolled',
-      };
-    }
-
-    const result = await this.authProvider.authenticateAsync({
-      promptMessage,
-      cancelLabel: 'Cancelar',
-      fallbackLabel: 'Usar PIN',
-      disableDeviceFallback: false,
-    });
-
-    if (result.success) {
-      this.state.isLocked = false;
-      this.state.lastAuthenticatedAt = new Date().toISOString();
-      return { authenticated: true };
-    }
-
-    return {
-      authenticated: false,
-      reason: result.error || 'authentication_failed',
-    };
   }
 }
 
