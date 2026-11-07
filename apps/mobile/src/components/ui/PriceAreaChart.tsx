@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { PricePoint, periodReturn } from '../../domain/finance/assetProfile';
+import { PricePoint, periodReturn, downsamplePoints } from '../../domain/finance/assetProfile';
 import { colors, typography, borders } from '../../theme/tokens';
 
 export type ChartRange = '7D' | '30D' | '6M' | '1A' | '5A' | 'MAX';
@@ -15,6 +15,8 @@ export interface PriceAreaChartProps {
   testID?: string;
 }
 
+/** Máximo de barras desenhadas (cabem no card sem estourar a largura). */
+const MAX_BARS = 64;
 const RANGES: ChartRange[] = ['7D', '30D', '6M', '1A', '5A', 'MAX'];
 
 export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
@@ -36,8 +38,10 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
   const subtextColor = isLight ? '#6E6A63' : '#8A8A8E';
   const chipBg = isLight ? '#EAE5D9' : '#22252A';
 
-  const minVal = points.length > 0 ? Math.min(...points.map((p) => p.close)) : 0;
-  const maxVal = points.length > 0 ? Math.max(...points.map((p) => p.close), minVal + 1) : 100;
+  // Uma barra por ponto não cabe em séries longas (o espaçamento estourava a largura e as barras sumiam).
+  const bars = React.useMemo(() => downsamplePoints(points, MAX_BARS), [points]);
+  const minVal = bars.length > 0 ? Math.min(...bars.map((p) => p.close)) : 0;
+  const maxVal = bars.length > 0 ? Math.max(...bars.map((p) => p.close), minVal + 0.01) : 100;
   const rangeVal = maxVal - minVal || 1;
 
   const rangeLabelMap: Record<ChartRange, string> = {
@@ -53,9 +57,9 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
     <View testID={testID} style={styles.container}>
       {/* Gráfico de Linha + Área Suave */}
       <View style={styles.chartArea}>
-        {points.length > 0 ? (
+        {bars.length > 0 ? (
           <View style={styles.curveContainer}>
-            {points.map((pt, idx) => {
+            {bars.map((pt, idx) => {
               const normalizedHeight = Math.max(10, ((pt.close - minVal) / rangeVal) * 90 + 10);
               return (
                 <View key={`${pt.date}-${idx}`} style={styles.curveCol}>
@@ -113,7 +117,8 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
         })}
       </View>
 
-      {/* Rodapé: Variação do Período */}
+      {/* Rodapé: Variação do Período (só com histórico; sem dados não mostramos 0%) */}
+      {points.length > 1 ? (
       <View style={styles.footerRow}>
         <Text style={[styles.footerLabel, { color: subtextColor }]}>
           Variação {rangeLabelMap[activeRange] || '12 meses'}
@@ -125,6 +130,7 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
           </Text>
         </View>
       </View>
+      ) : null}
     </View>
   );
 };
@@ -145,7 +151,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     height: 100,
     width: '100%',
-    gap: 3,
+    gap: 1,
   },
   curveCol: {
     flex: 1,

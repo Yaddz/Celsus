@@ -7,7 +7,10 @@ import { colors, typography, borders } from '../../theme/tokens';
 export interface StickyAddBarProps {
   walletName: string;
   assetClass: AssetClass;
-  targetPercentage?: number;
+  /** Meta do ativo na classe; ausente quando o ativo ainda não está na carteira. */
+  targetPercentage?: number | null;
+  /** Distância até o fim da tela (ex.: altura do dock flutuante), para o botão não ficar por baixo dele. */
+  bottomOffset?: number;
   isAlreadyInWallet?: boolean;
   onAddPress: () => void;
   onWalletSelectPress: () => void;
@@ -25,7 +28,8 @@ const CLASS_NAMES: Record<AssetClass, string> = {
 export const StickyAddBar: React.FC<StickyAddBarProps> = ({
   walletName = 'Carteira',
   assetClass = 'STOCK',
-  targetPercentage = 0,
+  targetPercentage = null,
+  bottomOffset = 0,
   isAlreadyInWallet = false,
   onAddPress,
   onWalletSelectPress,
@@ -40,7 +44,7 @@ export const StickyAddBar: React.FC<StickyAddBarProps> = ({
   const borderColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)';
 
   return (
-    <View testID={testID} style={[styles.container, { backgroundColor: barBg, borderTopColor: borderColor }]}>
+    <View testID={testID} style={[styles.container, { backgroundColor: barBg, borderTopColor: borderColor, marginBottom: bottomOffset }]}>
       {/* Linha Superior: Seletor de Carteira e Meta */}
       <View style={styles.topRow}>
         <View style={styles.walletRow}>
@@ -62,12 +66,12 @@ export const StickyAddBar: React.FC<StickyAddBarProps> = ({
           {isAlreadyInWallet ? (
             <View style={styles.badgeInWallet}>
               <Text style={styles.badgeInWalletText}>
-                Na carteira · meta {targetPercentage}%
+                {typeof targetPercentage === 'number' ? `Na carteira · meta ${targetPercentage}%` : 'Na carteira'}
               </Text>
             </View>
           ) : (
             <Text style={[styles.metaText, { color: subtextColor }]}>
-              {CLASS_NAMES[assetClass] || 'Ativo'} · meta {targetPercentage}%
+              {CLASS_NAMES[assetClass] || 'Ativo'}
             </Text>
           )}
         </View>
@@ -97,7 +101,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 24,
+    paddingBottom: 12,
     borderTopWidth: 1,
     width: '100%',
   },

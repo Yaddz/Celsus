@@ -23,6 +23,8 @@ export interface TextFieldProps extends Omit<TextInputProps, 'style' | 'editable
   suffixTestID?: string;
   /** Elemento à esquerda do texto (ex.: ícone de busca ou botão de calendário). */
   leftAdornment?: React.ReactNode;
+  /** Elemento à direita do texto (ex.: botão de limpar). */
+  rightAdornment?: React.ReactNode;
 }
 
 export const FIELD_HEIGHT = 56;
@@ -50,6 +52,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   containerTestID,
   suffixTestID,
   leftAdornment,
+  rightAdornment,
   placeholder,
   keyboardType,
   onFocus,
@@ -104,6 +107,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             inputStyle,
           ]}
         />
+        {rightAdornment ? <View style={styles.rightAdornment}>{rightAdornment}</View> : null}
         {suffix ? (
           <Text testID={suffixTestID} style={[styles.suffix, { color: palette.label }]}>
             {suffix}
@@ -129,6 +133,7 @@ const styles = StyleSheet.create({
   label: { fontFamily: typography.fontFamily, fontSize: 10, letterSpacing: 0.8, marginBottom: 6 },
   box: { flexDirection: 'row', borderRadius: bento.innerRadius, paddingHorizontal: 14 },
   adornment: { marginRight: 8 },
+  rightAdornment: { marginLeft: 8 },
   affix: { fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '700', marginRight: 8 },
   input: { flex: 1, minWidth: 0, fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '700', padding: 0 },
   suffix: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '700', marginLeft: 8 },

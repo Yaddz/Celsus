@@ -638,7 +638,9 @@ export class MarketApiService implements IMarketApiService {
         const jsonStr = await this.nativeBridge.getAssetProfile(clean);
         if (jsonStr) {
           const raw = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-          return this.normalizeAssetProfile(raw, clean);
+          const profile = this.normalizeAssetProfile(raw, clean);
+          // "OFFLINE"/preço 0 não é resposta: segue a cadeia (HTTP → cache → cotação → catálogo).
+          if (this.isUsableProfile(profile)) return profile;
         }
       } catch (err) {
         // Fallback para HTTP ou cache
@@ -650,6 +652,8 @@ export class MarketApiService implements IMarketApiService {
       const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/profile`);
       if (res.ok) {
         const data = await res.json();
+        const candidate = this.normalizeAssetProfile(data, clean);
+        if (!this.isUsableProfile(candidate)) throw new Error('perfil sem cotação');
         // Salvar em cache local SQLite
         if (this.db && typeof this.db.insert === 'function') {
           try {
@@ -671,10 +675,10 @@ export class MarketApiService implements IMarketApiService {
             // Ignorar falha no cache
           }
         }
-        return this.normalizeAssetProfile(data, clean);
+        return candidate;
       }
     } catch {
-      // Offline
+      // Offline ou sem dados
     }
 
     // 3. Fallback para cache local no SQLite
@@ -688,18 +692,41 @@ export class MarketApiService implements IMarketApiService {
           const cachedData = JSON.parse(rows[0].profile_json);
           const cachedDate = new Date(rows[0].updated_at).getTime();
           const isStale = Date.now() - cachedDate > 12 * 60 * 60 * 1000;
-          return {
+          const cachedProfile = {
             ...this.normalizeAssetProfile(cachedData, clean),
             isStale: isStale || cachedData.is_stale,
           };
+          if (this.isUsableProfile(cachedProfile)) return cachedProfile;
         }
       } catch {
         // Ignorar erro do banco
       }
     }
 
-    // 4. Fallback ao catálogo estático local
+    // 4. Cotação real (mesma rota da Home) + catálogo: preço e variação sem indicadores.
     const staticItem = STATIC_CATALOG_ASSETS.find((a) => cleanTicker(a.ticker) === clean);
+    try {
+      const quotes = await this.fetchQuotes([clean]);
+      const q = quotes.find((x) => cleanTicker(x.ticker) === clean);
+      const livePrice = q ? parseFloat(q.currentPrice) : 0;
+      if (q && livePrice > 0) {
+        return {
+          ticker: clean,
+          name: staticItem?.name || clean,
+          assetClass: ((q.assetClass || staticItem?.asset_class) as any) || (clean.endsWith('11') ? 'FII' : 'STOCK'),
+          price: livePrice,
+          change24h: q.changePercent24h || 0,
+          indicators: {},
+          isStale: Boolean(q.isStale),
+          source: 'QUOTE',
+          updatedAt: q.updatedAt,
+        };
+      }
+    } catch {
+      // Sem cotação: cai no catálogo
+    }
+
+    // 5. Fallback ao catálogo estático local
     if (staticItem) {
       return {
         ticker: staticItem.ticker,
@@ -723,6 +750,11 @@ export class MarketApiService implements IMarketApiService {
       isStale: true,
       source: 'OFFLINE',
     };
+  }
+
+  /** Perfil só é "utilizável" com cotação real; "OFFLINE"/preço 0 deve cair para a próxima fonte. */
+  private isUsableProfile(p: AssetProfile): boolean {
+    return p.price > 0 && p.source !== 'OFFLINE';
   }
 
   private normalizeAssetProfile(raw: any, clean: string): AssetProfile {
@@ -831,6 +863,26 @@ export class MarketApiService implements IMarketApiService {
     return [];
   }
 
+  /**
+   * Completa o ranking com o catálogo da classe: quem a fonte não trouxe aparece sem indicadores ("—").
+   * Protege contra uma ponte nativa antiga (que só lista perfis já em cache, às vezes um único ativo).
+   */
+  private mergeRankingWithCatalog(items: RankingItem[], assetClass?: string, limit: number = 20): RankingItem[] {
+    const seen = new Set(items.map((i) => cleanTicker(i.ticker)));
+    const extra = STATIC_CATALOG_ASSETS.filter(
+      (a) => (!assetClass || a.asset_class === assetClass) && !seen.has(cleanTicker(a.ticker))
+    ).map((a) => ({
+      ticker: a.ticker,
+      name: a.name,
+      assetClass: (a.asset_class as any) || 'STOCK',
+      price: 0,
+      dy12m: null,
+      pvp: null,
+      change24h: 0,
+    }));
+    return [...items, ...extra].slice(0, Math.max(limit, items.length));
+  }
+
   async getRanking(assetClass?: string, by?: string, limit: number = 20): Promise<RankingItem[]> {
     const clsQuery = assetClass ? `class=${assetClass}&` : '';
     const byQuery = by ? `by=${by}&` : '';
@@ -841,15 +893,18 @@ export class MarketApiService implements IMarketApiService {
         if (jsonStr) {
           const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
           const rankings = data?.rankings || [];
-          return rankings.map((r: any) => ({
-            ticker: r.ticker,
-            name: r.name || r.ticker,
-            assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
-            price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
-            dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
-            pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
-            change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
-          }));
+          // Lista vazia da ponte (cache ainda frio) não é resposta: cai no catálogo mais abaixo.
+          if (rankings.length > 0) {
+            return this.mergeRankingWithCatalog(rankings.map((r: any) => ({
+              ticker: r.ticker,
+              name: r.name || r.ticker,
+              assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
+              price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
+              dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
+              pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
+              change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
+            })), assetClass, limit);
+          }
         }
       } catch {
         // Fallback
@@ -861,15 +916,17 @@ export class MarketApiService implements IMarketApiService {
       if (res.ok) {
         const data = await res.json();
         const rankings = data?.rankings || [];
-        return rankings.map((r: any) => ({
-          ticker: r.ticker,
-          name: r.name || r.ticker,
-          assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
-          price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
-          dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
-          pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
-          change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
-        }));
+        if (rankings.length > 0) {
+          return this.mergeRankingWithCatalog(rankings.map((r: any) => ({
+            ticker: r.ticker,
+            name: r.name || r.ticker,
+            assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
+            price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
+            dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
+            pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
+            change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
+          })), assetClass, limit);
+        }
       }
     } catch {
       // Offline fallback: filtrar STATIC_CATALOG_ASSETS
@@ -879,11 +936,12 @@ export class MarketApiService implements IMarketApiService {
     if (assetClass) {
       staticList = staticList.filter((a) => a.asset_class === assetClass);
     }
+    // Sem serviço: lista o catálogo sem preço (o preço do catálogo é só uma referência antiga).
     return staticList.slice(0, limit).map((a) => ({
       ticker: a.ticker,
       name: a.name,
       assetClass: (a.asset_class as any) || 'STOCK',
-      price: parseFloat(a.price) || 0,
+      price: 0,
       dy12m: null,
       pvp: null,
       change24h: 0,

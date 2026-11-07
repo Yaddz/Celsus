@@ -142,6 +142,86 @@ RNTL.render = syncRender;
 
 const { cleanup } = RNTL;
 global.__node_util__ = require('util');
+
+// Mocks for Expo SDK 58 security libraries
+jest.mock('expo-crypto', () => {
+  const nodeCrypto = require('crypto');
+  return {
+    CryptoDigestAlgorithm: {
+      SHA1: 'SHA-1',
+      SHA256: 'SHA-256',
+      SHA384: 'SHA-384',
+      SHA512: 'SHA-512',
+    },
+    CryptoEncoding: {
+      HEX: 'hex',
+      BASE64: 'base64',
+    },
+    digestStringAsync: jest.fn(async (algorithm, data, options) => {
+      const algoMap = {
+        'SHA-1': 'sha1',
+        'SHA-256': 'sha256',
+        'SHA-384': 'sha384',
+        'SHA-512': 'sha512',
+      };
+      const nodeAlgo = algoMap[algorithm] || 'sha256';
+      const encoding = options?.encoding === 'base64' ? 'base64' : 'hex';
+      return nodeCrypto.createHash(nodeAlgo).update(data, 'utf8').digest(encoding);
+    }),
+    getRandomBytes: jest.fn((byteCount) => {
+      const bytes = nodeCrypto.randomBytes(byteCount);
+      return new Uint8Array(bytes);
+    }),
+    getRandomBytesAsync: jest.fn(async (byteCount) => {
+      const bytes = nodeCrypto.randomBytes(byteCount);
+      return new Uint8Array(bytes);
+    }),
+    randomUUID: jest.fn(() => nodeCrypto.randomUUID()),
+  };
+});
+
+const mockSecureStoreMap = new Map();
+jest.mock('expo-secure-store', () => ({
+  AFTER_FIRST_UNLOCK: 0,
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 1,
+  ALWAYS: 2,
+  WHEN_PASSCODE_SET_THIS_DEVICE_ONLY: 3,
+  ALWAYS_THIS_DEVICE_ONLY: 4,
+  WHEN_UNLOCKED: 5,
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
+  isAvailableAsync: jest.fn(async () => true),
+  getItemAsync: jest.fn(async (key) => {
+    return mockSecureStoreMap.has(key) ? mockSecureStoreMap.get(key) : null;
+  }),
+  setItemAsync: jest.fn(async (key, value) => {
+    mockSecureStoreMap.set(key, String(value));
+  }),
+  deleteItemAsync: jest.fn(async (key) => {
+    mockSecureStoreMap.delete(key);
+  }),
+  __mockStore: mockSecureStoreMap,
+}));
+
+jest.mock('expo-local-authentication', () => ({
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
+  SecurityLevel: {
+    NONE: 0,
+    SECRET: 1,
+    BIOMETRIC: 2,
+  },
+  hasHardwareAsync: jest.fn(async () => true),
+  isEnrolledAsync: jest.fn(async () => true),
+  supportedAuthenticationTypesAsync: jest.fn(async () => [1, 2]),
+  getEnrolledLevelAsync: jest.fn(async () => 2),
+  authenticateAsync: jest.fn(async () => ({ success: true })),
+  cancelAuthenticate: jest.fn(async () => {}),
+}));
+
 afterEach(async () => {
+  mockSecureStoreMap.clear();
   await cleanup();
 });

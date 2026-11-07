@@ -25,9 +25,10 @@ Run lint and typecheck before declaring any task done.
 
 ## Navigation & Routing
 
-- Use **Expo Router** for all navigation. Routes live in `src/app/` — every file there is a screen, `_layout.tsx` files define navigators. Keep non-route code (components, hooks, utils) outside `src/app/`.
-- Import `Link`, `router`, and `useLocalSearchParams` from `expo-router`.
-- Docs: https://docs.expo.dev/router/introduction.md
+- **This project does not use Expo Router.** Navigation is state-driven in `App.tsx` (dock tabs + stacked layers such as class detail, asset detail, modals). The Android back-button decision lives in `src/navigation/backNavigation.ts` (pure function, tested) — add new layers there.
+- Architecture, data flow and the native Go bridge: see `../../docs/ARQUITETURA.md`. Design tokens/components: `../../DESIGN_SYSTEM.md`.
+- Changes to the Go market engine only reach Android after `npm run build:native` (repo root) and a new native build (`npx expo run:android`).
+- Test files are locked (`tests.lock.json`); see `../../.agents/rules/tdd-lock.md` before editing any test.
 
 ## Building with EAS
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 import { IndicatorGrid } from '../components/ui/IndicatorGrid';
 import { PriceAreaChart, ChartRange } from '../components/ui/PriceAreaChart';
@@ -16,10 +17,10 @@ import { DividendsCard } from '../components/ui/DividendsCard';
 import { StickyAddBar } from '../components/ui/StickyAddBar';
 import { AssetClass } from '../components/ui/AttributeStatBar';
 import { marketApiService } from '../services/marketApi';
-import { appMetaRepository } from '../repositories/appMetaRepository';
 import { assetRepository } from '../repositories/assetRepository';
 import { AssetProfile, PricePoint, Dividend } from '../domain/finance/assetProfile';
-import { walletsStore, useWallets } from '../stores/walletsStore';
+import { useWallets } from '../stores/walletsStore';
+import { useActivePortfolioId } from '../stores/walletStore';
 import { colors, typography, borders } from '../theme/tokens';
 import { LIGHT_THEME_TOKENS } from '../theme/palettes';
 
@@ -33,6 +34,27 @@ export interface AssetDetailScreenProps {
   themeMode?: 'dark' | 'light';
   testID?: string;
 }
+
+/** Siglas do gráfico → intervalo do serviço (Yahoo) e recorte local em dias (quando o serviço não tem o intervalo exato). */
+const RANGE_QUERY: Record<ChartRange, { api: string; days?: number }> = {
+  '7D': { api: '1mo', days: 7 },
+  '30D': { api: '1mo', days: 30 },
+  '6M': { api: '6mo' },
+  '1A': { api: '1y' },
+  '5A': { api: '5y' },
+  MAX: { api: 'max' },
+};
+
+async function loadHistory(ticker: string, range: ChartRange): Promise<PricePoint[]> {
+  const { api, days } = RANGE_QUERY[range];
+  const points = await marketApiService.getPriceHistory(ticker, api);
+  if (!days) return points;
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+  return points.filter((p) => p.date >= cutoff);
+}
+
+/** Altura do dock flutuante sem a área segura (trilho 60 + respiro). */
+const DOCK_BODY_HEIGHT = 76;
 
 const CLASS_BADGE_LABELS: Record<AssetClass, string> = {
   FIXED_INCOME: 'Renda fixa',
@@ -59,6 +81,9 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
   testID = 'asset-detail-screen',
 }) => {
   const isLight = themeMode === 'light';
+  const insets = useSafeAreaInsets();
+  // O dock flutuante (pílulas + respiro) ocupa a base da tela: a barra de adicionar fica logo acima dele.
+  const dockClearance = Math.max(insets.bottom, 16) + DOCK_BODY_HEIGHT;
   const cleanTicker = ticker.toUpperCase().trim();
 
   const [profile, setProfile] = useState<AssetProfile | null>(null);
@@ -66,7 +91,9 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
   const [dividends, setDividends] = useState<Dividend[]>([]);
   const [activeRange, setActiveRange] = useState<ChartRange>('1A');
   const [isLoading, setIsLoading] = useState(true);
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const rangeRequestRef = useRef(0);
+  const activePortfolioId = useActivePortfolioId();
   const [selectedWalletId, setSelectedWalletId] = useState<string>('');
 
   const { wallets } = useWallets();
@@ -74,9 +101,10 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
   // Selecionar carteira ativa por padrão
   useEffect(() => {
     if (wallets.length > 0 && !selectedWalletId) {
-      setSelectedWalletId(wallets[0].id);
+      // Padrão: a carteira que o usuário está usando (não simplesmente a primeira).
+      setSelectedWalletId((wallets.find((w) => w.id === activePortfolioId) || wallets[0]).id);
     }
-  }, [wallets, selectedWalletId]);
+  }, [wallets, selectedWalletId, activePortfolioId]);
 
   const [walletAssets, setWalletAssets] = useState<any[]>([]);
 
@@ -107,28 +135,12 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
 
   const isAlreadyInWallet = !!existingAsset;
 
-  const assetTargetInWallet = useMemo(() => {
-    if (existingAsset?.target_percentage_in_class) {
-      return parseFloat(String(existingAsset.target_percentage_in_class)) || 0;
-    }
-    return 25;
+  // Meta só existe se o ativo já está na carteira; fora dela não mostramos meta inventada.
+  const assetTargetInWallet = useMemo<number | null>(() => {
+    if (!existingAsset) return null;
+    const n = parseFloat(String(existingAsset.target_percentage_in_class));
+    return Number.isFinite(n) ? n : null;
   }, [existingAsset]);
-
-  // Carregar status de favorito
-  useEffect(() => {
-    let mounted = true;
-    appMetaRepository.isWatchlist(cleanTicker).then((fav) => {
-      if (mounted) setIsFavorite(fav);
-    });
-    return () => {
-      mounted = false;
-    };
-  }, [cleanTicker]);
-
-  const handleToggleFavorite = async () => {
-    const next = await appMetaRepository.toggleWatchlist(cleanTicker);
-    setIsFavorite(next);
-  };
 
   // Carregar perfil do ativo e proventos
   useEffect(() => {
@@ -137,7 +149,7 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
 
     Promise.all([
       marketApiService.getAssetProfile(cleanTicker),
-      marketApiService.getPriceHistory(cleanTicker, activeRange),
+      loadHistory(cleanTicker, activeRange),
       marketApiService.getDividends(cleanTicker),
     ])
       .then(([prof, hist, divs]) => {
@@ -158,18 +170,25 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
     return () => {
       mounted = false;
     };
-  }, [cleanTicker]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cleanTicker, reloadKey]);
 
-  // Recarregar histórico ao trocar de range
+  // Recarregar só o gráfico ao trocar de período; respostas antigas (fora de ordem) são descartadas.
   const handleRangeChange = useCallback(
     (range: ChartRange) => {
       setActiveRange(range);
-      marketApiService.getPriceHistory(cleanTicker, range).then((hist) => {
-        setPriceHistory(hist);
-      });
+      const req = ++rangeRequestRef.current;
+      loadHistory(cleanTicker, range)
+        .then((hist) => {
+          if (req === rangeRequestRef.current) setPriceHistory(hist);
+        })
+        .catch(() => {});
     },
     [cleanTicker]
   );
+
+  // Sem preço e sem fonte = não conseguimos carregar nada confiável sobre o ativo.
+  const loadFailed = !isLoading && (!profile || profile.source === 'OFFLINE' || !profile.price);
 
   const handleAddOrAdjust = () => {
     if (isAlreadyInWallet) {
@@ -201,6 +220,8 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
   const subtextColor = isLight ? '#6E6A63' : '#8A8A8E';
   const borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
 
+  // Variação do dia só é exibida com cotação real (o catálogo local não traz variação).
+  const hasLiveQuote = !!profile && profile.source !== 'STATIC_CATALOG' && profile.source !== 'OFFLINE';
   const assetClass = profile?.assetClass || 'STOCK';
   const classColor = CLASS_BORDER_COLORS[assetClass];
   const isPositiveDay = (profile?.change24h || 0) >= 0;
@@ -210,38 +231,15 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
 
   return (
     <View testID={testID} style={[styles.root, { backgroundColor: bg }]}>
-      {/* Header com voltar, título e botões de favorito e privacidade */}
-      <View style={styles.headerWrapper}>
-        <XpMinimalHeader
-          title="Ativo"
-          subtitle="Ficha da empresa"
-          onBack={onBack}
-          isPrivacyModeEnabled={isPrivacyMode}
-          onTogglePrivacy={onTogglePrivacy}
-          themeMode={themeMode}
-        />
-        {/* Botão de Favoritar posicionado no Header */}
-        <TouchableOpacity
-          testID="header-favorite-button"
-          activeOpacity={0.7}
-          onPress={handleToggleFavorite}
-          style={[
-            styles.favoriteBtn,
-            {
-              backgroundColor: isLight ? '#EAE5D9' : '#22252A',
-              borderColor: isLight ? '#D5CAA8' : '#33383F',
-            },
-          ]}
-          accessibilityRole="button"
-          accessibilityLabel={isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-        >
-          <MaterialIcons
-            name={isFavorite ? 'favorite' : 'favorite-border'}
-            size={18}
-            color={isFavorite ? '#E05252' : isLight ? '#111315' : '#D5CAA8'}
-          />
-        </TouchableOpacity>
-      </View>
+      {/* Header padrão com voltar, favoritar (ao lado do olho) e privacidade */}
+      <XpMinimalHeader
+        title="Ativo"
+        subtitle="Ficha da empresa"
+        onBack={onBack}
+        isPrivacyModeEnabled={isPrivacyMode}
+        onTogglePrivacy={onTogglePrivacy}
+        themeMode={themeMode}
+      />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -253,6 +251,22 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
             <Text style={[styles.loadingText, { color: subtextColor }]}>
               Carregando dados do ativo...
             </Text>
+          </View>
+        ) : loadFailed ? (
+          <View testID="asset-detail-error" style={[styles.errorCard, { backgroundColor: cardBg }]}>
+            <MaterialIcons name="cloud-off" size={32} color={subtextColor} />
+            <Text style={[styles.errorTitle, { color: textColor }]}>Não foi possível carregar {cleanTicker}</Text>
+            <Text style={[styles.loadingText, { color: subtextColor, textAlign: 'center' }]}>
+              Verifique a conexão e tente de novo.
+            </Text>
+            <TouchableOpacity
+              testID="asset-detail-retry"
+              accessibilityRole="button"
+              onPress={() => setReloadKey((k) => k + 1)}
+              style={[styles.retryBtn, { backgroundColor: colors.primary }]}
+            >
+              <Text style={styles.retryText}>Tentar de novo</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <>
@@ -298,12 +312,14 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
                       R$ {(profile?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </Text>
                   </View>
-                  <View style={styles.dayChangeWrapper}>
-                    <MaterialIcons name={changeIcon as any} size={16} color={changeColor} />
-                    <Text style={[styles.dayChangeText, { color: changeColor }]}>
-                      {prefix}{(profile?.change24h || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                    </Text>
-                  </View>
+                  {hasLiveQuote ? (
+                    <View style={styles.dayChangeWrapper}>
+                      <MaterialIcons name={changeIcon as any} size={16} color={changeColor} />
+                      <Text style={[styles.dayChangeText, { color: changeColor }]}>
+                        {prefix}{(profile?.change24h || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
 
                 {/* Gráfico de Área com Chips de Período */}
@@ -364,7 +380,7 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
                 <View style={[styles.infoRow, { borderBottomColor: borderColor }]}>
                   <Text style={[styles.infoLabel, { color: subtextColor }]}>Segmento de listagem</Text>
                   <Text style={[styles.infoValue, { color: textColor }]}>
-                    {profile?.about?.listingSegment || 'Nível 2 / Novo Mercado'}
+                    {profile?.about?.listingSegment || '—'}
                   </Text>
                 </View>
 
@@ -407,6 +423,7 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
         isAlreadyInWallet={isAlreadyInWallet}
         onAddPress={handleAddOrAdjust}
         onWalletSelectPress={handleCycleWallet}
+        bottomOffset={dockClearance}
         themeMode={themeMode}
       />
     </View>
@@ -417,24 +434,35 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
-  headerWrapper: {
-    position: 'relative',
-  },
-  favoriteBtn: {
-    position: 'absolute',
-    right: 80,
-    top: 10,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 24,
+  },
+  errorCard: {
+    borderRadius: borders.radiusLg,
+    padding: 24,
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 24,
+  },
+  errorTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  retryBtn: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: borders.radiusFull,
+  },
+  retryText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   loadingContainer: {
     paddingVertical: 64,

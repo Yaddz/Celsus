@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -35,21 +36,32 @@ const sampleYahooQuoteSummary = `{
   }
 }`
 
-const sampleFundamentusHTML = `
-<html>
-<body>
-<table>
-  <tr><td><span class="txt">Papel</span></td><td><span class="txt">PETR4</span></td><td><span class="txt">Cotação</span></td><td><span class="txt">38,42</span></td></tr>
-  <tr><td><span class="txt">Empresa</span></td><td><span class="txt">PETROBRAS</span></td><td><span class="txt">Setor</span></td><td><span class="txt">Petróleo, Gás e Biocombustíveis</span></td></tr>
-  <tr><td><span class="txt">P/L</span></td><td><span class="txt">5,20</span></td><td><span class="txt">DY</span></td><td><span class="txt">12,40%</span></td></tr>
-  <tr><td><span class="txt">P/VP</span></td><td><span class="txt">1,30</span></td><td><span class="txt">ROE</span></td><td><span class="txt">24,00%</span></td></tr>
-  <tr><td><span class="txt">Valor de mercado</span></td><td><span class="txt">497.000.000.000</span></td><td><span class="txt">Vol $ méd (2m)</span></td><td><span class="txt">1.200.000.000</span></td></tr>
-  <tr><td><span class="txt">Marg. Líquida</span></td><td><span class="txt">21,00%</span></td><td><span class="txt">Dív. Líquida/EBITDA</span></td><td><span class="txt">0,90</span></td></tr>
-  <tr><td><span class="txt">Nro. Ações</span></td><td><span class="txt">12.900.000.000</span></td></tr>
-</table>
-</body>
-</html>
-`
+// Fixtures reais do Fundamentus (capturadas do site, convertidas para UTF-8).
+func loadFixture(t *testing.T, name string) string {
+	t.Helper()
+	b, err := os.ReadFile("testdata/" + name)
+	if err != nil {
+		t.Fatalf("fixture %s: %v", name, err)
+	}
+	return string(b)
+}
+
+// serveAsLatin1 serve o HTML como a página real: bytes ISO-8859-1.
+func serveAsLatin1(html string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=iso-8859-1")
+		w.WriteHeader(http.StatusOK)
+		out := make([]byte, 0, len(html))
+		for _, c := range html {
+			if c < 256 {
+				out = append(out, byte(c))
+			} else {
+				out = append(out, '?')
+			}
+		}
+		_, _ = w.Write(out)
+	})
+}
 
 func TestYahooFundamentalsProvider_Parse(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -76,51 +88,90 @@ func TestYahooFundamentalsProvider_Parse(t *testing.T) {
 	}
 }
 
-func TestFundamentusFallbackProvider_Parse(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=iso-8859-1")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(sampleFundamentusHTML))
-	}))
+func TestFundamentusProvider_Stock_RealPage(t *testing.T) {
+	ts := httptest.NewServer(serveAsLatin1(loadFixture(t, "petr4.utf8.html")))
 	defer ts.Close()
 
-	provider := NewFundamentusFallbackProvider(ts.URL)
-	dto, err := provider.FetchProfile(context.Background(), "PETR4", "STOCK")
+	dto, err := NewFundamentusProvider(ts.URL).FetchProfile(context.Background(), "PETR4", "STOCK")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-
-	if dto.Ticker != "PETR4" {
-		t.Errorf("expected PETR4, got %s", dto.Ticker)
+	if dto.Price != 45.36 {
+		t.Errorf("price = %v, want 45.36", dto.Price)
 	}
-	if dto.Indicators["pl"] == nil {
-		t.Errorf("expected pl indicator from fundamentus")
+	if dto.Name != "PETROBRAS PN" {
+		t.Errorf("name = %q", dto.Name)
+	}
+	if dto.Sector != "Petróleo, Gás e Biocombustíveis" {
+		t.Errorf("sector = %q (acentos devem sobreviver ao ISO-8859-1)", dto.Sector)
+	}
+	if dto.Change24h != -1.28 || dto.Change12m != 59.28 {
+		t.Errorf("variações = %v / %v", dto.Change24h, dto.Change12m)
+	}
+	want := map[string]float64{"pl": 4.38, "pvp": 1.22, "dy": 8.0, "roe": 27.7, "netMargin": 24.4}
+	for k, v := range want {
+		if got, _ := dto.Indicators[k].(float64); got != v {
+			t.Errorf("indicador %s = %v, want %v", k, dto.Indicators[k], v)
+		}
+	}
+	if dto.Indicators["marketCap"] == nil || dto.Indicators["dailyLiquidity"] == nil {
+		t.Errorf("faltou valor de mercado/liquidez: %v", dto.Indicators)
+	}
+	if dto.Source != "FUNDAMENTUS" {
+		t.Errorf("source = %s", dto.Source)
 	}
 }
 
-func TestFallbackChain_YahooFail_FundamentusSuccess(t *testing.T) {
-	fundamentusServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html; charset=iso-8859-1")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(sampleFundamentusHTML))
-	}))
-	defer fundamentusServer.Close()
+func TestFundamentusProvider_FII_RealPage(t *testing.T) {
+	ts := httptest.NewServer(serveAsLatin1(loadFixture(t, "mxrf11.utf8.html")))
+	defer ts.Close()
 
+	dto, err := NewFundamentusProvider(ts.URL).FetchProfile(context.Background(), "MXRF11", "FII")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if dto.Price != 8.80 {
+		t.Errorf("price = %v, want 8.80", dto.Price)
+	}
+	if got, _ := dto.Indicators["dy"].(float64); got != 13.4 {
+		t.Errorf("dy = %v", dto.Indicators["dy"])
+	}
+	if got, _ := dto.Indicators["pvp"].(float64); got != 0.94 {
+		t.Errorf("pvp = %v", dto.Indicators["pvp"])
+	}
+	if dto.Sector != "Logística" || dto.Name == "" {
+		t.Errorf("nome/segmento = %q / %q", dto.Name, dto.Sector)
+	}
+	if dto.Change24h != 1.85 {
+		t.Errorf("dia = %v", dto.Change24h)
+	}
+}
+
+func TestFundamentusProvider_PageWithoutQuote_IsError(t *testing.T) {
+	ts := httptest.NewServer(serveAsLatin1("<html><body>nada aqui</body></html>"))
+	defer ts.Close()
+	if _, err := NewFundamentusProvider(ts.URL).FetchProfile(context.Background(), "XXXX3", "STOCK"); err == nil {
+		t.Fatal("página sem cotação deve ser erro (nunca preço 0)")
+	}
+}
+
+func TestFallbackChain_FundamentusFirst_YahooFallback(t *testing.T) {
+	fundamentusServer := httptest.NewServer(serveAsLatin1(loadFixture(t, "petr4.utf8.html")))
+	defer fundamentusServer.Close()
 	yahooServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)
 	}))
 	defer yahooServer.Close()
 
 	chain := NewMultiFundamentalsProvider(
+		NewFundamentusProvider(fundamentusServer.URL),
 		NewYahooFundamentalsProvider(yahooServer.URL),
-		NewFundamentusFallbackProvider(fundamentusServer.URL),
 	)
-
 	dto, err := chain.FetchProfile(context.Background(), "PETR4", "STOCK")
 	if err != nil {
-		t.Fatalf("unexpected error on fallback: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if dto.Source != "FUNDAMENTUS" {
-		t.Errorf("expected source FUNDAMENTUS on fallback, got %s", dto.Source)
+	if dto.Source != "FUNDAMENTUS" || dto.Price <= 0 {
+		t.Errorf("source=%s price=%v", dto.Source, dto.Price)
 	}
 }

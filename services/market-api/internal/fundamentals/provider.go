@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -184,22 +183,6 @@ func (y *YahooFundamentalsProvider) FetchProfile(ctx context.Context, ticker str
 	}, nil
 }
 
-// FundamentusFallbackProvider scrapes/parses public HTML data from Fundamentus.
-type FundamentusFallbackProvider struct {
-	baseURL    string
-	httpClient *http.Client
-}
-
-func NewFundamentusFallbackProvider(baseURL string) *FundamentusFallbackProvider {
-	if baseURL == "" {
-		baseURL = "https://www.fundamentus.com.br"
-	}
-	return &FundamentusFallbackProvider{
-		baseURL:    strings.TrimRight(baseURL, "/"),
-		httpClient: &http.Client{Timeout: 10 * time.Second},
-	}
-}
-
 var tagRegex = regexp.MustCompile(`<[^>]*>`)
 
 func stripHTML(s string) string {
@@ -215,89 +198,6 @@ func parseBrazilianFloat(s string) float64 {
 	clean = strings.TrimSpace(clean)
 	val, _ := strconv.ParseFloat(clean, 64)
 	return val
-}
-
-func (f *FundamentusFallbackProvider) FetchProfile(ctx context.Context, ticker string, assetClass string) (*AssetProfileDTO, error) {
-	clean := strings.ToUpper(strings.TrimSpace(ticker))
-	url := fmt.Sprintf("%s/detalhes.php?papel=%s", f.baseURL, clean)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", yahoo.DefaultUserAgent)
-
-	resp, err := f.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("fundamentus network error: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("fundamentus returned status %d", resp.StatusCode)
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	html := string(bodyBytes)
-
-	indicators := make(map[string]interface{})
-	var companyName, sector, sharesStr string
-	var price float64
-
-	// Regex para extrair pares chave/valor de tabelas de Fundamentus
-	cellRegex := regexp.MustCompile(`(?i)<td[^>]*>(.*?)</td>\s*<td[^>]*>(.*?)</td>`)
-	matches := cellRegex.FindAllStringSubmatch(html, -1)
-
-	for _, match := range matches {
-		if len(match) < 3 {
-			continue
-		}
-		label := strings.ToLower(stripHTML(match[1]))
-		value := stripHTML(match[2])
-
-		switch {
-		case strings.Contains(label, "cotação"):
-			price = parseBrazilianFloat(value)
-		case strings.Contains(label, "empresa"):
-			companyName = value
-		case strings.Contains(label, "setor"):
-			sector = value
-		case label == "p/l":
-			indicators["pl"] = parseBrazilianFloat(value)
-		case label == "p/vp":
-			indicators["pvp"] = parseBrazilianFloat(value)
-		case label == "dy":
-			indicators["dy"] = parseBrazilianFloat(value)
-		case label == "roe":
-			indicators["roe"] = parseBrazilianFloat(value)
-		case strings.Contains(label, "valor de mercado"):
-			indicators["marketCap"] = parseBrazilianFloat(value)
-		case strings.Contains(label, "vol $ méd"):
-			indicators["dailyLiquidity"] = parseBrazilianFloat(value)
-		case strings.Contains(label, "marg. líquida"):
-			indicators["netMargin"] = parseBrazilianFloat(value)
-		case strings.Contains(label, "dív. líquida/ebitda"):
-			indicators["netDebtEbitda"] = parseBrazilianFloat(value)
-		case strings.Contains(label, "nro. ações"):
-			sharesStr = value
-		}
-	}
-
-	return &AssetProfileDTO{
-		Ticker:            clean,
-		Name:              clean,
-		AssetClass:        assetClass,
-		Price:             price,
-		Indicators:        indicators,
-		CompanyName:       companyName,
-		Sector:            sector,
-		SharesOutstanding: sharesStr,
-		Source:            "FUNDAMENTUS",
-		UpdatedAt:         time.Now().UTC(),
-		IsStale:           false,
-	}, nil
 }
 
 // MultiFundamentalsProvider chains primary and fallback providers.

@@ -18,6 +18,8 @@ export interface XpMinimalHeaderProps {
   themeMode?: ThemeMode;
   /** Offset de rolagem do conteúdo; controla a opacidade do fade inferior. */
   scrollY?: Animated.Value;
+  /** Botão extra à esquerda do olho (ex.: favoritar na ficha do ativo). */
+  rightAccessory?: React.ReactNode;
   testID?: string;
 }
 
@@ -39,6 +41,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
   palette = PORTFOLIO_PALETTES.classic,
   themeMode = 'dark',
   scrollY,
+  rightAccessory,
   testID = 'xp-minimal-header',
 }) => {
   const isLight = themeMode === 'light';
@@ -149,6 +152,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
 
       {/* Canto Direito: Ações (Olho à esquerda, Globo à direita) */}
       <View style={styles.actionsRight}>
+        {rightAccessory}
         {/* Botão de Olho (Privacidade) */}
         <TouchableOpacity
           testID="header-privacy-button"

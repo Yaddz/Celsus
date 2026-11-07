@@ -149,6 +149,25 @@ export function summarizeDividends(dividends: Dividend[], currentPrice: number, 
 }
 
 /** Ordena lista de ativos para a tabela de ranking tratando valores nulos no final. */
+/**
+ * Reduz a série a no máximo `max` pontos para desenhar (média por faixa, preservando o último ponto).
+ * Séries longas (6M = ~128, 1A = ~250, 5A = ~1250 pregões) não cabem uma barra por ponto na tela.
+ */
+export function downsamplePoints(points: PricePoint[], max: number): PricePoint[] {
+  if (max <= 0 || points.length <= max) return points;
+  const out: PricePoint[] = [];
+  const size = points.length / max;
+  for (let i = 0; i < max; i++) {
+    const start = Math.floor(i * size);
+    const end = i === max - 1 ? points.length : Math.floor((i + 1) * size);
+    const slice = points.slice(start, Math.max(end, start + 1));
+    const avg = slice.reduce((s, p) => s + p.close, 0) / slice.length;
+    out.push({ date: slice[slice.length - 1].date, close: avg });
+  }
+  out[out.length - 1] = points[points.length - 1];
+  return out;
+}
+
 export function rankAssets(
   items: RankingItem[],
   by: 'dy' | 'pvp' | 'change' | 'price' | 'ticker',

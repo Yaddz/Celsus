@@ -10,6 +10,8 @@
     "test": "npm --prefix apps/mobile test",
     "test:mobile": "npm --prefix apps/mobile test",
     "test:market": "cd services/market-api && go test ./...",
-    "test:verify": "powershell -ExecutionPolicy Bypass -File ./scripts/test-lock.ps1 -Action verify"
+    "test:verify": "node scripts/test-lock.js verify",
+    "test:lock": "node scripts/test-lock.js lock",
+    "build:native": "node scripts/build-native-bridge.js"
   }
 }

@@ -126,7 +126,9 @@ export const RankingTable: React.FC<RankingTableProps> = ({
               {/* Coluna 2: Preço */}
               <View style={styles.colPrice}>
                 <Text style={[styles.cellText, { color: textColor }]}>
-                  {it.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {it.price > 0
+                    ? it.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    : '—'}
                 </Text>
               </View>
 

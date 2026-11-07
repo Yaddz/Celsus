@@ -105,7 +105,7 @@ describe('MarketApi: Asset Profile, History, Dividends & Rankings', () => {
 
     expect(divs.length).toBe(2);
     expect(divs[0].amount).toBe(0.87);
-    expect(ranking.length).toBe(2);
+    expect(ranking.length).toBeGreaterThanOrEqual(2); // itens da ponte + restante do catálogo da classe
     expect(ranking[0].ticker).toBe('KNCR11');
   });
 

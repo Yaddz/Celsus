@@ -3,7 +3,6 @@ package http
 import (
 	"encoding/json"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +73,7 @@ func (s *Server) handleAssetProfile() http.HandlerFunc {
 			}
 
 			dto, err := s.fundamentalsProvider.FetchProfile(r.Context(), ticker, cls)
-			if err == nil && dto != nil {
+			if err == nil && dto != nil && dto.Price > 0 {
 				bytes, _ := json.Marshal(dto)
 				if s.db != nil {
 					_, _ = s.db.ExecContext(r.Context(),
@@ -123,11 +122,19 @@ func (s *Server) handleAssetPriceHistory() http.HandlerFunc {
 		if rangeParam == "" {
 			rangeParam = "1y"
 		}
+		// Aceita as siglas do app (1A, 5A, MAX) e as do serviço; qualquer outra cai em 1 ano.
 		switch rangeParam {
-		case "7d", "30d", "6m", "1y", "5y", "max":
+		case "1a":
+			rangeParam = "1y"
+		case "5a":
+			rangeParam = "5y"
+		case "7d", "30d", "6m", "1y", "5y", "max", "1mo", "6mo":
 		default:
 			rangeParam = "1y"
 		}
+		// Intervalos aceitos pelo Yahoo (7d/30d/6m não existem lá): busca o mais próximo e recorta.
+		yahooRange := map[string]string{"7d": "1mo", "30d": "1mo", "6m": "6mo", "1mo": "1mo", "6mo": "6mo", "1y": "1y", "5y": "5y", "max": "max"}[rangeParam]
+		cutoffDays := map[string]int{"7d": 7, "30d": 30}[rangeParam]
 
 		type pricePoint struct {
 			Date  string  `json:"date"`
@@ -137,9 +144,16 @@ func (s *Server) handleAssetPriceHistory() http.HandlerFunc {
 		points := make([]pricePoint, 0)
 
 		if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
-			bars, _, err := yClient.FetchChartHistory(r.Context(), ticker, rangeParam)
+			bars, _, err := yClient.FetchChartHistory(r.Context(), ticker, yahooRange)
 			if err == nil {
+				cutoff := ""
+				if cutoffDays > 0 {
+					cutoff = time.Now().AddDate(0, 0, -cutoffDays).Format("2006-01-02")
+				}
 				for _, b := range bars {
+					if cutoff != "" && b.Date < cutoff {
+						continue
+					}
 					points = append(points, pricePoint{
 						Date:  b.Date,
 						Close: b.Close,
@@ -207,79 +221,18 @@ func (s *Server) handleRankings() http.HandlerFunc {
 		if by == "" {
 			by = "dy"
 		}
-		limitStr := strings.TrimSpace(r.URL.Query().Get("limit"))
 		limit := 20
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
+		if l, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("limit"))); err == nil && l > 0 && l <= 100 {
 			limit = l
 		}
 
-		type rankingEntry struct {
-			Ticker     string  `json:"ticker"`
-			Name       string  `json:"name"`
-			AssetClass string  `json:"asset_class"`
-			Price      float64 `json:"price"`
-			DY12m      float64 `json:"dy12m"`
-			PVP        float64 `json:"pvp"`
-			Change24h  float64 `json:"change_24h"`
-		}
-
-		results := make([]rankingEntry, 0)
 		s.initAssetProfilesTable()
-
-		if s.db != nil {
-			rows, err := s.db.QueryContext(r.Context(), "SELECT profile_json FROM asset_profiles")
-			if err == nil {
-				defer rows.Close()
-				for rows.Next() {
-					var raw string
-					if err := rows.Scan(&raw); err == nil {
-						var dto fundamentals.AssetProfileDTO
-						if err := json.Unmarshal([]byte(raw), &dto); err == nil {
-							if assetClass != "" && !strings.EqualFold(dto.AssetClass, assetClass) {
-								continue
-							}
-							dyVal := 0.0
-							if dy, ok := dto.Indicators["dy"].(float64); ok {
-								dyVal = dy
-							}
-							pvpVal := 0.0
-							if pvp, ok := dto.Indicators["pvp"].(float64); ok {
-								pvpVal = pvp
-							}
-							results = append(results, rankingEntry{
-								Ticker:     dto.Ticker,
-								Name:       dto.Name,
-								AssetClass: dto.AssetClass,
-								Price:      dto.Price,
-								DY12m:      dyVal,
-								PVP:        pvpVal,
-								Change24h:  dto.Change24h,
-							})
-						}
-					}
-				}
-			}
-		}
-
-		// Ordenação
-		sort.Slice(results, func(i, j int) bool {
-			if by == "pvp" {
-				return results[i].PVP < results[j].PVP
-			}
-			if by == "change" {
-				return results[i].Change24h > results[j].Change24h
-			}
-			return results[i].DY12m > results[j].DY12m
-		})
-
-		if len(results) > limit {
-			results = results[:limit]
-		}
+		items := fundamentals.LoadCatalog(r.Context(), s.db, assetClass)
+		results := fundamentals.BuildRanking(r.Context(), items, fundamentals.SQLProfileCache{DB: s.db},
+			s.fundamentalsProvider, by, limit, 12*time.Second)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"rankings": results,
-		})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"rankings": results})
 	}
 }

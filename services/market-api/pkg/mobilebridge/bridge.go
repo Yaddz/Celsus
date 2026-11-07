@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +15,7 @@ import (
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
 	"github.com/pedro/celsus/services/market-api/internal/fundamentals"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
+	"github.com/pedro/celsus/services/market-api/internal/quotes"
 	"github.com/pedro/celsus/services/market-api/internal/yahoo"
 	_ "modernc.org/sqlite"
 )
@@ -126,9 +126,10 @@ func InitEngine(dbPath string, isProd bool) error {
 	if fundPrimary == "" {
 		fundPrimary = yahoo.DefaultPrimaryBaseURL
 	}
+	// Fundamentus primeiro (ações e FIIs, sem crumb/cookie); Yahoo quoteSummary só como complemento.
 	fProvider := fundamentals.NewMultiFundamentalsProvider(
+		fundamentals.NewFundamentusProvider(""),
 		fundamentals.NewYahooFundamentalsProvider(fundPrimary),
-		fundamentals.NewFundamentusFallbackProvider(""),
 	)
 
 	globalEngine = &marketEngine{
@@ -749,30 +750,49 @@ func GetAssetProfileJSON(ticker string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	var profileJSON, updatedAtStr string
-	err = eng.db.QueryRowContext(ctx, "SELECT profile_json, updated_at FROM asset_profiles WHERE ticker = ?", clean).Scan(&profileJSON, &updatedAtStr)
-	if err == nil {
-		parsedTime, err := time.Parse(time.RFC3339, updatedAtStr)
-		if err == nil && time.Since(parsedTime) < 12*time.Hour {
-			return profileJSON, nil
-		}
+	cache := fundamentals.SQLProfileCache{DB: eng.db}
+	cached, fresh := cache.Load(ctx, clean)
+	if cached != nil && fresh {
+		b, _ := json.Marshal(cached)
+		return string(b), nil
 	}
 
 	cls := resolveAssetClass(ctx, eng.db, clean)
 	if eng.fundamentalsProvider != nil {
 		dto, err := eng.fundamentalsProvider.FetchProfile(ctx, clean, cls)
-		if err == nil && dto != nil {
-			bytes, _ := json.Marshal(dto)
-			_, _ = eng.db.ExecContext(ctx,
-				`INSERT INTO asset_profiles (ticker, profile_json, updated_at) VALUES (?, ?, ?)
-				 ON CONFLICT(ticker) DO UPDATE SET profile_json = excluded.profile_json, updated_at = excluded.updated_at`,
-				clean, string(bytes), time.Now().UTC().Format(time.RFC3339),
-			)
-			return string(bytes), nil
+		if err == nil && dto != nil && dto.Price > 0 {
+			// Nome curto do catálogo no título; razão social completa (Fundamentus) em company_name.
+			var catName string
+			if eng.db != nil && eng.db.QueryRowContext(ctx, "SELECT name FROM catalog_assets WHERE ticker = ?", clean).Scan(&catName) == nil && catName != "" {
+				if dto.CompanyName == "" {
+					dto.CompanyName = dto.Name
+				}
+				dto.Name = catName
+			}
+			cache.Save(ctx, clean, dto)
+			b, _ := json.Marshal(dto)
+			return string(b), nil
 		}
 	}
 
-	// Fallback para perfil offline/básico
+	// Fontes de fundamentos falharam: cotação real do engine (mesma rota da Home), sem indicadores.
+	if dto := quoteOnlyProfile(ctx, eng, clean, cls); dto != nil {
+		if cached != nil {
+			// mantém indicadores/dados cadastrais antigos, com preço atual e marca de desatualizado
+			cached.Price = dto.Price
+			cached.Change24h = dto.Change24h
+			cached.IsStale = true
+			dto = cached
+		}
+		b, _ := json.Marshal(dto)
+		return string(b), nil
+	}
+	if cached != nil {
+		cached.IsStale = true
+		b, _ := json.Marshal(cached)
+		return string(b), nil
+	}
+
 	fallback := map[string]interface{}{
 		"ticker":      clean,
 		"name":        clean,
@@ -784,11 +804,50 @@ func GetAssetProfileJSON(ticker string) (string, error) {
 		"source":      "OFFLINE",
 		"updated_at":  time.Now().UTC(),
 	}
-	bytes, err := json.Marshal(fallback)
+	b, err := json.Marshal(fallback)
 	if err != nil {
 		return "", err
 	}
-	return string(bytes), nil
+	return string(b), nil
+}
+
+// quoteOnlyProfile monta um perfil mínimo (preço e variação) a partir do cliente de cotações.
+func quoteOnlyProfile(ctx context.Context, eng *marketEngine, ticker, class string) *fundamentals.AssetProfileDTO {
+	if eng.yahooClient == nil {
+		return nil
+	}
+	var q map[string]quotes.Quote
+	var err error
+	if class == "CRYPTO" {
+		q, err = eng.yahooClient.FetchCryptoQuotes(ctx, []string{ticker})
+	} else {
+		q, err = eng.yahooClient.FetchQuotes(ctx, []string{ticker})
+	}
+	if err != nil {
+		return nil
+	}
+	quote, ok := q[ticker]
+	if !ok || quote.Price <= 0 {
+		return nil
+	}
+	name := ticker
+	if eng.db != nil {
+		var n string
+		if eng.db.QueryRowContext(ctx, "SELECT name FROM catalog_assets WHERE ticker = ?", ticker).Scan(&n) == nil && n != "" {
+			name = n
+		}
+	}
+	return &fundamentals.AssetProfileDTO{
+		Ticker:     ticker,
+		Name:       name,
+		AssetClass: class,
+		Price:      quote.Price,
+		Change24h:  quote.Change24h,
+		Indicators: map[string]interface{}{},
+		Source:     "YAHOO_QUOTE",
+		UpdatedAt:  time.Now().UTC(),
+		IsStale:    false,
+	}
 }
 
 // GetPriceHistoryJSON returns historical chart points for the specified range.
@@ -800,6 +859,17 @@ func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 
 	clean := strings.ToUpper(strings.TrimSpace(ticker))
 	rangeParam = strings.ToLower(strings.TrimSpace(rangeParam))
+	// Siglas do app e do serviço → intervalos válidos no Yahoo.
+	switch rangeParam {
+	case "1a":
+		rangeParam = "1y"
+	case "5a":
+		rangeParam = "5y"
+	case "7d", "30d":
+		rangeParam = "1mo"
+	case "6m":
+		rangeParam = "6mo"
+	}
 	if rangeParam == "" {
 		rangeParam = "1y"
 	}
@@ -897,71 +967,14 @@ func GetRankingJSON(assetClass string, by string, limit int) (string, error) {
 		limit = 20
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	type rankingEntry struct {
-		Ticker     string  `json:"ticker"`
-		Name       string  `json:"name"`
-		AssetClass string  `json:"asset_class"`
-		Price      float64 `json:"price"`
-		DY12m      float64 `json:"dy12m"`
-		PVP        float64 `json:"pvp"`
-		Change24h  float64 `json:"change_24h"`
-	}
+	items := fundamentals.LoadCatalog(ctx, eng.db, cleanClass)
+	results := fundamentals.BuildRanking(ctx, items, fundamentals.SQLProfileCache{DB: eng.db},
+		eng.fundamentalsProvider, by, limit, 12*time.Second)
 
-	results := make([]rankingEntry, 0)
-	rows, err := eng.db.QueryContext(ctx, "SELECT profile_json FROM asset_profiles")
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var raw string
-			if err := rows.Scan(&raw); err == nil {
-				var dto fundamentals.AssetProfileDTO
-				if err := json.Unmarshal([]byte(raw), &dto); err == nil {
-					if cleanClass != "" && !strings.EqualFold(dto.AssetClass, cleanClass) {
-						continue
-					}
-					dyVal := 0.0
-					if dy, ok := dto.Indicators["dy"].(float64); ok {
-						dyVal = dy
-					}
-					pvpVal := 0.0
-					if pvp, ok := dto.Indicators["pvp"].(float64); ok {
-						pvpVal = pvp
-					}
-					results = append(results, rankingEntry{
-						Ticker:     dto.Ticker,
-						Name:       dto.Name,
-						AssetClass: dto.AssetClass,
-						Price:      dto.Price,
-						DY12m:      dyVal,
-						PVP:        pvpVal,
-						Change24h:  dto.Change24h,
-					})
-				}
-			}
-		}
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		if by == "pvp" {
-			return results[i].PVP < results[j].PVP
-		}
-		if by == "change" {
-			return results[i].Change24h > results[j].Change24h
-		}
-		return results[i].DY12m > results[j].DY12m
-	})
-
-	if len(results) > limit {
-		results = results[:limit]
-	}
-
-	resp := map[string]interface{}{
-		"rankings": results,
-	}
-	bytes, err := json.Marshal(resp)
+	bytes, err := json.Marshal(map[string]interface{}{"rankings": results})
 	if err != nil {
 		return "", err
 	}

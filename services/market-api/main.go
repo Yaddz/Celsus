@@ -11,6 +11,7 @@ import (
 
 	"github.com/pedro/celsus/services/market-api/internal/brapi"
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
+	"github.com/pedro/celsus/services/market-api/internal/fundamentals"
 	appHttp "github.com/pedro/celsus/services/market-api/internal/http"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
 	"github.com/pedro/celsus/services/market-api/internal/quotes"
@@ -79,6 +80,11 @@ func main() {
 	}
 
 	server := appHttp.NewServer(cotahistRepo, quoteProvider, macroRepo)
+	// Fundamentos (perfil/ranking): Fundamentus primeiro, Yahoo quoteSummary como complemento.
+	server.SetFundamentalsProvider(fundamentals.NewMultiFundamentalsProvider(
+		fundamentals.NewFundamentusProvider(""),
+		fundamentals.NewYahooFundamentalsProvider(""),
+	))
 	handler := corsMiddleware(server.Router())
 
 	addr := fmt.Sprintf(":%s", port)

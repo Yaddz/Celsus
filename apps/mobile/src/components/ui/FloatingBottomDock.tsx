@@ -50,7 +50,7 @@ interface TabItem {
 const TABS: TabItem[] = [
   { id: 'home', iconName: 'home', label: 'Início' },
   { id: 'stats', iconName: 'bar-chart', label: 'Análises' },
-  { id: 'search', iconName: 'search', label: 'Busca' },
+  { id: 'search', iconName: 'receipt-long', label: 'Busca' },
   { id: 'wallets', iconName: 'account-balance-wallet', label: 'Carteiras' },
 ];
 

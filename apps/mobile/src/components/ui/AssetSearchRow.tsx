@@ -11,7 +11,8 @@ export interface AssetSearchItem {
   name: string;
   assetClass: AssetClass;
   price: number;
-  change24h: number;
+  /** Variação do dia; ausente quando não há cotação (nunca preenchida com valor inventado). */
+  change24h?: number;
 }
 
 export interface AssetSearchRowProps {
@@ -35,7 +36,9 @@ export const AssetSearchRow: React.FC<AssetSearchRowProps> = ({
   isLast = false,
 }) => {
   const isLight = themeMode === 'light';
-  const isPositive = item.change24h >= 0;
+  const hasChange = typeof item.change24h === 'number';
+  const change = item.change24h ?? 0;
+  const isPositive = change >= 0;
   const changeColor = isPositive ? colors.tertiary : colors.deficit;
   const changeIcon = isPositive ? 'arrow-upward' : 'arrow-downward';
   const prefix = isPositive ? '+' : '';
@@ -81,12 +84,14 @@ export const AssetSearchRow: React.FC<AssetSearchRowProps> = ({
         <Text style={[styles.priceText, { color: textColor }]}>
           R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </Text>
-        <View style={styles.changeRow}>
-          <MaterialIcons name={changeIcon as any} size={12} color={changeColor} />
-          <Text style={[styles.changeText, { color: changeColor }]}>
-            {prefix}{item.change24h.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-          </Text>
-        </View>
+        {hasChange ? (
+          <View style={styles.changeRow}>
+            <MaterialIcons name={changeIcon as any} size={12} color={changeColor} />
+            <Text style={[styles.changeText, { color: changeColor }]}>
+              {prefix}{change.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+            </Text>
+          </View>
+        ) : null}
       </View>
     </JellyPressable>
   );

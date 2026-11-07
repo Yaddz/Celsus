@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useTransition } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useTransition } from 'react';
 import {
   View,
   Text,
@@ -30,6 +30,12 @@ export interface SearchAssetsScreenProps {
 }
 
 const DEFAULT_RECENTS = ['PETR4', 'VALE3', 'ITUB4', 'MXRF11', 'BTC'];
+
+const RANKING_CLASSES: Array<{ id: AssetClass; label: string }> = [
+  { id: 'FII', label: 'FIIs' },
+  { id: 'STOCK', label: 'Ações' },
+  { id: 'CRYPTO', label: 'Cripto' },
+];
 
 const CLASS_FILTERS: Array<{ id: AssetClass | 'ALL'; label: string }> = [
   { id: 'ALL', label: 'Todos' },
@@ -87,14 +93,35 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
   }, [searchQuery]);
 
   // Carregar dados de ranking
+  // Mostra de imediato o último resultado da classe (ou o catálogo local) e atualiza por cima quando os
+  // indicadores chegam: a primeira consulta pode levar alguns segundos e a lista nunca fica "sumida".
+  const rankingCacheRef = useRef<Record<string, RankingItem[]>>({});
   useEffect(() => {
     let mounted = true;
+    const key = `${rankingClass}|${rankingBy}`;
+    const cachedList = rankingCacheRef.current[key];
+    setRankingItems(
+      cachedList ??
+        STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === rankingClass).map((a) => ({
+          ticker: a.ticker,
+          name: a.name,
+          assetClass: rankingClass,
+          price: 0,
+          dy12m: null,
+          pvp: null,
+          change24h: 0,
+        }))
+    );
     setIsRankingLoading(true);
     marketApiService
       .getRanking(rankingClass, rankingBy, 20)
       .then((items) => {
         if (mounted) {
-          setRankingItems(items || []);
+          const list = items || [];
+          if (list.length > 0) rankingCacheRef.current[key] = list;
+          setRankingItems(list);
+          // Sem nenhum indicador (DY/P-VP) = serviço de fundamentos indisponível; só catálogo local.
+          setIsOffline(list.length > 0 && list.every((i) => i.dy12m == null && i.pvp == null));
           setIsRankingLoading(false);
         }
       })
@@ -109,28 +136,51 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
     };
   }, [rankingClass, rankingBy]);
 
-  // Lista de resultados da busca
+  // Resultados: catálogo local aparece na hora; o catálogo do serviço refina (e prevalece) quando chega.
+  const toItem = (a: any): AssetSearchItem => ({
+    ticker: a.ticker,
+    name: a.name || a.ticker,
+    assetClass: (a.asset_class || a.assetClass || 'STOCK') as AssetClass,
+    price: parseFloat(String(a.price)) || 0,
+    // Variação do dia só existe com cotação real; nunca é preenchida com valor padrão.
+    change24h: typeof a.change_24h === 'number' ? a.change_24h : undefined,
+  });
+
+  const [remoteResults, setRemoteResults] = useState<{ query: string; items: AssetSearchItem[] }>({
+    query: '',
+    items: [],
+  });
+
+  useEffect(() => {
+    if (!debouncedQuery) return;
+    let mounted = true;
+    marketApiService
+      .searchCatalog(debouncedQuery, selectedClass === 'ALL' ? undefined : selectedClass)
+      .then((res) => {
+        if (mounted) setRemoteResults({ query: `${debouncedQuery}|${selectedClass}`, items: (res || []).map(toItem) });
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, selectedClass]);
+
   const searchResults = useMemo<AssetSearchItem[]>(() => {
     const q = debouncedQuery.toUpperCase();
     if (!q) return [];
-
-    // 1. Filtrar do catálogo estático local
-    let list = STATIC_CATALOG_ASSETS.filter(
+    let local = STATIC_CATALOG_ASSETS.filter(
       (a) => a.ticker.toUpperCase().includes(q) || a.name.toUpperCase().includes(q)
     );
-
-    if (selectedClass !== 'ALL') {
-      list = list.filter((a) => a.asset_class === selectedClass);
+    if (selectedClass !== 'ALL') local = local.filter((a) => a.asset_class === selectedClass);
+    const merged = new Map<string, AssetSearchItem>();
+    local.map(toItem).forEach((i) => merged.set(i.ticker, i));
+    if (remoteResults.query === `${debouncedQuery}|${selectedClass}`) {
+      remoteResults.items.forEach((i) => merged.set(i.ticker, i));
     }
-
-    return list.map((a) => ({
-      ticker: a.ticker,
-      name: a.name,
-      assetClass: (a.asset_class as any) || 'STOCK',
-      price: parseFloat(a.price) || 0,
-      change24h: 1.8, // cotação/variação padrão
-    }));
-  }, [debouncedQuery, selectedClass]);
+    return Array.from(merged.values());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedQuery, selectedClass, remoteResults]);
 
   const handleAssetSelect = (ticker: string) => {
     appMetaRepository.addRecentSearch(ticker);
@@ -179,7 +229,7 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
           <View style={styles.offlineBanner}>
             <MaterialIcons name="cloud-off" size={16} color="#D5CAA8" />
             <Text style={styles.offlineText}>
-              Modo offline ativo: exibindo dados do catálogo local
+              Indicadores indisponíveis agora: exibindo só o catálogo local
             </Text>
           </View>
         )}
@@ -201,12 +251,22 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
                 style={{ marginLeft: 8 }}
               />
             }
-            suffix={searchQuery.length > 0 ? '×' : undefined}
-            onKeyPress={({ nativeEvent }) => {
-              if (nativeEvent.key === 'Backspace' && searchQuery === '') {
-                setDebouncedQuery('');
-              }
-            }}
+            rightAdornment={
+              searchQuery.length > 0 ? (
+                <TouchableOpacity
+                  testID="search-clear-button"
+                  accessibilityRole="button"
+                  accessibilityLabel="Limpar busca"
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  onPress={() => {
+                    setSearchQuery('');
+                    setDebouncedQuery('');
+                  }}
+                >
+                  <MaterialIcons name="close" size={18} color={subtextColor} />
+                </TouchableOpacity>
+              ) : undefined
+            }
           />
         </View>
 
@@ -338,35 +398,45 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
             <View style={styles.rankingSection}>
               <View style={styles.rankingHeaderRow}>
                 <Text style={[styles.rankingTitle, { color: textColor }]}>
-                  Ranking · {rankingClass === 'FII' ? 'FIIs' : rankingClass === 'STOCK' ? 'Ações' : rankingClass} por{' '}
-                  {rankingBy === 'dy' ? 'DY' : rankingBy === 'pvp' ? 'P/VP' : 'Altas'}
+                  Ranking · {RANKING_CLASSES.find((c) => c.id === rankingClass)?.label} por{' '}
+                  {rankingBy === 'dy' ? 'DY' : rankingBy === 'pvp' ? 'P/VP' : rankingBy === 'change' ? 'altas' : 'preço'}
                 </Text>
-                <TouchableOpacity
-                  style={styles.filtersBtn}
-                  onPress={() => {
-                    setRankingClass((c) => (c === 'FII' ? 'STOCK' : 'FII'));
-                  }}
-                >
-                  <Text style={[styles.filtersBtnText, { color: subtextColor }]}>Filtros</Text>
-                  <MaterialIcons name="expand-more" size={14} color={subtextColor} />
-                </TouchableOpacity>
               </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.classChipsScroll}
+              >
+                {RANKING_CLASSES.map((c) => {
+                  const on = rankingClass === c.id;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      testID={`ranking-class-${c.id}`}
+                      onPress={() => setRankingClass(c.id)}
+                      style={[styles.classFilterChip, { backgroundColor: on ? colors.primary : chipBg }]}
+                    >
+                      <Text style={[styles.classFilterText, { color: on ? '#FFFFFF' : textColor }]}>{c.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
               {/* Tabela de Ranking */}
               {isRankingLoading ? (
-                <View style={styles.rankingLoading}>
+                <View testID="ranking-updating" style={styles.rankingUpdating}>
                   <ActivityIndicator size="small" color={colors.primary} />
+                  <Text style={[styles.filtersBtnText, { color: subtextColor }]}>Atualizando indicadores…</Text>
                 </View>
-              ) : (
-                <RankingTable
-                  items={sortedRanking}
-                  sortBy={rankingBy}
-                  sortDir={rankingDir}
-                  onSortChange={handleRankingSort}
-                  onRowPress={handleAssetSelect}
-                  themeMode={themeMode}
-                />
-              )}
+              ) : null}
+              <RankingTable
+                items={sortedRanking}
+                sortBy={rankingBy}
+                sortDir={rankingDir}
+                onSortChange={handleRankingSort}
+                onRowPress={handleAssetSelect}
+                themeMode={themeMode}
+              />
             </View>
           </View>
         )}
@@ -517,6 +587,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 13,
     fontWeight: '600',
+  },
+  rankingUpdating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 8,
   },
   rankingLoading: {
     height: 120,

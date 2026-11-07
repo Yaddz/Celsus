@@ -47,7 +47,9 @@ export const DividendsCard: React.FC<DividendsCardProps> = ({
         <View>
           <Text style={[styles.subhead, { color: subtextColor }]}>Últimos 12 meses</Text>
           <Text style={[styles.totalAmount, { color: textColor }]}>
-            R$ {summary.total12m.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por ação
+            {dividends.length === 0
+              ? 'Sem proventos registrados'
+              : `R$ ${summary.total12m.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} por ação`}
           </Text>
         </View>
         <View style={[styles.badge, { backgroundColor: badgeBg }]}>
