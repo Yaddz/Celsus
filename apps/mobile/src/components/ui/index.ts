@@ -15,3 +15,5 @@ export * from './Skeleton';
 export * from './ConfirmDialog';
 export * from './TransactionRow';
 export * from './TextField';
+export * from './PinDots';
+export * from './PinKeypad';

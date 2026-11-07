@@ -12,6 +12,7 @@
 export type DockTabId = 'home' | 'stats' | 'search' | 'wallets';
 
 export interface BackState {
+  isLocked?: boolean;
   activeTab: DockTabId;
   isSettingsOpen: boolean;
   isTransactionDetailOpen: boolean;
@@ -24,6 +25,7 @@ export interface BackState {
 }
 
 export type BackAction =
+  | 'minimize'
   | 'close-settings'
   | 'close-transaction-detail'
   | 'close-all-transactions'

@@ -7,10 +7,10 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | 80 suítes, **530 testes**, 0 falhas |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | 85 suítes, **553 testes**, 12 falhas esperadas na Fase A (Red Phase) da Sprint 43 |
 | Motor de mercado (Go) | `npm run test:market` | **44 testes**, 0 falhas, 2 "live" pulados por padrão |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | sem erros nos arquivos de produção |
-| Integridade dos testes (TDD Lock) | `npm run test:verify` | 96 arquivos protegidos, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `npm run test:verify` | 101 arquivos protegidos, SHA-256 íntegros |
 
 ## Cobertura por área
 

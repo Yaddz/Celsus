@@ -8,3 +8,4 @@ export * from './TransactionDetailHistoryScreen';
 export * from './AllTransactionsScreen';
 export * from './SearchAssetsScreen';
 export * from './AssetDetailScreen';
+export * from './LockScreen';
