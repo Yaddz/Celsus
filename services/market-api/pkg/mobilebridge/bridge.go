@@ -8,22 +8,25 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
+	"github.com/pedro/celsus/services/market-api/internal/fundamentals"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
 	"github.com/pedro/celsus/services/market-api/internal/yahoo"
 	_ "modernc.org/sqlite"
 )
 
 type marketEngine struct {
-	db           *sql.DB
-	cotahistRepo *cotahist.SQLiteRepository
-	macroRepo    *macro.SQLiteRepository
-	yahooClient  *yahoo.Client
-	bcbClient    *macro.BCBClient
+	db                   *sql.DB
+	cotahistRepo         *cotahist.SQLiteRepository
+	macroRepo            *macro.SQLiteRepository
+	yahooClient          *yahoo.Client
+	bcbClient            *macro.BCBClient
+	fundamentalsProvider fundamentals.FundamentalsProvider
 }
 
 var (
@@ -71,6 +74,11 @@ func InitEngine(dbPath string, isProd bool) error {
 		updated_at TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_mpc_updated ON market_price_cache(updated_at);
+	CREATE TABLE IF NOT EXISTS asset_profiles (
+		ticker TEXT PRIMARY KEY,
+		profile_json TEXT NOT NULL,
+		updated_at TEXT NOT NULL
+	);
 	`
 	if _, err := db.ExecContext(ctx, cacheTableSchema); err != nil {
 		_ = db.Close()
@@ -114,12 +122,22 @@ func InitEngine(dbPath string, isProd bool) error {
 
 	bClient := macro.NewBCBClient(customBCBBaseURL, nil)
 
+	fundPrimary := customYahooPrimary
+	if fundPrimary == "" {
+		fundPrimary = yahoo.DefaultPrimaryBaseURL
+	}
+	fProvider := fundamentals.NewMultiFundamentalsProvider(
+		fundamentals.NewYahooFundamentalsProvider(fundPrimary),
+		fundamentals.NewFundamentusFallbackProvider(""),
+	)
+
 	globalEngine = &marketEngine{
-		db:           db,
-		cotahistRepo: cRepo,
-		macroRepo:    mRepo,
-		yahooClient:  yClient,
-		bcbClient:    bClient,
+		db:                   db,
+		cotahistRepo:         cRepo,
+		macroRepo:            mRepo,
+		yahooClient:          yClient,
+		bcbClient:            bClient,
+		fundamentalsProvider: fProvider,
 	}
 
 	return nil
@@ -722,20 +740,230 @@ func IngestCotahistZipJSON(zipPath string, allowedTickersCSV string) (string, er
 
 // GetAssetProfileJSON returns company fundamentals and overview.
 func GetAssetProfileJSON(ticker string) (string, error) {
-	return `{"ticker":"` + strings.ToUpper(strings.TrimSpace(ticker)) + `"}`, nil
+	eng, err := getEngine()
+	if err != nil {
+		return "", err
+	}
+
+	clean := strings.ToUpper(strings.TrimSpace(ticker))
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	var profileJSON, updatedAtStr string
+	err = eng.db.QueryRowContext(ctx, "SELECT profile_json, updated_at FROM asset_profiles WHERE ticker = ?", clean).Scan(&profileJSON, &updatedAtStr)
+	if err == nil {
+		parsedTime, err := time.Parse(time.RFC3339, updatedAtStr)
+		if err == nil && time.Since(parsedTime) < 12*time.Hour {
+			return profileJSON, nil
+		}
+	}
+
+	cls := resolveAssetClass(ctx, eng.db, clean)
+	if eng.fundamentalsProvider != nil {
+		dto, err := eng.fundamentalsProvider.FetchProfile(ctx, clean, cls)
+		if err == nil && dto != nil {
+			bytes, _ := json.Marshal(dto)
+			_, _ = eng.db.ExecContext(ctx,
+				`INSERT INTO asset_profiles (ticker, profile_json, updated_at) VALUES (?, ?, ?)
+				 ON CONFLICT(ticker) DO UPDATE SET profile_json = excluded.profile_json, updated_at = excluded.updated_at`,
+				clean, string(bytes), time.Now().UTC().Format(time.RFC3339),
+			)
+			return string(bytes), nil
+		}
+	}
+
+	// Fallback para perfil offline/básico
+	fallback := map[string]interface{}{
+		"ticker":      clean,
+		"name":        clean,
+		"asset_class": cls,
+		"price":       0.0,
+		"change_24h":  0.0,
+		"indicators":  map[string]interface{}{},
+		"is_stale":    true,
+		"source":      "OFFLINE",
+		"updated_at":  time.Now().UTC(),
+	}
+	bytes, err := json.Marshal(fallback)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 // GetPriceHistoryJSON returns historical chart points for the specified range.
 func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
-	return `{"history":[]}`, nil
+	eng, err := getEngine()
+	if err != nil {
+		return "", err
+	}
+
+	clean := strings.ToUpper(strings.TrimSpace(ticker))
+	rangeParam = strings.ToLower(strings.TrimSpace(rangeParam))
+	if rangeParam == "" {
+		rangeParam = "1y"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	type pricePoint struct {
+		Date  string  `json:"date"`
+		Close float64 `json:"close"`
+	}
+
+	points := make([]pricePoint, 0)
+	if eng.yahooClient != nil {
+		bars, _, err := eng.yahooClient.FetchChartHistory(ctx, clean, rangeParam)
+		if err == nil {
+			for _, b := range bars {
+				points = append(points, pricePoint{
+					Date:  b.Date,
+					Close: b.Close,
+				})
+			}
+		}
+	}
+
+	resp := map[string]interface{}{
+		"ticker":  clean,
+		"range":   rangeParam,
+		"history": points,
+	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 // GetDividendsJSON returns dividend events for ticker.
 func GetDividendsJSON(ticker string) (string, error) {
-	return `{"dividends":[]}`, nil
+	eng, err := getEngine()
+	if err != nil {
+		return "", err
+	}
+
+	clean := strings.ToUpper(strings.TrimSpace(ticker))
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	type dividendItem struct {
+		Date   string  `json:"date"`
+		Type   string  `json:"type"`
+		Amount float64 `json:"amount"`
+	}
+
+	divs := make([]dividendItem, 0)
+	if eng.yahooClient != nil {
+		_, events, err := eng.yahooClient.FetchChartHistory(ctx, clean, "5y")
+		if err == nil {
+			for _, ev := range events {
+				if ev.Type == "DIVIDEND" {
+					divs = append(divs, dividendItem{
+						Date:   ev.Date,
+						Type:   "DIVIDEND",
+						Amount: ev.CashAmount,
+					})
+				}
+			}
+		}
+	}
+
+	resp := map[string]interface{}{
+		"ticker":    clean,
+		"dividends": divs,
+	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }
 
 // GetRankingJSON returns top ranked assets for given class and metric.
 func GetRankingJSON(assetClass string, by string, limit int) (string, error) {
-	return `{"rankings":[]}`, nil
+	eng, err := getEngine()
+	if err != nil {
+		return "", err
+	}
+
+	cleanClass := strings.ToUpper(strings.TrimSpace(assetClass))
+	by = strings.ToLower(strings.TrimSpace(by))
+	if by == "" {
+		by = "dy"
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	type rankingEntry struct {
+		Ticker     string  `json:"ticker"`
+		Name       string  `json:"name"`
+		AssetClass string  `json:"asset_class"`
+		Price      float64 `json:"price"`
+		DY12m      float64 `json:"dy12m"`
+		PVP        float64 `json:"pvp"`
+		Change24h  float64 `json:"change_24h"`
+	}
+
+	results := make([]rankingEntry, 0)
+	rows, err := eng.db.QueryContext(ctx, "SELECT profile_json FROM asset_profiles")
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var raw string
+			if err := rows.Scan(&raw); err == nil {
+				var dto fundamentals.AssetProfileDTO
+				if err := json.Unmarshal([]byte(raw), &dto); err == nil {
+					if cleanClass != "" && !strings.EqualFold(dto.AssetClass, cleanClass) {
+						continue
+					}
+					dyVal := 0.0
+					if dy, ok := dto.Indicators["dy"].(float64); ok {
+						dyVal = dy
+					}
+					pvpVal := 0.0
+					if pvp, ok := dto.Indicators["pvp"].(float64); ok {
+						pvpVal = pvp
+					}
+					results = append(results, rankingEntry{
+						Ticker:     dto.Ticker,
+						Name:       dto.Name,
+						AssetClass: dto.AssetClass,
+						Price:      dto.Price,
+						DY12m:      dyVal,
+						PVP:        pvpVal,
+						Change24h:  dto.Change24h,
+					})
+				}
+			}
+		}
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		if by == "pvp" {
+			return results[i].PVP < results[j].PVP
+		}
+		if by == "change" {
+			return results[i].Change24h > results[j].Change24h
+		}
+		return results[i].DY12m > results[j].DY12m
+	})
+
+	if len(results) > limit {
+		results = results[:limit]
+	}
+
+	resp := map[string]interface{}{
+		"rankings": results,
+	}
+	bytes, err := json.Marshal(resp)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
 }

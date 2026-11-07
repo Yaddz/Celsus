@@ -631,26 +631,263 @@ export class MarketApiService implements IMarketApiService {
 
   async getAssetProfile(ticker: string): Promise<AssetProfile> {
     const clean = cleanTicker(ticker);
+
+    // 1. Tentar bridge nativa Go
+    if (this.nativeBridge?.getAssetProfile) {
+      try {
+        const jsonStr = await this.nativeBridge.getAssetProfile(clean);
+        if (jsonStr) {
+          const raw = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          return this.normalizeAssetProfile(raw, clean);
+        }
+      } catch (err) {
+        // Fallback para HTTP ou cache
+      }
+    }
+
+    // 2. Tentar endpoint HTTP /v1/assets/{ticker}/profile
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/profile`);
+      if (res.ok) {
+        const data = await res.json();
+        // Salvar em cache local SQLite
+        if (this.db && typeof this.db.insert === 'function') {
+          try {
+            await this.db
+              .insert(assetProfileCache)
+              .values({
+                ticker: clean,
+                profile_json: JSON.stringify(data),
+                updated_at: new Date().toISOString(),
+              })
+              .onConflictDoUpdate({
+                target: assetProfileCache.ticker,
+                set: {
+                  profile_json: JSON.stringify(data),
+                  updated_at: new Date().toISOString(),
+                },
+              });
+          } catch {
+            // Ignorar falha no cache
+          }
+        }
+        return this.normalizeAssetProfile(data, clean);
+      }
+    } catch {
+      // Offline
+    }
+
+    // 3. Fallback para cache local no SQLite
+    if (this.db && typeof this.db.select === 'function') {
+      try {
+        const rows = await this.db
+          .select()
+          .from(assetProfileCache)
+          .where(eq(assetProfileCache.ticker, clean));
+        if (rows.length > 0 && rows[0].profile_json) {
+          const cachedData = JSON.parse(rows[0].profile_json);
+          const cachedDate = new Date(rows[0].updated_at).getTime();
+          const isStale = Date.now() - cachedDate > 12 * 60 * 60 * 1000;
+          return {
+            ...this.normalizeAssetProfile(cachedData, clean),
+            isStale: isStale || cachedData.is_stale,
+          };
+        }
+      } catch {
+        // Ignorar erro do banco
+      }
+    }
+
+    // 4. Fallback ao catálogo estático local
+    const staticItem = STATIC_CATALOG_ASSETS.find((a) => cleanTicker(a.ticker) === clean);
+    if (staticItem) {
+      return {
+        ticker: staticItem.ticker,
+        name: staticItem.name,
+        assetClass: (staticItem.asset_class as any) || 'STOCK',
+        price: parseFloat(staticItem.price) || 0,
+        change24h: 0,
+        indicators: {},
+        isStale: true,
+        source: 'STATIC_CATALOG',
+      };
+    }
+
     return {
       ticker: clean,
       name: clean,
-      assetClass: 'STOCK',
+      assetClass: clean.endsWith('11') ? 'FII' : 'STOCK',
       price: 0,
       change24h: 0,
       indicators: {},
+      isStale: true,
+      source: 'OFFLINE',
     };
   }
 
-  async getPriceHistory(_ticker: string, _range: string = '1y'): Promise<PricePoint[]> {
+  private normalizeAssetProfile(raw: any, clean: string): AssetProfile {
+    const rawCls = raw.asset_class || raw.assetClass;
+    let cls: any = 'STOCK';
+    if (rawCls) {
+      cls = rawCls;
+    } else if (clean.endsWith('11')) {
+      cls = 'FII';
+    }
+
+    return {
+      ticker: raw.ticker || clean,
+      name: raw.name || raw.company_name || clean,
+      assetClass: cls,
+      price: typeof raw.price === 'number' ? raw.price : parseFloat(raw.price) || 0,
+      change24h: typeof raw.change_24h === 'number' ? raw.change_24h : raw.change24h || 0,
+      change12m: typeof raw.change_12m === 'number' ? raw.change_12m : raw.change12m,
+      indicators: raw.indicators || {},
+      about: {
+        companyName: raw.company_name || raw.name,
+        sector: raw.sector,
+        listingSegment: raw.listing_segment,
+        sharesOutstanding: raw.shares_outstanding,
+        website: raw.website,
+      },
+      source: raw.source || 'YAHOO',
+      isStale: Boolean(raw.is_stale || raw.isStale),
+      updatedAt: raw.updated_at || raw.updatedAt,
+    };
+  }
+
+  async getPriceHistory(ticker: string, range: string = '1y'): Promise<PricePoint[]> {
+    const clean = cleanTicker(ticker);
+
+    if (this.nativeBridge?.getPriceHistory) {
+      try {
+        const jsonStr = await this.nativeBridge.getPriceHistory(clean, range);
+        if (jsonStr) {
+          const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          const points = data?.history || [];
+          return points.map((p: any) => ({
+            date: p.date,
+            close: typeof p.close === 'number' ? p.close : parseFloat(p.close) || 0,
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/history?range=${range}`);
+      if (res.ok) {
+        const data = await res.json();
+        const points = data?.history || [];
+        return points.map((p: any) => ({
+          date: p.date,
+          close: typeof p.close === 'number' ? p.close : parseFloat(p.close) || 0,
+        }));
+      }
+    } catch {
+      // Offline
+    }
+
     return [];
   }
 
-  async getDividends(_ticker: string): Promise<Dividend[]> {
+  async getDividends(ticker: string): Promise<Dividend[]> {
+    const clean = cleanTicker(ticker);
+
+    if (this.nativeBridge?.getDividends) {
+      try {
+        const jsonStr = await this.nativeBridge.getDividends(clean);
+        if (jsonStr) {
+          const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          const divs = data?.dividends || [];
+          return divs.map((d: any) => ({
+            date: d.date,
+            type: d.type || 'DIVIDEND',
+            amount: typeof d.amount === 'number' ? d.amount : parseFloat(d.amount) || 0,
+            notes: d.notes,
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/dividends`);
+      if (res.ok) {
+        const data = await res.json();
+        const divs = data?.dividends || [];
+        return divs.map((d: any) => ({
+          date: d.date,
+          type: d.type || 'DIVIDEND',
+          amount: typeof d.amount === 'number' ? d.amount : parseFloat(d.amount) || 0,
+          notes: d.notes,
+        }));
+      }
+    } catch {
+      // Offline
+    }
+
     return [];
   }
 
-  async getRanking(_assetClass?: string, _by?: string, _limit: number = 20): Promise<RankingItem[]> {
-    return [];
+  async getRanking(assetClass?: string, by?: string, limit: number = 20): Promise<RankingItem[]> {
+    const clsQuery = assetClass ? `class=${assetClass}&` : '';
+    const byQuery = by ? `by=${by}&` : '';
+
+    if (this.nativeBridge?.getRanking) {
+      try {
+        const jsonStr = await this.nativeBridge.getRanking(assetClass || '', by || 'dy', limit);
+        if (jsonStr) {
+          const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
+          const rankings = data?.rankings || [];
+          return rankings.map((r: any) => ({
+            ticker: r.ticker,
+            name: r.name || r.ticker,
+            assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
+            price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
+            dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
+            pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
+            change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
+          }));
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    try {
+      const res = await fetch(`${this.apiBaseUrl}/v1/rankings?${clsQuery}${byQuery}limit=${limit}`);
+      if (res.ok) {
+        const data = await res.json();
+        const rankings = data?.rankings || [];
+        return rankings.map((r: any) => ({
+          ticker: r.ticker,
+          name: r.name || r.ticker,
+          assetClass: (r.asset_class || r.assetClass || 'STOCK') as any,
+          price: typeof r.price === 'number' ? r.price : parseFloat(r.price) || 0,
+          dy12m: r.dy12m !== undefined && r.dy12m !== null ? Number(r.dy12m) : null,
+          pvp: r.pvp !== undefined && r.pvp !== null ? Number(r.pvp) : null,
+          change24h: typeof r.change_24h === 'number' ? r.change_24h : r.change24h || 0,
+        }));
+      }
+    } catch {
+      // Offline fallback: filtrar STATIC_CATALOG_ASSETS
+    }
+
+    let staticList = [...STATIC_CATALOG_ASSETS];
+    if (assetClass) {
+      staticList = staticList.filter((a) => a.asset_class === assetClass);
+    }
+    return staticList.slice(0, limit).map((a) => ({
+      ticker: a.ticker,
+      name: a.name,
+      assetClass: (a.asset_class as any) || 'STOCK',
+      price: parseFloat(a.price) || 0,
+      dy12m: null,
+      pvp: null,
+      change24h: 0,
+    }));
   }
 }
 

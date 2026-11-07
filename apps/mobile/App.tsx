@@ -44,6 +44,8 @@ import {
   ClassAssetDetailItem,
   TransactionDetailHistoryScreen,
   AllTransactionsScreen,
+  SearchAssetsScreen,
+  AssetDetailScreen,
 } from './src/screens';
 import {
   redactCurrencyValue,
@@ -179,6 +181,13 @@ function AppContent() {
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
+  const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
+  const [prefillAsset, setPrefillAsset] = useState<{
+    ticker: string;
+    name: string;
+    assetClass: AssetClass;
+    price?: string;
+  } | null>(null);
   const [isAllTransactionsModalOpen, setIsAllTransactionsModalOpen] = useState(false);
 
   // Lista de Movimentações Recentes e Saldos Consolidados
@@ -631,6 +640,7 @@ function AppContent() {
     isTransactionDetailOpen: selectedRecentTransaction !== null,
     isAllTransactionsOpen: isAllTransactionsModalOpen,
     isClassDetailOpen: selectedClassDetail !== null,
+    isAssetDetailOpen: selectedAssetTicker !== null,
     isTransactionModalOpen,
     isPortfolioManagerOpen: isPortfolioManagerModalOpen,
     isSimulatorOpen: isSimulatorModalOpen,
@@ -655,6 +665,9 @@ function AppContent() {
           return true;
         case 'close-transaction-detail':
           setSelectedRecentTransaction(null);
+          return true;
+        case 'close-asset-detail':
+          setSelectedAssetTicker(null);
           return true;
         case 'close-all-transactions':
           setIsAllTransactionsModalOpen(false);
@@ -770,13 +783,14 @@ function AppContent() {
     setIsPortfolioManagerModalOpen(false);
     setOpenCreatePortfolioModal(false);
     setOpenAddAssetModal(false);
+    setPrefillAsset(null);
     refreshAppData();
   };
 
   const renderPortfolioManagerModal = () => {
     if (!isPortfolioManagerModalOpen || activeTab === 'wallets') return null;
 
-    const isSubModalOnly = openCreatePortfolioModal || openAddAssetModal;
+    const isSubModalOnly = openCreatePortfolioModal || openAddAssetModal || prefillAsset !== null;
 
     if (isSubModalOnly) {
       return (
@@ -791,13 +805,15 @@ function AppContent() {
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
-          autoOpenAddAssetModal={openAddAssetModal}
+          autoOpenAddAssetModal={openAddAssetModal || prefillAsset !== null}
+          prefillAsset={prefillAsset}
           onSubModalClosed={resetSubModalTriggers}
           onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
           onPortfolioCreated={() => {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
+            setPrefillAsset(null);
             setActiveTab('wallets');
             refreshAppData();
           }}
@@ -805,6 +821,7 @@ function AppContent() {
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
+            setPrefillAsset(null);
             refreshAppData();
           }}
         />
@@ -1253,13 +1270,15 @@ function AppContent() {
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
-          autoOpenAddAssetModal={openAddAssetModal}
+          autoOpenAddAssetModal={openAddAssetModal || prefillAsset !== null}
+          prefillAsset={prefillAsset}
           onSubModalClosed={resetSubModalTriggers}
           onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
           onPortfolioCreated={() => {
             refreshAppData();
           }}
           onClose={() => {
+            setPrefillAsset(null);
             setIsPortfolioManagerModalOpen(false);
             setOpenCreatePortfolioModal(false);
             setOpenAddAssetModal(false);
@@ -1317,6 +1336,132 @@ function AppContent() {
           themeMode={themeMode}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
           onClassPress={(cls) => setSelectedClassDetail(cls)}
+        />
+        <FloatingBottomDock
+          activeTab={activeTab}
+          forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
+          onTabChange={(tab) => setActiveTab(tab)}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            openTransactionModal();
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            openTransactionModal();
+          }}
+          onNovaCarteiraPress={() => {
+            setOpenCreatePortfolioModal(true);
+            setIsPortfolioManagerModalOpen(true);
+          }}
+          onAdicionarAtivoPress={() => {
+            setOpenAddAssetModal(true);
+            setIsPortfolioManagerModalOpen(true);
+          }}
+          themeMode={themeMode}
+        />
+        {renderTransactionModal()}
+        {renderPortfolioManagerModal()}
+        {renderSimulatorModal()}
+      </SafeAreaView>
+    );
+  }
+
+  // 9. Tela/Aba: Busca e Ficha do Ativo
+  if (activeTab === 'search') {
+    if (selectedAssetTicker) {
+      return (
+        <SafeAreaView
+          style={[
+            styles.safeArea,
+            {
+              backgroundColor: isLight
+                ? LIGHT_THEME_TOKENS.backgroundPrimary
+                : colors.voidFloor,
+            },
+          ]}
+          edges={['top', 'left', 'right']}
+        >
+          <StatusBar style={isLight ? 'dark' : 'light'} />
+          <AssetDetailScreen
+            ticker={selectedAssetTicker}
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            themeMode={themeMode}
+            onBack={() => setSelectedAssetTicker(null)}
+            onAdjustTarget={() => {
+              setActiveTab('wallets');
+            }}
+            onAddAsset={(prefill) => {
+              setPrefillAsset(prefill);
+              setOpenAddAssetModal(true);
+              setIsPortfolioManagerModalOpen(true);
+            }}
+          />
+          <FloatingBottomDock
+            activeTab={activeTab}
+            forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
+            onTabChange={(tab) => {
+              setSelectedAssetTicker(null);
+              setActiveTab(tab);
+            }}
+            onActionPress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              openTransactionModal();
+            }}
+            onNovoAportePress={() => {
+              setIsPortfolioManagerModalOpen(false);
+              setOpenCreatePortfolioModal(false);
+              setOpenAddAssetModal(false);
+              openTransactionModal();
+            }}
+            onNovaCarteiraPress={() => {
+              setOpenCreatePortfolioModal(true);
+              setIsPortfolioManagerModalOpen(true);
+            }}
+            onAdicionarAtivoPress={() => {
+              setOpenAddAssetModal(true);
+              setIsPortfolioManagerModalOpen(true);
+            }}
+            themeMode={themeMode}
+          />
+          {renderTransactionModal()}
+          {renderPortfolioManagerModal()}
+          {renderSimulatorModal()}
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <SearchAssetsScreen
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
+          themeMode={themeMode}
+          onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSelectAsset={(ticker) => setSelectedAssetTicker(ticker)}
         />
         <FloatingBottomDock
           activeTab={activeTab}

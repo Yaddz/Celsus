@@ -6,3 +6,5 @@ export * from './SettingsBackupScreen';
 export * from './ClassDetailScreen';
 export * from './TransactionDetailHistoryScreen';
 export * from './AllTransactionsScreen';
+export * from './SearchAssetsScreen';
+export * from './AssetDetailScreen';

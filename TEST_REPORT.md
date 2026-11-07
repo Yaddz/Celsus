@@ -2665,3 +2665,47 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 | `apps/mobile/src/navigation/__tests__/backNavigation.test.ts` | `ae068305f6ce83669fae804f86fa2e69a03eb7a050dcf3647cb1da1a63c0bc3d` | 1629 |
 
 - **Validação de Bloqueio:** `node scripts/test-lock.js verify` aprovado com 83 arquivos bloqueados.
+
+### 41.3 Fase B — Implementação sob Bloqueio e Resultados Finais
+- **Validação de Integridade do Lock:**
+  ```text
+  [TDD VERIFIED] Integridade de todos os 83 arquivos de teste confirmada via SHA-256.
+  ```
+  Nenhum arquivo de teste foi adulterado, editado ou contornado durante a Fase B.
+
+- **Entregas da Implementação:**
+  1. **Domínio Financeiro (`assetProfile.ts`):** Fórmulas de cálculo de retorno por período, cálculo do DY 12M e resumo estatístico de proventos com ordenação cronológica e destaque de maior dividendo; mapeamento rigoroso de indicadores por classe (`STOCK`, `FII`, `CRYPTO`, `FIXED_INCOME`) e formatação compacta pt-BR (`R$ 497 B`, `R$ 1,2 B`, `12,4%`).
+  2. **Serviço Go de Fundamentos (`services/market-api`):** Provedor tolerante com `YahooFundamentalsProvider` (parser de cookies/crumb e quoteSummary) e fallback `FundamentusFallbackProvider` (parser HTML de indicadores B3/FIIs), com cache SQLite 12h em `asset_profiles`. Endpoints `/v1/assets/{ticker}/profile`, `/v1/assets/{ticker}/history`, `/v1/assets/{ticker}/dividends` e `/v1/rankings`, além dos métodos nativos na bridge mobile (`GetAssetProfileJSON`, `GetPriceHistoryJSON`, etc.).
+  3. **Camada de Dados Mobile (`marketApi.ts` & `appMetaRepository.ts`):** Implementação transparente com fallback triplo (Ponte Nativa Go → HTTP REST → Catálogo Estático em memória), cache local SQLite em `asset_profile_cache` e persistência de histórico de buscas recentes e lista de favoritos (watchlist) em `app_meta`.
+  4. **Componentes de UI de Alto Padrão XP Bento:**
+     - `AssetSearchRow`: Linha de busca com iniciais, badge colorido por classe de ativo e variação diária.
+     - `IndicatorGrid`: Grade 2×4 adaptada por classe de ativo, tooltip explicativo ao toque e fallback `'—'`.
+     - `PriceAreaChart`: Gráfico de cotações contínuo com chips de período (7D, 30D, 6M, 1A, 5A, Máx).
+     - `DividendsCard`: Resumo anual por cota, frequência, 6 mini-barras verticais com destaque no maior pagamento e lista recente.
+     - `StickyAddBar`: Barra inferior fixa com seletor de carteira ativa, meta configurada e botão de ação ("Adicionar à carteira" ou "Ajustar meta" / "Na carteira").
+     - `RankingTable`: Tabela dinâmica com ordenação asc/desc nos cabeçalhos (Ativo, DY 12M) e navegação direta para a ficha.
+  5. **Telas e Navegação Completa (`SearchAssetsScreen` & `AssetDetailScreen`):**
+     - Substituição da 3ª aba na `FloatingBottomDock` de Extrato (`dock-tab-history`) para Busca (`dock-tab-search` com ícone de lupa).
+     - Integração em `App.tsx` da navegação por estado com pilha de camadas: Busca → Ficha do Ativo (`selectedAssetTicker`) → Modal "Novo Ativo" com prefill (`prefillAsset`).
+     - Integração de tecla/gesto "Voltar" do Android com resolução pura em `resolveBackAction` (`close-asset-detail`).
+
+- **Resultados de Execução:**
+  - **Serviço Go (`services/market-api`):**
+    ```text
+    PASS internal/brapi
+    PASS internal/cotahist
+    PASS internal/fundamentals
+    PASS internal/http
+    PASS internal/macro
+    PASS internal/yahoo
+    PASS pkg/mobilebridge
+    ok: 100% dos testes passaram.
+    ```
+  - **Mobile Jest Suite:**
+    ```text
+    Test Suites: 70 passed, 70 total
+    Tests:       498 passed, 498 total
+    Snapshots:   0 total
+    Time:        19.571 s
+    ```
+

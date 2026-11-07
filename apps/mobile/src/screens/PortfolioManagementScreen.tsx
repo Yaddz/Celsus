@@ -83,6 +83,7 @@ export interface PortfolioManagementScreenProps {
   autoOpenAddAssetModal?: boolean;
   onPortfolioIndexChange?: (index: number) => void;
   onPortfolioCreated?: (newPortfolioId: string) => void;
+  prefillAsset?: { ticker: string; name: string; assetClass: AssetClass; price?: string } | null;
 }
 
 const DEFAULT_ASSET_CATALOG = [
@@ -318,6 +319,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   autoOpenAddAssetModal = false,
   onPortfolioIndexChange,
   onPortfolioCreated,
+  prefillAsset,
 }) => {
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
   try {
@@ -425,6 +427,25 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       setIsAddAssetModalOpen(true);
     }
   }, [autoOpenAddAssetModal]);
+
+  useEffect(() => {
+    if (prefillAsset) {
+      if (prefillAsset.assetClass) {
+        setSelectedClassTab(prefillAsset.assetClass);
+      }
+      if (prefillAsset.ticker) {
+        setNewTicker(prefillAsset.ticker);
+        setAutocompleteQuery(prefillAsset.ticker);
+      }
+      if (prefillAsset.name) {
+        setNewName(prefillAsset.name);
+      }
+      if (prefillAsset.price) {
+        setNewPrice(String(prefillAsset.price));
+      }
+      setIsAddAssetModalOpen(true);
+    }
+  }, [prefillAsset]);
 
   // Carrega carteiras do repositório
   useEffect(() => {
