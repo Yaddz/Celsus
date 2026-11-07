@@ -8,6 +8,10 @@ export interface INativeMarketBridge {
   fetchMacroRates(fromDate: string): Promise<string>;
   getCorporateEvents(tickersCsv: string, fromDate: string): Promise<string>;
   ingestCotahistZip(zipPath: string, allowedTickersCsv: string): Promise<string>;
+  getAssetProfile?(ticker: string): Promise<string>;
+  getPriceHistory?(ticker: string, rangeParam: string): Promise<string>;
+  getDividends?(ticker: string): Promise<string>;
+  getRanking?(assetClass: string, by: string, limit: number): Promise<string>;
 }
 
 let nativeModule: INativeMarketBridge | null = null;

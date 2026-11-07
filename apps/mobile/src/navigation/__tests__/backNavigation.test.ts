@@ -16,7 +16,7 @@ describe('Matriz tela × voltar (resolveBackAction)', () => {
     ['Home sem nada aberto', {}, 'exit'],
     ['Análises', { activeTab: 'stats' }, 'go-home'],
     ['Carteiras', { activeTab: 'wallets' }, 'go-home'],
-    ['Extrato (aba)', { activeTab: 'history' }, 'go-home'],
+    ['Busca (aba)', { activeTab: 'search' }, 'go-home'],
     ['Home + Configurações', { isSettingsOpen: true }, 'close-settings'],
     ['Home + Extrato completo', { isAllTransactionsOpen: true }, 'close-all-transactions'],
     ['Home + Detalhe da operação', { isTransactionDetailOpen: true }, 'close-transaction-detail'],
@@ -35,7 +35,7 @@ describe('Matriz tela × voltar (resolveBackAction)', () => {
   });
 
   it('só devolve exit na Home sem camadas abertas', () => {
-    const tabs: BackState['activeTab'][] = ['home', 'stats', 'history', 'wallets'];
+    const tabs: BackState['activeTab'][] = ['home', 'stats', 'search', 'wallets'];
     const exits = tabs.filter((t) => resolveBackAction({ ...base, activeTab: t }) === 'exit');
     expect(exits).toEqual(['home']);
   });

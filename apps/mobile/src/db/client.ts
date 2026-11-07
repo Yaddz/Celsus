@@ -102,6 +102,12 @@ CREATE TABLE IF NOT EXISTS historical_prices_local (
   close_price TEXT NOT NULL,
   PRIMARY KEY (ticker, price_date)
 );
+
+CREATE TABLE IF NOT EXISTS asset_profile_cache (
+  ticker TEXT PRIMARY KEY NOT NULL,
+  profile_json TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -113,6 +119,7 @@ const inMemoryStore: Record<string, any[]> = {
   app_meta: [],
   market_price_cache: [],
   historical_prices_local: [],
+  asset_profile_cache: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {

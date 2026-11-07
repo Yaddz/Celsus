@@ -1,21 +1,25 @@
 package http
 
 import (
+	"database/sql"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pedro/celsus/services/market-api/internal/cotahist"
+	"github.com/pedro/celsus/services/market-api/internal/fundamentals"
 	"github.com/pedro/celsus/services/market-api/internal/macro"
 	"github.com/pedro/celsus/services/market-api/internal/quotes"
 )
 
 // Server sets up the HTTP router and dependency injection.
 type Server struct {
-	router        *chi.Mux
-	cotahistRepo  cotahist.Repository
-	quoteProvider quotes.QuoteProvider
-	macroRepo     macro.Repository
+	router               *chi.Mux
+	cotahistRepo         cotahist.Repository
+	quoteProvider        quotes.QuoteProvider
+	macroRepo            macro.Repository
+	fundamentalsProvider fundamentals.FundamentalsProvider
+	db                   *sql.DB
 }
 
 // NewServer creates a new HTTP server with chi router and registered endpoints.
@@ -35,6 +39,14 @@ func NewServer(cotahistRepo cotahist.Repository, quoteProvider quotes.QuoteProvi
 	return s
 }
 
+func (s *Server) SetFundamentalsProvider(fp fundamentals.FundamentalsProvider) {
+	s.fundamentalsProvider = fp
+}
+
+func (s *Server) SetDB(db *sql.DB) {
+	s.db = db
+}
+
 // Router returns the underlying http.Handler.
 func (s *Server) Router() http.Handler {
 	return s.router
@@ -47,5 +59,9 @@ func (s *Server) routes() {
 		r.Get("/quotes", s.handleQuotes())
 		r.Get("/history", s.handleHistory())
 		r.Get("/rates/macro", s.handleRatesMacro())
+		r.Get("/assets/{ticker}/profile", s.handleAssetProfile())
+		r.Get("/assets/{ticker}/history", s.handleAssetPriceHistory())
+		r.Get("/assets/{ticker}/dividends", s.handleAssetDividends())
+		r.Get("/rankings", s.handleRankings())
 	})
 }

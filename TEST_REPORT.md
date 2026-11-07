@@ -2618,3 +2618,50 @@ Conforme regra do projeto ("Definição de pronto = evidência. Teste automatiza
 
 
 
+
+
+---
+
+## 41. Sprint 40 — Pesquisa de Ativos + Ficha do Ativo (Fase A: Autoria e Bloqueio de Testes)
+
+### 41.1 Escopo dos Testes da Fase A
+- **Domínio (`assetProfile.ts`):** Fórmulas de retorno de período (`periodReturn`), Dividend Yield 12M (`dividendYield12m`), resumo de proventos (`summarizeDividends`), ordenação de ranking (`rankAssets`), indicadores por classe (`indicatorsFor`) e formatação pt-BR (`formatIndicatorValue`).
+- **Serviço Go (`services/market-api`):**
+  - Provedor de fundamentos primário Yahoo `quoteSummary` e fallback Fundamentus (`fundamentals_test.go`).
+  - Endpoints HTTP `/v1/assets/{ticker}/profile`, `/v1/assets/{ticker}/history`, `/v1/assets/{ticker}/dividends`, `/v1/rankings` (`fundamentals_handlers_test.go`).
+  - Bridge Go móvel: `GetAssetProfileJSON`, `GetPriceHistoryJSON`, `GetDividendsJSON`, `GetRankingJSON` (`fundamentals_bridge_test.go`).
+- **Camada de Dados (`marketApi.ts` & `appMetaRepository.ts`):**
+  - Métodos `getAssetProfile`, `getPriceHistory`, `getDividends`, `getRanking` com integração nativa, HTTP e fallback ao catálogo offline (`assetProfileApi.test.ts`).
+  - Persistência e gerenciamento de buscas recentes (`recent_searches`) e favoritos (`watchlist`).
+- **Componentes de UI:**
+  - `AssetSearchRow.test.tsx`: ticker, nome, preço, variação 24h e clique.
+  - `IndicatorGrid.test.tsx`: grade 2x4, fallback '—', tooltips ao tocar no rótulo.
+  - `PriceAreaChart.test.tsx`: chips de período (7D, 30D, 6M, 1A, 5A, Máx) e área do gráfico.
+  - `DividendsCard.test.tsx`: total 12m por ação, frequência, 6 mini-barras com destaque do maior e lista recente.
+  - `StickyAddBar.test.tsx`: chip seletor de carteira, botão "Adicionar à carteira" / "Ajustar meta".
+  - `RankingTable.test.tsx`: cabeçalhos ordenáveis (↕), preço, DY, P/VP e toque na linha.
+- **Telas e Navegação:**
+  - `SearchAssetsScreen.test.tsx`: estados ocioso, digitando (debounced), sem resultado e atalhos rápidos.
+  - `AssetDetailScreen.test.tsx`: ficha completa, voltar, adicionar à carteira com prefill.
+  - Atualização da 3ª aba: `dock-tab-search` substituindo `dock-tab-history` (`Sprint17HeaderDonutAndRoutes.test.tsx` e `backNavigation.test.ts`).
+
+### 41.2 Hashes SHA-256 Bloqueados em `tests.lock.json`
+| Arquivo de Teste | SHA-256 | Tamanho (Bytes) |
+|---|---|---|
+| `apps/mobile/src/domain/finance/__tests__/assetProfile.test.ts` | `d09a2438afbfe83ab1f64f2ef09927b90e511fb717cec2008b8702a6664550b2` | 7822 |
+| `services/market-api/internal/fundamentals/fundamentals_test.go` | `de62db0177fee333ea9a60262b1b084fdbf766ba53adde87b8d0ad1c5d345ef2` | 4586 |
+| `services/market-api/internal/http/fundamentals_handlers_test.go` | `4db7c721e5fe200aabaf41ed939e46dd8be4d3182a8e8ac2eb5115de4284f41a` | 3600 |
+| `services/market-api/pkg/mobilebridge/fundamentals_bridge_test.go` | `a5d435e273f93c0e82acfc65f19d28485f16c41d1623e8bba56e19400536210f` | 1980 |
+| `apps/mobile/src/services/__tests__/assetProfileApi.test.ts` | `e763af65d593285db2f0479f814afbd882dc9525a9de0dc581a906046b50f5ff` | 5484 |
+| `apps/mobile/src/components/ui/__tests__/AssetSearchRow.test.tsx` | `287e323629c4caf3e4b3b01cab65b194db55b4092f8a11bf33f78e775918a99b` | 1361 |
+| `apps/mobile/src/components/ui/__tests__/IndicatorGrid.test.tsx` | `71fe9d0f30e53226cb7f9601a702b0751cfbe1d066e7e482b2918c4749db69a9` | 1553 |
+| `apps/mobile/src/components/ui/__tests__/PriceAreaChart.test.tsx` | `af0c98162001ba754b33b92cb805274ad596bb74c41894e0384e634a7df67137` | 1602 |
+| `apps/mobile/src/components/ui/__tests__/DividendsCard.test.tsx` | `7ebaaaff70aeefcbc53bf9d32ada7f695e411a5c4f5b907469f2e0003e71ca6a` | 1471 |
+| `apps/mobile/src/components/ui/__tests__/StickyAddBar.test.tsx` | `6941bf2e99c90017d30311f451d2aa4da40819a66f8ed01705d197dd8cc61b14` | 2065 |
+| `apps/mobile/src/components/ui/__tests__/RankingTable.test.tsx` | `d4fe90af3db333b46445e28d1eea981281a73c4063169bf1a2f9937ddfc39ab1` | 1863 |
+| `apps/mobile/src/screens/__tests__/SearchAssetsScreen.test.tsx` | `74968f663883ce30310370a929a49c9790e97924ba5e75462bde552fa3eeb776` | 1985 |
+| `apps/mobile/src/screens/__tests__/AssetDetailScreen.test.tsx` | `aa87bdc99628a81c9b34c3ac51d96e2b47b7a329c0ac8d95238b7a42cb2ea2f5` | 1238 |
+| `apps/mobile/src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` | `37497d4323714dfb0ea1797c645bc887da13d7890b2241e780a473f752945d7a` | 12513 |
+| `apps/mobile/src/navigation/__tests__/backNavigation.test.ts` | `ae068305f6ce83669fae804f86fa2e69a03eb7a050dcf3647cb1da1a63c0bc3d` | 1629 |
+
+- **Validação de Bloqueio:** `node scripts/test-lock.js verify` aprovado com 83 arquivos bloqueados.

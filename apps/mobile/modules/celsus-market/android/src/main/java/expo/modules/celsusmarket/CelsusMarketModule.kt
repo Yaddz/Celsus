@@ -56,5 +56,21 @@ class CelsusMarketModule : Module() {
     AsyncFunction("ingestCotahistZip") { zipPath: String, allowedTickersCsv: String ->
       Mobilebridge.ingestCotahistZipJSON(zipPath, allowedTickersCsv)
     }
+
+    AsyncFunction("getAssetProfile") { ticker: String ->
+      Mobilebridge.getAssetProfileJSON(ticker)
+    }
+
+    AsyncFunction("getPriceHistory") { ticker: String, rangeParam: String ->
+      Mobilebridge.getPriceHistoryJSON(ticker, rangeParam)
+    }
+
+    AsyncFunction("getDividends") { ticker: String ->
+      Mobilebridge.getDividendsJSON(ticker)
+    }
+
+    AsyncFunction("getRanking") { assetClass: String, by: String, limit: Int ->
+      Mobilebridge.getRankingJSON(assetClass, by, limit.toLong())
+    }
   }
 }

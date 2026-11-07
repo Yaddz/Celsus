@@ -9,7 +9,7 @@
  * Observação: o menu "+" e os sheets (AnimatedModalSheet) tratam o voltar sozinhos
  * (BackHandler no dock / onRequestClose do Modal) e rodam antes deste handler.
  */
-export type DockTabId = 'home' | 'stats' | 'history' | 'wallets';
+export type DockTabId = 'home' | 'stats' | 'search' | 'wallets';
 
 export interface BackState {
   activeTab: DockTabId;
@@ -17,6 +17,7 @@ export interface BackState {
   isTransactionDetailOpen: boolean;
   isAllTransactionsOpen: boolean;
   isClassDetailOpen: boolean;
+  isAssetDetailOpen?: boolean;
   isTransactionModalOpen: boolean;
   isPortfolioManagerOpen: boolean;
   isSimulatorOpen: boolean;
@@ -27,6 +28,7 @@ export type BackAction =
   | 'close-transaction-detail'
   | 'close-all-transactions'
   | 'close-class-detail'
+  | 'close-asset-detail'
   | 'close-transaction-modal'
   | 'close-portfolio-manager'
   | 'close-simulator'
@@ -39,6 +41,7 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
   if (state.isSettingsOpen) return 'close-settings';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';
+  if (state.isAssetDetailOpen) return 'close-asset-detail';
   if (state.isAllTransactionsOpen) return 'close-all-transactions';
   if (state.isClassDetailOpen) return 'close-class-detail';
   // Abas: Home é o destino padrão do voltar (recomendado); só a Home fecha o app.

@@ -146,10 +146,15 @@ export const historicalPricesLocal = sqliteTable(
   ]
 );
 
-export type Portfolio = typeof portfolios.$inferSelect;
+export type Portfolio = Omit<typeof portfolios.$inferSelect, 'patrimony_goal' | 'monthly_contribution'> & {
+  patrimony_goal?: string | null;
+  monthly_contribution?: string | null;
+};
 export type NewPortfolio = typeof portfolios.$inferInsert;
 
-export type PortfolioClassTarget = typeof portfolioClassTargets.$inferSelect;
+export type PortfolioClassTarget = Omit<typeof portfolioClassTargets.$inferSelect, 'receives_contribution'> & {
+  receives_contribution?: number;
+};
 export type NewPortfolioClassTarget = typeof portfolioClassTargets.$inferInsert;
 
 export type Asset = typeof assets.$inferSelect;
@@ -163,3 +168,17 @@ export type NewMarketPriceCache = typeof marketPriceCache.$inferInsert;
 
 export type HistoricalPriceLocal = typeof historicalPricesLocal.$inferSelect;
 export type NewHistoricalPriceLocal = typeof historicalPricesLocal.$inferInsert;
+
+/**
+ * ASSET_PROFILE_CACHE
+ * Cache local de fundamentos da empresa e ficha do ativo (TTL 12h).
+ */
+export const assetProfileCache = sqliteTable('asset_profile_cache', {
+  ticker: text('ticker').primaryKey(),
+  profile_json: text('profile_json').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export type AssetProfileCache = typeof assetProfileCache.$inferSelect;
+export type NewAssetProfileCache = typeof assetProfileCache.$inferInsert;
+

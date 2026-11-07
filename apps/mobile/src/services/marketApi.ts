@@ -1,7 +1,9 @@
 import { getDatabase } from '../db/client';
-import { marketPriceCache, historicalPricesLocal, MarketPriceCache, HistoricalPriceLocal } from '../db/schema';
+import { marketPriceCache, historicalPricesLocal, assetProfileCache, MarketPriceCache, HistoricalPriceLocal } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { CelsusMarketModule, INativeMarketBridge } from '../../modules/celsus-market';
+import { AssetProfile, PricePoint, Dividend, RankingItem } from '../domain/finance/assetProfile';
+
 
 export const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutos
 
@@ -103,7 +105,7 @@ export interface FetchQuotesOptions {
 }
 
 export interface IMarketApiService {
-  checkHealth(): Promise<HealthStatus | null>;
+  checkHealth?(): Promise<HealthStatus | null>;
   getHistoricalPrice(ticker: string, date: string): Promise<string | null>;
   fetchQuotes(tickers: string[], options?: FetchQuotesOptions): Promise<MarketQuote[]>;
   getCachedQuote(ticker: string): Promise<MarketQuote | null>;
@@ -113,6 +115,10 @@ export interface IMarketApiService {
   getCorporateEvents?(tickers: string[], fromDate: string): Promise<any[]>;
   ingestCotahistZip?(zipPath: string, allowedTickers?: string[]): Promise<any>;
   isNativeBridgeAvailable?(): boolean;
+  getAssetProfile?(ticker: string): Promise<AssetProfile>;
+  getPriceHistory?(ticker: string, range?: string): Promise<PricePoint[]>;
+  getDividends?(ticker: string): Promise<Dividend[]>;
+  getRanking?(assetClass?: string, by?: string, limit?: number): Promise<RankingItem[]>;
 }
 
 export class MarketApiService implements IMarketApiService {
@@ -621,6 +627,30 @@ export class MarketApiService implements IMarketApiService {
       }
     }
     return null;
+  }
+
+  async getAssetProfile(ticker: string): Promise<AssetProfile> {
+    const clean = cleanTicker(ticker);
+    return {
+      ticker: clean,
+      name: clean,
+      assetClass: 'STOCK',
+      price: 0,
+      change24h: 0,
+      indicators: {},
+    };
+  }
+
+  async getPriceHistory(_ticker: string, _range: string = '1y'): Promise<PricePoint[]> {
+    return [];
+  }
+
+  async getDividends(_ticker: string): Promise<Dividend[]> {
+    return [];
+  }
+
+  async getRanking(_assetClass?: string, _by?: string, _limit: number = 20): Promise<RankingItem[]> {
+    return [];
   }
 }
 

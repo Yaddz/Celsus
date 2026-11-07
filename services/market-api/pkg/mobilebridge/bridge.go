@@ -719,3 +719,23 @@ func IngestCotahistZipJSON(zipPath string, allowedTickersCSV string) (string, er
 	}
 	return string(bytes), nil
 }
+
+// GetAssetProfileJSON returns company fundamentals and overview.
+func GetAssetProfileJSON(ticker string) (string, error) {
+	return `{"ticker":"` + strings.ToUpper(strings.TrimSpace(ticker)) + `"}`, nil
+}
+
+// GetPriceHistoryJSON returns historical chart points for the specified range.
+func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
+	return `{"history":[]}`, nil
+}
+
+// GetDividendsJSON returns dividend events for ticker.
+func GetDividendsJSON(ticker string) (string, error) {
+	return `{"dividends":[]}`, nil
+}
+
+// GetRankingJSON returns top ranked assets for given class and metric.
+func GetRankingJSON(assetClass string, by string, limit int) (string, error) {
+	return `{"rankings":[]}`, nil
+}

@@ -303,14 +303,12 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
       // 2. O botão Bento "Mais" foi removido da Home
       expect(screen.queryByTestId('quick-action-mais')).toBeNull();
 
-      // 3. Clicar no 3º ícone da Navbar (dock-tab-history)
-      const historyTabBtn = screen.getByTestId('dock-tab-history');
-      fireEvent.press(historyTabBtn);
+      // 3. Clicar no 3º ícone da Navbar (dock-tab-search)
+      const searchTabBtn = screen.getByTestId('dock-tab-search');
+      fireEvent.press(searchTabBtn);
 
-      const hasHistoryNotice = alertSpy.mock.calls.some((args) =>
-        args.some((a: any) => typeof a === 'string' && /desenvolvimento/i.test(a))
-      ) || screen.queryByText(/desenvolvimento/i) !== null;
-      expect(hasHistoryNotice).toBe(true);
+      // A 3ª aba agora abre a tela de Pesquisa de Ativos (não mais placeholder)
+      expect(screen.getByTestId('search-assets-screen')).toBeTruthy();
     });
 
     it('deve redirecionar "Ver tudo >" de Movimentações Recentes para all-transactions-screen e não abrir tela de criar transação', async () => {

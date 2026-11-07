@@ -716,11 +716,7 @@ function AppContent() {
     if (activePortfolioIdRef.current) setIsGoalEditorOpen(true);
   }, []);
   const homeTabChange = useCallback((tab: DockTab) => {
-    if (tab === 'history') {
-      Alert.alert('Funcionalidade em desenvolvimento');
-    } else {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab);
   }, []);
   const maskedRecentTransactions = useMemo(
     () =>

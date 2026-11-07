@@ -26,7 +26,7 @@ const LABEL_IN_DELAY_MS = 40;
 import { useReducedMotion } from '../../hooks/useReducedMotion';
 import { JellyPressable } from './JellyPressable';
 
-export type DockTab = 'home' | 'stats' | 'history' | 'wallets';
+export type DockTab = 'home' | 'stats' | 'search' | 'wallets';
 
 export interface FloatingBottomDockProps {
   activeTab?: DockTab;
@@ -50,7 +50,7 @@ interface TabItem {
 const TABS: TabItem[] = [
   { id: 'home', iconName: 'home', label: 'Início' },
   { id: 'stats', iconName: 'bar-chart', label: 'Análises' },
-  { id: 'history', iconName: 'receipt-long', label: 'Extrato' },
+  { id: 'search', iconName: 'search', label: 'Busca' },
   { id: 'wallets', iconName: 'account-balance-wallet', label: 'Carteiras' },
 ];
 
@@ -305,10 +305,6 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
 
   const handleTabPress = (tabId: DockTab) => {
     if (isSheetOpen) closeSheet();
-    if (tabId === 'history') {
-      Alert.alert('Funcionalidade em desenvolvimento');
-      return;
-    }
     if (tabId === shownTab) return;
     setShownTab(tabId);
     startTransition(() => onTabChange(tabId));
