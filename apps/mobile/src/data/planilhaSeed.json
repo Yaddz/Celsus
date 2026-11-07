@@ -1,0 +1,413 @@
+{
+ "portfolioName": "AUVP",
+ "docketCode": "AUVP",
+ "patrimonyGoal": "100000",
+ "monthlyContribution": "935.42",
+ "classTargets": [
+  {
+   "assetClass": "STOCK",
+   "targetPercentage": 25.0,
+   "receivesContribution": true
+  },
+  {
+   "assetClass": "FII",
+   "targetPercentage": 30.0,
+   "receivesContribution": true
+  },
+  {
+   "assetClass": "FIXED_INCOME",
+   "targetPercentage": 45.0,
+   "receivesContribution": false
+  },
+  {
+   "assetClass": "CRYPTO",
+   "targetPercentage": 0,
+   "receivesContribution": false
+  }
+ ],
+ "assets": [
+  {
+   "ticker": "MXRF11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 9.26,
+   "targetInClass": 12.8128
+  },
+  {
+   "ticker": "VISC11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 101.7,
+   "targetInClass": 19.1191
+  },
+  {
+   "ticker": "TRXF11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 71.8,
+   "targetInClass": 17.017
+  },
+  {
+   "ticker": "XPLG11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 90.0,
+   "targetInClass": 17.017
+  },
+  {
+   "ticker": "BTLG11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 98.37,
+   "targetInClass": 17.017
+  },
+  {
+   "ticker": "HGLG11",
+   "assetClass": "FII",
+   "inPlan": true,
+   "sheetPrice": 147.21,
+   "targetInClass": 17.017
+  },
+  {
+   "ticker": "ITUB4",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 40.63,
+   "targetInClass": 13.0
+  },
+  {
+   "ticker": "WEGE3",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 48.06,
+   "targetInClass": 13.0
+  },
+  {
+   "ticker": "BPAC11",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 55.61,
+   "targetInClass": 12.0
+  },
+  {
+   "ticker": "ALUP11",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 32.27,
+   "targetInClass": 11.0
+  },
+  {
+   "ticker": "BBSE3",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 37.99,
+   "targetInClass": 11.0
+  },
+  {
+   "ticker": "BBDC4",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 14.12,
+   "targetInClass": 9.0
+  },
+  {
+   "ticker": "CPLE3",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 14.82,
+   "targetInClass": 9.0
+  },
+  {
+   "ticker": "PSSA3",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 44.48,
+   "targetInClass": 9.0
+  },
+  {
+   "ticker": "SAPR4",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 6.37,
+   "targetInClass": 7.0
+  },
+  {
+   "ticker": "VALE3",
+   "assetClass": "STOCK",
+   "inPlan": true,
+   "sheetPrice": 63.89,
+   "targetInClass": 6.0
+  },
+  {
+   "ticker": "PETR4",
+   "assetClass": "STOCK",
+   "inPlan": false,
+   "sheetPrice": 52.52,
+   "targetInClass": 0.0
+  }
+ ],
+ "trades": [
+  {
+   "type": "BUY",
+   "ticker": "MXRF11",
+   "date": "2025-12-31",
+   "quantity": 606.0,
+   "unitPrice": 9.26,
+   "broker": "XP",
+   "notes": "Posição inicial (custo desconhecido: usado o preço da planilha)",
+   "ref": "planilha-v2:trade:001"
+  },
+  {
+   "type": "BUY",
+   "ticker": "MXRF11",
+   "date": "2026-06-03",
+   "quantity": 121.0,
+   "unitPrice": 9.84,
+   "broker": "XP",
+   "notes": "",
+   "ref": "planilha-v2:trade:002"
+  },
+  {
+   "type": "BUY",
+   "ticker": "MXRF11",
+   "date": "2026-07-08",
+   "quantity": 168.0,
+   "unitPrice": 9.64,
+   "broker": "XP",
+   "notes": "Subscrição (direito MXRF12); cotas creditadas em 14/08.",
+   "ref": "planilha-v2:trade:003"
+  },
+  {
+   "type": "BUY",
+   "ticker": "MXRF11",
+   "date": "2026-07-23",
+   "quantity": 7.0,
+   "unitPrice": 9.669,
+   "broker": "XP",
+   "notes": "",
+   "ref": "planilha-v2:trade:004"
+  },
+  {
+   "type": "SELL",
+   "ticker": "MXRF11",
+   "date": "2026-08-24",
+   "quantity": 265.0,
+   "unitPrice": 9.23,
+   "broker": "XP",
+   "notes": "",
+   "ref": "planilha-v2:trade:005"
+  },
+  {
+   "type": "BUY",
+   "ticker": "ALUP11",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 31.11,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:006"
+  },
+  {
+   "type": "BUY",
+   "ticker": "BBDC4",
+   "date": "2026-10-28",
+   "quantity": 7.0,
+   "unitPrice": 15.63,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:007"
+  },
+  {
+   "type": "BUY",
+   "ticker": "BBSE3",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 41.28,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:008"
+  },
+  {
+   "type": "BUY",
+   "ticker": "BPAC11",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 53.29,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:009"
+  },
+  {
+   "type": "BUY",
+   "ticker": "BTLG11",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 99.78,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:010"
+  },
+  {
+   "type": "BUY",
+   "ticker": "CPLE3",
+   "date": "2026-10-28",
+   "quantity": 7.0,
+   "unitPrice": 14.88,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:011"
+  },
+  {
+   "type": "BUY",
+   "ticker": "HGLG11",
+   "date": "2026-10-28",
+   "quantity": 2.0,
+   "unitPrice": 150.65,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:012"
+  },
+  {
+   "type": "BUY",
+   "ticker": "ITUB4",
+   "date": "2026-10-28",
+   "quantity": 7.0,
+   "unitPrice": 40.75,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:013"
+  },
+  {
+   "type": "BUY",
+   "ticker": "PETR4",
+   "date": "2026-10-28",
+   "quantity": 1.0,
+   "unitPrice": 52.52,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:014"
+  },
+  {
+   "type": "BUY",
+   "ticker": "PSSA3",
+   "date": "2026-10-28",
+   "quantity": 2.0,
+   "unitPrice": 47.03,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:015"
+  },
+  {
+   "type": "BUY",
+   "ticker": "SAPR4",
+   "date": "2026-10-28",
+   "quantity": 19.0,
+   "unitPrice": 6.827,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:016"
+  },
+  {
+   "type": "BUY",
+   "ticker": "TRXF11",
+   "date": "2026-10-28",
+   "quantity": 5.0,
+   "unitPrice": 69.4,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:017"
+  },
+  {
+   "type": "BUY",
+   "ticker": "VISC11",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 104.3,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:018"
+  },
+  {
+   "type": "BUY",
+   "ticker": "WEGE3",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 45.18,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:019"
+  },
+  {
+   "type": "BUY",
+   "ticker": "XPLG11",
+   "date": "2026-10-28",
+   "quantity": 3.0,
+   "unitPrice": 92.94,
+   "broker": "BTG",
+   "notes": "",
+   "ref": "planilha-v2:trade:020"
+  }
+ ],
+ "incomes": [
+  {
+   "ticker": "MXRF11",
+   "date": "2026-05-15",
+   "amount": 60.6,
+   "notes": ""
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-06-15",
+   "amount": 60.6,
+   "notes": ""
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-07-14",
+   "amount": 72.7,
+   "notes": ""
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-08-14",
+   "amount": 73.4,
+   "notes": ""
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-08-14",
+   "amount": 10.08,
+   "notes": "Sobre as 168 cotas da subscrição (MXRF13)."
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-09-15",
+   "amount": 63.7,
+   "notes": ""
+  },
+  {
+   "ticker": "MXRF11",
+   "date": "2026-10-15",
+   "amount": 63.7,
+   "notes": ""
+  },
+  {
+   "ticker": "HISTÓRICO",
+   "date": "2023-12-31",
+   "amount": 11.44,
+   "notes": "Proventos anuais (relatório B3)"
+  },
+  {
+   "ticker": "HISTÓRICO",
+   "date": "2024-12-31",
+   "amount": 39.05,
+   "notes": "Proventos anuais (relatório B3)"
+  },
+  {
+   "ticker": "HISTÓRICO",
+   "date": "2025-12-31",
+   "amount": 459.85,
+   "notes": "Proventos anuais (relatório B3)"
+  }
+ ]
+}

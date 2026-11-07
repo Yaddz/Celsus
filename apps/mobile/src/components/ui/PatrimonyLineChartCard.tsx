@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { colors, typography, spacing, borders } from '../../theme/tokens';
+import { colors, typography, spacing, borders, layout, space } from '../../theme/tokens';
 import {
   HistoricalPricePoint,
   PeriodFilter,
@@ -15,6 +15,8 @@ export const PERIOD_LABELS: Record<PeriodFilter, string> = {
   '5Y': '5 anos',
   ALL: 'Total',
 };
+
+export type TimePeriod = PeriodFilter;
 
 export const PERIOD_ORDER: PeriodFilter[] = ['5D', '1M', '1Y', '5Y', 'ALL'];
 
@@ -100,7 +102,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
             <Text style={[styles.mainValue, isLight && styles.mainValueLight]}>
               {maskValue(activeSummary.finalPatrimony)}
             </Text>
-            {/* Rentabilidade permanece visível sem censura conforme solicitação */}
+            {/* Com privacidade ativa, a rentabilidade também é ocultada (revela desempenho) */}
             <View
               style={[
                 styles.yieldBadge,
@@ -113,7 +115,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
                   isPositiveYield ? styles.yieldTextGreen : styles.yieldTextRed,
                 ]}
               >
-                {`${yieldPrefix}${activeSummary.yieldPercentage}%`}
+                {isPrivacyMode ? '••••' : `${yieldPrefix}${activeSummary.yieldPercentage}%`}
               </Text>
             </View>
           </View>
@@ -266,7 +268,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
                   isPositiveYield ? styles.yieldTextGreen : styles.yieldTextRed,
                 ]}
               >
-                {` (${yieldPrefix}${activeSummary.yieldPercentage}%)`}
+                {isPrivacyMode ? ' (••••)' : ` (${yieldPrefix}${activeSummary.yieldPercentage}%)`}
               </Text>
             </View>
           </View>
@@ -285,34 +287,21 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Seção plana: sem superfície; separada das demais por linhas finas.
   container: {
-    backgroundColor: '#191B1D',
-    borderWidth: 1,
-    borderColor: '#2A2D30',
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginBottom: spacing.lg,
-  },
-  containerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    backgroundColor: 'transparent',
+    marginBottom: layout.sectionGap,
   },
   chartHeader: {
-    backgroundColor: colors.surfaceCard,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
   },
   chartLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
-    color: colors.parchmentMuted,
+    fontSize: 12,
+    color: '#8A8A8E',
     letterSpacing: 1.2,
-    marginBottom: 4,
+    marginBottom: 8,
   },
   valueRow: {
     flexDirection: 'row',
@@ -321,7 +310,7 @@ const styles = StyleSheet.create({
   },
   mainValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 22,
+    fontSize: 32,
     fontWeight: '700',
     color: colors.parchmentPale,
     marginRight: spacing.sm,
@@ -375,13 +364,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   chartArea: {
-    backgroundColor: colors.surfaceCard,
     minHeight: 140,
     justifyContent: 'flex-end',
-    paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
   },
   chartMainRow: {
     flexDirection: 'row',
@@ -493,40 +478,39 @@ const styles = StyleSheet.create({
     color: colors.parchmentMuted,
   },
   summaryCard: {
-    backgroundColor: colors.surfaceCard,
-    borderRadius: 24,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: layout.sectionGap - space.md,
+    paddingTop: layout.sectionGap - space.sm,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
   },
   summaryTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: colors.parchmentMuted,
+    color: '#8A8A8E',
     letterSpacing: 1.2,
-    marginBottom: spacing.sm,
+    marginBottom: 12,
   },
   summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
   },
   summaryItem: {
-    width: '48%',
-    backgroundColor: 'rgba(255, 255, 255, 0.03)',
-    borderRadius: borders.radiusMd,
-    padding: spacing.sm,
-    marginBottom: spacing.xs,
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
   },
   summaryItemLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
+    fontSize: 14,
     color: colors.parchmentMuted,
-    marginBottom: 4,
   },
   summaryItemValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.parchmentPale,
   },
@@ -537,20 +521,14 @@ const styles = StyleSheet.create({
   },
   summaryYieldPct: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
   },
   // Light Theme Styles
   containerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    borderWidth: 1,
-    borderRadius: 24,
+    backgroundColor: 'transparent',
   },
-  chartHeaderLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-  },
+  chartHeaderLight: {},
   chartLabelLight: {
     color: '#6E6A63',
   },
@@ -563,23 +541,18 @@ const styles = StyleSheet.create({
   periodBtnTextLight: {
     color: '#6E6A63',
   },
-  chartAreaLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-  },
+  chartAreaLight: {},
   emptyChartTextLight: {
     color: '#6E6A63',
   },
   summaryCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    borderTopColor: '#EAE4D7',
   },
   summaryTitleLight: {
     color: '#6E6A63',
   },
   summaryItemLight: {
-    backgroundColor: '#F8F6F0',
-    borderColor: '#EAE4D7',
+    borderTopColor: '#EAE4D7',
   },
   summaryItemLabelLight: {
     color: '#6E6A63',

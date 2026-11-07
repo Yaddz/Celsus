@@ -144,7 +144,8 @@ describe('Sprint 38: ScreenContainer, AppHeader & Layout Inset Standardization',
       );
 
       expect(screen.getByTestId('header-avatar-button')).toBeTruthy();
-      expect(screen.getByText('Pedro')).toBeTruthy();
+      // O nome foi removido do header (só avatar com iniciais).
+      expect(screen.queryByText('Pedro')).toBeNull();
       expect(screen.getByText('PL')).toBeTruthy();
 
       expect(screen.getByTestId('header-privacy-button')).toBeTruthy();

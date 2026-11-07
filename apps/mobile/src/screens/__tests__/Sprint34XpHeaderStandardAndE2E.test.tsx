@@ -40,7 +40,8 @@ describe('Sprint 34: P2 Standard XP Header Architecture & Full End-to-End Accept
 
       const avatarBtn = screen.getByTestId('header-avatar-button');
       expect(avatarBtn).toBeTruthy();
-      expect(screen.getByText('Pedro')).toBeTruthy();
+      // O nome foi removido do header (só avatar com iniciais).
+      expect(screen.queryByText('Pedro')).toBeNull();
 
       // Não deve ter botão voltar na Home
       expect(screen.queryByTestId('header-back-button')).toBeNull();
@@ -161,7 +162,7 @@ describe('Sprint 34: P2 Standard XP Header Architecture & Full End-to-End Accept
       // A seção de movimentações da carteira ativa deve listar a operação de VALE3
       expect(screen.getByTestId('wallet-tx-row-VALE3')).toBeTruthy();
       expect(screen.getAllByText('VALE3').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText('Compra')).toBeTruthy();
+      expect(screen.getByText(/Compra/)).toBeTruthy();
 
       // Botão de exclusão da carteira está localizado no rodapé da página
       expect(screen.getByTestId('delete-portfolio-btn')).toBeTruthy();

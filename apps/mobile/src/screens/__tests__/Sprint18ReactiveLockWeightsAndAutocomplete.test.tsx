@@ -296,6 +296,10 @@ describe('Sprint 18 — Módulo 4 & 5: Rebalanceamento Reativo 100% com Cadeado 
       // Abre o modal
       fireEvent.press(screen.getByTestId('open-add-asset-modal-btn'));
 
+      // Explicação dos pontos vem recolhida; abre ao tocar em "Como funcionam os pontos?"
+      expect(screen.queryByTestId('weight-helper-card')).toBeNull();
+      fireEvent.press(screen.getByTestId('weight-helper-toggle'));
+
       // Card explicativo sobre Peso
       const helperCard = screen.getByTestId('weight-helper-card');
       expect(helperCard).toBeDefined();

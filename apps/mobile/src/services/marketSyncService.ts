@@ -115,6 +115,10 @@ export class MarketSyncService {
         });
 
         if (reconResult.appliedEvents.length > 0) {
+          // Grava primeiro as transações (âncora de idempotência via external_id).
+          // Se alguma falhar, o ativo NÃO é atualizado: assim o evento será
+          // reaplicado por inteiro na próxima sincronização, sem duplicar o ajuste.
+          let allPersisted = true;
           for (const applied of reconResult.appliedEvents) {
             try {
               await this.transactionRepo.createTransaction({
@@ -122,19 +126,22 @@ export class MarketSyncService {
                 asset_id: asset.id,
                 type: applied.type,
                 trade_date: applied.eventDate,
-                quantity: applied.newQuantity,
-                unit_price: applied.newAveragePrice,
-                total_amount: new Decimal(applied.newQuantity)
-                  .mul(new Decimal(applied.newAveragePrice))
+                quantity: applied.quantityAfter,
+                unit_price: applied.averagePriceAfter,
+                total_amount: new Decimal(applied.quantityAfter)
+                  .mul(new Decimal(applied.averagePriceAfter))
                   .toFixed(2),
                 notes: `Evento corporativo: ${applied.type} ${applied.splitRatio.numerator}:${applied.splitRatio.denominator}`,
                 source: 'YAHOO',
                 external_id: applied.externalId,
               });
             } catch (err) {
-              // Ignore insert error if unique constraint
+              allPersisted = false;
+              break;
             }
           }
+
+          if (!allPersisted) continue;
 
           await this.assetRepo.updateAsset(asset.id, {
             quantity: reconResult.finalQuantity,

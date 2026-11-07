@@ -226,11 +226,11 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
       fireEvent.press(screen.getByTestId('donut-slice-PETR4'));
 
       expect(screen.getByTestId('donut-tooltip')).toBeTruthy();
-      expect(screen.getByText(/Petróleo Brasileiro S\.A\./i)).toBeTruthy();
-      expect(screen.getByText(/50(\.0)?%/)).toBeTruthy();
+      // Os 2 ativos do mock somam 80: a fatia é normalizada para fechar 100% da categoria (50/80 = 62,5%)
+      expect(screen.getByTestId('donut-tooltip-percent').props.children.join('')).toBe('62.5%');
     });
 
-    it('deve executar scrollTo suave ao clicar no botão/nome do ativo no tooltip de resumo', async () => {
+    it('não exibe legenda abaixo do donut (ticker e % só no rótulo da fatia)', async () => {
       await render(
         <ClassDetailScreen
           assetClass="STOCK"
@@ -239,13 +239,9 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
         />
       );
 
+      expect(screen.queryByText(/• VALE3/)).toBeNull();
       fireEvent.press(screen.getByTestId('donut-slice-VALE3'));
-      const scrollBtn = screen.getByTestId('donut-tooltip-scroll-btn');
-      fireEvent.press(scrollBtn);
-
-      expect(scrollToSpy).toHaveBeenCalled();
-      const scrollArgs = scrollToSpy.mock.calls[0]?.[0];
-      expect(scrollArgs).toBeDefined();
+      expect(screen.getByTestId('donut-tooltip-percent').props.children.join('')).toBe('37.5%');
     });
 
     it('deve disparar onAssetPress ao clicar no card do ativo na listagem', async () => {
@@ -304,15 +300,8 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
       expect(hasGlobeNotice).toBe(true);
       alertSpy.mockClear();
 
-      // 2. Clicar no botão Bento Mais
-      const maisBtn = screen.getByTestId('quick-action-mais');
-      fireEvent.press(maisBtn);
-
-      const hasMaisNotice = alertSpy.mock.calls.some((args) =>
-        args.some((a: any) => typeof a === 'string' && /desenvolvimento/i.test(a))
-      ) || screen.queryByText(/desenvolvimento/i) !== null;
-      expect(hasMaisNotice).toBe(true);
-      alertSpy.mockClear();
+      // 2. O botão Bento "Mais" foi removido da Home
+      expect(screen.queryByTestId('quick-action-mais')).toBeNull();
 
       // 3. Clicar no 3º ícone da Navbar (dock-tab-history)
       const historyTabBtn = screen.getByTestId('dock-tab-history');

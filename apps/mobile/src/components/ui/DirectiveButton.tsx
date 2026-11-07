@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  TouchableOpacity,
   Text,
   StyleSheet,
   View,
@@ -10,6 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { JellyPressable } from './JellyPressable';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
 
 export type MaterialIconName = keyof typeof MaterialIcons.glyphMap;
@@ -74,11 +74,12 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
     const iconToRender = materialIcon || defaultMaterialIcon;
 
     return (
-      <TouchableOpacity
+      <JellyPressable
         testID={testID}
         onPress={onPress}
         disabled={disabled}
-        activeOpacity={0.8}
+        intensity="strong"
+        containerStyle={styles.bentoPressable}
         style={[
           styles.bentoTile,
           { backgroundColor: tileBg },
@@ -97,7 +98,7 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
         <Text style={[styles.bentoLabel, { color: textColor }, labelStyle]}>
           {label}
         </Text>
-      </TouchableOpacity>
+      </JellyPressable>
     );
   }
 
@@ -123,11 +124,11 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
     : styles.neutralText;
 
   return (
-    <TouchableOpacity
+    <JellyPressable
       testID={testID}
       onPress={onPress}
       disabled={disabled}
-      activeOpacity={0.8}
+      intensity="medium"
       style={[styles.base, containerStyle, disabled && styles.disabled, style]}
     >
       <View style={styles.buttonInnerRow}>
@@ -143,14 +144,16 @@ export const DirectiveButton: React.FC<DirectiveButtonProps> = ({
           {isDestructive ? `[!] ${label.toUpperCase()}` : label.toUpperCase()}
         </Text>
       </View>
-    </TouchableOpacity>
+    </JellyPressable>
   );
 };
 
 export interface QuickActionBentoRowProps {
   onAportar?: () => void;
-  onSimular?: () => void;
+  onRebalancear?: () => void;
   onMais?: () => void;
+  /** Exibe o tile "Mais" (padrão true). */
+  showMais?: boolean;
   onNovoAportePress?: () => void;
   onNovaCarteiraPress?: () => void;
   variant?: 'default' | 'v2';
@@ -162,10 +165,11 @@ export interface QuickActionBentoRowProps {
 /**
  * 3 Bento Tiles de Ação Rápida lado a lado (WalleZ Modern Bento Row)
  */
-export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
+const QuickActionBentoRowBase: React.FC<QuickActionBentoRowProps> = ({
   onAportar = () => {},
-  onSimular = () => {},
+  onRebalancear = () => {},
   onMais = () => {},
+  showMais = true,
   onNovoAportePress,
   onNovaCarteiraPress,
   variant = 'default',
@@ -203,17 +207,18 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           themeMode={themeMode}
         />
         <DirectiveButton
-          label="Simular"
+          label="Rebalancear"
           isBentoTile
           variant="secondary"
-          materialIcon="calculate"
+          materialIcon="compare-arrows"
           iconSize={iconSize}
-          iconTestID="quick-action-icon-calculate"
+          iconTestID="quick-action-icon-rebalancear"
           labelStyle={labelStyle}
-          testID="quick-action-simular"
-          onPress={onSimular}
+          testID="quick-action-rebalancear"
+          onPress={onRebalancear}
           themeMode={themeMode}
         />
+        {showMais ? (
         <DirectiveButton
           label="Mais"
           isBentoTile
@@ -226,6 +231,7 @@ export const QuickActionBentoRow: React.FC<QuickActionBentoRowProps> = ({
           onPress={handleMaisPress}
           themeMode={themeMode}
         />
+        ) : null}
       </View>
     </View>
   );
@@ -241,6 +247,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     width: '100%',
+  },
+  bentoPressable: {
+    flex: 1,
   },
   bentoTile: {
     flex: 1,
@@ -375,3 +384,6 @@ const styles = StyleSheet.create({
 });
 
 export default DirectiveButton;
+
+/** Memoizado: só re-renderiza quando as props mudam (troca de carteira não refaz o resto da Home). */
+export const QuickActionBentoRow = React.memo(QuickActionBentoRowBase);

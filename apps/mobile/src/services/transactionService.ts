@@ -32,6 +32,11 @@ export interface ITransactionService {
   getTransactionsByAsset(assetId: string): Promise<Transaction[]>;
 }
 
+/** Mantém 2 casas no mínimo, mas não trunca preços/taxas com mais precisão (ex.: cripto). */
+function formatMoney(val: Decimal): string {
+  return val.decimalPlaces() <= 2 ? val.toFixed(2) : val.toString();
+}
+
 function formatTxQuantity(val: Decimal, inputStr: string | number): string {
   const str = inputStr.toString();
   const dotIndex = str.indexOf('.');
@@ -95,12 +100,35 @@ export class TransactionService implements ITransactionService {
       throw new Error('Identificador do ativo (assetId ou ticker) é obrigatório');
     }
 
+    // Snapshot da posição anterior: permite recalcular o PM sem o arredondamento
+    // de 2 casas aplicado por executeTransaction.
+    const before = await this.assetRepo.getAssetById(targetAssetId);
+
     const result = await this.executeTransaction({
       ...params,
       assetId: targetAssetId,
     });
 
-    const avgPriceDec = new Decimal(result.updatedAsset.average_price || 0);
+    let avgPriceDec = new Decimal(result.updatedAsset.average_price || 0);
+    if (before) {
+      const prevQty = new Decimal(before.quantity || 0);
+      const prevPm = new Decimal(before.average_price || 0);
+      if (params.type === 'BUY') {
+        const newQty = prevQty.plus(new Decimal(params.quantity));
+        if (newQty.gt(0)) {
+          avgPriceDec = prevQty
+            .mul(prevPm)
+            .plus(new Decimal(params.quantity).mul(new Decimal(params.unitPrice)))
+            .plus(new Decimal(params.fees ?? 0))
+            .div(newQty);
+        }
+      } else if (params.type === 'SELL') {
+        // Venda não altera o PM; zera apenas se a posição foi encerrada.
+        avgPriceDec = new Decimal(result.updatedAsset.quantity || 0).isZero()
+          ? new Decimal(0)
+          : prevPm;
+      }
+    }
     const avgPrice8 = avgPriceDec.toFixed(8);
     const updatedWith8 = await this.assetRepo.updateAsset(targetAssetId, {
       quantity: result.updatedAsset.quantity,
@@ -178,8 +206,8 @@ export class TransactionService implements ITransactionService {
         type: 'SELL',
         trade_date: params.tradeDate,
         quantity: formatTxQuantity(qtyDec, params.quantity),
-        unit_price: priceDec.toFixed(2),
-        fees: feesDec.toFixed(2),
+        unit_price: formatMoney(priceDec),
+        fees: formatMoney(feesDec),
         total_amount: totalAmount.toFixed(2),
         notes: params.notes ?? null,
         source: params.source ?? 'MANUAL',
@@ -221,8 +249,8 @@ export class TransactionService implements ITransactionService {
         type: 'BUY',
         trade_date: params.tradeDate,
         quantity: formatTxQuantity(qtyDec, params.quantity),
-        unit_price: priceDec.toFixed(2),
-        fees: feesDec.toFixed(2),
+        unit_price: formatMoney(priceDec),
+        fees: formatMoney(feesDec),
         total_amount: totalAmount.toFixed(2),
         notes: params.notes ?? null,
         source: params.source ?? 'MANUAL',

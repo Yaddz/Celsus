@@ -46,7 +46,7 @@ describe('Sprint 35: Portfolio Card Stack Gestures, 50% Threshold, Full Content 
   });
 
   describe('S35-T01: Visible Depth Layers Render Real Full Content (Not Empty Bars)', () => {
-    it('should render authentic balance, name and profit in depth layers behind the active card', async () => {
+    it('should render the other wallets as stacked cards behind the active one with full data, 8px apart', async () => {
       await render(
         <PortfolioCardStack
           portfolios={mockPortfolios}
@@ -55,46 +55,42 @@ describe('Sprint 35: Portfolio Card Stack Gestures, 50% Threshold, Full Content 
         />
       );
 
-      // Card ativo na frente (Alfa)
+      // Card ativo na frente (Alfa) com conteúdo real
       expect(screen.getByTestId('stacked-wallet-card-active')).toBeTruthy();
       expect(screen.getByText('Carteira Alfa')).toBeTruthy();
       expect(screen.getByText('R$ 10.000,00')).toBeTruthy();
 
-      // Card 1 atrás (Beta) deve ter conteúdo real renderizado
-      const depthLayerOne = screen.getByTestId('wallet-depth-layer-1');
-      expect(depthLayerOne).toBeTruthy();
+      // As demais carteiras são cards de trás com os dados completos (só uma faixa de 8px fica visível)
+      const layerOne = screen.getByTestId('wallet-depth-layer-1');
+      const layerTwo = screen.getByTestId('wallet-depth-layer-2');
+      const top = (el: any) => [el.props.style].flat(Infinity).reduce((a: any, s: any) => ({ ...a, ...s }), {}).top;
+      const active = screen.getByTestId('stacked-wallet-card-active');
+      expect(top(active) - top(layerTwo)).toBe(8);
+      expect(top(layerTwo) - top(layerOne)).toBe(8);
       expect(screen.getByText('Carteira Beta')).toBeTruthy();
       expect(screen.getByText('R$ 20.000,00')).toBeTruthy();
-
-      // Card 2 ao fundo (Gama) deve ter conteúdo real renderizado
-      const depthLayerTwo = screen.getByTestId('wallet-depth-layer-2');
-      expect(depthLayerTwo).toBeTruthy();
       expect(screen.getByText('Carteira Gama')).toBeTruthy();
       expect(screen.getByText('R$ 30.000,00')).toBeTruthy();
     });
   });
 
-  describe('S35-T02: "Nova Carteira" Special Card is Always the Last Card of the Stack', () => {
-    it('should position the add wallet card at the end of the deck when onCreatePortfolioPress is provided', async () => {
-      const onCreatePortfolio = jest.fn();
-
+  describe('S35-T02: "Nova Carteira" card only exists in the empty state', () => {
+    it('should not add a "Nova Carteira" card to the stack when there are 1+ wallets', async () => {
       await render(
         <StackedWalletDeck
           portfolios={mockPortfolios.slice(0, 2)}
-          activeIndex={1} // Na segunda carteira (Beta)
-          onCreatePortfolioPress={onCreatePortfolio}
+          activeIndex={1}
+          onCreatePortfolioPress={jest.fn()}
           testID="stacked-wallet-deck"
         />
       );
 
-      // Card ativo é Carteira Beta
       expect(screen.getByText('Carteira Beta')).toBeTruthy();
-
-      // Como há 2 carteiras e onCreatePortfolioPress, o 3º item é Nova Carteira
-      // Portanto, o Card 1 atrás (depth layer 1) é o card de Nova Carteira
-      const depthLayerOne = screen.getByTestId('wallet-depth-layer-1');
-      expect(depthLayerOne).toBeTruthy();
-      expect(screen.getByText('Nova Carteira')).toBeTruthy();
+      expect(screen.queryByText('Nova Carteira')).toBeNull();
+      expect(screen.queryByTestId('stacked-wallet-add-card')).toBeNull();
+      // 2 carteiras => 1 card atrás
+      expect(screen.getByTestId('wallet-depth-layer-1')).toBeTruthy();
+      expect(screen.queryByTestId('wallet-depth-layer-2')).toBeNull();
     });
   });
 

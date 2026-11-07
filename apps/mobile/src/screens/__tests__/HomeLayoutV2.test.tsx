@@ -63,7 +63,7 @@ describe('S9-T04: TestHomeCleanLayoutNoSimCardAndGlobalFooter', () => {
   });
 
   describe('Recent Transactions Positioned Higher on Home Screen', () => {
-    it('should render Recent Transactions before Category Allocation in layout tree', async () => {
+    it('should render Category Allocation right below quick actions, before Recent Transactions', async () => {
       await render(<App />);
 
       const recentTransactions = screen.getByTestId('home-recent-transactions');
@@ -72,14 +72,14 @@ describe('S9-T04: TestHomeCleanLayoutNoSimCardAndGlobalFooter', () => {
       expect(recentTransactions).toBeDefined();
       expect(dotMatrixCard).toBeDefined();
 
-      // Verifica ordenação: Recent Transactions deve estar posicionado antes do card de Alocação
+      // Verifica ordenação: a Alocação por categoria vem logo abaixo dos botões, antes das Movimentações
       const parent = recentTransactions.parent;
       const txIndex = parent ? parent.children.indexOf(recentTransactions) : -1;
       const allocIndex = parent ? parent.children.indexOf(dotMatrixCard) : -1;
 
       expect(txIndex).toBeGreaterThan(-1);
       expect(allocIndex).toBeGreaterThan(-1);
-      expect(txIndex).toBeLessThan(allocIndex);
+      expect(allocIndex).toBeLessThan(txIndex);
     });
   });
 

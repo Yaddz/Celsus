@@ -146,8 +146,10 @@ checkHealth()
     // 4. Iniciar o Frontend Expo
     console.log('\x1b[33m%s\x1b[0m', '[4/4] Iniciando App Mobile Expo...');
     const extraArgs = process.argv.slice(2);
-    const expoProcess = spawn('npx', ['expo', 'start', 'apps/mobile', ...extraArgs], {
-      cwd: rootDir,
+    // O pacote `expo` está instalado em apps/mobile (não na raiz), então o Expo
+    // precisa rodar com esse diretório como cwd.
+    const expoProcess = spawn('npx', ['expo', 'start', ...extraArgs], {
+      cwd: require('path').join(rootDir, 'apps', 'mobile'),
       env: {
         ...process.env,
         EXPO_PUBLIC_MARKET_API_URL: `http://localhost:${backendPort}`,

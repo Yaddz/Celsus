@@ -190,46 +190,28 @@ describe('Sprint 36: Active Wallet Switching, Deck Gestures, Home Derivation & S
   // =========================================================================
   // S36-T07: Gesture Cycling Never Emits '__add_wallet_card__'
   // =========================================================================
-  describe('S36-T07: Cyclic Gesture Never Emits "__add_wallet_card__"', () => {
-    it('should never emit "__add_wallet_card__" via onPortfolioChange when cycling past real portfolios', async () => {
+  describe('S36-T07: Cyclic Gesture Loops Through Real Wallets Only', () => {
+    it('should cycle only through real portfolios (no extra add card) and emit every change', async () => {
       const onPortfolioChange = jest.fn();
-      const onCreatePortfolioPress = jest.fn();
 
-      // Duas carteiras reais + card de adicionar nova carteira
       await render(
         <StackedWalletDeck
           portfolios={mockPortfolios.slice(0, 2)}
           activeIndex={1} // Na segunda carteira (Beta)
           onPortfolioChange={onPortfolioChange}
-          onCreatePortfolioPress={onCreatePortfolioPress}
+          onCreatePortfolioPress={jest.fn()}
           testID="stacked-wallet-deck"
         />
       );
 
       const activeCard = screen.getByTestId('stacked-wallet-card-active');
+      fireEvent(activeCard, 'layout', { nativeEvent: { layout: { width: 340, height: 180, x: 0, y: 0 } } });
 
-      fireEvent(activeCard, 'layout', {
-        nativeEvent: { layout: { width: 340, height: 180, x: 0, y: 0 } },
-      });
+      // Da carteira Beta (index 1), puxar para baixo volta direto para a primeira carteira (Alfa, index 0)
+      fireEvent(activeCard, 'responderRelease', { gestureState: { dy: 100, dx: 0 } });
 
-      // Da carteira Beta (index 1), puxar para baixo avança para o card Nova Carteira
-      fireEvent(activeCard, 'responderRelease', {
-        gestureState: { dy: 100, dx: 0 },
-      });
-
-      // O card exibido é o card de adicionar, mas onPortfolioChange NUNCA deve ser emitido com __add_wallet_card__
-      const addCard = screen.getByTestId('stacked-wallet-add-card');
-      expect(addCard).toBeTruthy();
-      expect(onPortfolioChange).not.toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({ id: '__add_wallet_card__' })
-      );
-
-      // Puxar para baixo novamente cicla de volta para a primeira carteira (Alfa, index 0)
-      fireEvent(addCard, 'responderRelease', {
-        gestureState: { dy: 100, dx: 0 },
-      });
-
+      expect(screen.queryByTestId('stacked-wallet-add-card')).toBeNull();
+      expect(onPortfolioChange).toHaveBeenCalledTimes(1);
       expect(onPortfolioChange).toHaveBeenCalledWith(0, mockPortfolios[0]);
     });
   });

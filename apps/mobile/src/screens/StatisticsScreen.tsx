@@ -7,14 +7,21 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
+import { useHeaderScrollFade } from '../hooks/useHeaderScrollFade';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, spacing, borders } from '../theme/tokens';
+import { getPortfolioPalette } from '../theme/palettes';
+import { useActivePortfolioId, useActiveWalletIndex } from '../stores/walletStore';
+import { colors, typography, spacing, borders, layout, space, bento } from '../theme/tokens';
 import {
   DotMatrixAllocationCard,
   PatrimonyLineChartCard,
   TimePeriod,
   XpMinimalHeader,
+  BentoRow,
+  BentoTile,
+  AnimatedModalSheet,
+  LedgerInput,
 } from '../components/ui';
 import {
   HistoricalPricePoint,
@@ -30,6 +37,9 @@ import {
   PortfolioConsolidationInput,
 } from '../domain/finance/consolidatedView';
 import { portfolioRepository } from '../repositories/portfolioRepository';
+import { incomeRepository } from '../repositories/incomeRepository';
+import { summarizeIncome } from '../domain/finance/income';
+import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
 import { marketApiService } from '../services/marketApi';
@@ -37,6 +47,7 @@ import { marketApiService } from '../services/marketApi';
 export interface StatisticsScreenProps {
   onClose?: () => void;
   isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   onProfilePress?: () => void;
   onClassPress?: (assetClass: any) => void;
   themeMode?: 'dark' | 'light';
@@ -46,6 +57,7 @@ export interface StatisticsScreenProps {
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   isPrivacyMode = false,
+  onTogglePrivacy,
   onProfilePress,
   onClassPress,
   themeMode = 'dark',
@@ -54,12 +66,53 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
   const [selectedPeriodFilter, setSelectedPeriodFilter] = useState<PeriodFilter>('ALL');
-  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>('all'); // 'all' = Carteiras Consolidadas
+  const activeWalletId = useActivePortfolioId();
+  const activeWalletIndex = useActiveWalletIndex();
+  // Segue a carteira selecionada no baralho; o usuário ainda pode escolher "Consolidadas".
+  const { scrollY, scrollProps } = useHeaderScrollFade();
+  const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(activeWalletId ?? 'all'); // 'all' = Carteiras Consolidadas
+  useEffect(() => {
+    if (activeWalletId) setSelectedPortfolioId(activeWalletId);
+  }, [activeWalletId]);
   const [loading, setLoading] = useState(true);
   const [consolidatedData, setConsolidatedData] = useState<ConsolidatedDossierResult | null>(null);
   const [dailyCurve, setDailyCurve] = useState<HistoricalPricePoint[]>([]);
   const [transactionsList, setTransactionsList] = useState<HistoricalTransactionInput[]>([]);
   const [portfoliosList, setPortfoliosList] = useState<Array<{ id: string; name: string }>>([]);
+  const [incomes, setIncomes] = useState<Array<{ date: string; amount: string }>>([]);
+  const [isIncomeSheetOpen, setIsIncomeSheetOpen] = useState(false);
+  const [incomeTicker, setIncomeTicker] = useState('');
+  const [incomeAmount, setIncomeAmount] = useState('');
+  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().slice(0, 10));
+
+  const loadIncomes = async () => {
+    try {
+      const rows =
+        selectedPortfolioId === 'all'
+          ? await incomeRepository.listAll()
+          : await incomeRepository.listByPortfolio(selectedPortfolioId);
+      setIncomes(rows.map((r) => ({ date: r.pay_date, amount: r.amount })));
+    } catch {
+      setIncomes([]);
+    }
+  };
+  useEffect(() => {
+    loadIncomes();
+  }, [selectedPortfolioId]);
+  const incomeSummary = summarizeIncome(incomes, new Date().toISOString().slice(0, 10));
+
+  const handleSaveIncome = async () => {
+    const amount = parseMoneyInput(incomeAmount);
+    const target = selectedPortfolioId !== 'all' ? selectedPortfolioId : portfoliosList[0]?.id;
+    if (!amount || Number(amount) <= 0 || !incomeTicker.trim() || !target || !/^\d{4}-\d{2}-\d{2}$/.test(incomeDate)) {
+      return;
+    }
+    await incomeRepository.addIncome({ portfolioId: target, ticker: incomeTicker, payDate: incomeDate, amount });
+    setIsIncomeSheetOpen(false);
+    setIncomeTicker('');
+    setIncomeAmount('');
+    loadIncomes();
+  };
 
   const loadData = async () => {
     try {
@@ -229,12 +282,20 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <XpMinimalHeader
-        title="Análises"
+        userName="Pedro"
+        userInitials="PL"
+        palette={getPortfolioPalette(activeWalletIndex)}
         onAvatarPress={onProfilePress}
         isPrivacyModeEnabled={isPrivacyMode}
+        onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
+        scrollY={scrollY}
       />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        {...scrollProps}
+      >
         {/* Seletor de Carteira: Carteiras Consolidadas ou individuais */}
         <ScrollView
           horizontal
@@ -293,6 +354,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         )}
 
         {/* 1. Gráfico de Linha Suave com Sombra e Card de Resumo do Período */}
+        <View style={{ backgroundColor: isLight ? '#FFFFFF' : '#1C1E20', borderRadius: 28, padding: 16, overflow: 'hidden' }}>
         <PatrimonyLineChartCard
           curve={activeCurve}
           selectedPeriod={selectedPeriodFilter}
@@ -302,52 +364,91 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           themeMode={themeMode}
           testID="patrimony-line-chart-card"
         />
+        </View>
 
         {/* 2. Card de Alocação por Categoria com Matriz de Pontos */}
         <DotMatrixAllocationCard
           totalBalance={totalBalanceStr}
           allocations={categoryAllocations}
           isPrivacyMode={isPrivacyMode}
+          variant="bento"
           onClassPress={onClassPress}
           themeMode={themeMode}
           testID="dot-matrix-allocation-card"
         />
 
-        {/* 3. Card de Métricas Financeiras Consolidadas */}
+        {/* 3. Métricas consolidadas em tiles Bento */}
         {consolidatedData ? (
-          <View style={[styles.metricsCard, isLight && styles.metricsCardLight]}>
+          <View style={{ marginTop: space.md }}>
             <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight]}>PANORAMA GERAL</Text>
-            <View style={styles.metricsGrid}>
-              <View style={[styles.metricBox, isLight && styles.metricBoxLight]}>
-                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Capital Aportado</Text>
-                <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
+            <BentoRow>
+              <BentoTile variant="cream" testID="stats-invested-tile">
+                <Text style={[styles.metricLabel, { color: bento.variants.cream.muted }]}>Capital Aportado</Text>
+                <Text style={[styles.metricValue, { color: bento.variants.cream.foreground }]}>
                   {isPrivacyMode
                     ? 'R$ ••••••'
                     : `R$ ${parseFloat(consolidatedData.totalInvestedCapital).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                 </Text>
-              </View>
-              <View style={[styles.metricBox, isLight && styles.metricBoxLight]}>
-                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>Lucro / PnL Total</Text>
+              </BentoTile>
+              <BentoTile variant={parseFloat(consolidatedData.totalProfit) >= 0 ? 'forest' : 'primary'} testID="stats-profit-tile">
+                <Text style={[styles.metricLabel, { color: bento.variants[parseFloat(consolidatedData.totalProfit) >= 0 ? 'forest' : 'primary'].muted }]}>
+                  Lucro / PnL Total
+                </Text>
                 <Text
                   style={[
                     styles.metricValue,
-                    isLight && styles.metricValueLight,
-                    {
-                      color:
-                        parseFloat(consolidatedData.totalProfit) >= 0
-                          ? (isLight ? '#2E4A44' : '#AECDC5')
-                          : (isLight ? '#A83B2B' : colors.deficit),
-                    },
+                    { color: bento.variants[parseFloat(consolidatedData.totalProfit) >= 0 ? 'forest' : 'primary'].foreground },
                   ]}
                 >
                   {isPrivacyMode
                     ? 'R$ ••••••'
                     : `${parseFloat(consolidatedData.totalProfit) > 0 ? '+' : ''}R$ ${parseFloat(consolidatedData.totalProfit).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${parseFloat(consolidatedData.totalProfitPercentage) > 0 ? '+' : ''}${parseFloat(consolidatedData.totalProfitPercentage).toFixed(2).replace('.', ',')}%)`}
                 </Text>
-              </View>
-            </View>
+              </BentoTile>
+            </BentoRow>
           </View>
         ) : null}
+
+        {/* 4. Proventos (aba Resumo/Histórico da planilha) */}
+        <View style={{ marginTop: bento.gap }}>
+          <BentoRow>
+            {/* Só título e valor; tocar no card abre o registro de proventos. */}
+            <BentoTile
+              variant="gold"
+              span={2}
+              title="Proventos estimados"
+              onPress={() => setIsIncomeSheetOpen(true)}
+              accessibilityLabel="Proventos estimados. Toque para registrar um provento"
+              testID="stats-income-tile"
+            >
+              <Text style={[styles.metricValue, { color: bento.variants.gold.foreground, fontSize: 24 }]}>
+                {isPrivacyMode
+                  ? 'R$ ••••••'
+                  : `R$ ${parseFloat(incomeSummary.totalYear).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+              </Text>
+            </BentoTile>
+          </BentoRow>
+        </View>
+
+        <AnimatedModalSheet
+          visible={isIncomeSheetOpen}
+          onClose={() => setIsIncomeSheetOpen(false)}
+          themeMode={themeMode}
+          testID="income-sheet"
+        >
+          <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight, { marginBottom: 12 }]}>REGISTRAR PROVENTO</Text>
+          <LedgerInput label="Ativo" value={incomeTicker} onChangeText={setIncomeTicker} placeholder="MXRF11" keyboardType="default" testID="income-ticker-input" themeMode={themeMode} />
+          <LedgerInput label="Valor recebido" prefix="R$" value={incomeAmount} onChangeText={setIncomeAmount} placeholder="0,00" testID="income-amount-input" themeMode={themeMode} style={{ marginTop: 12 }} />
+          <LedgerInput label="Data (AAAA-MM-DD)" value={incomeDate} onChangeText={setIncomeDate} placeholder="2026-11-06" keyboardType="default" testID="income-date-input" themeMode={themeMode} style={{ marginTop: 12 }} />
+          <TouchableOpacity
+            testID="income-save-btn"
+            accessibilityRole="button"
+            onPress={handleSaveIncome}
+            style={{ backgroundColor: colors.primary, borderRadius: bento.tileRadius, paddingVertical: 16, alignItems: 'center', marginTop: 20 }}
+          >
+            <Text style={{ fontFamily: typography.fontFamily, fontWeight: '700', color: '#1A0E08' }}>Salvar provento</Text>
+          </TouchableOpacity>
+        </AnimatedModalSheet>
 
         {/* Espaçador para o Dock Flutuante */}
         <View style={{ height: 100 }} />
@@ -362,14 +463,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.voidFloor,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: layout.tabScreenPaddingTop,
+    paddingBottom: space.xxl,
   },
   filterScroll: {
     flexDirection: 'row',
-    gap: 8,
-    paddingVertical: spacing.xs,
-    marginBottom: spacing.sm,
+    gap: space.sm,
+    paddingVertical: space.xs,
+    marginBottom: space.lg,
   },
   filterPill: {
     paddingHorizontal: 14,
@@ -397,45 +499,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricsCard: {
-    backgroundColor: colors.neutral,
-    borderRadius: 22,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    padding: spacing.md,
-    marginVertical: spacing.sm,
+    marginTop: layout.sectionGap,
+    paddingTop: layout.sectionGap - space.sm,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
   },
   metricsTitle: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
     fontWeight: '700',
     color: '#8A8A8E',
-    marginBottom: spacing.sm,
-    letterSpacing: 1.1,
+    marginBottom: 12,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
   metricsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+    flexDirection: 'column',
   },
   metricBox: {
-    flex: 1,
-    backgroundColor: '#111315',
-    padding: spacing.sm,
-    borderRadius: 16,
-    borderWidth: borders.hairline,
-    borderColor: '#24272A',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
   },
   metricLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
+    fontSize: 14,
     color: '#8A8A8E',
   },
   metricValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
     color: colors.parchmentPale,
-    marginTop: 4,
+    textAlign: 'right',
+    flexShrink: 1,
+    marginLeft: 12,
   },
   // Light Theme Styles
   containerLight: {
@@ -449,20 +550,13 @@ const styles = StyleSheet.create({
     color: '#6E6A63',
   },
   metricsCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.08,
+    borderTopColor: '#EAE4D7',
   },
   metricsTitleLight: {
     color: '#6E6A63',
   },
   metricBoxLight: {
-    backgroundColor: '#F8F6F0',
-    borderColor: '#EAE4D7',
-  },
-  skeletonContainer: {
-    gap: 12,
+    borderTopColor: '#EAE4D7',
   },
   skeletonCard: {
     backgroundColor: '#191B1D',

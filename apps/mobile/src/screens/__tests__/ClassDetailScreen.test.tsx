@@ -89,10 +89,9 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
       expect(screen.getByTestId('donut-slice-VALE3')).toBeTruthy();
       expect(screen.getByTestId('donut-slice-ITUB4')).toBeTruthy();
 
-      // Exibição das porcentagens dos ativos no Donut / Legenda
-      expect(screen.getByText(/50(\.0)?%/)).toBeTruthy();
-      expect(screen.getByText(/30(\.0)?%/)).toBeTruthy();
-      expect(screen.getByText(/20(\.0)?%/)).toBeTruthy();
+      // Sem legenda abaixo do gráfico: percentuais só aparecem no rótulo ao tocar na fatia
+      expect(screen.queryByText(/^50(\.0)?%$/)).toBeNull();
+      expect(screen.queryByText(/• PETR4/)).toBeNull();
     });
   });
 
@@ -113,18 +112,17 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
       const petrSlice = screen.getByTestId('donut-slice-PETR4');
       fireEvent.press(petrSlice);
 
-      // Tooltip deve surgir exibindo o nome do ativo e sua porcentagem
-      const tooltip = screen.getByTestId('donut-tooltip');
-      expect(tooltip).toBeTruthy();
-      expect(screen.getByText(/Petróleo Brasileiro S\.A\./i)).toBeTruthy();
-      expect(screen.getByText(/50(\.0)?%/)).toBeTruthy();
+      // O rótulo mostra ticker e percentual da fatia
+      expect(screen.getByTestId('donut-tooltip')).toBeTruthy();
+      expect(screen.getByTestId('donut-tooltip-percent').props.children.join('')).toBe('50.0%');
 
-      // Dispara clique simples em outra fatia (VALE3) e o tooltip atualiza
-      const valeSlice = screen.getByTestId('donut-slice-VALE3');
-      fireEvent.press(valeSlice);
+      // Outra fatia (VALE3) atualiza o rótulo
+      fireEvent.press(screen.getByTestId('donut-slice-VALE3'));
+      expect(screen.getByTestId('donut-tooltip-percent').props.children.join('')).toBe('30.0%');
 
-      expect(screen.getByText(/Vale S\.A\./i)).toBeTruthy();
-      expect(screen.getByText(/30(\.0)?%/)).toBeTruthy();
+      // Tocar de novo na mesma fatia esconde o rótulo
+      fireEvent.press(screen.getByTestId('donut-slice-VALE3'));
+      expect(screen.queryByTestId('donut-tooltip')).toBeNull();
     });
 
     it('não deve possuir prop onLongPress na fatia', async () => {
@@ -141,8 +139,8 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
     });
   });
 
-  describe('3. Scroll ao Clicar no Nome do Ativo no Resumo', () => {
-    it('deve disparar o scroll suave até o card do ativo ao clicar no botão de scroll do tooltip', async () => {
+  describe('3. Cores distintas e estáveis por ativo', () => {
+    it('cada ativo tem cor própria e a mesma cor se mantém entre renderizações', async () => {
       await render(
         <ClassDetailScreen
           assetClass="STOCK"
@@ -151,19 +149,15 @@ describe('S10-T01: TestHollowDonutLongPressTooltipAndTapScroll', () => {
         />
       );
 
-      // Abre o resumo com clique simples na fatia
-      const valeSlice = screen.getByTestId('donut-slice-VALE3');
-      fireEvent.press(valeSlice);
+      const colorOf = (ticker: string) =>
+        [screen.getByTestId(`donut-segment-${ticker}-0`).props.style].flat(Infinity).reduce((a: any, s: any) => ({ ...a, ...s }), {})
+          .backgroundColor;
+      const first = ['PETR4', 'VALE3', 'ITUB4'].map(colorOf);
+      expect(new Set(first).size).toBe(3);
 
-      // Clica no nome do ativo no tooltip
-      const scrollBtn = screen.getByTestId('donut-tooltip-scroll-btn');
-      fireEvent.press(scrollBtn);
-
-      // Verifica se a chamada de scrollTo no ScrollView foi acionada
-      expect(scrollToSpy).toHaveBeenCalled();
-      const callArg = scrollToSpy.mock.calls[0]?.[0];
-      // scrollTo deve ser chamado com parâmetros de scroll (ex: animated true ou coordenada y)
-      expect(callArg).toBeDefined();
+      screen.unmount();
+      await render(<ClassDetailScreen assetClass="STOCK" className="Ações" assets={[...MOCK_ASSETS].reverse()} />);
+      expect(['PETR4', 'VALE3', 'ITUB4'].map(colorOf)).toEqual(first);
     });
   });
 });

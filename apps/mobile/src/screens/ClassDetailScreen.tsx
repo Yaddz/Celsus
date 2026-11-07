@@ -1,16 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, spacing, borders } from '../theme/tokens';
+import { colors, typography, spacing, borders, layout, space } from '../theme/tokens';
 import { AssetClass, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui/AttributeStatBar';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
+import { assignDonutColors, buildDonutSlices, DONUT_TOTAL_SEGMENTS } from '../domain/finance/donut';
 
 export interface ClassAssetDetailItem {
   id: string;
@@ -40,17 +42,6 @@ export interface ClassDetailScreenProps {
   themeMode?: 'dark' | 'light';
 }
 
-export const DONUT_SLICE_COLORS = [
-  '#DB5A42',
-  '#F1CA78',
-  '#EDE8B8',
-  '#72743D',
-  '#D1DDF7',
-  '#EF9F43',
-  '#4A525D',
-  '#AC4B25',
-];
-
 export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   assetClass = 'STOCK',
   className,
@@ -63,7 +54,6 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   themeMode = 'dark',
 }) => {
   const insets = useSafeAreaInsets();
-  const scrollViewRef = useRef<ScrollView>(null);
   const isLight = themeMode === 'light';
 
   const classConfig = ASSET_CLASS_ATTRIBUTE_MAP[assetClass] || {
@@ -76,60 +66,51 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   const assetList: ClassAssetDetailItem[] = assets || [];
 
   const [activeTooltipAsset, setActiveTooltipAsset] = useState<ClassAssetDetailItem | null>(null);
-  const [cardPositions, setCardPositions] = useState<Record<string, number>>({});
 
-  // Segmentos radiais para o gráfico circular Donut (72 divisões a 360°)
+  // Cor estável por ativo (hash do ticker, não depende da ordem) usada no donut e nos cards.
+  const colorByTicker = React.useMemo(() => assignDonutColors(assetList.map((a) => a.ticker)), [assetList]);
+  const colorOf = (ticker: string) => colorByTicker[ticker.toUpperCase()];
+
+  // Uma fatia por ativo: percentuais fecham 100% da categoria e os segmentos ocupam o anel todo.
   const assetSlicesData = React.useMemo(() => {
-    const TOTAL_DONUT_SEGMENTS = 144;
-    const totalAlloc =
-      assetList.reduce((acc, a) => acc + (a.currentAllocationPercentage || 0), 0) || 100;
-
-    let currentSegmentIndex = 0;
-    return assetList.map((asset, idx) => {
-      const share = (asset.currentAllocationPercentage || 0) / totalAlloc;
-      const count =
-        idx === assetList.length - 1
-          ? Math.max(1, TOTAL_DONUT_SEGMENTS - currentSegmentIndex)
-          : Math.max(2, Math.round(share * TOTAL_DONUT_SEGMENTS));
-
+    const slices = buildDonutSlices(assetList.map((a) => ({ ticker: a.ticker, weight: a.currentAllocationPercentage || 0 })));
+    return assetList.flatMap((asset, idx) => {
+      const slice = slices[idx];
+      // Ativo sem valor na carteira (0%) não ocupa fatia; continua listado nos cards abaixo.
+      if (slice.segments === 0) return [];
       const sliceSegments: Array<{ segX: number; segY: number; rotate: number }> = [];
-      for (let i = 0; i < count && currentSegmentIndex < TOTAL_DONUT_SEGMENTS; i++) {
-        const segK = currentSegmentIndex;
+      for (let i = 0; i < slice.segments; i++) {
+        const segK = slice.startSegment + i;
         // Início no topo do círculo (-90 graus / 12 horas)
-        const angleDeg = -90 + (segK + 0.5) * (360 / TOTAL_DONUT_SEGMENTS);
+        const angleDeg = -90 + (segK + 0.5) * (360 / DONUT_TOTAL_SEGMENTS);
         const angleRad = (angleDeg * Math.PI) / 180;
         const radius = 83;
         const cx = 100 + radius * Math.cos(angleRad);
         const cy = 100 + radius * Math.sin(angleRad);
-
-        sliceSegments.push({
-          segX: cx - 2.5,
-          segY: cy - 18,
-          rotate: angleDeg + 90,
-        });
-        currentSegmentIndex++;
+        sliceSegments.push({ segX: cx - 2.5, segY: cy - 18, rotate: angleDeg + 90 });
       }
-
-      const color = asset.sliceColor || DONUT_SLICE_COLORS[idx % DONUT_SLICE_COLORS.length];
       const minX = Math.max(0, Math.min(...sliceSegments.map((s) => s.segX)) - 4);
       const minY = Math.max(0, Math.min(...sliceSegments.map((s) => s.segY)) - 4);
       const maxX = Math.min(200, Math.max(...sliceSegments.map((s) => s.segX + 5)) + 4);
       const maxY = Math.min(200, Math.max(...sliceSegments.map((s) => s.segY + 36)) + 4);
-
-      return {
+      return [{
         asset,
-        color,
+        color: slice.color,
+        percent: slice.percent,
         segments: sliceSegments,
         minX,
         minY,
         width: Math.max(20, maxX - minX),
         height: Math.max(20, maxY - minY),
-      };
+      }];
     });
   }, [assetList]);
 
+  const activeSlice = assetSlicesData.find((sd) => sd.asset.ticker === activeTooltipAsset?.ticker) ?? null;
+
+  // Toque alterna o rótulo (ticker e %) no centro do anel; no desktop o mouse por cima também mostra.
   const handleSlicePress = (asset: ClassAssetDetailItem) => {
-    setActiveTooltipAsset(asset);
+    setActiveTooltipAsset((cur) => (cur?.ticker === asset.ticker ? null : asset));
   };
 
   return (
@@ -145,7 +126,6 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
       />
 
       <ScrollView
-        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[
           styles.scrollContent,
@@ -163,11 +143,14 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
               {assetSlicesData.map((sliceData) => {
                 const isSelected = activeTooltipAsset?.ticker === sliceData.asset.ticker;
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={`donut-slice-${sliceData.asset.id || sliceData.asset.ticker}`}
                     testID={`donut-slice-${sliceData.asset.ticker}`}
-                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${sliceData.asset.ticker} ${sliceData.percent.toFixed(1)}%`}
                     onPress={() => handleSlicePress(sliceData.asset)}
+                    onHoverIn={() => setActiveTooltipAsset(sliceData.asset)}
+                    onHoverOut={() => setActiveTooltipAsset((cur) => (cur?.ticker === sliceData.asset.ticker ? null : cur))}
                     style={[
                       styles.donutSliceHitArea,
                       {
@@ -195,7 +178,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                         ]}
                       />
                     ))}
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
 
@@ -205,73 +188,31 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                 pointerEvents="none"
               >
                 <View style={styles.donutCenterCircle}>
-                  <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>{title}</Text>
-                  <Text style={[styles.donutCenterTotal, isLight && styles.donutCenterTotalLight]}>
-                    {assetList.length} {assetList.length === 1 ? 'ativo' : 'ativos'}
-                  </Text>
+                  {activeSlice ? (
+                    <View testID="donut-tooltip" style={{ alignItems: 'center' }}>
+                      <View style={[styles.tooltipDot, { backgroundColor: activeSlice.color, marginBottom: 4 }]} />
+                      <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>
+                        {activeSlice.asset.ticker}
+                      </Text>
+                      <Text testID="donut-tooltip-percent" style={styles.tooltipPercentage}>
+                        {activeSlice.percent.toFixed(1)}%
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      <Text style={[styles.donutCenterLabel, isLight && styles.donutCenterLabelLight]}>{title}</Text>
+                      <Text style={[styles.donutCenterTotal, isLight && styles.donutCenterTotalLight]}>
+                        {assetList.length === 0
+                          ? 'Sem ativos'
+                          : `${assetList.length} ${assetList.length === 1 ? 'ativo' : 'ativos'}`}
+                      </Text>
+                    </>
+                  )}
                 </View>
               </View>
             </View>
           </View>
 
-          {/* Tooltip Flutuante disparado no clique simples da fatia */}
-          {activeTooltipAsset && (
-            <View testID="donut-tooltip" style={[styles.tooltipBox, isLight && styles.tooltipBoxLight]}>
-              <View style={styles.tooltipHeader}>
-                <View
-                  style={[
-                    styles.tooltipDot,
-                    {
-                      backgroundColor:
-                        activeTooltipAsset.sliceColor ||
-                        DONUT_SLICE_COLORS[
-                          assetList.findIndex((a) => a.ticker === activeTooltipAsset.ticker) %
-                            DONUT_SLICE_COLORS.length
-                        ],
-                    },
-                  ]}
-                />
-                <Text style={[styles.tooltipTicker, isLight && styles.tooltipTickerLight]}>{activeTooltipAsset.ticker}</Text>
-                <Text style={styles.tooltipPercentage}>
-                  {activeTooltipAsset.currentAllocationPercentage.toFixed(1)}%
-                </Text>
-              </View>
-              <TouchableOpacity
-                testID="donut-tooltip-scroll-btn"
-                activeOpacity={0.7}
-                onPress={() => {
-                  const idx = assetList.findIndex((a) => a.ticker === activeTooltipAsset.ticker);
-                  const targetY = cardPositions[activeTooltipAsset.ticker] ?? (320 + idx * 180);
-                  scrollViewRef.current?.scrollTo({ y: targetY, animated: true });
-                }}
-              >
-                <Text style={[styles.tooltipName, isLight && styles.tooltipNameLight]}>{activeTooltipAsset.name}</Text>
-              </TouchableOpacity>
-              <Text style={[styles.tooltipHint, isLight && styles.tooltipHintLight]}>Toque no nome para rolar até o ativo</Text>
-            </View>
-          )}
-
-          {/* Legenda com Fatias e Porcentagens */}
-          <View style={styles.legendContainer}>
-            {assetList.map((asset) => {
-              const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
-              const isSelected = activeTooltipAsset?.ticker === asset.ticker;
-              const pctText = isSelected ? 'Ativo' : `${asset.currentAllocationPercentage.toFixed(1)}%`;
-
-              return (
-                <TouchableOpacity
-                  key={`legend-${asset.id || asset.ticker}`}
-                  activeOpacity={0.7}
-                  onPress={() => handleSlicePress(asset)}
-                  style={[styles.legendItem, isLight && styles.legendItemLight]}
-                >
-                  <View style={[styles.legendDot, { backgroundColor: color }]} />
-                  <Text style={[styles.legendTicker, isLight && styles.legendTickerLight]}>• {asset.ticker}</Text>
-                  <Text style={styles.legendPercentage}>{pctText}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
         </View>
 
         {/* Lista de Cards Detalhados dos Ativos (Estilo BTG / XP) */}
@@ -290,7 +231,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
             </View>
           ) : (
             assetList.map((asset) => {
-            const color = asset.sliceColor || DONUT_SLICE_COLORS[assetList.indexOf(asset) % DONUT_SLICE_COLORS.length];
+            const color = colorOf(asset.ticker);
             const isSelected = activeTooltipAsset?.ticker === asset.ticker;
             const grossBalanceDisplay = isPrivacyMode ? '••••••' : asset.grossBalance;
             const avgPriceDisplay = isPrivacyMode ? '••••••' : asset.averagePrice;
@@ -304,10 +245,6 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
                 testID={`asset-card-${asset.ticker}`}
                 activeOpacity={0.8}
                 onPress={() => onAssetPress?.(asset.id || asset.ticker)}
-                onLayout={(e) => {
-                  const y = e.nativeEvent.layout.y;
-                  setCardPositions((prev) => ({ ...prev, [asset.ticker]: y }));
-                }}
                 style={[styles.assetCard, isLight && styles.assetCardLight]}
               >
                 {/* Linha Superior: Ticker + Nome + Acento de Cor */}
@@ -447,16 +384,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: space.sm,
   },
   donutCard: {
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusLg,
-    padding: spacing.md,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    marginBottom: spacing.md,
+    backgroundColor: 'transparent',
+    paddingTop: layout.sectionGap - space.sm,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
+    marginBottom: layout.sectionGap,
   },
   donutVisualArea: {
     alignItems: 'center',
@@ -520,34 +456,10 @@ const styles = StyleSheet.create({
     color: '#8A8A8E',
     marginTop: 2,
   },
-  tooltipBox: {
-    backgroundColor: '#202224',
-    borderRadius: borders.radiusMd,
-    padding: spacing.sm,
-    borderWidth: borders.hairline,
-    borderColor: colors.tertiary,
-    marginVertical: spacing.xs,
-    shadowColor: '#000000',
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  tooltipHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
   tooltipDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-  },
-  tooltipTicker: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelMd.fontSize,
-    fontWeight: '700',
-    color: colors.parchmentPale,
   },
   tooltipPercentage: {
     fontFamily: typography.fontFamily,
@@ -555,52 +467,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.tertiary,
     marginLeft: 'auto',
-  },
-  tooltipName: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    color: '#B0B0B4',
-  },
-  tooltipHint: {
-    fontFamily: typography.fontFamily,
-    fontSize: 9,
-    color: '#6E6A63',
-    marginTop: 4,
-  },
-  legendContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-    justifyContent: 'space-between',
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#151719',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: borders.radiusSm,
-    borderWidth: borders.hairline,
-    borderColor: '#24272A',
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendTicker: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-  },
-  legendPercentage: {
-    fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    color: colors.tertiary,
-    fontWeight: '600',
   },
   cardsSection: {
     marginTop: spacing.xs,
@@ -615,16 +481,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   assetCard: {
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusLg,
-    padding: spacing.md,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    marginBottom: spacing.sm + 2,
-    shadowColor: '#000000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: '#1C1E20',
+    borderRadius: 28,
+    padding: 18,
+    marginBottom: 10,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -747,10 +607,8 @@ const styles = StyleSheet.create({
     color: '#111315',
   },
   donutCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.08,
+    backgroundColor: 'transparent',
+    borderTopColor: '#EAE4D7',
   },
   donutHoleContainerLight: {
     backgroundColor: '#F4F1EA',
@@ -762,34 +620,11 @@ const styles = StyleSheet.create({
   donutCenterTotalLight: {
     color: '#6E6A63',
   },
-  tooltipBoxLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-  },
-  tooltipTickerLight: {
-    color: '#111315',
-  },
-  tooltipNameLight: {
-    color: '#6E6A63',
-  },
-  tooltipHintLight: {
-    color: '#8A8A8E',
-  },
-  legendItemLight: {
-    backgroundColor: '#F8F6F0',
-    borderColor: '#EAE4D7',
-  },
-  legendTickerLight: {
-    color: '#111315',
-  },
   sectionHeaderLight: {
     color: '#6E6A63',
   },
   assetCardLight: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.08,
   },
   cardHeaderLight: {
     borderBottomColor: '#EAE4D7',

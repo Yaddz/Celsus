@@ -27,7 +27,8 @@ describe('S8-T03: TestXpMinimalHeaderAvatarGlobeAndEye', () => {
 
       expect(screen.getByTestId('xp-minimal-header')).toBeDefined();
       expect(screen.getByText('PL')).toBeDefined();
-      expect(screen.getByText('Pedro')).toBeDefined();
+      // O nome foi removido do header: só o avatar (iniciais) permanece.
+      expect(screen.queryByText('Pedro')).toBeNull();
     });
 
     it('should trigger onAvatarPress when user taps the avatar button', async () => {

@@ -132,7 +132,7 @@ describe('Sprint 16: Wallet Stack Notch, Organic Blur, Empty/Add States & Left-t
       expect(deckStyle.zIndex).toBeGreaterThanOrEqual(100);
     });
 
-    it('should render organic diffuse background shapes with multi-layer opacity inside card body', async () => {
+    it('should render the wallet card body without decorative background illustration', async () => {
       await render(
         <StackedWalletDeck
           portfolios={mockPortfolios}
@@ -141,8 +141,8 @@ describe('Sprint 16: Wallet Stack Notch, Organic Blur, Empty/Add States & Left-t
         />
       );
 
-      const organicBackground = screen.getByTestId('wallet-organic-blur-layers');
-      expect(organicBackground).toBeDefined();
+      expect(screen.getByTestId('wallet-colored-body')).toBeDefined();
+      expect(screen.queryByTestId('wallet-organic-blur-layers')).toBeNull();
     });
   });
 
@@ -173,41 +173,29 @@ describe('Sprint 16: Wallet Stack Notch, Organic Blur, Empty/Add States & Left-t
       expect(screen.queryByTestId('stacked-wallet-card-active')).toBeNull();
     });
 
-    it('should append an extra add-wallet card at the end of the stack when portfolios.length >= 1', async () => {
-      const onCreatePortfolioPress = jest.fn();
+    it('should NOT render an extra add-wallet card when there is 1+ portfolio (only the empty state has it)', async () => {
       const onPortfolioChange = jest.fn();
 
       await render(
         <StackedWalletDeck
           portfolios={mockPortfolios}
           activeIndex={0}
-          onCreatePortfolioPress={onCreatePortfolioPress}
+          onCreatePortfolioPress={jest.fn()}
           onPortfolioChange={onPortfolioChange}
           testID="stacked-wallet-deck"
         />
       );
 
-      // Com 2 carteiras, o total de cartas na pilha é 3 (2 carteiras + 1 card de adicionar)
-      // Avança da carteira 0 para a carteira 1
-      const activeCard0 = screen.getByTestId('stacked-wallet-card-active');
-      fireEvent(activeCard0, 'responderRelease', { gestureState: { dy: 80, dx: 0 } });
+      expect(screen.queryByTestId('stacked-wallet-add-card')).toBeNull();
+      expect(screen.queryByTestId('add-wallet-card-cta')).toBeNull();
+      expect(screen.queryByText('Nova Carteira')).toBeNull();
 
-      // Avança da carteira 1 para o card extra de adicionar
-      const activeCard1 = screen.getByTestId('stacked-wallet-card-active');
-      fireEvent(activeCard1, 'responderRelease', { gestureState: { dy: 80, dx: 0 } });
-
-      // O card ativo agora é o card de adicionar carteira
-      const addCard = screen.getByTestId('stacked-wallet-add-card');
-      expect(addCard).toBeDefined();
-
-      const addCta = screen.getByTestId('add-wallet-card-cta');
-      expect(addCta).toBeDefined();
-      fireEvent.press(addCta);
-      expect(onCreatePortfolioPress).toHaveBeenCalledTimes(1);
-
-      // Mais um pull-down deve ciclar de volta para a primeira carteira
-      fireEvent(addCard, 'responderRelease', { gestureState: { dy: 80, dx: 0 } });
-      expect(screen.getByText('Carteira Principal')).toBeDefined();
+      // O ciclo passa só pelas carteiras reais: 0 -> 1 -> ... -> volta ao 0
+      const total = mockPortfolios.length;
+      for (let i = 1; i <= total; i++) {
+        fireEvent(screen.getByTestId('stacked-wallet-card-active'), 'responderRelease', { gestureState: { dy: 80, dx: 0 } });
+        expect(onPortfolioChange).toHaveBeenLastCalledWith(i % total, mockPortfolios[i % total]);
+      }
     });
   });
 

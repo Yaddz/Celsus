@@ -83,10 +83,9 @@ describe('S12-T01: TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal', () =>
       // Verifica presença do card de Perfil do Investidor
       expect(screen.getByTestId('investor-profile-card')).toBeDefined();
 
-      // Verifica dados do Perfil do Investidor exibidos
-      expect(screen.getByText('Pedro')).toBeDefined();
-      expect(screen.getByText('PL')).toBeDefined();
-      expect(screen.getByText(/Moderado/i)).toBeDefined();
+      // O Perfil mostra apenas dados reais: resumo local e sem rótulos de exemplo
+      expect(screen.getByTestId('profile-local-summary')).toBeDefined();
+      expect(screen.queryByText(/Moderado/i)).toBeNull();
 
       // Verifica Configurações dentro do Perfil: Seletor de Tema
       expect(screen.getByTestId('theme-option-dark')).toBeDefined();

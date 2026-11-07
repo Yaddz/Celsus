@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import App from '../../../App';
 import { FloatingBottomDock } from '../../components/ui/FloatingBottomDock';
 import { SettingsBackupScreen } from '../SettingsBackupScreen';
@@ -116,9 +116,10 @@ describe('Sprint 26: Privacy Mask, WCAG Contrast & Floating Navbar Stabilization
       const privacyBtn = screen.getByTestId('header-privacy-button');
       fireEvent.press(privacyBtn);
 
-      // Deve exibir máscara unificada com 6 bullets
-      const maskedElements = screen.getAllByText('R$ ••••••');
-      expect(maskedElements.length).toBeGreaterThanOrEqual(1);
+      // Deve exibir máscara unificada com 6 bullets (o baralho mostra skeleton até a 1ª carga)
+      await waitFor(() => {
+        expect(screen.getAllByText('R$ ••••••').length).toBeGreaterThanOrEqual(1);
+      });
 
       // Nenhum valor sem máscara ou máscara legada com asteriscos deve existir
       expect(screen.queryByText('*******')).toBeNull();
@@ -159,7 +160,7 @@ describe('Sprint 26: Privacy Mask, WCAG Contrast & Floating Navbar Stabilization
       expect(contrastCard).toBeGreaterThanOrEqual(4.5);
     });
 
-    it('should render PatrimonyLineChartCard with dark surfaceCard background and visible border', async () => {
+    it('should render PatrimonyLineChartCard as a flat section without card surface or border', async () => {
       await render(
         <PatrimonyLineChartCard
           themeMode="dark"
@@ -173,8 +174,8 @@ describe('Sprint 26: Privacy Mask, WCAG Contrast & Floating Navbar Stabilization
       expect(chartCard).toBeTruthy();
 
       const flatStyle = [chartCard.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
-      expect(flatStyle.backgroundColor.toUpperCase()).toBe('#191B1D');
-      expect(flatStyle.borderWidth).toBeGreaterThanOrEqual(1);
+      expect(flatStyle.backgroundColor).toBe('transparent');
+      expect(flatStyle.borderWidth ?? 0).toBe(0);
     });
   });
 });

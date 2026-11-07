@@ -6,7 +6,7 @@
     "start": "node scripts/start-all.js",
     "backend": "cd services/market-api && go run .",
     "build:backend": "cd services/market-api && go build -o bin/market-api .",
-    "mobile": "npx expo start apps/mobile",
+    "mobile": "cd apps/mobile && npx expo start",
     "test": "npm --prefix apps/mobile test",
     "test:mobile": "npm --prefix apps/mobile test",
     "test:market": "cd services/market-api && go test ./...",

@@ -82,7 +82,10 @@ describe('Sprint 33: P1 Deck Selection, Footer Delete, Floating Dock & Modal Phy
 
       // Modal de confirmação destrutiva deve ser exibido
       expect(screen.getByTestId('delete-portfolio-modal')).toBeTruthy();
-      expect(screen.getByText(/Excluir Carteira/i)).toBeTruthy();
+      // Título do diálogo ("Excluir carteira X?") e aviso de irreversibilidade
+      expect(screen.getAllByText(/Excluir carteira/i).length).toBeGreaterThanOrEqual(2);
+      expect(screen.getByText('Essa ação não pode ser desfeita.')).toBeTruthy();
+      expect(screen.getByTestId('delete-portfolio-modal-cancel')).toBeTruthy();
 
       // Ao confirmar a exclusão no modal
       const confirmBtn = screen.getByTestId('confirm-delete-portfolio-btn');

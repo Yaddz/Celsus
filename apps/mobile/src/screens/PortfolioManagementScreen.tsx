@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import {
   View,
   Text,
@@ -8,9 +8,10 @@ import {
   TextInput,
   Modal,
 } from 'react-native';
+import { useHeaderScrollFade } from '../hooks/useHeaderScrollFade';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, borders, spacing } from '../theme/tokens';
+import { colors, typography, borders, spacing, layout, space, bento } from '../theme/tokens';
 import { getPortfolioPalette } from '../theme/palettes';
 import {
   AssetClass,
@@ -18,8 +19,13 @@ import {
   calculateGlobalTarget,
   recalculateUnlockedTargets,
   convertWeightsToPercentagesWithLocks,
+  normalizeTargetsToHundred,
 } from '../domain/finance';
-import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui';
+import { parseDecimalInput, formatDecimalInput } from '../utils/decimalInput';
+import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP, AnimatedModalSheet, GoalProgressTile, GoalEditorSheet, BentoGrid, BentoRow, BentoSection, BentoSheetHeader, ConfirmDialog, TransactionRow, LedgerInput, TextField, Skeleton, SkeletonSwap } from '../components/ui';
+import { parseMoneyInput } from '../components/ui/GoalProgressTile';
+import { waitRemaining } from '../utils/minLoading';
+import { buildClassSummary } from '../domain/finance/classSummary';
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
@@ -28,6 +34,7 @@ import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValid
 import { AllTransactionsScreen } from './AllTransactionsScreen';
 import { TransactionDetailHistoryScreen } from './TransactionDetailHistoryScreen';
 import { walletStore } from '../stores/walletStore';
+import { walletsStore, useWallets } from '../stores/walletsStore';
 import { privacyAndAuthService } from '../services/privacyAndAuth';
 
 interface PortfolioItem {
@@ -64,6 +71,8 @@ export interface PortfolioManagementScreenProps {
   onTogglePrivacy?: () => void;
   onProfilePress?: () => void;
   modalOnly?: boolean;
+  /** Chamado sempre que Nova Carteira / Adicionar Ativo fecham, para o pai resetar seus gatilhos. */
+  onSubModalClosed?: () => void;
   themeMode?: 'dark' | 'light';
   initialClassTargets?: ClassTarget[];
   initialAssets?: AssetItem[];
@@ -95,12 +104,210 @@ const DEFAULT_ASSET_CATALOG = [
   { ticker: 'SOL', name: 'Solana', assetClass: 'CRYPTO', price: '950.00' },
 ];
 
+interface AssetRowProps {
+  asset: AssetItem;
+  globalTarget: number;
+  color: string;
+  isLight: boolean;
+  themeMode: 'dark' | 'light';
+  portfolioMode: 'percent' | 'weight';
+  onWizard: (asset: AssetItem) => void;
+  onDelete: (id: string) => void;
+  onToggleLock: (id: string) => void;
+  onChangePct: (id: string, text: string) => void;
+  onChangeWeight: (id: string, text: string) => void;
+}
+
+/**
+ * Campo com stepper (− valor +). Mantém um rascunho local enquanto o usuário digita, para que
+ * "12," ou "0,5" não sejam reescritos/arredondados no meio da digitação; só confirma valores
+ * válidos e volta ao valor oficial ao sair do campo.
+ */
+const StepperField = React.memo(function StepperField({
+  id,
+  value,
+  suffix,
+  themeMode,
+  isLight,
+  min = 0,
+  max,
+  onCommit,
+}: {
+  id: string;
+  value: number;
+  suffix: string;
+  themeMode: 'dark' | 'light';
+  isLight: boolean;
+  min?: number;
+  max?: number;
+  onCommit: (id: string, value: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  // Se o valor oficial mudou por outro motivo (redistribuição, limite do teto), o rascunho que não
+  // corresponde mais a ele é descartado para o campo nunca exibir um número desatualizado.
+  useEffect(() => {
+    setDraft((d) => {
+      if (d === null) return d;
+      const n = parseDecimalInput(d);
+      return n !== null && Math.round(n * 100) / 100 === Math.round(value * 100) / 100 ? d : null;
+    });
+  }, [value]);
+  const clamp = (n: number) => Math.min(max ?? Infinity, Math.max(min, Math.round(n * 100) / 100));
+  const step = (delta: number) => {
+    setDraft(null);
+    onCommit(id, clamp(value + delta));
+  };
+  const iconColor = isLight ? '#111315' : '#D5CAA8';
+  return (
+    <View style={[styles.stepper, isLight && styles.stepperLight]}>
+      <TouchableOpacity
+        testID={`step-down-${id}`}
+        accessibilityRole="button"
+        accessibilityLabel="Diminuir meta"
+        onPress={() => step(-1)}
+        activeOpacity={0.6}
+        style={styles.stepperBtn}
+      >
+        <MaterialIcons name="remove" size={16} color={iconColor} />
+      </TouchableOpacity>
+      <View style={styles.stepperValueWrap}>
+        <TextInput
+          testID={`input-asset-${id}`}
+          keyboardType="decimal-pad"
+          value={draft ?? formatDecimalInput(value)}
+          onChangeText={(t) => {
+            setDraft(t);
+            const n = parseDecimalInput(t);
+            if (n !== null) onCommit(id, clamp(n));
+          }}
+          onBlur={() => setDraft(null)}
+          selectTextOnFocus
+          style={[styles.stepperInput, { color: isLight ? '#111315' : colors.parchmentPale }]}
+        />
+        <Text style={styles.stepperSuffix}>{suffix}</Text>
+      </View>
+      <TouchableOpacity
+        testID={`step-up-${id}`}
+        accessibilityRole="button"
+        accessibilityLabel="Aumentar meta"
+        onPress={() => step(1)}
+        activeOpacity={0.6}
+        style={styles.stepperBtn}
+      >
+        <MaterialIcons name="add" size={16} color={iconColor} />
+      </TouchableOpacity>
+    </View>
+  );
+});
+
+/** Linha de ativo memoizada: só re-renderiza quando o próprio ativo (ou o modo) muda. */
+const AssetRow = React.memo(function AssetRow({
+  asset,
+  globalTarget,
+  color,
+  isLight,
+  themeMode,
+  portfolioMode,
+  onWizard,
+  onDelete,
+  onToggleLock,
+  onChangePct,
+  onChangeWeight,
+}: AssetRowProps) {
+  const isPercent = portfolioMode === 'percent';
+  const value = isPercent
+    ? asset.targetInClass
+    : asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1);
+  const handleCommit = (id: string, v: number) => (isPercent ? onChangePct(id, String(v)) : onChangeWeight(id, String(v)));
+  return (
+    <View
+      testID={`asset-list-row-${asset.id}`}
+      style={[styles.verticalAssetRow, isLight && styles.verticalAssetRowLight]}
+    >
+      <View style={styles.assetRowLeft}>
+        <View style={styles.assetTickerRow}>
+          <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>{asset.ticker}</Text>
+          <TouchableOpacity
+            testID={`lock-asset-${asset.id}`}
+            onPress={() => onToggleLock(asset.id)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel={asset.isLocked ? `Destravar meta de ${asset.ticker}` : `Travar meta de ${asset.ticker}`}
+          >
+            <MaterialIcons
+              name={asset.isLocked ? 'lock' : 'lock-open'}
+              size={14}
+              color={asset.isLocked ? colors.primary : isLight ? '#9A968E' : '#6E7175'}
+            />
+          </TouchableOpacity>
+        </View>
+        <TouchableOpacity activeOpacity={0.7} onPress={() => onWizard(asset)}>
+          <Text numberOfLines={1} style={[styles.assetName, isLight && styles.assetNameLight]}>
+            {asset.name !== asset.ticker ? `${asset.name} · ` : ''}
+            <Text style={{ color }}>{globalTarget.toFixed(1)}% global</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.assetRowRight}>
+        <StepperField
+          id={asset.id}
+          value={value}
+          suffix={isPercent ? '%' : 'pts'}
+          themeMode={themeMode}
+          isLight={isLight}
+          max={isPercent ? 100 : undefined}
+          onCommit={handleCommit}
+        />
+        <TouchableOpacity
+          testID={`delete-asset-${asset.id}`}
+          onPress={() => onDelete(asset.id)}
+          style={styles.deleteAssetBtn}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={`Excluir ativo ${asset.ticker}`}
+        >
+          <MaterialIcons name="delete-outline" size={18} color="#FF6B6B" />
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
+/** Alturas fixas das linhas: esqueleto e conteúdo real ocupam o mesmo espaço (sem salto ao trocar). */
+const ASSET_ROW_HEIGHT = 68;
+const TX_ROW_HEIGHT = 72;
+
+const ListSkeleton: React.FC<{
+  rows: number;
+  rowHeight: number;
+  withTabs?: boolean;
+  themeMode: 'dark' | 'light';
+  testID?: string;
+}> = ({ rows, rowHeight, withTabs, themeMode, testID }) => (
+  <BentoSection themeMode={themeMode} testID={testID} style={{ marginTop: bento.gap }}>
+    <Skeleton width="45%" height={12} themeMode={themeMode} style={{ marginBottom: 14 }} />
+    {withTabs ? (
+      <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} width="23%" height={34} radius={bento.innerRadius} themeMode={themeMode} />
+        ))}
+      </View>
+    ) : null}
+    {Array.from({ length: rows }).map((_, i) => (
+      <Skeleton key={i} height={rowHeight} radius={bento.innerRadius} themeMode={themeMode} style={{ marginBottom: 8 }} />
+    ))}
+  </BentoSection>
+);
+
 export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps> = ({
   onClose,
   isPrivacyMode = false,
   onTogglePrivacy,
   onProfilePress,
   modalOnly = false,
+  onSubModalClosed,
   themeMode = 'dark',
   initialClassTargets,
   initialAssets,
@@ -165,9 +372,19 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex ?? 0);
   const [isNewPortfolioModalOpen, setIsNewPortfolioModalOpen] = useState(Boolean(autoOpenNewPortfolioModal));
   const [newPortfolioName, setNewPortfolioName] = useState('');
+  const [newPortfolioGoal, setNewPortfolioGoal] = useState('');
+  const [newPortfolioMonthly, setNewPortfolioMonthly] = useState('');
   const [portfolioBalances, setPortfolioBalances] = useState<Record<string, number>>({});
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const { scrollY, scrollProps } = useHeaderScrollFade();
   const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
+  const [goalInfo, setGoalInfo] = useState<{ goal: string | null; monthly: string | null }>({ goal: null, monthly: null });
+  const [isGoalEditorOpen, setIsGoalEditorOpen] = useState(false);
+  const [isWeightHelpOpen, setIsWeightHelpOpen] = useState(false);
+  // Esqueletos ao trocar de carteira (não aparecem na 1ª montagem, que usa os dados iniciais).
+  const [isPortfolioLoading, setIsPortfolioLoading] = useState(false);
+  const [isTxLoading, setIsTxLoading] = useState(false);
+  const loadedPortfolioIdRef = useRef<string | null>(null);
   const [isExtratoModalOpen, setIsExtratoModalOpen] = useState(false);
   const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>([]);
   const [selectedGlobalWizardAsset, setSelectedGlobalWizardAsset] = useState<AssetItem | null>(null);
@@ -184,6 +401,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       }
     });
   }, [activeIndex]);
+
+  // Fechamento único dos sub-modais: além de esconder o sheet, avisa o pai para limpar
+  // os gatilhos (openCreatePortfolioModal/openAddAssetModal). Sem isso o pai continuava
+  // com o gatilho em `true` e reabrir a mesma opção do menu "+" não fazia nada.
+  const closeNewPortfolioModal = () => {
+    setIsNewPortfolioModalOpen(false);
+    onSubModalClosed?.();
+  };
+  const closeAddAssetModal = () => {
+    setIsAddAssetModalOpen(false);
+    onSubModalClosed?.();
+  };
 
   useEffect(() => {
     if (autoOpenNewPortfolioModal) {
@@ -210,7 +439,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           }));
           setPortfolios(mapped);
           if (!activePortfolioId) {
-            setActivePortfolioId(mapped[0].id);
+            // Respeita a carteira selecionada no baralho (store/índice), não a primeira da lista.
+            const storedId = walletStore.getState().activePortfolioId;
+            const byStore = storedId ? mapped.find((m) => m.id === storedId) : undefined;
+            const byIndex = mapped[Math.min(Math.max(activeIndex, 0), mapped.length - 1)];
+            setActivePortfolioId((byStore || byIndex || mapped[0]).id);
           }
         }
       } catch {}
@@ -250,98 +483,90 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     return [];
   });
 
-  // Carrega ativos do repositório quando a carteira ativa mudar
+  // Carrega TUDO da carteira ativa (meta, ativos, metas por classe e movimentações) em paralelo e aplica
+  // num único commit, em transição: o skeleton cobre o conteúdo antigo e a UI não engasga na troca.
+  // (Antes eram 5+ commits em série, e as movimentações eram buscadas duas vezes por troca.)
+  const loaderPendingForRef = useRef<string | null>(null);
+  const loadedKeyRef = useRef<{ id: string; assetsLen: number } | null>(null);
   useEffect(() => {
-    const loadAssetsAndTargets = async () => {
+    let cancelled = false;
+    const switched = loadedPortfolioIdRef.current !== null && loadedPortfolioIdRef.current !== activePortfolioId;
+    loadedPortfolioIdRef.current = activePortfolioId || null;
+    if (switched) {
+      setIsPortfolioLoading(true);
+      setIsTxLoading(true);
+    }
+    const loadStartedAt = Date.now();
+    const safe = async <T,>(fn: () => Promise<T> | T, fallback: T): Promise<T> => {
+      try {
+        return await fn();
+      } catch {
+        return fallback;
+      }
+    };
+    const load = async () => {
       if (!activePortfolioId) return;
+      loaderPendingForRef.current = activePortfolioId;
+      const apply: Array<() => void> = [];
       try {
-        if (!initialAssets || initialAssets.length === 0) {
-          const dbAssets = await assetRepository.getAssetsByPortfolio(activePortfolioId);
-          if (dbAssets && dbAssets.length > 0) {
-            setAssets(
-              dbAssets.map((a) => ({
-                id: a.id,
-                ticker: a.ticker,
-                name: a.name,
-                assetClass: a.asset_class as AssetClass,
-                targetInClass: a.target_percentage_in_class || 0,
-                percentage: a.target_percentage_in_class || 0,
-                weight: Math.max(1, Math.round((a.target_percentage_in_class || 0) / 10)),
-                isLocked: false,
-                quantity: a.quantity,
-                price: a.manual_price_override || a.average_price,
-              }))
-            );
-          }
-        }
-        if (!initialClassTargets || initialClassTargets.length === 0) {
-          const dbTargets = await portfolioRepository.getClassTargets(activePortfolioId);
-          if (dbTargets && dbTargets.length > 0) {
-            setClassTargets(
-              dbTargets.map((ct) => ({
-                id: ct.asset_class as AssetClass,
-                assetClass: ct.asset_class as AssetClass,
-                targetPercentage: ct.target_percentage,
-                percentage: ct.target_percentage,
-                isLocked: false,
-              }))
-            );
-          }
-        }
-      } catch {}
-    };
-    loadAssetsAndTargets();
-  }, [activePortfolioId]);
+        const wantAssets = !initialAssets || initialAssets.length === 0;
+        const wantTargets = !initialClassTargets || initialClassTargets.length === 0;
+        const [portfolio, dbAssets, dbTargets, txs] = await Promise.all([
+          safe(() => portfolioRepository.getPortfolioById(activePortfolioId), null),
+          wantAssets ? safe(() => assetRepository.getAssetsByPortfolio(activePortfolioId), null) : Promise.resolve(null),
+          wantTargets ? safe(() => portfolioRepository.getClassTargets(activePortfolioId), null) : Promise.resolve(null),
+          safe(() => transactionRepository.getTransactionsByPortfolio(activePortfolioId), []),
+        ]);
+        if (cancelled) return;
 
-  // Carrega saldos reais das carteiras
-  useEffect(() => {
-    const calculateBalances = async () => {
-      const balances: Record<string, number> = {};
-      for (const p of portfolios) {
-        try {
-          const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
-          const total = pAssets.reduce((sum, a) => {
-            const q = parseFloat(a.quantity || '0') || 0;
-            const pr = parseFloat(a.manual_price_override || a.average_price || '0') || 0;
-            return sum + q * pr;
-          }, 0);
-          balances[p.id] = total;
-        } catch {
-          balances[p.id] = 0;
-        }
-      }
-      setPortfolioBalances(balances);
-    };
-    calculateBalances();
-  }, [portfolios, assets]);
+        apply.push(() =>
+          setGoalInfo({ goal: portfolio?.patrimony_goal ?? null, monthly: portfolio?.monthly_contribution ?? null })
+        );
 
-  // Carrega movimentações da carteira ativa
-  useEffect(() => {
-    const loadTransactions = async () => {
-      if (!activePortfolioId) {
-        setPortfolioTransactions([]);
-        return;
-      }
-      try {
-        const txs = await transactionRepository.getTransactionsByPortfolio(activePortfolioId);
-        const dbAssets = await assetRepository.getAssetsByPortfolio(activePortfolioId);
+        const mappedAssets: AssetItem[] | null = dbAssets
+          ? dbAssets.map((a) => ({
+              id: a.id,
+              ticker: a.ticker,
+              name: a.name,
+              assetClass: a.asset_class as AssetClass,
+              targetInClass: a.target_percentage_in_class || 0,
+              percentage: a.target_percentage_in_class || 0,
+              weight: Math.max(0.1, Math.round(((a.target_percentage_in_class || 0) / 10) * 100) / 100),
+              isLocked: false,
+              quantity: a.quantity,
+              price: a.manual_price_override || a.average_price,
+            }))
+          : null;
+        // Sempre substitui (inclusive por lista vazia): uma carteira sem ativos não herda os da anterior.
+        if (mappedAssets) apply.push(() => setAssets(mappedAssets));
+
+        if (dbTargets) {
+          const stored = new Map(dbTargets.map((ct) => [ct.asset_class, ct]));
+          // Classes sem meta gravada ficam zeradas/desativadas em vez de herdar valores da carteira anterior.
+          const targets = (['FIXED_INCOME', 'FII', 'STOCK', 'CRYPTO'] as AssetClass[]).map((c) => {
+            const ct = stored.get(c);
+            const pct = ct ? ct.target_percentage : 0;
+            return {
+              id: c,
+              assetClass: c,
+              targetPercentage: pct,
+              percentage: pct,
+              isLocked: false,
+              isDeactivated: !ct || ct.receives_contribution === 0 || pct === 0,
+            };
+          });
+          apply.push(() => setClassTargets(targets));
+        }
+
         const assetMap = new Map<string, any>();
         (initialAssets || []).forEach((a) => assetMap.set(a.id, a));
-        (assets || []).forEach((a) => assetMap.set(a.id, a));
-        (dbAssets || []).forEach((a) => {
-          assetMap.set(a.id, {
-            id: a.id,
-            ticker: a.ticker,
-            name: a.name,
-            assetClass: a.asset_class,
-          });
-        });
-
-        const mapped = (txs || []).map((t) => {
+        (mappedAssets || assets || []).forEach((a) => assetMap.set(a.id, a));
+        (dbAssets || []).forEach((a) =>
+          assetMap.set(a.id, { id: a.id, ticker: a.ticker, name: a.name, assetClass: a.asset_class })
+        );
+        const mappedTx = (txs || []).map((t) => {
           const a = assetMap.get(t.asset_id);
-          const qtyNum = parseFloat(t.quantity || '0') || 0;
-          const priceNum = parseFloat(t.unit_price || '0') || 0;
-          const totalVal = qtyNum * priceNum;
+          const totalVal = (parseFloat(t.quantity || '0') || 0) * (parseFloat(t.unit_price || '0') || 0);
           return {
             id: t.id,
             ticker: a?.ticker || (t as any).ticker || 'ATIVO',
@@ -352,13 +577,108 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             amountText: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           };
         });
-        setPortfolioTransactions(mapped);
-      } catch {
-        setPortfolioTransactions([]);
+        apply.push(() => setPortfolioTransactions(mappedTx));
+        loadedKeyRef.current = { id: activePortfolioId, assetsLen: mappedAssets ? mappedAssets.length : assets.length };
+      } finally {
+        if (!cancelled) {
+          if (switched) await waitRemaining(loadStartedAt);
+          if (!cancelled) {
+            loaderPendingForRef.current = null;
+            const commit = () => {
+              apply.forEach((fn) => fn());
+              setIsPortfolioLoading(false);
+              setIsTxLoading(false);
+            };
+            // Troca de carteira: em transição (UI fluida). Primeira carga: aplica direto, sem atraso.
+            if (switched) startTransition(commit);
+            else commit();
+          }
+        }
       }
     };
-    loadTransactions();
-  }, [activePortfolioId, assets]);
+    load();
+    return () => {
+      cancelled = true;
+      if (loaderPendingForRef.current === activePortfolioId) loaderPendingForRef.current = null;
+    };
+  }, [activePortfolioId]);
+
+  // Saldos de todas as carteiras: lidos do banco só quando a lista de carteiras muda (1 consulta por
+  // carteira). Antes isto rodava também a cada mudança de `assets`, refazendo N consultas por troca.
+  useEffect(() => {
+    let cancelled = false;
+    const calculateBalances = async () => {
+      const balances: Record<string, number> = {};
+      for (const p of portfolios) {
+        try {
+          const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
+          balances[p.id] = pAssets.reduce((sum, a) => {
+            const q = parseFloat(a.quantity || '0') || 0;
+            const pr = parseFloat(a.manual_price_override || a.average_price || '0') || 0;
+            return sum + q * pr;
+          }, 0);
+        } catch {
+          balances[p.id] = 0;
+        }
+      }
+      if (!cancelled) setPortfolioBalances(balances);
+    };
+    calculateBalances();
+    return () => {
+      cancelled = true;
+    };
+  }, [portfolios]);
+
+  // O saldo da carteira ativa acompanha os ativos em memória, sem novas consultas ao banco.
+  useEffect(() => {
+    if (!activePortfolioId || isPortfolioLoading) return;
+    const total = assets.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0) * (parseFloat(a.price) || 0), 0);
+    setPortfolioBalances((prev) => (prev[activePortfolioId] === total ? prev : { ...prev, [activePortfolioId]: total }));
+  }, [assets, activePortfolioId, isPortfolioLoading]);
+
+  // Recarrega só as movimentações quando um ativo entra/sai (os nomes vêm do banco). Na troca de carteira
+  // elas já vêm do carregador acima, então este efeito não duplica a busca.
+  useEffect(() => {
+    const k = loadedKeyRef.current;
+    if (!activePortfolioId || loaderPendingForRef.current === activePortfolioId) return;
+    if (k && k.id === activePortfolioId && k.assetsLen === assets.length) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const [txs, dbAssets] = await Promise.all([
+          transactionRepository.getTransactionsByPortfolio(activePortfolioId),
+          assetRepository.getAssetsByPortfolio(activePortfolioId),
+        ]);
+        const assetMap = new Map<string, any>();
+        (assets || []).forEach((a) => assetMap.set(a.id, a));
+        (dbAssets || []).forEach((a) =>
+          assetMap.set(a.id, { id: a.id, ticker: a.ticker, name: a.name, assetClass: a.asset_class })
+        );
+        const mapped = (txs || []).map((t) => {
+          const a = assetMap.get(t.asset_id);
+          const totalVal = (parseFloat(t.quantity || '0') || 0) * (parseFloat(t.unit_price || '0') || 0);
+          return {
+            id: t.id,
+            ticker: a?.ticker || 'ATIVO',
+            name: a?.name || '',
+            assetClass: (a?.assetClass || a?.asset_class || 'STOCK') as AssetClass,
+            type: t.type as 'BUY' | 'SELL',
+            dateText: t.trade_date,
+            amountText: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          };
+        });
+        if (!cancelled) {
+          loadedKeyRef.current = { id: activePortfolioId, assetsLen: assets.length };
+          setPortfolioTransactions(mapped);
+        }
+      } catch {
+        if (!cancelled) setPortfolioTransactions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activePortfolioId, assets.length]);
 
   // Modal para Adicionar Ativo (Módulo 5)
   const [isAddAssetModalOpen, setIsAddAssetModalOpen] = useState(false);
@@ -419,9 +739,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             if (c.assetClass === lastDistClass) return;
             let share: number;
             if (sumOfDist > 0) {
-              share = Math.round(((c.targetPercentage ?? 0) / sumOfDist) * available * 10) / 10;
+              share = Math.round(((c.targetPercentage ?? 0) / sumOfDist) * available * 100) / 100;
             } else {
-              share = Math.round((available / targetsToDistribute.length) * 10) / 10;
+              share = Math.round((available / targetsToDistribute.length) * 100) / 100;
             }
             accDistributed += share;
             distMap.set(c.assetClass, share);
@@ -482,9 +802,13 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleClassPercentageChange = (assetClass: AssetClass, text: string) => {
-    setClassInputText((prev) => ({ ...prev, [assetClass]: text }));
-    const sanitized = text.replace(',', '.');
-    const val = parseFloat(sanitized);
+    // Aceita só dígitos e um separador decimal; limita o valor ao intervalo 0–100.
+    const cleaned = text.replace(',', '.').replace(/[^0-9.]/g, '').replace(/^(\d*\.\d*).*$/, '$1');
+    let display = cleaned;
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed > 100) display = '100';
+    setClassInputText((prev) => ({ ...prev, [assetClass]: display }));
+    const val = Math.min(100, Math.max(0, parseFloat(display)));
     if (isNaN(val)) return;
 
     setClassTargets((prev) => {
@@ -529,16 +853,37 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     if (remaining.length > 0) {
       setActivePortfolioId(remaining[0].id);
       setActiveIndex(0);
+      walletStore.setActiveIndex(0, remaining[0].id);
     } else {
       setActivePortfolioId('');
       setActiveIndex(0);
       setAssets([]);
+      walletStore.setActiveIndex(0);
     }
+    // A Home usa a mesma lista: pede a recarga para a carteira excluída sumir das duas telas.
+    walletsStore.requestRefresh();
   };
 
   // -------------------------------------------------------------------------
   // Handlers: Ativos na Classe (Edição Rápida e Cadeado)
   // -------------------------------------------------------------------------
+  // Persiste as metas por ativo (debounce): antes só viviam em memória e voltavam ao reabrir o app.
+  const pendingTargetsRef = useRef<Map<string, number>>(new Map());
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistAssetTargets = (targets: Map<string, number>) => {
+    targets.forEach((v, id) => pendingTargetsRef.current.set(id, v));
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current);
+    persistTimerRef.current = setTimeout(async () => {
+      const batch = Array.from(pendingTargetsRef.current.entries());
+      pendingTargetsRef.current.clear();
+      for (const [id, v] of batch) {
+        try {
+          await assetRepository.updateAssetTargetInClass(id, v);
+        } catch {}
+      }
+    }, 400);
+  };
+
   const handleToggleAssetLock = (assetId: string) => {
     setAssets((prev) =>
       prev.map((a) => (a.id === assetId ? { ...a, isLocked: !a.isLocked } : a))
@@ -546,7 +891,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleAssetPercentageChange = (assetId: string, text: string) => {
-    const val = parseFloat(text) || 0;
+    const val = parseDecimalInput(text) ?? 0;
     const classAssets = assets.filter((a) => a.assetClass === selectedClassTab);
     const recalculated = recalculateUnlockedTargets(
       classAssets.map((a) => ({ ...a, percentage: a.targetInClass })),
@@ -564,10 +909,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         return a;
       })
     );
+    persistAssetTargets(updatedMap);
   };
 
   const handleAssetWeightChange = (assetId: string, text: string) => {
-    const val = parseFloat(text) || 1;
+    const val = parseDecimalInput(text) ?? 1;
     const classAssets = assets.filter((a) => a.assetClass === selectedClassTab);
     const updatedWithWeight = classAssets.map((a) =>
       a.id === assetId ? { ...a, weight: val } : a
@@ -586,6 +932,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         return a;
       })
     );
+    persistAssetTargets(new Map(recalculated.map((r) => [r.id, r.percentage])));
   };
 
   // -------------------------------------------------------------------------
@@ -649,7 +996,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     }
     setAssetValidationError(null);
 
-    const parsedTarget = parseFloat(newTargetInClass) || 20;
+    const parsedRaw = parseDecimalInput(newTargetInClass);
+    const parsedTarget = addAssetMode === 'weight' ? (parsedRaw && parsedRaw > 0 ? parsedRaw : 1) : parsedRaw ?? 20;
 
     let targetId = `asset-${Date.now()}`;
     const portId = activePortfolioId || portfolios[0]?.id || 'port-1';
@@ -683,8 +1031,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
     // Recalcula distribuição reativa fechando em 100% com o novo ativo inserido
     const existingInClass = assets.filter((a) => a.assetClass === selectedClassTab);
-    const combined = [...existingInClass.map((a) => ({ ...a, percentage: a.targetInClass })), newAsset];
-    const recalculated = recalculateUnlockedTargets(combined, newAsset.id, parsedTarget);
+    const combined = [
+      ...existingInClass.map((a) => ({ ...a, percentage: a.targetInClass })),
+      { ...newAsset, percentage: parsedTarget },
+    ];
+    const recalculated =
+      addAssetMode === 'weight'
+        ? convertWeightsToPercentagesWithLocks(
+            combined.map((c) => (c.id === newAsset.id ? { ...c, weight: parsedTarget } : c))
+          )
+        : recalculateUnlockedTargets(combined, newAsset.id, parsedTarget);
 
     const recalculatedMap = new Map(recalculated.map((r) => [r.id, r.percentage]));
     setAssets((prev) => {
@@ -697,12 +1053,14 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       return [...rest, ...updatedExisting, { ...newAsset, targetInClass: recalculatedMap.get(newAsset.id) ?? parsedTarget }];
     });
 
+    persistAssetTargets(recalculatedMap);
+
     setNewTicker('');
     setNewName('');
     setAutocompleteQuery('');
     setAutocompleteSuggestions([]);
     setNewTargetInClass('20');
-    setIsAddAssetModalOpen(false);
+    closeAddAssetModal();
   };
 
   const handleDeleteAsset = async (assetId: string) => {
@@ -713,11 +1071,10 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       const remainingInClass = prev.filter((a) => a.assetClass === selectedClassTab && a.id !== assetId);
       const rest = prev.filter((a) => a.assetClass !== selectedClassTab);
       if (remainingInClass.length > 0) {
-        const total = remainingInClass.reduce((sum, a) => sum + (a.targetInClass || 0), 0);
-        const rebalanced = remainingInClass.map((a) => {
-          const newPct = total > 0 ? Math.round(((a.targetInClass || 0) / total) * 100) : Math.round(100 / remainingInClass.length);
-          return { ...a, targetInClass: newPct, percentage: newPct };
-        });
+        const rebalanced = normalizeTargetsToHundred(
+          remainingInClass.map((a) => ({ ...a, percentage: a.targetInClass || 0 }))
+        ).map((a) => ({ ...a, targetInClass: a.percentage }));
+        persistAssetTargets(new Map(rebalanced.map((a) => [a.id, a.targetInClass])));
         return [...rest, ...rebalanced];
       }
       return rest;
@@ -732,6 +1089,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         name: newPortfolioName.trim(),
         docket_code: `REV-CART-00${portfolios.length + 1}`,
       });
+      const goal = parseMoneyInput(newPortfolioGoal);
+      const monthly = parseMoneyInput(newPortfolioMonthly);
+      if (goal || monthly) {
+        await portfolioRepository.setGoal(created.id, { patrimonyGoal: goal, monthlyContribution: monthly });
+      }
       const newPort: PortfolioItem = {
         id: created.id,
         name: created.name,
@@ -743,6 +1105,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       onPortfolioIndexChange?.(portfolios.length);
       onPortfolioCreated?.(created.id);
       setNewPortfolioName('');
+      setNewPortfolioGoal('');
+      setNewPortfolioMonthly('');
       setIsNewPortfolioModalOpen(false);
     } catch {
       const newPort: PortfolioItem = {
@@ -786,8 +1150,49 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     }
   };
 
+  // Callbacks estáveis do baralho (o React.memo do baralho só funciona com props estáveis).
+  const deckStateRef = useRef({ activePortfolioId, onPortfolioIndexChange });
+  deckStateRef.current = { activePortfolioId, onPortfolioIndexChange };
+  const handleDeckChange = useCallback((idx: number, item: StackedWalletItem) => {
+    const { activePortfolioId: current, onPortfolioIndexChange: notify } = deckStateRef.current;
+    if (item.id !== current) {
+      // Skeleton imediato, no mesmo commit da troca de carteira.
+      setIsPortfolioLoading(true);
+      setIsTxLoading(true);
+    }
+    setActiveIndex(idx);
+    setActivePortfolioId(item.id);
+    walletStore.setActiveIndex(idx, item.id);
+    notify?.(idx);
+  }, []);
+  const openNewPortfolioModal = useCallback(() => setIsNewPortfolioModalOpen(true), []);
+
+  // Handlers estáveis das linhas de ativo (leem o estado mais recente por ref) para o React.memo funcionar.
+  const handlersRef = useRef({ handleDeleteAsset, handleToggleAssetLock, handleAssetPercentageChange, handleAssetWeightChange });
+  handlersRef.current = { handleDeleteAsset, handleToggleAssetLock, handleAssetPercentageChange, handleAssetWeightChange };
+  const rowHandlers = useMemo(
+    () => ({
+      onDelete: (id: string) => handlersRef.current.handleDeleteAsset(id),
+      onToggleLock: (id: string) => handlersRef.current.handleToggleAssetLock(id),
+      onChangePct: (id: string, t: string) => handlersRef.current.handleAssetPercentageChange(id, t),
+      onChangeWeight: (id: string, t: string) => handlersRef.current.handleAssetWeightChange(id, t),
+    }),
+    []
+  );
+
   // Mapeamento dos portfolios para o StackedWalletDeck
-  const deckPortfolios: StackedWalletItem[] = portfolios.map((p, idx) => {
+  // Lista de carteiras: a mesma fonte da Home (walletsStore). Sem App (ex.: testes isolados) usa a lista local.
+  const { wallets: sharedWallets, loaded: sharedLoaded } = useWallets();
+  const useShared = sharedLoaded && sharedWallets.length > 0 && !initialPortfolios;
+  const deckPortfolios: StackedWalletItem[] = useMemo(() => {
+    if (useShared) {
+      return sharedWallets.map((w) => ({
+        ...w,
+        balance: privacyMode ? 'R$ ••••••' : w.balance,
+        profitText: privacyMode ? '••••••' : w.profitText,
+      }));
+    }
+    return portfolios.map((p, idx) => {
     const palette = getPortfolioPalette(idx);
     const balanceNum = portfolioBalances[p.id] ?? 0;
     const formattedBalance = privacyMode
@@ -805,6 +1210,20 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       paletteId: palette.id,
     };
   });
+  }, [useShared, sharedWallets, portfolios, portfolioBalances, privacyMode]);
+
+  // Resumo por classe (aba "Resumo" da planilha): valor-alvo e falta/sobra.
+  const classSummaryRows = buildClassSummary(
+    classTargets.map((c) => ({
+      assetClass: c.assetClass,
+      targetPercentage: c.targetPercentage,
+      receivesContribution: !c.isDeactivated && c.targetPercentage > 0,
+      currentValue: assets
+        .filter((a) => a.assetClass === c.assetClass)
+        .reduce((sum, a) => sum + (parseFloat(a.quantity) || 0) * (parseFloat(a.price) || 0), 0),
+    }))
+  ).rows;
+  const hasClassValues = classSummaryRows.some((r) => Number(r.currentValue) > 0);
 
   return (
     <View
@@ -818,27 +1237,29 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       {!modalOnly && (
         <>
           <XpMinimalHeader
-            title="Carteiras"
+            userName="Pedro"
+            userInitials="PL"
+            palette={getPortfolioPalette(activeIndex)}
             onAvatarPress={onProfilePress}
             isPrivacyModeEnabled={privacyMode}
             onTogglePrivacy={handleTogglePrivacy}
             themeMode={themeMode}
+            scrollY={scrollY}
           />
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            {...scrollProps}
+          >
         {/* 1. StackedWalletDeck da Home reaproveitado para troca de carteira */}
         <StackedWalletDeck
           portfolios={deckPortfolios}
+          loading={!initialPortfolios && walletsStore.hasRefresher() && !sharedLoaded}
           activeIndex={activeIndex}
           themeMode={themeMode}
           isPrivacyMode={privacyMode}
-          onPortfolioChange={(idx, item) => {
-            if (item.id === '__add_wallet_card__') return;
-            setActiveIndex(idx);
-            setActivePortfolioId(item.id);
-            walletStore.setActiveIndex(idx, item.id);
-            onPortfolioIndexChange?.(idx);
-          }}
-          onCreatePortfolioPress={() => setIsNewPortfolioModalOpen(true)}
+          onPortfolioChange={handleDeckChange}
+          onCreatePortfolioPress={openNewPortfolioModal}
           testID="stacked-wallet-deck"
         />
 
@@ -870,17 +1291,17 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                     styles.portfolioChip,
                     isLight && styles.portfolioChipLight,
                     isSelected && {
-                      borderColor: pal.primary,
+                      borderColor: pal.accent,
                       backgroundColor: isLight ? '#EAE4D7' : '#222528',
                     },
                   ]}
                 >
-                  <View style={[styles.portfolioChipDot, { backgroundColor: pal.primary }]} />
+                  <View style={[styles.portfolioChipDot, { backgroundColor: pal.accent }]} />
                   <Text
                     style={[
                       styles.portfolioChipName,
                       isLight && styles.portfolioChipNameLight,
-                      isSelected && { color: pal.primary, fontWeight: '700' },
+                      isSelected && { color: pal.accent, fontWeight: '700' },
                     ]}
                   >
                     {`${idx + 1} • ${p.name}`}
@@ -927,13 +1348,41 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           >
             <MaterialIcons name="add" size={18} color="#FFFFFF" />
             <Text style={styles.secondaryActionBtnText}>
-              + Novo Ativo
+              Novo ativo
             </Text>
           </TouchableOpacity>
         </View>
 
+        {/* 2.1 Meta de patrimônio (tile Bento) */}
+        <View style={{ marginBottom: 12 }}>
+          <GoalProgressTile
+            testID="portfolio-goal-tile"
+            currentValue={assets.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0) * (parseFloat(a.price) || 0), 0)}
+            patrimonyGoal={goalInfo.goal}
+            monthlyContribution={goalInfo.monthly}
+            isPrivacyMode={privacyMode}
+            loading={isPortfolioLoading}
+            onPress={() => setIsGoalEditorOpen(true)}
+          />
+        </View>
+        <GoalEditorSheet
+          visible={isGoalEditorOpen}
+          onClose={() => setIsGoalEditorOpen(false)}
+          initialGoal={goalInfo.goal}
+          initialMonthly={goalInfo.monthly}
+          themeMode={themeMode}
+          onSave={async (goal, monthly) => {
+            if (activePortfolioId) {
+              await portfolioRepository.setGoal(activePortfolioId, { patrimonyGoal: goal, monthlyContribution: monthly });
+              setGoalInfo({ goal, monthly });
+            }
+            setIsGoalEditorOpen(false);
+          }}
+        />
+
         {/* 3. Configurações de Ativos (Meus Ativos) */}
-        <View testID="portfolio-assets-section" style={[styles.cardSection, isLight && styles.cardSectionLight]}>
+        <SkeletonSwap loading={isPortfolioLoading} skeleton={<ListSkeleton testID="portfolio-assets-skeleton" rows={4} rowHeight={ASSET_ROW_HEIGHT} withTabs themeMode={themeMode} />}>
+        <BentoSection testID="portfolio-assets-section" themeMode={themeMode} style={{ marginTop: bento.gap }}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
@@ -1034,93 +1483,22 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             </View>
           ) : (
             <View style={styles.assetsList}>
-              {currentClassAssets.map((asset) => {
-                const globalTarget = calculateGlobalTarget(currentClassTarget, asset.targetInClass);
-                const color = getClassColor(asset.assetClass);
-
-                return (
-                  <View
-                    key={asset.id}
-                    testID={`asset-list-row-${asset.id}`}
-                    style={[styles.verticalAssetRow, isLight && styles.verticalAssetRowLight]}
-                  >
-                    <View style={styles.assetRowLeft}>
-                      <View style={styles.assetTickerRow}>
-                        <Text style={[styles.assetTicker, isLight && styles.assetTickerLight]}>
-                          {asset.ticker}
-                        </Text>
-                        <TouchableOpacity
-                          activeOpacity={0.7}
-                          onPress={() => setSelectedGlobalWizardAsset(asset)}
-                          style={[styles.globalBadge, isLight && styles.globalBadgeLight]}
-                        >
-                          <Text style={[styles.globalBadgeValue, { color }]}>
-                            {globalTarget.toFixed(1)}% global
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={[styles.assetName, isLight && styles.assetNameLight]}>
-                        {asset.name}
-                      </Text>
-                    </View>
-
-                    <View style={styles.assetRowRight}>
-                      {/* Botão de Excluir Ativo (Bug #8) */}
-                      <TouchableOpacity
-                        testID={`delete-asset-${asset.id}`}
-                        onPress={() => handleDeleteAsset(asset.id)}
-                        style={styles.deleteAssetBtn}
-                        activeOpacity={0.7}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Excluir ativo ${asset.ticker}`}
-                      >
-                        <MaterialIcons name="delete-outline" size={18} color="#FF6B6B" />
-                      </TouchableOpacity>
-
-                      {/* Botão de Cadeado do Ativo */}
-                      <TouchableOpacity
-                        testID={`lock-asset-${asset.id}`}
-                        onPress={() => handleToggleAssetLock(asset.id)}
-                        style={[
-                          styles.lockBtn,
-                          asset.isLocked && styles.lockBtnActive,
-                          isLight && styles.lockBtnLight,
-                          isLight && asset.isLocked && styles.lockBtnActiveLight,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <MaterialIcons
-                          name={asset.isLocked ? 'lock' : 'lock-open'}
-                          size={15}
-                          color={asset.isLocked ? colors.primary : (isLight ? '#777' : '#999')}
-                        />
-                      </TouchableOpacity>
-
-                      {/* Input Numérico Editável do Ativo */}
-                      <View style={[styles.assetNumericInputWrapper, isLight && styles.assetNumericInputWrapperLight]}>
-                        <TextInput
-                          testID={`input-asset-${asset.id}`}
-                          keyboardType="numeric"
-                          value={
-                            portfolioMode === 'percent'
-                              ? String(asset.targetInClass)
-                              : String(asset.weight ?? (asset.targetInClass > 0 ? asset.targetInClass : 1))
-                          }
-                          onChangeText={(t) =>
-                            portfolioMode === 'percent'
-                              ? handleAssetPercentageChange(asset.id, t)
-                              : handleAssetWeightChange(asset.id, t)
-                          }
-                          style={[styles.assetNumericInputText, isLight && styles.assetNumericInputTextLight]}
-                        />
-                        <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>
-                          {portfolioMode === 'percent' ? '% meta' : 'pts'}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
+              {currentClassAssets.map((asset) => (
+                <AssetRow
+                  key={asset.id}
+                  asset={asset}
+                  globalTarget={calculateGlobalTarget(currentClassTarget, asset.targetInClass)}
+                  color={getClassColor(asset.assetClass)}
+                  isLight={isLight}
+                  themeMode={themeMode}
+                  portfolioMode={portfolioMode}
+                  onWizard={setSelectedGlobalWizardAsset}
+                  onDelete={rowHandlers.onDelete}
+                  onToggleLock={rowHandlers.onToggleLock}
+                  onChangePct={rowHandlers.onChangePct}
+                  onChangeWeight={rowHandlers.onChangeWeight}
+                />
+              ))}
             </View>
           )}
 
@@ -1136,10 +1514,12 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               {`Adicionar Ativo em ${getClassName(selectedClassTab)}`}
             </Text>
           </TouchableOpacity>
-        </View>
+        </BentoSection>
+        </SkeletonSwap>
 
         {/* 4. Movimentações da Carteira */}
-        <View testID="portfolio-transactions-section" style={[styles.cardSection, isLight && styles.cardSectionLight]}>
+        <SkeletonSwap loading={isTxLoading} skeleton={<ListSkeleton testID="portfolio-transactions-skeleton" rows={3} rowHeight={TX_ROW_HEIGHT} themeMode={themeMode} />}>
+        <BentoSection testID="portfolio-transactions-section" themeMode={themeMode} style={{ marginTop: bento.gap }}>
           <View style={styles.sectionHeaderRow}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
@@ -1174,79 +1554,22 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             </View>
           ) : (
             <View style={styles.transactionsList}>
-              {portfolioTransactions.slice(0, 5).map((tx, idx) => {
-                const config = ASSET_CLASS_ATTRIBUTE_MAP[tx.assetClass] || {
-                  color: colors.primary,
-                  name: 'Ativo',
-                };
-                const isBuy = tx.type === 'BUY';
-                const isLast = idx === Math.min(portfolioTransactions.length, 5) - 1;
-                return (
-                  <View
-                    key={tx.id}
-                    testID={`wallet-tx-row-${tx.ticker}`}
-                    style={[
-                      styles.txRow,
-                      !isLast && (isLight ? styles.txBorderBottomLight : styles.txBorderBottom),
-                    ]}
-                  >
-                    <View style={[styles.txAvatar, { backgroundColor: config.color }]}>
-                      <MaterialIcons
-                        name={
-                          tx.assetClass === 'FIXED_INCOME'
-                            ? 'account-balance'
-                            : tx.assetClass === 'FII'
-                            ? 'apartment'
-                            : tx.assetClass === 'CRYPTO'
-                            ? 'currency-bitcoin'
-                            : 'trending-up'
-                        }
-                        size={18}
-                        color="#111315"
-                      />
-                    </View>
-                    <View style={styles.txInfo}>
-                      <View style={styles.txTopRow}>
-                        <Text style={[styles.txTicker, isLight && styles.txTickerLight]}>{tx.ticker}</Text>
-                        <Text
-                          style={[
-                            styles.txAmount,
-                            isLight && styles.txAmountLight,
-                            { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
-                          ]}
-                        >
-                          {privacyMode ? '••••••' : tx.amountText}
-                        </Text>
-                      </View>
-                      <View style={styles.txBottomRow}>
-                        <Text style={[styles.txDate, isLight && styles.txDateLight]}>{tx.dateText}</Text>
-                        <View
-                          style={[
-                            styles.txTypeBadge,
-                            {
-                              backgroundColor: isBuy
-                                ? (isLight ? '#E5F3EE' : '#1D2E28')
-                                : (isLight ? '#FCEBEA' : '#331C18'),
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.txTypeText,
-                              { color: isBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
-                            ]}
-                          >
-                            {isBuy ? 'Compra' : 'Venda'}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
+              {portfolioTransactions.slice(0, 5).map((tx, idx) => (
+                <TransactionRow
+                  key={tx.id}
+                  tx={tx}
+                  testID={`wallet-tx-row-${tx.ticker}`}
+                  isLast={idx === Math.min(portfolioTransactions.length, 5) - 1}
+                  themeMode={themeMode}
+                  isPrivacyMode={privacyMode}
+                  onPress={() => setIsExtratoModalOpen(true)}
+                />
+              ))}
             </View>
           )}
-        </View>
+        </BentoSection>
+        </SkeletonSwap>
+
 
         {/* Ações Destrutivas da Carteira Ativa no Rodapé da Página */}
         {portfolios.length > 0 && (
@@ -1273,96 +1596,86 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       )}
 
       {/* Modal: Nova Carteira */}
-      <Modal visible={isNewPortfolioModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => setIsNewPortfolioModalOpen(false)}
-          />
-          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
-            <View style={styles.sheetDragHandleContainer}>
-              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-            </View>
-            <View style={styles.sheetHeaderRow}>
-              <Text style={[styles.modalTitle, isLight && styles.modalTitleLight, { marginBottom: 0 }]}>
-                CRIAR NOVA CARTEIRA
-              </Text>
-              <TouchableOpacity
-                onPress={() => setIsNewPortfolioModalOpen(false)}
-                style={styles.sheetCloseBtn}
-              >
-                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
-              Informe o nome ou objetivo da carteira
-            </Text>
-            <TextInput
-              testID="new-portfolio-name-input"
-              style={[styles.modalInput, isLight && styles.modalInputLight]}
-              placeholder="Informe o nome ou objetivo da carteira"
-              placeholderTextColor={isLight ? '#999' : '#666'}
-              value={newPortfolioName}
-              onChangeText={setNewPortfolioName}
-            />
-            <TextInput
-              testID="create-portfolio-name-input"
-              style={{ position: 'absolute', opacity: 0.001, height: 1, width: 1 }}
-              value={newPortfolioName}
-              onChangeText={setNewPortfolioName}
-            />
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                onPress={() => setIsNewPortfolioModalOpen(false)}
-                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
-              >
-                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="confirm-new-portfolio-btn"
-                onPress={handleCreatePortfolio}
-                style={styles.modalConfirmBtn}
-              >
-                <Text style={styles.modalConfirmText}>Criar Carteira</Text>
-                <TouchableOpacity
-                  testID="create-portfolio-submit-btn"
-                  onPress={handleCreatePortfolio}
-                  style={StyleSheet.absoluteFillObject}
+      <AnimatedModalSheet
+        visible={isNewPortfolioModalOpen}
+        onClose={closeNewPortfolioModal}
+        themeMode={themeMode}
+      >
+            <BentoSheetHeader title="CRIAR NOVA CARTEIRA" onClose={closeNewPortfolioModal} themeMode={themeMode} />
+            <BentoGrid>
+              <BentoSection title="Identificação" themeMode={themeMode}>
+                <TextField
+                  testID="new-portfolio-name-input"
+                  themeMode={themeMode}
+                  placeholder="Informe o nome ou objetivo da carteira"
+                  value={newPortfolioName}
+                  onChangeText={setNewPortfolioName}
                 />
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+                <TextInput
+                  testID="create-portfolio-name-input"
+                  style={{ position: 'absolute', opacity: 0.001, height: 1, width: 1 }}
+                  value={newPortfolioName}
+                  onChangeText={setNewPortfolioName}
+                />
+              </BentoSection>
+              <BentoSection title="Meta de patrimônio (opcional)" themeMode={themeMode} testID="new-portfolio-goal-section">
+                <LedgerInput
+                  testID="new-portfolio-goal-input"
+                  label="Valor da meta"
+                  prefix="R$"
+                  value={newPortfolioGoal}
+                  onChangeText={setNewPortfolioGoal}
+                  placeholder="Ex.: 100.000,00"
+                  themeMode={themeMode}
+                />
+                <LedgerInput
+                  testID="new-portfolio-monthly-input"
+                  label="Aporte mensal planejado"
+                  prefix="R$"
+                  value={newPortfolioMonthly}
+                  onChangeText={setNewPortfolioMonthly}
+                  placeholder="Ex.: 1.000,00"
+                  themeMode={themeMode}
+                  style={{ marginTop: 12 }}
+                />
+              </BentoSection>
+              <BentoRow>
+                <TouchableOpacity
+                  onPress={closeNewPortfolioModal}
+                  style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight, styles.modalActionBtn]}
+                >
+                  <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="confirm-new-portfolio-btn"
+                  onPress={handleCreatePortfolio}
+                  style={[styles.modalConfirmBtn, styles.modalActionBtn]}
+                >
+                  <Text style={styles.modalConfirmText}>Criar Carteira</Text>
+                  <TouchableOpacity
+                    testID="create-portfolio-submit-btn"
+                    onPress={handleCreatePortfolio}
+                    style={StyleSheet.absoluteFill}
+                  />
+                </TouchableOpacity>
+              </BentoRow>
+            </BentoGrid>
+      </AnimatedModalSheet>
 
       {/* Modal: Adicionar Ativo (Módulo 5) */}
-      <Modal visible={isAddAssetModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => setIsAddAssetModalOpen(false)}
-          />
-          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
-            <View style={styles.sheetDragHandleContainer}>
-              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-            </View>
-            <View style={styles.sheetHeaderRow}>
-              <Text style={[styles.modalTitle, isLight && styles.modalTitleLight, { marginBottom: 0 }]}>
-                ADICIONAR ATIVO
-              </Text>
-              <TouchableOpacity
-                onPress={() => setIsAddAssetModalOpen(false)}
-                style={styles.sheetCloseBtn}
-              >
-                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight]}>
-              {`Classe: ${getClassName(selectedClassTab)}`}
-            </Text>
-
+      <AnimatedModalSheet
+        visible={isAddAssetModalOpen}
+        onClose={closeAddAssetModal}
+        themeMode={themeMode}
+      >
+            <BentoSheetHeader
+              title="ADICIONAR ATIVO"
+              subtitle={`Classe: ${getClassName(selectedClassTab)}`}
+              onClose={closeAddAssetModal}
+              themeMode={themeMode}
+            />
+            <BentoGrid>
+              <BentoSection title="Modo de meta" themeMode={themeMode}>
             {/* Toggle entre Porcentagem (%) e Peso no Modal */}
             <View style={[styles.modalModeToggleRow, isLight && styles.modalModeToggleRowLight]}>
               <TouchableOpacity
@@ -1409,6 +1722,18 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </TouchableOpacity>
             </View>
 
+            <TextField
+              themeMode={themeMode}
+              label="Meta na classe"
+              placeholder={addAssetMode === 'percent' ? 'Alocação desejada na classe % (ex: 20)' : 'Pontos relativos (ex: 2)'}
+              keyboardType="decimal-pad"
+              value={newTargetInClass}
+              onChangeText={setNewTargetInClass}
+              suffix={addAssetMode === 'percent' ? '%' : 'pts'}
+              suffixTestID="add-asset-unit-suffix"
+              style={{ marginTop: 10 }}
+            />
+
             {/* Dica explicativa de % global (oculta visualmente a pedido do usuário; acessível via Wizard ao tocar na badge % global) */}
             <View
               testID="global-target-hint"
@@ -1424,14 +1749,30 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </Text>
             </View>
 
-            {/* Card Explicativo de Peso (weight-helper-card) */}
-            <View testID="weight-helper-card" style={[styles.helperCard, isLight && styles.helperCardLight]}>
-              <MaterialIcons name="info-outline" size={16} color={colors.primary} />
-              <Text style={[styles.helperCardText, isLight && styles.helperCardTextLight]}>
-                O Peso define a importância relativa do ativo dentro da categoria. Por exemplo, um ativo com peso 2 recebe o dobro da alocação de um ativo com peso 1, convertendo-se automaticamente em porcentagem (%).
-              </Text>
-            </View>
 
+                {/* Explicação dos pontos: recolhida por padrão para o modal caber sem rolagem. */}
+                <TouchableOpacity
+                  testID="weight-helper-toggle"
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: isWeightHelpOpen }}
+                  onPress={() => setIsWeightHelpOpen((v) => !v)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 4 }}
+                >
+                  <MaterialIcons name={isWeightHelpOpen ? 'expand-less' : 'expand-more'} size={20} color={colors.primary} />
+                  <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '700', color: colors.primary }}>
+                    Como funcionam os pontos?
+                  </Text>
+                </TouchableOpacity>
+                {isWeightHelpOpen ? (
+                  <View testID="weight-helper-card" style={[styles.helperCard, isLight && styles.helperCardLight]}>
+                    <MaterialIcons name="info-outline" size={16} color={colors.primary} />
+                    <Text style={[styles.helperCardText, isLight && styles.helperCardTextLight]}>
+                      O Peso define a importância relativa do ativo dentro da categoria. Por exemplo, um ativo com peso 2 recebe o dobro da alocação de um ativo com peso 1, convertendo-se automaticamente em porcentagem (%).
+                    </Text>
+                  </View>
+                ) : null}
+              </BentoSection>
+              <BentoSection title="Ativo" themeMode={themeMode}>
             {/* Mensagem de Erro de Validação de Ativo x Classe */}
             {assetValidationError && (
               <View testID="asset-validation-error" style={styles.validationErrorBox}>
@@ -1442,14 +1783,14 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
             {/* Campo de Autocomplete */}
             <View style={styles.autocompleteContainer}>
-              <TextInput
+              <TextField
                 testID="asset-autocomplete-input"
-                style={[styles.modalInput, isLight && styles.modalInputLight]}
+                themeMode={themeMode}
                 placeholder="Buscar ativo (ex: PETR4, VALE3, WEGE3...)"
-                placeholderTextColor={isLight ? '#999' : '#666'}
                 value={autocompleteQuery}
                 onChangeText={handleAutocompleteChange}
                 autoCapitalize="characters"
+                style={{ marginBottom: 10 }}
               />
 
               {/* Lista de Sugestões de Autocomplete */}
@@ -1477,110 +1818,64 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               )}
             </View>
 
-            <TextInput
-              style={[styles.modalInput, isLight && styles.modalInputLight]}
+            <TextField
+              themeMode={themeMode}
               placeholder="Nome descritivo da empresa/ativo"
-              placeholderTextColor={isLight ? '#999' : '#666'}
               value={newName}
               onChangeText={setNewName}
             />
 
-            <View style={[styles.modalTargetInputWrapper, isLight && styles.modalTargetInputWrapperLight]}>
-              <TextInput
-                style={[styles.modalTargetInputText, isLight && styles.modalTargetInputTextLight]}
-                placeholder={addAssetMode === 'percent' ? 'Alocação desejada na classe % (ex: 20)' : 'Pontos relativos (ex: 2)'}
-                placeholderTextColor={isLight ? '#999' : '#666'}
-                keyboardType="numeric"
-                value={newTargetInClass}
-                onChangeText={setNewTargetInClass}
-              />
-              <Text
-                testID="add-asset-unit-suffix"
-                style={[styles.modalTargetUnitSuffix, isLight && styles.modalTargetUnitSuffixLight]}
-              >
-                {addAssetMode === 'percent' ? '%' : 'pts'}
-              </Text>
-            </View>
+              </BentoSection>
+              <BentoRow>
+                <TouchableOpacity
+                  onPress={closeAddAssetModal}
+                  style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight, styles.modalActionBtn]}
+                >
+                  <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="save-asset-target-btn"
+                  onPress={handleAddAsset}
+                  style={[styles.modalConfirmBtn, styles.modalActionBtn]}
+                >
+                  <Text style={styles.modalConfirmText}>Salvar Ativo</Text>
+                </TouchableOpacity>
+              </BentoRow>
+            </BentoGrid>
+      </AnimatedModalSheet>
 
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                onPress={() => setIsAddAssetModalOpen(false)}
-                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
-              >
-                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="save-asset-target-btn"
-                onPress={handleAddAsset}
-                style={styles.modalConfirmBtn}
-              >
-                <Text style={styles.modalConfirmText}>Salvar Ativo</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal: Confirmação de Exclusão de Carteira em Cascata */}
-      <Modal visible={isDeleteModalOpen} transparent animationType="fade">
-        <View testID="delete-portfolio-modal" style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, isLight && styles.modalContainerLight]}>
-            <Text style={[styles.modalTitle, isLight && styles.modalTitleLight]}>
-              CONFIRMAR EXCLUSÃO
-            </Text>
-            <Text style={[styles.modalSubtitle, isLight && styles.modalSubtitleLight, { marginBottom: 16 }]}>
-              Tem certeza de que deseja excluir esta carteira? Todos os ativos e transações associados serão removidos definitivamente em cascata.
-            </Text>
-            <View style={styles.modalButtonsRow}>
-              <TouchableOpacity
-                onPress={() => setIsDeleteModalOpen(false)}
-                style={[styles.modalCancelBtn, isLight && styles.modalCancelBtnLight]}
-              >
-                <Text style={[styles.modalCancelText, isLight && styles.modalCancelTextLight]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                testID="confirm-delete-portfolio-btn"
-                onPress={handleDeleteActivePortfolio}
-                style={[styles.modalConfirmBtn, { backgroundColor: '#E05252' }]}
-              >
-                <Text style={styles.modalConfirmText}>Confirmar Exclusão</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      {/* Modal: Confirmação de Exclusão de Carteira (cascata: ativos e movimentações) */}
+      <ConfirmDialog
+        testID="delete-portfolio-modal"
+        confirmTestID="confirm-delete-portfolio-btn"
+        visible={isDeleteModalOpen}
+        title={`Excluir carteira ${portfolios.find((p) => p.id === activePortfolioId)?.name ?? ''}?`.replace('  ', ' ')}
+        message="Essa ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        destructive
+        themeMode={themeMode}
+        onCancel={() => setIsDeleteModalOpen(false)}
+        onConfirm={handleDeleteActivePortfolio}
+      />
 
       {/* Modal / Bottom Sheet: Metas por Tipo de Ativo */}
-      <View
+      <AnimatedModalSheet
         testID="metas-modal-sheet"
-        pointerEvents={isMetasModalOpen ? 'auto' : 'none'}
-        style={[
-          styles.sheetOverlay,
-          !isMetasModalOpen && { opacity: 0.0001, height: 1, width: 1, overflow: 'hidden' },
-        ]}
+        keepMountedWhenClosed
+        visible={isMetasModalOpen}
+        onClose={() => setIsMetasModalOpen(false)}
+        themeMode={themeMode}
       >
-        <TouchableOpacity
-          style={StyleSheet.absoluteFillObject}
-          activeOpacity={1}
-          onPress={() => setIsMetasModalOpen(false)}
-        />
-        <View style={[styles.sheetContainer, isLight && styles.sheetContainerLight]}>
-            {/* Header com X */}
-            <View style={styles.sheetHeaderRow}>
-              <Text style={[styles.sheetHeaderTitle, isLight && styles.sheetHeaderTitleLight]}>
-                Porcentagem ideal por tipo de ativo
-              </Text>
-              <TouchableOpacity
-                testID="close-metas-modal-btn"
-                onPress={() => setIsMetasModalOpen(false)}
-                style={styles.sheetCloseBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Fechar metas"
-              >
-                <MaterialIcons name="close" size={20} color={isLight ? '#111315' : colors.parchmentPale} />
-              </TouchableOpacity>
-            </View>
-
+            <BentoSheetHeader
+              title="METAS POR CATEGORIA"
+              subtitle="Porcentagem ideal por tipo de ativo"
+              onClose={() => setIsMetasModalOpen(false)}
+              closeTestID="close-metas-modal-btn"
+              themeMode={themeMode}
+            />
+            <BentoGrid>
+              <BentoSection title="Distribuição ideal" themeMode={themeMode}>
             {/* Banner de Ajuda estilo Investidor10 */}
             <View style={[styles.metasHelpBox, isLight && styles.metasHelpBoxLight]}>
               <MaterialIcons name="info-outline" size={18} color={isLight ? '#7C786F' : colors.tertiary} />
@@ -1618,7 +1913,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                         />
                       </TouchableOpacity>
                       <View style={[styles.classColorIndicator, { backgroundColor: isDeactivated ? (isLight ? '#CCC' : '#555') : color }]} />
-                      <View>
+                      <View style={{ flexShrink: 1 }}>
                         <Text style={[styles.macroClassName, isLight && styles.macroClassNameLight]}>
                           {getClassName(ct.assetClass)}
                         </Text>
@@ -1627,6 +1922,21 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                             (Desativada)
                           </Text>
                         )}
+                        {!isDeactivated && hasClassValues && classSummaryRows.find((r) => r.assetClass === ct.assetClass) ? (
+                          <Text
+                            testID={`class-gap-${ct.assetClass}`}
+                            style={{ fontSize: 10, color: isLight ? '#6E6A63' : '#8A8A8E', fontFamily: typography.fontFamilyMono }}
+                          >
+                            {(() => {
+                              const r = classSummaryRows.find((x) => x.assetClass === ct.assetClass)!;
+                              const gap = Number(r.gap);
+                              const fmt = (n: number) => Math.abs(n).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              return privacyMode
+                                ? 'alvo ••••'
+                                : `alvo ${fmt(Number(r.targetValue))} · ${gap >= 0 ? 'falta' : 'sobra'} ${fmt(gap)}`;
+                            })()}
+                          </Text>
+                        ) : null}
                       </View>
                     </View>
 
@@ -1653,40 +1963,40 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                       </TouchableOpacity>
 
                       {/* Input Numérico Editável Macro */}
-                      <View
-                        testID={`input-wrapper-class-${ct.assetClass}`}
-                        style={[
-                          styles.numericInputWrapper,
-                          isLight && styles.numericInputWrapperLight,
-                          isDeactivated && { opacity: 0.4 },
-                        ]}
-                      >
-                        <TextInput
-                          testID={`input-class-${ct.assetClass}`}
-                          keyboardType="numeric"
-                          value={
-                            classInputText[ct.assetClass] !== undefined
-                              ? classInputText[ct.assetClass]
-                              : (ct.targetPercentage === 0 && isDeactivated ? '0' : String(ct.targetPercentage))
-                          }
-                          onBlur={() => {
-                            setClassInputText((prev) => {
-                              const next = { ...prev };
-                              delete next[ct.assetClass];
-                              return next;
-                            });
-                          }}
-                          onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
-                          style={[styles.numericInputText, { color: isDeactivated ? (isLight ? '#999' : '#666') : color }]}
-                        />
-                        <Text style={[styles.inputUnitText, isLight && styles.inputUnitTextLight]}>% meta</Text>
-                      </View>
+                      <TextField
+                        compact
+                        themeMode={themeMode}
+                        containerTestID={`input-wrapper-class-${ct.assetClass}`}
+                        testID={`input-class-${ct.assetClass}`}
+                        keyboardType="decimal-pad"
+                        inputMode="decimal"
+                        maxLength={6}
+                        selectTextOnFocus
+                        accessibilityLabel={`Meta de ${ct.assetClass} em porcentagem`}
+                        suffix="% meta"
+                        style={{ width: 132, opacity: isDeactivated ? 0.45 : 1 }}
+                        inputStyle={{ color: isDeactivated ? (isLight ? '#999' : '#666') : color, textAlign: 'right' }}
+                        value={
+                          classInputText[ct.assetClass] !== undefined
+                            ? classInputText[ct.assetClass]
+                            : (ct.targetPercentage === 0 && isDeactivated ? '0' : String(ct.targetPercentage))
+                        }
+                        onBlur={() => {
+                          setClassInputText((prev) => {
+                            const next = { ...prev };
+                            delete next[ct.assetClass];
+                            return next;
+                          });
+                        }}
+                        onChangeText={(t) => handleClassPercentageChange(ct.assetClass, t)}
+                      />
                     </View>
                   </View>
                 );
               })}
             </View>
 
+              </BentoSection>
             {/* Indicador de 100% estilo Investidor10 (oculto visualmente a pedido do usuário; mantido no DOM para TDD) */}
             <View
               testID="metas-total-indicator"
@@ -1705,24 +2015,21 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               <Text style={styles.metasTotalValue}>100%</Text>
             </View>
 
-            {/* Botões de Ação Cancelar / Salvar */}
-            <View style={styles.sheetButtonsRow}>
-              <TouchableOpacity
-                testID="metas-cancel-btn"
-                onPress={() => setIsMetasModalOpen(false)}
-                style={[styles.metasCancelBtn, isLight && styles.metasCancelBtnLight]}
-              >
-                <Text style={[styles.metasCancelText, isLight && styles.metasCancelTextLight]}>Cancelar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="metas-save-btn"
-                onPress={async () => {
+              <BentoRow>
+                <TouchableOpacity
+                  testID="metas-cancel-btn"
+                  onPress={() => setIsMetasModalOpen(false)}
+                  style={[styles.metasCancelBtn, isLight && styles.metasCancelBtnLight, styles.modalActionBtn]}
+                >
+                  <Text style={[styles.metasCancelText, isLight && styles.metasCancelTextLight]}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  testID="metas-save-btn"
+                  onPress={async () => {
                   if (activePortfolioId) {
-                    await portfolioRepository.saveClassTargets(
+                    await portfolioRepository.setClassTargets(
                       activePortfolioId,
                       classTargets.map((c) => ({
-                        portfolio_id: activePortfolioId,
                         asset_class: c.assetClass,
                         target_percentage: c.targetPercentage,
                       }))
@@ -1730,31 +2037,21 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   }
                   setIsMetasModalOpen(false);
                 }}
-                style={styles.metasSaveBtn}
-              >
-                <Text style={styles.metasSaveText}>Salvar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+                  style={[styles.metasSaveBtn, styles.modalActionBtn]}
+                >
+                  <Text style={styles.metasSaveText}>Salvar</Text>
+                </TouchableOpacity>
+              </BentoRow>
+            </BentoGrid>
+      </AnimatedModalSheet>
 
       {/* Modal Wizard: Explicação da % Global do Ativo */}
-      <Modal
+      <AnimatedModalSheet
         visible={!!selectedGlobalWizardAsset}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSelectedGlobalWizardAsset(null)}
+        onClose={() => setSelectedGlobalWizardAsset(null)}
+        themeMode={themeMode}
+        maxHeight={0.8}
       >
-        <View style={styles.sheetOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => setSelectedGlobalWizardAsset(null)}
-          />
-          <View style={[styles.sheetContainer, isLight && styles.sheetContainerLight, { maxHeight: '80%' }]}>
-            <View style={styles.sheetDragHandleContainer}>
-              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-            </View>
             <View style={styles.sheetHeaderRow}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <MaterialIcons name="calculate" size={20} color={colors.primary} />
@@ -1812,9 +2109,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             >
               <Text style={styles.wizardConfirmBtnText}>Entendi</Text>
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+      </AnimatedModalSheet>
 
       {/* Modal: Extrato Completo Filtrado por esta Carteira */}
       <Modal
@@ -1889,57 +2184,96 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#1E2023',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2D3035',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 8,
+    borderRadius: 18,
+    backgroundColor: '#16181A',
   },
   verticalClassRowLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
+    backgroundColor: '#F4F1EA',
   },
   classRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    minWidth: 0,
   },
   classRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   verticalAssetRow: {
+    minHeight: 68,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#1E2023',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#2D3035',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     marginBottom: 8,
+    borderRadius: 18,
+    backgroundColor: '#16181A',
   },
   verticalAssetRowLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
+    backgroundColor: '#F4F1EA',
   },
   assetRowLeft: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
+    marginRight: 8,
   },
   assetRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
+    flexShrink: 0,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#26292C',
+    borderRadius: 16,
+    padding: 3,
+  },
+  stepperLight: { backgroundColor: '#FFFFFF' },
+  stepperBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperValueWrap: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    minWidth: 58,
+    paddingHorizontal: 2,
+  },
+  stepperInput: {
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'right',
+    minWidth: 34,
+    maxWidth: 52,
+    padding: 0,
+  },
+  stepperSuffix: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#8A8C90',
+    marginLeft: 2,
   },
   assetTickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   deleteAssetBtn: {
     padding: 6,
@@ -1948,46 +2282,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
-    paddingBottom: 40,
-  },
-  addPortfolioBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#16181A',
-    paddingVertical: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    borderStyle: 'dashed',
-    gap: 8,
-    marginTop: -4,
-  },
-  addPortfolioBtnLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-  },
-  addPortfolioBtnText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    color: colors.parchmentPale,
-    fontWeight: '600',
-  },
-  addPortfolioBtnTextLight: {
-    color: '#111315',
-  },
-  cardSection: {
-    backgroundColor: colors.neutral,
-    borderRadius: 24,
-    padding: 16,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-  },
-  cardSectionLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: layout.tabScreenPaddingTop,
+    gap: bento.gap + 2,
+    paddingBottom: space.xxl + space.xl,
   },
   sectionLabel: {
     fontFamily: typography.fontFamily,
@@ -2012,7 +2310,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: layout.sectionTitleGap,
   },
   modeToggleContainer: {
     flexDirection: 'row',
@@ -2053,35 +2351,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '700',
   },
-  macroGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  macroCard: {
-    width: '48%',
-    backgroundColor: '#16181A',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    justifyContent: 'space-between',
-  },
-  macroCardLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
-  },
-  macroCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  macroTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
   classActiveToggleBtn: {
     marginRight: 6,
     padding: 2,
@@ -2116,40 +2385,6 @@ const styles = StyleSheet.create({
   lockBtnActiveLight: {
     backgroundColor: '#FBECE2',
   },
-  numericInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111315',
-    borderRadius: 10,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
-    borderWidth: 1.5,
-    borderColor: '#383C42',
-    width: 84,
-    justifyContent: 'flex-end',
-  },
-  numericInputWrapperLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DDD7CD',
-  },
-  numericInputText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    padding: 0,
-    textAlign: 'right',
-    minWidth: 32,
-  },
-  inputUnitText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#8A8C90',
-    fontWeight: '600',
-    marginLeft: 2,
-  },
-  inputUnitTextLight: {
-    color: '#6E6A63',
-  },
   classTabsRow: {
     flexDirection: 'row',
     gap: 8,
@@ -2158,7 +2393,7 @@ const styles = StyleSheet.create({
   classTab: {
     flex: 1,
     paddingVertical: 8,
-    borderRadius: 12,
+    borderRadius: 18,
     alignItems: 'center',
     backgroundColor: '#16181A',
     borderWidth: 1,
@@ -2178,23 +2413,6 @@ const styles = StyleSheet.create({
   },
   assetsList: {
     gap: 10,
-  },
-  assetCard: {
-    backgroundColor: '#16181A',
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#26292C',
-  },
-  assetCardLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
-  },
-  assetInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
   },
   assetTicker: {
     fontFamily: typography.fontFamily,
@@ -2226,82 +2444,10 @@ const styles = StyleSheet.create({
     borderColor: '#EAE4D7',
     borderWidth: 1,
   },
-  globalBadgeLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 9,
-    color: '#8A8C90',
-    textTransform: 'uppercase',
-  },
-  globalBadgeLabelLight: {
-    color: '#6E6A63',
-  },
   globalBadgeValue: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-  },
-  assetTargetRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#26292C',
-  },
-  assetTargetRowLight: {
-    borderTopColor: '#EAE4D7',
-  },
-  assetModeInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  targetInClassLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#8A8C90',
-  },
-  targetInClassLabelLight: {
-    color: '#6E6A63',
-  },
-  convertedPercentLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  assetEditControlsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  assetNumericInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111315',
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1.5,
-    borderColor: '#383C42',
-    minWidth: 90,
-    maxWidth: 108,
-    justifyContent: 'flex-end',
-  },
-  assetNumericInputWrapperLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#DDD7CD',
-  },
-  assetNumericInputText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-    padding: 0,
-    minWidth: 26,
-    textAlign: 'right',
-  },
-  assetNumericInputTextLight: {
-    color: '#111315',
   },
   addAssetBtn: {
     flexDirection: 'row',
@@ -2309,7 +2455,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#16181A',
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#26292C',
     gap: 6,
@@ -2325,53 +2471,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: '#191B1D',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 32,
-    width: '100%',
-    maxHeight: '88%',
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-  },
-  modalContainerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-  },
-  modalTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 0.8,
-  },
-  modalTitleLight: {
-    color: colors.primary,
-  },
-  modalSubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#8A8C90',
-    marginTop: 2,
-    marginBottom: 14,
-  },
-  modalSubtitleLight: {
-    color: '#6E6A63',
-  },
   modalModeToggleRow: {
     flexDirection: 'row',
     backgroundColor: '#16181A',
-    borderRadius: 12,
+    borderRadius: 18,
     padding: 2,
     borderWidth: 1,
     borderColor: '#26292C',
@@ -2412,7 +2515,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#16181A',
     padding: 10,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#26292C',
     marginBottom: 12,
@@ -2437,7 +2540,7 @@ const styles = StyleSheet.create({
   },
   suggestionsDropdown: {
     backgroundColor: '#16181A',
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#26292C',
     marginTop: -6,
@@ -2479,28 +2582,12 @@ const styles = StyleSheet.create({
   suggestionNameLight: {
     color: '#111315',
   },
-  modalInput: {
-    backgroundColor: '#16181A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: colors.parchmentPale,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    marginBottom: 10,
-  },
-  modalInputLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
-    color: '#111315',
-  },
-  modalButtonsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 8,
+  modalActionBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+    borderRadius: 20,
   },
   modalCancelBtn: {
     paddingHorizontal: 14,
@@ -2538,7 +2625,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(224, 82, 82, 0.15)',
     borderWidth: 1,
     borderColor: '#E05252',
-    borderRadius: 10,
+    borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginBottom: 12,
@@ -2617,12 +2704,6 @@ const styles = StyleSheet.create({
   portfolioChipAddTextLight: {
     color: '#D96628',
   },
-  portfolioActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginVertical: 8,
-    paddingHorizontal: 4,
-  },
   portfolioFooterActions: {
     width: '100%',
     marginTop: 24,
@@ -2667,10 +2748,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2D3035',
   },
-  globalHintBoxLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
-  },
   globalHintText: {
     flex: 1,
     fontFamily: typography.fontFamily,
@@ -2680,40 +2757,6 @@ const styles = StyleSheet.create({
   },
   globalHintTextLight: {
     color: '#6E6A63',
-  },
-  modalTargetInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#111315',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#26292C',
-    paddingHorizontal: 12,
-    marginBottom: 10,
-  },
-  modalTargetInputWrapperLight: {
-    backgroundColor: '#F8F5EE',
-    borderColor: '#EAE4D7',
-  },
-  modalTargetInputText: {
-    flex: 1,
-    paddingVertical: 10,
-    color: colors.parchmentPale,
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-  },
-  modalTargetInputTextLight: {
-    color: '#111315',
-  },
-  modalTargetUnitSuffix: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.primary,
-    marginLeft: 6,
-  },
-  modalTargetUnitSuffixLight: {
-    color: colors.primary,
   },
   actionButtonsRow: {
     flexDirection: 'row',
@@ -2808,74 +2851,6 @@ const styles = StyleSheet.create({
   transactionsList: {
     marginTop: 4,
   },
-  txRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-  },
-  txBorderBottom: {
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#26292C',
-  },
-  txBorderBottomLight: {
-    borderBottomWidth: borders.hairline,
-    borderBottomColor: '#F0ECE1',
-  },
-  txAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-  },
-  txInfo: {
-    flex: 1,
-  },
-  txTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  txTicker: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.parchmentPale,
-  },
-  txTickerLight: {
-    color: '#111315',
-  },
-  txAmount: {
-    fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  txAmountLight: {},
-  txBottomRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  txDate: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#8A8A8E',
-  },
-  txDateLight: {
-    color: '#8A8A8E',
-  },
-  txTypeBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  txTypeText: {
-    fontFamily: typography.fontFamily,
-    fontSize: 10,
-    fontWeight: '600',
-  },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -2899,31 +2874,6 @@ const styles = StyleSheet.create({
   },
   emptySubtitleLight: {
     color: '#6E6A63',
-  },
-  sheetOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-    zIndex: 9999,
-  },
-  sheetContainer: {
-    backgroundColor: '#191B1D',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    maxHeight: '85%',
-  },
-  sheetContainerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
   },
   sheetHeaderRow: {
     flexDirection: 'row',
@@ -2949,7 +2899,7 @@ const styles = StyleSheet.create({
     gap: 10,
     backgroundColor: '#202326',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 18,
     marginBottom: 16,
   },
   metasHelpBoxLight: {
@@ -2976,10 +2926,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2E4A44',
   },
-  metasTotalIndicatorLight: {
-    backgroundColor: '#EAF4F0',
-    borderColor: '#B8DFD1',
-  },
   metasTotalLeft: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2999,11 +2945,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#2E4A44',
-  },
-  sheetButtonsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 18,
   },
   metasCancelBtn: {
     flex: 1,

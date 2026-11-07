@@ -16,6 +16,27 @@ function roundToTwo(val: number): number {
 }
 
 /**
+ * Arredonda a 2 casas pelo método do maior resto: a soma fecha exatamente em `total` (2 casas),
+ * ninguém fica negativo e nenhum item (como o último) absorve sozinho o erro de arredondamento.
+ */
+export function roundSharesLargestRemainder(raw: Decimal[], total: Decimal): number[] {
+  const totalCents = Math.max(0, total.mul(100).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toNumber());
+  const floors = raw.map((r) => Decimal.max(0, r).mul(100).floor());
+  const rema = raw.map((r, i) => Decimal.max(0, r).mul(100).minus(floors[i]));
+  let left = totalCents - floors.reduce((a, f) => a + f.toNumber(), 0);
+  const cents = floors.map((f) => f.toNumber());
+  const order = rema.map((r, i) => ({ r, i })).sort((x, y) => y.r.comparedTo(x.r) || x.i - y.i);
+  for (let k = 0; left > 0 && order.length > 0; k = (k + 1) % order.length, left--) cents[order[k].i] += 1;
+  for (let k = order.length - 1; left < 0 && order.length > 0; k = (k - 1 + order.length) % order.length) {
+    if (cents[order[k].i] > 0) {
+      cents[order[k].i] -= 1;
+      left++;
+    }
+  }
+  return cents.map((c) => c / 100);
+}
+
+/**
  * Recalcula as porcentagens dos itens destravados de forma proporcional
  * quando um item específico é alterado, mantendo rigorosamente itens travados
  * e garantindo que a soma final de todos os itens totalize exatamente 100%.
@@ -68,49 +89,18 @@ export function recalculateUnlockedTargets<T extends LockableAllocationItem>(
     new Decimal(0)
   );
 
-  const lastUnlockedId = otherUnlocked[otherUnlocked.length - 1]?.id;
-  let distributedSum = new Decimal(0);
+  const raws = otherUnlocked.map((item) =>
+    otherUnlockedSum.gt(0)
+      ? new Decimal(item.percentage || 0).div(otherUnlockedSum).mul(remaining)
+      : remaining.div(otherUnlocked.length)
+  );
+  const shares = roundSharesLargestRemainder(raws, remaining);
+  const shareById = new Map(otherUnlocked.map((item, idx) => [item.id, shares[idx]]));
 
-  const intermediate = items.map((item) => {
-    if (item.id === changedId) {
-      return { ...item, percentage: clampedNewVal };
-    }
-    if (item.isLocked) {
-      return item;
-    }
-    if (item.id === lastUnlockedId) {
-      return item;
-    }
-
-    // Item destravado: redistribuição proporcional
-    let newPercent: number;
-    if (otherUnlockedSum.gt(0)) {
-      newPercent = new Decimal(item.percentage || 0)
-        .div(otherUnlockedSum)
-        .mul(remaining)
-        .toNumber();
-    } else {
-      // Se todos os outros estavam com 0%, divide igualmente o resíduo
-      newPercent = remaining.div(otherUnlocked.length).toNumber();
-    }
-
-    const rounded = roundToTwo(newPercent);
-    distributedSum = distributedSum.plus(rounded);
-    return {
-      ...item,
-      percentage: rounded,
-    };
-  });
-
-  return intermediate.map((item) => {
-    if (item.id === lastUnlockedId) {
-      const targetForLast = remaining.minus(distributedSum).toNumber();
-      return {
-        ...item,
-        percentage: roundToTwo(targetForLast),
-      };
-    }
-    return item;
+  return items.map((item) => {
+    if (item.id === changedId) return { ...item, percentage: clampedNewVal };
+    if (item.isLocked) return item;
+    return { ...item, percentage: shareById.get(item.id) ?? 0 };
   });
 }
 
@@ -144,25 +134,25 @@ export function convertWeightsToPercentagesWithLocks<T extends LockableAllocatio
     new Decimal(0)
   );
 
-  return items.map((item) => {
-    if (item.isLocked) {
-      return item;
-    }
-
+  const raws = unlockedItems.map((item) => {
     const weight = item.weight !== undefined ? item.weight : 1;
-    let newPercent: number;
-    if (unlockedWeightSum.gt(0)) {
-      newPercent = new Decimal(weight)
-        .div(unlockedWeightSum)
-        .mul(availablePercentage)
-        .toNumber();
-    } else {
-      newPercent = availablePercentage.div(unlockedItems.length).toNumber();
-    }
-
-    return {
-      ...item,
-      percentage: roundToTwo(newPercent),
-    };
+    return unlockedWeightSum.gt(0)
+      ? new Decimal(weight).div(unlockedWeightSum).mul(availablePercentage)
+      : availablePercentage.div(unlockedItems.length);
   });
+  const shares = roundSharesLargestRemainder(raws, availablePercentage);
+  const shareById = new Map(unlockedItems.map((item, idx) => [item.id, shares[idx]]));
+  return items.map((item) => (item.isLocked ? item : { ...item, percentage: shareById.get(item.id) ?? 0 }));
+}
+
+/**
+ * Reescala as metas (%) para fechar exatamente 100%, mantendo a proporção entre elas e preservando
+ * valores quebrados (2 casas). O último item absorve a diferença de arredondamento.
+ */
+export function normalizeTargetsToHundred<T extends { id: string; percentage: number }>(items: T[]): T[] {
+  if (!items || items.length === 0) return [];
+  const total = items.reduce((acc, i) => acc.plus(i.percentage || 0), new Decimal(0));
+  const raws = items.map((i) => (total.gt(0) ? new Decimal(i.percentage || 0).div(total).mul(100) : new Decimal(100).div(items.length)));
+  const shares = roundSharesLargestRemainder(raws, new Decimal(100));
+  return items.map((item, idx) => ({ ...item, percentage: shares[idx] }));
 }

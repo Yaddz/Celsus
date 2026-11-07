@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
 import { typography } from '../../theme/tokens';
@@ -16,6 +16,8 @@ export interface XpMinimalHeaderProps {
   subtitle?: string;
   palette?: PortfolioPalette;
   themeMode?: ThemeMode;
+  /** Offset de rolagem do conteúdo; controla a opacidade do fade inferior. */
+  scrollY?: Animated.Value;
   testID?: string;
 }
 
@@ -24,9 +26,9 @@ export interface XpMinimalHeaderProps {
  * - Esquerda: Botão Voltar (se onBack presente) OU Avatar com iniciais + Nome.
  * - Direita: Botão de Globo e Botão de Olho (Modo Privacidade).
  */
-export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
-  userName = 'Pedro',
-  userInitials = 'PL',
+const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
+  userName = '',
+  userInitials = '',
   isPrivacyModeEnabled = false,
   onAvatarPress,
   onGlobePress,
@@ -36,6 +38,7 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   subtitle,
   palette = PORTFOLIO_PALETTES.classic,
   themeMode = 'dark',
+  scrollY,
   testID = 'xp-minimal-header',
 }) => {
   const isLight = themeMode === 'light';
@@ -54,8 +57,32 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
     }
   };
 
+  // Fade da borda inferior: 1 faixa por pixel na cor de fundo da tela, ancorado logo abaixo
+  // da altura FIXA do header. Só aparece quando o conteúdo rola (scrollY > 0); em repouso fica
+  // invisível e não cobre o topo da tela. Sem `scrollY` (telas que não rolam) permanece oculto.
+  const fadeRgb = isLight ? '244,241,234' : '17,19,21';
+  const fadeOpacity = scrollY
+    ? scrollY.interpolate({ inputRange: [0, 16], outputRange: [0, 1], extrapolate: 'clamp' })
+    : 0;
+
   return (
     <View testID={testID} style={styles.container}>
+      <Animated.View
+        testID="header-bottom-fade"
+        pointerEvents="none"
+        style={[styles.fadeStrip, { opacity: fadeOpacity }]}
+      >
+        {Array.from({ length: FADE_HEIGHT }).map((_, i) => {
+          // 1 faixa por pixel, curva suave: sem degraus perceptíveis e sem dependência nativa extra.
+          const t = (i + 0.5) / FADE_HEIGHT;
+          return (
+            <View
+              key={i}
+              style={{ height: 1, backgroundColor: `rgba(${fadeRgb},${Math.pow(1 - t, 1.5).toFixed(3)})` }}
+            />
+          );
+        })}
+      </Animated.View>
       {/* Canto Esquerdo: Botão Voltar OU Avatar do Usuário */}
       {onBack ? (
         <TouchableOpacity
@@ -88,6 +115,8 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
       ) : (
         <TouchableOpacity
           testID="header-avatar-button"
+          accessibilityRole="button"
+          accessibilityLabel={`Abrir perfil de ${userName}`}
           onPress={onAvatarPress}
           activeOpacity={0.8}
           style={styles.avatarButton}
@@ -101,18 +130,20 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
               },
             ]}
           >
-            <Text
-              style={[
-                styles.avatarText,
-                { color: isLight ? '#111315' : palette.accent },
-              ]}
-            >
-              {userInitials}
-            </Text>
+            {userInitials ? (
+              <Text
+                style={[
+                  styles.avatarText,
+                  { color: isLight ? '#111315' : palette.accent },
+                ]}
+              >
+                {userInitials}
+              </Text>
+            ) : (
+              <MaterialIcons name="person" size={20} color={isLight ? '#111315' : palette.accent} />
+            )}
           </View>
-          <Text style={[styles.userNameText, { color: textColor }]}>
-            {userName}
-          </Text>
+          {/* Nome removido do header: fica só o avatar (o nome aparece no perfil). */}
         </TouchableOpacity>
       )}
 
@@ -162,13 +193,25 @@ export const XpMinimalHeader: React.FC<XpMinimalHeaderProps> = ({
   );
 };
 
+/** Altura fixa do header: evita saltos de layout entre variantes (avatar, voltar+título+subtítulo). */
+export const HEADER_HEIGHT = 64;
+const FADE_HEIGHT = 24;
+
 const styles = StyleSheet.create({
+  fadeStrip: {
+    position: 'absolute',
+    top: HEADER_HEIGHT,
+    left: 0,
+    right: 0,
+    height: FADE_HEIGHT,
+    zIndex: 5,
+  },
   container: {
+    height: HEADER_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
     zIndex: 10,
   },
   avatarButton: {
@@ -223,3 +266,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+/** Memoizado: só re-renderiza quando as props mudam (troca de carteira não refaz o resto da Home). */
+export const XpMinimalHeader = React.memo(XpMinimalHeaderBase);

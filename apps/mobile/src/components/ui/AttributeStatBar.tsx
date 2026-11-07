@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+import { JellyPressable } from './JellyPressable';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
 
 export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO';
@@ -140,7 +141,6 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
           <Text style={[styles.categoryName, { color: config.color }]}>
             {config.name.toUpperCase()}
           </Text>
-          <Text style={[styles.classLabel, isLight && styles.classLabelLight]}> • {config.label}</Text>
         </View>
 
         <Text style={[styles.metricsContainer, isLight && styles.metricsContainerLight]}>
@@ -161,13 +161,13 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
 
   if (onPress) {
     return (
-      <TouchableOpacity
+      <JellyPressable
         testID={testID}
-        activeOpacity={0.8}
+        intensity="subtle"
         onPress={() => onPress(assetClass)}
       >
         {content}
-      </TouchableOpacity>
+      </JellyPressable>
     );
   }
 
@@ -179,17 +179,14 @@ export const AttributeStatBar: React.FC<AttributeStatBarProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Linha plana (sem card aninhado), separada das demais por hairline.
   container: {
-    backgroundColor: colors.neutral,
-    padding: spacing.md,
-    borderRadius: borders.radiusLg,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    marginVertical: spacing.xs,
+    paddingVertical: spacing.md,
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#26292C',
   },
   containerLight: {
-    backgroundColor: '#F8F6F0',
-    borderColor: '#EAE4D7',
+    borderBottomColor: '#EAE4D7',
   },
   header: {
     flexDirection: 'row',

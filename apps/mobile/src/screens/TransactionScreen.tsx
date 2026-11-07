@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Decimal from 'decimal.js';
-import { colors, typography, spacing, borders } from '../theme/tokens';
+import { colors, typography, spacing, borders, layout, space } from '../theme/tokens';
 import { transactionService } from '../services/transactionService';
 import { marketApiService, STATIC_CATALOG_ASSETS } from '../services/marketApi';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { Asset, Portfolio } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
-import { LedgerInput } from '../components/ui/LedgerInput';
+import { TextField } from '../components/ui/TextField';
 
 export interface TransactionScreenProps {
   onClose?: () => void;
@@ -27,6 +27,7 @@ export interface TransactionScreenProps {
   initialPortfolioId?: string;
   initialAssetId?: string;
   initialTradeDate?: string;
+  isPrivacyMode?: boolean;
   themeMode?: 'dark' | 'light';
   testID?: string;
   isNativeBridgeAvailable?: boolean;
@@ -38,6 +39,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   initialPortfolioId,
   initialAssetId,
   initialTradeDate,
+  isPrivacyMode = false,
   themeMode = 'dark',
   testID = 'transaction-screen',
   isNativeBridgeAvailable,
@@ -443,8 +445,8 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         `Movimentação de ${type === 'BUY' ? 'Compra' : 'Venda'} registrada com sucesso!`
       );
       resetForm();
-      onTransactionSuccess();
-      onClose();
+      onTransactionSuccess?.();
+      onClose?.();
     } catch (e: any) {
       Alert.alert('Erro na Operação', e.message || 'Falha ao registrar movimentação.');
     } finally {
@@ -718,19 +720,16 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Busca e Entrada Livre de Ticker */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>BUSCAR OU DIGITAR TICKER</Text>
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <MaterialIcons name="search" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />
-            <TextInput
-              testID="transaction-ticker-search-input"
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={tickerQuery}
-              onChangeText={handleTickerSearch}
-              placeholder="Buscar ou digitar ticker (Ex: WEGE3, PETR4)..."
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-              autoCapitalize="characters"
-            />
-          </View>
+          <TextField
+            label="Buscar ou digitar ticker"
+            testID="transaction-ticker-search-input"
+            themeMode={themeMode}
+            value={tickerQuery}
+            onChangeText={handleTickerSearch}
+            placeholder="Ex: WEGE3, PETR4"
+            autoCapitalize="characters"
+            leftAdornment={<MaterialIcons name="search" size={18} color={isLight ? '#8A857B' : '#8A8A8E'} />}
+          />
           {tickerSuggestions.length > 0 && (
             <View style={[styles.suggestionsBox, isLight && styles.suggestionsBoxLight]}>
               {tickerSuggestions.map((item) => (
@@ -793,38 +792,33 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Data da Operação */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>DATA DA OPERAÇÃO (DD/MM/AAAA)</Text>
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <TouchableOpacity onPress={() => setIsDatePickerVisible(true)} style={{ marginRight: 6 }}>
-              <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A531B' : colors.tertiary} />
-            </TouchableOpacity>
-            <TextInput
-              testID="transaction-trade-date-input"
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={displayDate}
-              onChangeText={handleDateChangeText}
-              placeholder="Ex: 2024-03-15"
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-            />
-          </View>
+          <TextField
+            label="Data da operação (DD/MM/AAAA)"
+            testID="transaction-trade-date-input"
+            themeMode={themeMode}
+            value={displayDate}
+            onChangeText={handleDateChangeText}
+            placeholder="Ex: 2024-03-15"
+            leftAdornment={
+              <TouchableOpacity onPress={() => setIsDatePickerVisible(true)} accessibilityRole="button" accessibilityLabel="Abrir calendário">
+                <MaterialIcons name="calendar-today" size={18} color={isLight ? '#8A531B' : colors.tertiary} />
+              </TouchableOpacity>
+            }
+          />
         </View>
 
         {/* Preço Unitário */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>PREÇO UNITÁRIO (R$)</Text>
-
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
-            <TextInput
-              testID="transaction-unit-price-input"
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={unitPrice}
-              onChangeText={setUnitPrice}
-              placeholder="0.00"
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-              keyboardType="decimal-pad"
-            />
-          </View>
+          <TextField
+            label="Preço unitário (R$)"
+            testID="transaction-unit-price-input"
+            themeMode={themeMode}
+            prefix="R$"
+            value={unitPrice}
+            onChangeText={setUnitPrice}
+            placeholder="0.00"
+            keyboardType="decimal-pad"
+          />
 
           {autoFillMessage ? (
             <Text style={[styles.autoFillFeedback, isLight && styles.autoFillFeedbackLight]}>{autoFillMessage}</Text>
@@ -833,47 +827,39 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
 
         {/* Quantidade */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>QUANTIDADE</Text>
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <TextInput
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={quantity}
-              onChangeText={setQuantity}
-              placeholder={selectedAsset?.asset_class === 'CRYPTO' ? '0.00000000' : '100'}
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-              keyboardType="decimal-pad"
-            />
-          </View>
+          <TextField
+            label="Quantidade"
+            themeMode={themeMode}
+            value={quantity}
+            onChangeText={setQuantity}
+            placeholder={selectedAsset?.asset_class === 'CRYPTO' ? '0.00000000' : '100'}
+            keyboardType="decimal-pad"
+          />
         </View>
 
         {/* Taxas / Corretagem */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>TAXAS / CORRETAGEM (R$)</Text>
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <Text style={[styles.currencyPrefix, isLight && styles.currencyPrefixLight]}>R$</Text>
-            <TextInput
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={fees}
-              onChangeText={setFees}
-              placeholder="0.00 (opcional)"
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-              keyboardType="decimal-pad"
-            />
-          </View>
+          <TextField
+            label="Taxas / corretagem (R$)"
+            themeMode={themeMode}
+            prefix="R$"
+            value={fees}
+            onChangeText={setFees}
+            placeholder="0.00 (opcional)"
+            keyboardType="decimal-pad"
+          />
         </View>
 
         {/* Notas / Observação */}
         <View style={styles.inputGroup}>
-          <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>NOTAS / MOTIVO DA OPERAÇÃO (OPCIONAL)</Text>
-          <View style={[styles.textInputBox, isLight && styles.textInputBoxLight]}>
-            <TextInput
-              style={[styles.textInput, isLight && styles.textInputLight]}
-              value={notes}
-              onChangeText={setNotes}
-              placeholder="Ex: Aporte mensal de rebalanceamento"
-              placeholderTextColor={isLight ? '#9E9A90' : '#55585C'}
-            />
-          </View>
+          <TextField
+            label="Notas / motivo da operação (opcional)"
+            themeMode={themeMode}
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="Ex: Aporte mensal de rebalanceamento"
+            multiline
+          />
         </View>
 
         {/* Resumo Financeiro da Operação */}
@@ -882,17 +868,19 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
             TOTAL DA OPERAÇÃO:
           </Text>
           <Text style={[styles.summaryValueLarge, { textAlign: 'center', marginVertical: 8 }]}>
-            R$ {calculateTotal()}
+            {isPrivacyMode ? 'R$ ••••••' : `R$ ${calculateTotal()}`}
           </Text>
           <Text style={[styles.summarySub, isLight && styles.summarySubLight, { textAlign: 'center', marginTop: 0 }]}>
-            Posição atual {selectedAsset?.quantity || '0'} un: PM: R$ {parseFloat(selectedAsset?.average_price || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {isPrivacyMode
+              ? 'Posição atual •••• un: PM: R$ ••••••'
+              : `Posição atual ${selectedAsset?.quantity || '0'} un: PM: R$ ${parseFloat(selectedAsset?.average_price || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
           </Text>
         </View>
 
         {/* Botão de Registro */}
         <DirectiveButton
           testID="transaction-save-submit-btn"
-          label={isSubmitting ? 'REGISTRANDO...' : 'REGISTRAR NO LIVRO-RAZÃO'}
+          label={isSubmitting ? 'REGISTRANDO...' : type === 'BUY' ? 'REGISTRAR APORTE' : 'REGISTRAR VENDA'}
           variant={type === 'BUY' ? 'primary' : 'secondary'}
           disabled={isSubmitting || isSaveBlocked || !selectedAssetId}
           onPress={handleSubmit}
@@ -958,6 +946,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.neutral,
     borderColor: '#26292C',
   },
+  typeButtonInactiveLight: {
+    backgroundColor: '#F4F1EA',
+    borderColor: '#EAE4D7',
+  },
   typeButtonText: {
     fontFamily: typography.fontFamily,
     fontSize: typography.labelMd.fontSize,
@@ -972,15 +964,19 @@ const styles = StyleSheet.create({
   typeButtonTextInactive: {
     color: colors.parchmentPale,
   },
+  typeButtonTextInactiveLight: {
+    color: '#111315',
+  },
   inputGroup: {
-    marginBottom: spacing.md + 2,
+    marginBottom: layout.fieldGap,
   },
   inputLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.labelSm.fontSize,
-    color: colors.parchmentPale,
+    fontSize: 12,
+    color: '#A8A296',
     fontWeight: '700',
-    marginBottom: spacing.xs,
+    letterSpacing: 0.8,
+    marginBottom: 8,
   },
   labelWithActionRow: {
     flexDirection: 'row',
@@ -1059,13 +1055,13 @@ const styles = StyleSheet.create({
   textInputBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusMd,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    paddingHorizontal: spacing.md,
-    height: 48,
-    gap: 8,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#34383C',
+    paddingHorizontal: 14,
+    minHeight: 56,
+    gap: 10,
   },
   currencyPrefix: {
     fontFamily: typography.fontFamily,
@@ -1076,8 +1072,9 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontFamily: typography.fontFamily,
-    fontSize: typography.bodyMd.fontSize,
+    fontSize: 16,
     color: colors.parchmentPale,
+    paddingVertical: 12,
   },
   summaryCard: {
     backgroundColor: '#1E2124',
@@ -1137,8 +1134,8 @@ const styles = StyleSheet.create({
     color: '#6E6A63',
   },
   textInputBoxLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    backgroundColor: 'transparent',
+    borderColor: '#D6CFBF',
   },
   textInputLight: {
     color: '#111315',

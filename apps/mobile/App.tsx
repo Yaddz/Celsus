@@ -1,14 +1,6 @@
 import './src/setupPolyfills';
-import React, { useState, useEffect } from 'react';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-  Alert,
-  Modal,
-} from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback, startTransition } from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View, Alert, Modal, BackHandler } from 'react-native';
 import {
   SafeAreaProvider,
   SafeAreaView,
@@ -16,9 +8,10 @@ import {
 } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, spacing, borders } from './src/theme/tokens';
+import { colors, typography, spacing, borders, layout } from './src/theme/tokens';
 import {
   StackedWalletDeck,
+  AnimatedModalSheet,
   WalletCardData,
   QuickActionBentoRow,
   RecentTransactionsCard,
@@ -31,9 +24,16 @@ import {
   RecentTransactionItem,
   XpMinimalHeader,
   AmbientOrb,
+  GoalProgressTile,
+  GoalEditorSheet,
 } from './src/components/ui';
 import { AssetClass } from './src/components/ui/AttributeStatBar';
 import { walletStore } from './src/stores/walletStore';
+import { walletsStore, useWallets } from './src/stores/walletsStore';
+import { useHeaderScrollFade } from './src/hooks/useHeaderScrollFade';
+import { waitRemaining } from './src/utils/minLoading';
+import { spreadsheetImportService } from './src/services/spreadsheetImportService';
+import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -84,12 +84,8 @@ export default function App() {
   );
 }
 
-const INITIAL_CATEGORY_ALLOCATIONS: CategoryAllocationData[] = [
-  { assetClass: 'FIXED_INCOME', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
-  { assetClass: 'FII', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
-  { assetClass: 'STOCK', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
-  { assetClass: 'CRYPTO', currentPercentage: 0, targetPercentage: 25.0, marketValue: '0,00' },
-];
+/** Sem carteira (ou carteira ainda sem metas): nenhuma categoria; o bento mostra o estado vazio. */
+const INITIAL_CATEGORY_ALLOCATIONS: CategoryAllocationData[] = [];
 
 function extractSyncResolvedValue<T = any>(promiseOrVal: any): T | null {
   if (!promiseOrVal) return null;
@@ -189,7 +185,9 @@ function AppContent() {
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(getInitialTransactions);
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 0,00');
   const [profitSummary, setProfitSummary] = useState('0,0% no ano');
-  const [walletsList, setWalletsList] = useState<WalletCardData[]>([]);
+  // Lista de carteiras: fonte única compartilhada com a página de Carteiras (walletsStore).
+  const { wallets: walletsList, loaded: walletsLoaded } = useWallets();
+  const setWalletsList = (wallets: WalletCardData[]) => walletsStore.setWallets(wallets);
 
   useEffect(() => {
     return walletStore.subscribe(() => {
@@ -200,14 +198,28 @@ function AppContent() {
     });
   }, [activeWalletIndex]);
   const [portfolioAssets, setPortfolioAssets] = useState<any[]>([]);
+  const [activePortfolioId, setActivePortfolioId] = useState<string | null>(null);
+  const [homeMarketValue, setHomeMarketValue] = useState('0');
+  const [goalInfo, setGoalInfo] = useState<{ goal: string | null; monthly: string | null }>({ goal: null, monthly: null });
+  const [isGoalEditorOpen, setIsGoalEditorOpen] = useState(false);
+  const walletLoadSeq = React.useRef(0);
+  // true entre o início e o fim do carregamento de uma carteira recém-selecionada (mostra skeletons).
+  const [isWalletLoading, setIsWalletLoading] = useState(false);
+  const failedQuoteTickers = React.useRef<Set<string>>(new Set());
+  const lastLoadedWalletIndex = React.useRef<number | null>(null);
+  const { scrollY: homeScrollY, scrollProps: homeScrollProps } = useHeaderScrollFade();
   const [cachedQuotes, setCachedQuotes] = useState<Record<string, MarketQuote>>({});
   const [categoryAllocations, setCategoryAllocations] = useState<CategoryAllocationData[]>(INITIAL_CATEGORY_ALLOCATIONS);
   const [isOffline, setIsOffline] = useState(false);
 
-  const openTransactionModal = () => {
+  const openTransactionModal = useCallback(() => {
     setTransactionModalKey((k) => k + 1);
     setIsTransactionModalOpen(true);
-  };
+  }, []);
+
+  // Semente da carteira AUVP (index.ts): recarrega a Home quando a importação inicial terminar.
+  const refreshAppDataRef = React.useRef<() => void>(() => {});
+  useEffect(() => spreadsheetImportService.onImported(() => refreshAppDataRef.current()), []);
 
   const refreshAppData = async () => {
     try {
@@ -382,6 +394,9 @@ function AppContent() {
       console.error('[App] Failed to refresh app data:', err);
     }
   };
+  refreshAppDataRef.current = refreshAppData;
+  // Outras telas (ex.: Carteiras) pedem recarga da lista após criar/excluir.
+  useEffect(() => walletsStore.registerRefresher(() => refreshAppDataRef.current()), []);
 
   useEffect(() => {
     // Pré-carregamento de fontes MaterialIcons para evitar layout shift
@@ -431,55 +446,74 @@ function AppContent() {
 
   useEffect(() => {
     const updateActiveWalletData = async () => {
+      // Cada troca de carteira invalida carregamentos anteriores (evita dado atrasado da carteira antiga)
+      // e limpa a visão antes de buscar, para nada da carteira anterior permanecer na tela.
+      const reqId = ++walletLoadSeq.current;
+      const loadStartedAt = Date.now();
+      const isStale = () => reqId !== walletLoadSeq.current;
+      // A troca marca "carregando" (skeleton) sem limpar dados: o skeleton cobre o conteúdo antigo e
+      // todos os valores novos entram de uma vez no fim (1 commit), em vez de reset + vários commits.
+      const didSwitch =
+        lastLoadedWalletIndex.current !== null && lastLoadedWalletIndex.current !== activeWalletIndex;
+      if (didSwitch) {
+        setIsWalletLoading(true);
+      }
+      const apply: Array<() => void> = [];
+      lastLoadedWalletIndex.current = activeWalletIndex;
       try {
         const allPortfolios = await portfolioRepository.listPortfolios(false);
         const activePort = allPortfolios?.[activeWalletIndex] || allPortfolios?.[0];
+        if (isStale()) return;
         if (activePort && allPortfolios.length > 0) {
           const pAssets = await assetRepository.getAssetsByPortfolio(activePort.id);
           const pTargets = await portfolioRepository.getClassTargets(activePort.id);
-          setPortfolioAssets(pAssets || []);
+          if (isStale()) return;
+          apply.push(() => setPortfolioAssets(pAssets || []));
 
+          // Cotações em lote: 1 leitura de cache por ticker novo e UMA única chamada de rede para os que
+          // faltam (antes: 1 requisição por ativo a cada troca de carteira). Tickers que já falharam nesta
+          // sessão não são consultados de novo; a sincronização periódica cuida deles.
           const quoteCacheMap: Record<string, MarketQuote> = { ...cachedQuotes };
-          const mappedAssets = await Promise.all(
-            (pAssets || []).map(async (a) => {
-              let quotePrice: string | null = null;
-              if (a.ticker) {
-                try {
-                  const normTicker = a.ticker.toUpperCase();
-                  if (!quoteCacheMap[normTicker]?.currentPrice) {
-                    let cached = await marketApiService.getCachedQuote(a.ticker);
-                    if (!cached) {
-                      try {
-                        const fetched = await marketApiService.fetchQuotes([a.ticker]);
-                        if (fetched && fetched.length > 0) {
-                          cached = fetched[0];
-                        }
-                      } catch {}
-                    }
-                    if (cached) {
-                      quoteCacheMap[normTicker] = cached;
-                    }
-                  }
-                  if (quoteCacheMap[normTicker]?.currentPrice) {
-                    quotePrice = quoteCacheMap[normTicker].currentPrice;
-                  }
-                } catch (err) {
-                  console.error('[App] Failed to get cached quote for active wallet:', a.ticker, err);
-                }
+          const tickersNeeded = Array.from(
+            new Set((pAssets || []).map((a) => a.ticker?.toUpperCase()).filter((t): t is string => !!t))
+          ).filter((t) => !quoteCacheMap[t]?.currentPrice);
+          const stillMissing: string[] = [];
+          for (const t of tickersNeeded) {
+            try {
+              const cached = await marketApiService.getCachedQuote(t);
+              if (cached) quoteCacheMap[t] = cached;
+              else if (!failedQuoteTickers.current.has(t)) stillMissing.push(t);
+            } catch (err) {
+              console.error('[App] Failed to get cached quote for active wallet:', t, err);
+            }
+          }
+          if (stillMissing.length > 0) {
+            try {
+              const fetched = await marketApiService.fetchQuotes(stillMissing);
+              const got = new Set<string>();
+              for (const q of fetched || []) {
+                const key = q.ticker.toUpperCase();
+                quoteCacheMap[key] = q;
+                got.add(key);
               }
-              const currentPrice = a.manual_price_override || quotePrice || a.average_price;
-              return {
-                id: a.id,
-                ticker: a.ticker,
-                assetClass: a.asset_class as any,
-                quantity: a.quantity,
-                averagePrice: a.average_price,
-                currentPrice,
-              };
-            })
-          );
-          setCachedQuotes(quoteCacheMap);
-
+              stillMissing.forEach((t) => !got.has(t) && failedQuoteTickers.current.add(t));
+            } catch {
+              stillMissing.forEach((t) => failedQuoteTickers.current.add(t));
+            }
+          }
+          if (isStale()) return;
+          const mappedAssets = (pAssets || []).map((a) => {
+            const quotePrice = a.ticker ? quoteCacheMap[a.ticker.toUpperCase()]?.currentPrice ?? null : null;
+            return {
+              id: a.id,
+              ticker: a.ticker,
+              assetClass: a.asset_class as any,
+              quantity: a.quantity,
+              averagePrice: a.average_price,
+              currentPrice: a.manual_price_override || quotePrice || a.average_price,
+            };
+          });
+          apply.push(() => setCachedQuotes(quoteCacheMap));
           const activeInput: PortfolioConsolidationInput = {
             id: activePort.id,
             name: activePort.name,
@@ -491,16 +525,21 @@ function AppContent() {
               targetPercentage: ct.target_percentage,
             })),
           };
-
           const homeDossier = consolidatePortfolios([activeInput]);
           const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
           const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
           const profitPctStr = parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',');
           const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${profitPctStr}% total`;
-          setTotalPatrimony(formattedTotal);
-          setProfitSummary(formattedProfit);
+          apply.push(() => setTotalPatrimony(formattedTotal));
+          apply.push(() => setProfitSummary(formattedProfit));
+          apply.push(() => setActivePortfolioId(activePort.id));
+          apply.push(() => setHomeMarketValue(String(mvNum)));
+          apply.push(() => setGoalInfo({
+            goal: (activePort as any).patrimony_goal ?? null,
+            monthly: (activePort as any).monthly_contribution ?? null,
+          }));
 
-          setCategoryAllocations([
+          apply.push(() => setCategoryAllocations([
             {
               assetClass: 'FIXED_INCOME',
               currentPercentage: parseFloat(homeDossier.classAllocation.FIXED_INCOME.currentPercentage) || 0,
@@ -525,13 +564,15 @@ function AppContent() {
               targetPercentage: parseFloat(homeDossier.classAllocation.CRYPTO.weightedTargetPercentage) || 0,
               marketValue: homeDossier.classAllocation.CRYPTO.marketValue,
             },
-          ]);
-
+          ]));
           const txs = await transactionService.getTransactionsByPortfolio(activePort.id);
+          if (isStale()) return;
           if (txs && txs.length > 0) {
+            // Ativos já carregados acima: evita 1 consulta ao banco por movimentação.
+            const assetById = new Map((pAssets || []).map((a) => [a.id, a]));
             const mapped: RecentTransactionItem[] = await Promise.all(
               txs.slice(0, 5).map(async (t) => {
-                const asset = await assetRepository.getAssetById(t.asset_id);
+                const asset = assetById.get(t.asset_id) ?? (await assetRepository.getAssetById(t.asset_id));
                 return {
                   id: t.id,
                   ticker: asset?.ticker || (t as any).ticker || 'ATIVO',
@@ -546,20 +587,33 @@ function AppContent() {
                 };
               })
             );
-            setTransactionsList(mapped);
+            apply.push(() => setTransactionsList(mapped));
           } else {
-            setTransactionsList([]);
+            apply.push(() => setTransactionsList([]));
           }
         } else {
-          setPortfolioAssets([]);
-          setTransactionsList([]);
-          setTotalPatrimony('R$ 0,00');
-          setProfitSummary('0,0% no ano');
-          setWalletsList([]);
-          setCategoryAllocations(INITIAL_CATEGORY_ALLOCATIONS);
+          // Sem carteiras: a lista de movimentações vem de refreshAppData (não apagar aqui, evita corrida).
+          apply.push(() => setPortfolioAssets([]));
+          apply.push(() => setTotalPatrimony('R$ 0,00'));
+          apply.push(() => setProfitSummary('0,0% no ano'));
+          apply.push(() => setWalletsList([]));
+          apply.push(() => setCategoryAllocations(INITIAL_CATEGORY_ALLOCATIONS));
         }
       } catch (err) {
         console.error('[App] Failed to update active wallet data:', err);
+      } finally {
+        if (!isStale()) {
+          // O tempo mínimo do skeleton só vale na troca de carteira; a 1ª carga aplica na hora.
+          if (didSwitch) await waitRemaining(loadStartedAt);
+          if (!isStale()) {
+            // Um único commit com todos os dados novos, em transição: o gesto e as animações seguem
+            // fluidos enquanto o React prepara a nova árvore.
+            startTransition(() => {
+              apply.forEach((fn) => fn());
+              setIsWalletLoading(false);
+            });
+          }
+        }
       }
     };
     updateActiveWalletData();
@@ -568,53 +622,160 @@ function AppContent() {
   const balanceDisplay = isPrivacyMode ? PRIVACY_CURRENCY_MASK : totalPatrimony;
   const profitDisplay = isPrivacyMode ? PRIVACY_MASK : profitSummary;
 
+  // Botão/gesto voltar do Android: só fecha o app na Home sem camadas abertas.
+  // A decisão está em navigation/backNavigation.ts (função pura, com matriz de testes).
+  const backStateRef = React.useRef<BackState>({} as BackState);
+  backStateRef.current = {
+    activeTab,
+    isSettingsOpen: isSettingsBackupModalOpen,
+    isTransactionDetailOpen: selectedRecentTransaction !== null,
+    isAllTransactionsOpen: isAllTransactionsModalOpen,
+    isClassDetailOpen: selectedClassDetail !== null,
+    isTransactionModalOpen,
+    isPortfolioManagerOpen: isPortfolioManagerModalOpen,
+    isSimulatorOpen: isSimulatorModalOpen,
+  };
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const action = resolveBackAction(backStateRef.current);
+      switch (action) {
+        case 'close-transaction-modal':
+          setIsTransactionModalOpen(false);
+          return true;
+        case 'close-simulator':
+          setIsSimulatorModalOpen(false);
+          return true;
+        case 'close-portfolio-manager':
+          setIsPortfolioManagerModalOpen(false);
+          setOpenCreatePortfolioModal(false);
+          setOpenAddAssetModal(false);
+          return true;
+        case 'close-settings':
+          setIsSettingsBackupModalOpen(false);
+          return true;
+        case 'close-transaction-detail':
+          setSelectedRecentTransaction(null);
+          return true;
+        case 'close-all-transactions':
+          setIsAllTransactionsModalOpen(false);
+          return true;
+        case 'close-class-detail':
+          setSelectedClassDetail(null);
+          return true;
+        case 'go-home':
+          setActiveTab('home');
+          return true;
+        default:
+          return false; // Home sem camadas: deixa o sistema fechar o app
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Lista do baralho memoizada: sem isso um array novo era criado a cada render do App
+  // (inclusive durante o gesto), forçando o baralho a recalcular as cartas.
+  const deckPortfolios = useMemo(
+    () =>
+      walletsList.map((w, idx) => ({
+        ...w,
+        balance: isPrivacyMode
+          ? PRIVACY_CURRENCY_MASK
+          : walletsList.length === 1 && idx === 0
+          ? balanceDisplay
+          : w.balance,
+        profitText: isPrivacyMode
+          ? PRIVACY_MASK
+          : walletsList.length === 1 && idx === 0
+          ? profitDisplay
+          : w.profitText,
+      })),
+    [walletsList, isPrivacyMode, balanceDisplay, profitDisplay]
+  );
+  // Callbacks estáveis da Home: com React.memo nos blocos, a troca de carteira só re-renderiza o que mudou.
+  const activePortfolioIdRef = React.useRef<string | null>(null);
+  activePortfolioIdRef.current = activePortfolioId;
+  const homeOpenSettings = useCallback(() => setIsSettingsBackupModalOpen(true), []);
+  const homeGlobePress = useCallback(() => Alert.alert('Funcionalidade em desenvolvimento'), []);
+  const homeTogglePrivacy = useCallback(() => {
+    const next = privacyAndAuthService.togglePrivacyMode();
+    setIsPrivacyMode(next.isPrivacyModeEnabled);
+  }, []);
+  const homeOpenCreatePortfolio = useCallback(() => {
+    setOpenCreatePortfolioModal(true);
+    setIsPortfolioManagerModalOpen(true);
+  }, []);
+  const homeOpenAddAsset = useCallback(() => {
+    setOpenAddAssetModal(true);
+    setIsPortfolioManagerModalOpen(true);
+  }, []);
+  const homeOpenSimulator = useCallback(() => setIsSimulatorModalOpen(true), []);
+  const homeOpenClass = useCallback((cls: AssetClass) => setSelectedClassDetail(cls), []);
+  const homeViewAll = useCallback(() => setIsAllTransactionsModalOpen(true), []);
+  const homeSelectTx = useCallback((tx: RecentTransactionItem) => setSelectedRecentTransaction(tx), []);
+  const homeGoalPress = useCallback(() => {
+    if (activePortfolioIdRef.current) setIsGoalEditorOpen(true);
+  }, []);
+  const homeTabChange = useCallback((tab: DockTab) => {
+    if (tab === 'history') {
+      Alert.alert('Funcionalidade em desenvolvimento');
+    } else {
+      setActiveTab(tab);
+    }
+  }, []);
+  const maskedRecentTransactions = useMemo(
+    () =>
+      transactionsList.map((tx) => ({
+        ...tx,
+        amountText: isPrivacyMode ? PRIVACY_CURRENCY_MASK : tx.amountText,
+      })),
+    [transactionsList, isPrivacyMode]
+  );
+
+  const handleDeckPortfolioChange = useCallback((idx: number, item: any) => {
+    if (item?.id && item.id !== '__add_wallet_card__') {
+      // O store notifica App/Carteiras/Análises; um único caminho de atualização.
+      walletStore.setActiveIndex(idx, item.id);
+    }
+  }, []);
+
   // Modal Helpers (Bottom Sheets sobre qualquer tela)
   const renderTransactionModal = () => (
-    <Modal
+    <AnimatedModalSheet
+      testID="transaction-modal-sheet"
       visible={isTransactionModalOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={() => {
+      onClose={() => {
         setIsTransactionModalOpen(false);
         refreshAppData();
       }}
+      themeMode={themeMode}
+      fill maxHeight={0.88}
+      contentStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
     >
-      <View style={styles.sheetOverlay}>
-        <TouchableOpacity
-          style={StyleSheet.absoluteFillObject}
-          activeOpacity={1}
-          onPress={() => {
-            setIsTransactionModalOpen(false);
-            refreshAppData();
-          }}
-        />
-        <View
-          style={[
-            styles.sheetContainer,
-            isLight && styles.sheetContainerLight,
-            { maxHeight: '88%', width: '100%', flex: 1 },
-          ]}
-        >
-          <View style={styles.sheetDragHandleContainer}>
-            <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-          </View>
-          <TransactionScreen
-            key={`tx-modal-${transactionModalKey}`}
-            initialPortfolioId={walletsList[activeWalletIndex]?.id}
-            themeMode={themeMode}
-            onClose={() => {
-              setIsTransactionModalOpen(false);
-              refreshAppData();
-            }}
-            onTransactionSuccess={() => {
-              setIsTransactionModalOpen(false);
-              refreshAppData();
-            }}
-          />
-        </View>
-      </View>
-    </Modal>
+      <TransactionScreen
+        isPrivacyMode={isPrivacyMode}
+        key={`tx-modal-${transactionModalKey}`}
+        initialPortfolioId={walletsList[activeWalletIndex]?.id}
+        themeMode={themeMode}
+        onClose={() => {
+          setIsTransactionModalOpen(false);
+          refreshAppData();
+        }}
+        onTransactionSuccess={() => {
+          setIsTransactionModalOpen(false);
+          refreshAppData();
+        }}
+      />
+    </AnimatedModalSheet>
   );
+
+  // Limpa os gatilhos dos sub-modais (Nova Carteira / Adicionar Ativo) do menu "+".
+  // Sem isso, escolher a mesma opção de novo não mudava nenhum estado e nada abria.
+  const resetSubModalTriggers = () => {
+    setIsPortfolioManagerModalOpen(false);
+    setOpenCreatePortfolioModal(false);
+    setOpenAddAssetModal(false);
+    refreshAppData();
+  };
 
   const renderPortfolioManagerModal = () => {
     if (!isPortfolioManagerModalOpen || activeTab === 'wallets') return null;
@@ -635,6 +796,7 @@ function AppContent() {
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
           autoOpenAddAssetModal={openAddAssetModal}
+          onSubModalClosed={resetSubModalTriggers}
           onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
           onPortfolioCreated={() => {
             setIsPortfolioManagerModalOpen(false);
@@ -654,111 +816,73 @@ function AppContent() {
     }
 
     return (
-      <Modal
+      <AnimatedModalSheet
+        testID="portfolio-manager-modal-sheet"
         visible={isPortfolioManagerModalOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => {
+        onClose={() => {
           setIsPortfolioManagerModalOpen(false);
           setOpenCreatePortfolioModal(false);
           setOpenAddAssetModal(false);
           refreshAppData();
         }}
+        themeMode={themeMode}
+        fill maxHeight={0.88}
+        contentStyle={{ paddingHorizontal: 0, paddingBottom: 0 }}
       >
-        <View style={styles.sheetOverlay}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFillObject}
-            activeOpacity={1}
-            onPress={() => {
-              setIsPortfolioManagerModalOpen(false);
-              setOpenCreatePortfolioModal(false);
-              setOpenAddAssetModal(false);
-              refreshAppData();
-            }}
-          />
-          <View
-            style={[
-              styles.sheetContainer,
-              isLight && styles.sheetContainerLight,
-              { maxHeight: '88%', width: '100%', flex: 1, paddingHorizontal: 0, paddingTop: 4 },
-            ]}
-          >
-            <View style={styles.sheetDragHandleContainer}>
-              <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-            </View>
-            <PortfolioManagementScreen
-              isPrivacyMode={isPrivacyMode}
-              onTogglePrivacy={() => {
-                const next = privacyAndAuthService.togglePrivacyMode();
-                setIsPrivacyMode(next.isPrivacyModeEnabled);
-              }}
-              onProfilePress={() => setIsSettingsBackupModalOpen(true)}
-              themeMode={themeMode}
-              initialActiveIndex={activeWalletIndex}
-              autoOpenNewPortfolioModal={openCreatePortfolioModal}
-              autoOpenAddAssetModal={openAddAssetModal}
-              onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
-              onPortfolioCreated={() => {
-                setIsPortfolioManagerModalOpen(false);
-                setOpenCreatePortfolioModal(false);
-                setOpenAddAssetModal(false);
-                setActiveTab('wallets');
-                refreshAppData();
-              }}
-              onClose={() => {
-                setIsPortfolioManagerModalOpen(false);
-                setOpenCreatePortfolioModal(false);
-                setOpenAddAssetModal(false);
-                refreshAppData();
-              }}
-            />
-          </View>
-        </View>
-      </Modal>
+        <PortfolioManagementScreen
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
+          onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          themeMode={themeMode}
+          initialActiveIndex={activeWalletIndex}
+          autoOpenNewPortfolioModal={openCreatePortfolioModal}
+          autoOpenAddAssetModal={openAddAssetModal}
+          onSubModalClosed={resetSubModalTriggers}
+          onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
+          onPortfolioCreated={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            setActiveTab('wallets');
+            refreshAppData();
+          }}
+          onClose={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            refreshAppData();
+          }}
+        />
+      </AnimatedModalSheet>
     );
   };
 
   // 2. Modal Padronizado: Simulador de Novo Aporte (Rebalanceamento)
   const renderSimulatorModal = () => (
-    <Modal
+    <AnimatedModalSheet
+      testID="simulator-modal-sheet"
       visible={isSimulatorModalOpen}
-      animationType="slide"
-      transparent
-      onRequestClose={() => {
+      onClose={() => {
         setIsSimulatorModalOpen(false);
         refreshAppData();
       }}
+      themeMode={themeMode}
+      fill maxHeight={0.92}
+      contentStyle={{ paddingHorizontal: 0, paddingBottom: 24 }}
     >
-      <View style={styles.sheetOverlay}>
-        <TouchableOpacity
-          style={StyleSheet.absoluteFillObject}
-          activeOpacity={1}
-          onPress={() => {
-            setIsSimulatorModalOpen(false);
-            refreshAppData();
-          }}
-        />
-        <View
-          style={[
-            styles.sheetContainer,
-            isLight && styles.sheetContainerLight,
-            { maxHeight: '92%', width: '100%', flex: 1, paddingHorizontal: 0 },
-          ]}
-        >
-          <View style={styles.sheetDragHandleContainer}>
-            <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-          </View>
-          <SimulatorScreen
-            themeMode={themeMode}
-            onClose={() => {
-              setIsSimulatorModalOpen(false);
-              refreshAppData();
-            }}
-            onContributionsConfirmed={() => refreshAppData()}
-          />
-        </View>
-      </View>
-    </Modal>
+      <SimulatorScreen
+        isPrivacyMode={isPrivacyMode}
+        themeMode={themeMode}
+        onClose={() => {
+          setIsSimulatorModalOpen(false);
+          refreshAppData();
+        }}
+        onContributionsConfirmed={() => refreshAppData()}
+      />
+    </AnimatedModalSheet>
   );
 
   // 3. Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
@@ -844,6 +968,10 @@ function AppContent() {
             }}
             history={assetHistory}
             isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
             themeMode={themeMode}
             onClose={() => setSelectedRecentTransaction(null)}
           />
@@ -949,8 +1077,20 @@ function AppContent() {
 
   // 6. Tela: Detalhe da Classe (Donut Chart + Cards de Ativos)
   if (selectedClassDetail) {
-    const classAssetsForDetail: ClassAssetDetailItem[] = portfolioAssets
-      .filter((a) => a.asset_class === selectedClassDetail)
+    const classRawAssets = portfolioAssets.filter((a) => a.asset_class === selectedClassDetail);
+    // Valor de mercado de cada ativo e total da categoria: a fatia do donut é a participação real do
+    // ativo na categoria (soma 100%), não a meta nem um valor padrão.
+    const grossOf = (a: any): Decimal => {
+      const cached = cachedQuotes[a.ticker?.toUpperCase()] || null;
+      const price = cached?.currentPrice
+        ? new Decimal(cached.currentPrice)
+        : a.manual_price_override
+        ? new Decimal(a.manual_price_override)
+        : new Decimal(a.average_price || '0');
+      return new Decimal(a.quantity || '0').mul(price);
+    };
+    const classTotalGross = classRawAssets.reduce((sum, a) => sum.plus(grossOf(a)), new Decimal(0));
+    const classAssetsForDetail: ClassAssetDetailItem[] = classRawAssets
       .map((a) => {
         const qtyDec = new Decimal(a.quantity || '0');
         const avgDec = new Decimal(a.average_price || '0');
@@ -969,7 +1109,11 @@ function AppContent() {
           ticker: a.ticker,
           name: a.name || a.ticker,
           assetClass: a.asset_class as AssetClass,
-          currentAllocationPercentage: a.target_percentage_in_class || 100,
+          currentAllocationPercentage: classTotalGross.gt(0)
+            ? grossDec.div(classTotalGross).mul(100).toNumber()
+            : classRawAssets.length > 0
+            ? 100 / classRawAssets.length
+            : 0,
           grossBalance: `R$ ${grossDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           quantity: a.quantity,
           averagePrice: `R$ ${avgDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -1114,6 +1258,7 @@ function AppContent() {
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
           autoOpenAddAssetModal={openAddAssetModal}
+          onSubModalClosed={resetSubModalTriggers}
           onPortfolioIndexChange={(idx) => setActiveWalletIndex(idx)}
           onPortfolioCreated={() => {
             refreshAppData();
@@ -1169,6 +1314,10 @@ function AppContent() {
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <StatisticsScreen
           isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={() => {
+            const next = privacyAndAuthService.togglePrivacyMode();
+            setIsPrivacyMode(next.isPrivacyModeEnabled);
+          }}
           themeMode={themeMode}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
           onClassPress={(cls) => setSelectedClassDetail(cls)}
@@ -1237,18 +1386,17 @@ function AppContent() {
           userName="Pedro"
           userInitials="PL"
           isPrivacyModeEnabled={isPrivacyMode}
-          onAvatarPress={() => setIsSettingsBackupModalOpen(true)}
-          onGlobePress={() => Alert.alert('Funcionalidade em desenvolvimento')}
-          onTogglePrivacy={() => {
-            const next = privacyAndAuthService.togglePrivacyMode();
-            setIsPrivacyMode(next.isPrivacyModeEnabled);
-          }}
+          onAvatarPress={homeOpenSettings}
+          onGlobePress={homeGlobePress}
+          onTogglePrivacy={homeTogglePrivacy}
           palette={activePalette}
           themeMode={themeMode}
+          scrollY={homeScrollY}
         />
 
         <ScrollView
           testID="home-scroll-view"
+          {...homeScrollProps}
           contentContainerStyle={[
             styles.scrollContent,
             { paddingBottom: Math.max(insets.bottom, 16) + 96 },
@@ -1264,22 +1412,11 @@ function AppContent() {
 
           {/* 1. Stacked Hero Wallet Deck (WalleZ Stacked Cards) */}
           <StackedWalletDeck
-            portfolios={walletsList.map((w, idx) => ({
-              ...w,
-              balance: isPrivacyMode ? PRIVACY_CURRENCY_MASK : (walletsList.length === 1 && idx === 0 ? balanceDisplay : w.balance),
-              profitText: isPrivacyMode ? PRIVACY_MASK : (walletsList.length === 1 && idx === 0 ? profitDisplay : w.profitText),
-            }))}
+            portfolios={deckPortfolios}
+            loading={!walletsLoaded}
             activeIndex={activeWalletIndex}
-            onPortfolioChange={(idx, item) => {
-              if (item?.id && item.id !== '__add_wallet_card__') {
-                setActiveWalletIndex(idx);
-                walletStore.setActiveIndex(idx, item.id);
-              }
-            }}
-            onCreatePortfolioPress={() => {
-              setOpenCreatePortfolioModal(true);
-              setIsPortfolioManagerModalOpen(true);
-            }}
+            onPortfolioChange={handleDeckPortfolioChange}
+            onCreatePortfolioPress={homeOpenCreatePortfolio}
             isPrivacyMode={isPrivacyMode}
             testID="home-wallet-deck"
           />
@@ -1321,68 +1458,77 @@ function AppContent() {
           {/* 2. Três Bento Tiles de Ação Rápida com Ícones Ampliados */}
           <QuickActionBentoRow
             variant="v2"
+            showMais={false}
             onAportar={openTransactionModal}
-            onSimular={() => setIsSimulatorModalOpen(true)}
-            onMais={() => Alert.alert('Funcionalidade em desenvolvimento')}
+            onRebalancear={homeOpenSimulator}
+            onMais={homeGlobePress}
             onNovoAportePress={openTransactionModal}
-            onNovaCarteiraPress={() => {
-              setOpenCreatePortfolioModal(true);
-              setIsPortfolioManagerModalOpen(true);
-            }}
+            onNovaCarteiraPress={homeOpenCreatePortfolio}
             themeMode={themeMode}
-          />
-
-          {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
-          <RecentTransactionsCard
-            transactions={transactionsList.map((tx) => ({
-              ...tx,
-              amountText: isPrivacyMode ? PRIVACY_CURRENCY_MASK : tx.amountText,
-            }))}
-            onViewAll={() => setIsAllTransactionsModalOpen(true)}
-            onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
-            themeMode={themeMode}
-            testID="home-recent-transactions"
           />
 
           {/* 4. Card de Alocação por Categoria (Dot-Matrix Category Grid v2) */}
           <DotMatrixAllocationCard
             totalBalance={balanceDisplay}
             allocations={categoryAllocations}
+            loading={isWalletLoading}
             isPrivacyMode={isPrivacyMode}
-            variant="v2"
-            onRebalancePress={() => setIsSimulatorModalOpen(true)}
-            onClassPress={(cls) => setSelectedClassDetail(cls)}
+            variant="bento"
+            onRebalancePress={homeOpenSimulator}
+            onClassPress={homeOpenClass}
             themeMode={themeMode}
             testID="home-dot-matrix-card"
           />
+          {/* 2.1 Tile Bento da Meta de Patrimônio */}
+          <View style={{ marginTop: 10 }}>
+            <GoalProgressTile
+              currentValue={homeMarketValue}
+              patrimonyGoal={goalInfo.goal}
+              monthlyContribution={goalInfo.monthly}
+              isPrivacyMode={isPrivacyMode}
+              loading={isWalletLoading}
+              onPress={homeGoalPress}
+              testID="home-goal-tile"
+            />
+          </View>
+
+          {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}
+          <RecentTransactionsCard
+            loading={isWalletLoading}
+            transactions={maskedRecentTransactions}
+            onViewAll={homeViewAll}
+            onSelectTransaction={homeSelectTx}
+            themeMode={themeMode}
+            testID="home-recent-transactions"
+          />
+
         </ScrollView>
       </View>
+
+      <GoalEditorSheet
+        visible={isGoalEditorOpen}
+        onClose={() => setIsGoalEditorOpen(false)}
+        initialGoal={goalInfo.goal}
+        initialMonthly={goalInfo.monthly}
+        themeMode={themeMode}
+        onSave={async (goal, monthly) => {
+          if (activePortfolioId) {
+            await portfolioRepository.setGoal(activePortfolioId, { patrimonyGoal: goal, monthlyContribution: monthly });
+            setGoalInfo({ goal, monthly });
+          }
+          setIsGoalEditorOpen(false);
+        }}
+      />
 
       {/* 7. Barra de Navegação Inferior Flutuante (Floating Bottom Dock) */}
       <FloatingBottomDock
         activeTab={activeTab}
         forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
-        onTabChange={(tab) => {
-          if (tab === 'wallets') {
-            setActiveTab('wallets');
-          } else if (tab === 'history') {
-            Alert.alert('Funcionalidade em desenvolvimento');
-          } else if (tab === 'stats') {
-            setActiveTab('stats');
-          } else {
-            setActiveTab(tab);
-          }
-        }}
+        onTabChange={homeTabChange}
         onActionPress={openTransactionModal}
         onNovoAportePress={openTransactionModal}
-        onNovaCarteiraPress={() => {
-          setOpenCreatePortfolioModal(true);
-          setIsPortfolioManagerModalOpen(true);
-        }}
-        onAdicionarAtivoPress={() => {
-          setOpenAddAssetModal(true);
-          setIsPortfolioManagerModalOpen(true);
-        }}
+        onNovaCarteiraPress={homeOpenCreatePortfolio}
+        onAdicionarAtivoPress={homeOpenAddAsset}
         themeMode={themeMode}
       />
       {renderTransactionModal()}
@@ -1460,8 +1606,8 @@ const styles = StyleSheet.create({
     opacity: 0.12,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: layout.tabScreenPaddingTop,
   },
   header: {
     flexDirection: 'row',

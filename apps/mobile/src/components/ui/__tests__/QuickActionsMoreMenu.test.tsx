@@ -15,7 +15,8 @@ describe('S9-T03: TestLargerQuickActionsAndDevPlaceholderOnMais', () => {
 
       expect(screen.getByTestId('quick-actions-v2')).toBeDefined();
       expect(screen.getByText(/Aportar/i)).toBeDefined();
-      expect(screen.getByText(/Simular/i)).toBeDefined();
+      expect(screen.getByText(/Rebalancear/i)).toBeDefined();
+      expect(screen.queryByText(/Simular/i)).toBeNull();
       expect(screen.getByText(/Mais/i)).toBeDefined();
 
       // Verifica tamanho de fonte ampliado (>= 15px e fontWeight '700')

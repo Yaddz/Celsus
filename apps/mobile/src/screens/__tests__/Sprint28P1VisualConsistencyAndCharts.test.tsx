@@ -100,7 +100,7 @@ describe('Sprint 28: P1 Visual Consistency, Tokens, Contrast & Solid Charts', ()
       expect(settingsBtnStyle.backgroundColor).not.toBe('#191B1D');
     });
 
-    it('should share unified border color (#EAE4D7) and borderRadius (24) between PatrimonyLineChartCard and DotMatrixAllocationCard in Light Mode', async () => {
+    it('should render PatrimonyLineChartCard and DotMatrixAllocationCard as flat sections (no card surface) with #EAE4D7 hairline divider in Light Mode', async () => {
       await render(<PatrimonyLineChartCard themeMode="light" curve={[]} />);
       const chartCard = screen.getByTestId('patrimony-line-chart-card');
       const chartStyle = [chartCard.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
@@ -109,10 +109,13 @@ describe('Sprint 28: P1 Visual Consistency, Tokens, Contrast & Solid Charts', ()
       const dotCard = screen.getByTestId('home-dot-matrix-card');
       const dotStyle = [dotCard.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
 
-      expect(chartStyle.borderRadius).toBe(24);
-      expect(dotStyle.borderRadius).toBe(24);
-      expect(chartStyle.borderColor?.toUpperCase()).toBe('#EAE4D7');
-      expect(dotStyle.borderColor?.toUpperCase()).toBe('#EAE4D7');
+      // Layout sem cards: sem raio, sem borda envolvente, sem superfície própria.
+      expect(chartStyle.borderRadius ?? 0).toBe(0);
+      expect(dotStyle.borderRadius ?? 0).toBe(0);
+      expect(chartStyle.borderWidth ?? 0).toBe(0);
+      expect(dotStyle.borderWidth ?? 0).toBe(0);
+      // A seção de alocação é separada pela linha fina superior.
+      expect(dotStyle.borderTopColor?.toUpperCase()).toBe('#EAE4D7');
     });
   });
 

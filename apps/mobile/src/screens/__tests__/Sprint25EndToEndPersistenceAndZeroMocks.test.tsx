@@ -111,7 +111,7 @@ describe('Sprint 25: TestEndToEndPersistenceAndZeroMocks', () => {
   });
 
   describe('S25-T03: Bug #3 - Add Wallet Card in Stacked Deck', () => {
-    it('should render stacked-wallet-add-card at end of deck when portfolios.length >= 1 and trigger onCreatePortfolioPress', async () => {
+    it('should NOT render the add-wallet card when portfolios.length >= 1 (creation goes through the "+" action)', async () => {
       const handleCreatePress = jest.fn();
       const mockPortfolios = [
         {
@@ -133,12 +133,17 @@ describe('Sprint 25: TestEndToEndPersistenceAndZeroMocks', () => {
         />
       );
 
-      // Card "+ Adicionar nova carteira" must be present
-      const addCard = screen.getByTestId('stacked-wallet-add-card');
-      expect(addCard).toBeDefined();
+      expect(screen.queryByTestId('stacked-wallet-add-card')).toBeNull();
+      expect(screen.queryByTestId('add-wallet-card-cta')).toBeNull();
+      expect(screen.getByText('Principal')).toBeDefined();
+      expect(handleCreatePress).not.toHaveBeenCalled();
+    });
 
-      // Pressing it triggers onCreatePortfolioPress
-      fireEvent.press(addCard);
+    it('should show the create card only in the empty state and call onCreatePortfolioPress', async () => {
+      const handleCreatePress = jest.fn();
+      await render(<StackedWalletDeck portfolios={[]} onCreatePortfolioPress={handleCreatePress} />);
+
+      fireEvent.press(screen.getByTestId('empty-wallet-create-cta'));
       expect(handleCreatePress).toHaveBeenCalledTimes(1);
     });
   });

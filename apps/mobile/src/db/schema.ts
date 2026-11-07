@@ -9,6 +9,8 @@ export const portfolios = sqliteTable('portfolios', {
   name: text('name').notNull(),
   description: text('description'),
   docket_code: text('docket_code').notNull(),
+  patrimony_goal: text('patrimony_goal'), // meta de patrimônio (R$), decimal em texto
+  monthly_contribution: text('monthly_contribution'), // aporte mensal planejado (R$)
   is_archived: integer('is_archived').notNull().default(0),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
@@ -25,6 +27,7 @@ export const portfolioClassTargets = sqliteTable('portfolio_class_targets', {
     .references(() => portfolios.id, { onDelete: 'cascade' }),
   asset_class: text('asset_class').notNull(), // FIXED_INCOME | FII | STOCK | CRYPTO
   target_percentage: real('target_percentage').notNull().default(0.0),
+  receives_contribution: integer('receives_contribution').notNull().default(1),
   updated_at: text('updated_at').notNull(),
 });
 
@@ -73,7 +76,7 @@ export const transactions = sqliteTable('transactions', {
   asset_id: text('asset_id')
     .notNull()
     .references(() => assets.id, { onDelete: 'cascade' }),
-  type: text('type').notNull(), // BUY | SELL
+  type: text('type').notNull(), // BUY | SELL | SPLIT | INPLIT
   trade_date: text('trade_date').notNull(), // YYYY-MM-DD
   quantity: text('quantity').notNull(),
   unit_price: text('unit_price').notNull(),
@@ -82,10 +85,37 @@ export const transactions = sqliteTable('transactions', {
   notes: text('notes'),
 
   // Open Finance integration fields
-  source: text('source').notNull().default('MANUAL'),
+  source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE | YAHOO
   external_id: text('external_id'),
 
   created_at: text('created_at').notNull(),
+});
+
+/**
+ * INCOME_EVENTS
+ * Proventos recebidos (dividendos, JCP, rendimentos de FIIs) — aba "Lançamentos > Rendimento" da planilha.
+ */
+export const incomeEvents = sqliteTable('income_events', {
+  id: text('id').primaryKey(),
+  portfolio_id: text('portfolio_id')
+    .notNull()
+    .references(() => portfolios.id, { onDelete: 'cascade' }),
+  ticker: text('ticker').notNull(),
+  pay_date: text('pay_date').notNull(), // YYYY-MM-DD
+  amount: text('amount').notNull(), // R$ decimal em texto
+  notes: text('notes'),
+  created_at: text('created_at').notNull(),
+});
+
+export type IncomeEvent = typeof incomeEvents.$inferSelect;
+
+/**
+ * APP_META
+ * Chave/valor pequeno para marcas de estado do app (ex.: semente inicial já aplicada).
+ */
+export const appMeta = sqliteTable('app_meta', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
 });
 
 /**

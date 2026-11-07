@@ -9,21 +9,24 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Decimal from 'decimal.js';
-import { colors, typography, spacing, borders } from '../theme/tokens';
-import { calculateSmartContribution, RebalanceAssetInput, RebalanceResult } from '../domain/finance';
+import { colors, typography, spacing, borders, layout, space, bento } from '../theme/tokens';
+import { calculateTwoPhaseContribution, planToRebalanceResult, RebalanceResult } from '../domain/finance';
 import { rebalanceExecutionService } from '../services/rebalanceExecution';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
 import { Portfolio, Asset } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
 import { LedgerInput } from '../components/ui/LedgerInput';
+import { BentoRow, BentoTile } from '../components/ui/BentoGrid';
 import { ASSET_CLASS_ATTRIBUTE_MAP, AssetClass } from '../components/ui/AttributeStatBar';
 
 export interface SimulatorScreenProps {
   onClose: () => void;
   onContributionsConfirmed?: () => void;
   initialPortfolioId?: string;
+  isPrivacyMode?: boolean;
   themeMode?: 'dark' | 'light';
   testID?: string;
 }
@@ -39,16 +42,25 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   onClose,
   onContributionsConfirmed = () => {},
   initialPortfolioId,
+  isPrivacyMode = false,
   themeMode = 'dark',
   testID = 'simulator-screen',
 }) => {
   const isLight = themeMode === 'light';
+  // Barra de navegação/gestos do sistema: o último item precisa ficar acima dela.
+  let bottomInset = 0;
+  try {
+    bottomInset = useSafeAreaInsets().bottom;
+  } catch {
+    // sem SafeAreaProvider (testes): sem inset
+  }
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [contributionAmountText, setContributionAmountText] = useState('1500,00');
+  const [contributionAmountText, setContributionAmountText] = useState('');
 
   const [simulationResult, setSimulationResult] = useState<RebalanceResult | null>(null);
+  const [extraShareTickers, setExtraShareTickers] = useState<string[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
 
   useEffect(() => {
@@ -82,7 +94,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
     }
   };
 
-  const handleSimulate = () => {
+  const handleSimulate = async () => {
     const rawVal = contributionAmountText.replace(/\./g, '').replace(',', '.');
     const numericAmount = parseFloat(rawVal);
     if (!numericAmount || numericAmount <= 0) {
@@ -98,15 +110,35 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       return;
     }
 
-    const inputAssets: RebalanceAssetInput[] = assets.map((a) => ({
+    let classTargets: Awaited<ReturnType<typeof portfolioRepository.getClassTargets>> = [];
+    try {
+      classTargets = await portfolioRepository.getClassTargets(selectedPortfolioId);
+    } catch {
+      classTargets = [];
+    }
+    const priceOf = (a: Asset) => (parseFloat(a.average_price) > 0 ? a.average_price : '50.00');
+    const inputAssets = assets.map((a) => ({
       ticker: a.ticker,
       assetClass: a.asset_class as AssetClass,
-      currentQuantity: a.quantity || '0',
-      currentPrice: parseFloat(a.average_price) > 0 ? a.average_price : '50.00',
-      globalTargetPercentage: a.target_percentage_in_class || 25,
+      price: priceOf(a),
+      currentValue: new Decimal(a.quantity || 0).mul(priceOf(a)).toString(),
+      targetInClassPercent: a.target_percentage_in_class || 0,
     }));
+    // Classes sem meta cadastrada recebem peso igual; "recebe aporte" vem do banco (padrão: sim).
+    const presentClasses = Array.from(new Set(inputAssets.map((a) => a.assetClass)));
+    const classes = presentClasses.map((c) => {
+      const t = classTargets.find((ct) => ct.asset_class === c);
+      return {
+        assetClass: c,
+        targetPercentage: t ? t.target_percentage : 100 / presentClasses.length,
+        receivesContribution: t ? t.receives_contribution !== 0 : true,
+      };
+    });
 
-    const result = calculateSmartContribution(numericAmount, inputAssets);
+    const plan = calculateTwoPhaseContribution(numericAmount, classes, inputAssets);
+    const currentTotal = inputAssets.reduce((sum, a) => sum.plus(a.currentValue), new Decimal(0));
+    const result = planToRebalanceResult(plan, numericAmount, currentTotal.toString());
+    setExtraShareTickers(result.extraShareTickers);
     setSimulationResult(result);
   };
 
@@ -142,7 +174,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
 
       Alert.alert(
         'Aportes Confirmados!',
-        `Sucesso: ${res.totalExecuted} lançamentos BUY gerados no Livro-Razão.\nTotal Investido: R$ ${res.totalAmountInvested}`
+        `${res.totalExecuted} ${res.totalExecuted === 1 ? 'aporte registrado' : 'aportes registrados'}.\nTotal investido: R$ ${res.totalAmountInvested}`
       );
       onContributionsConfirmed();
       onClose();
@@ -172,7 +204,13 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: layout.screenPadding + Math.max(bottomInset, 16) + 24 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* Seletor de Carteira */}
         <View style={styles.section}>
           <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>CARTEIRA DESTINO</Text>
@@ -204,6 +242,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           <LedgerInput
             label="VALOR DISPONÍVEL P/ APORTE (R$)"
             value={contributionAmountText}
+            placeholder="0,00"
             onChangeText={setContributionAmountText}
             prefix="R$ "
             suffix=" BRL"
@@ -224,26 +263,33 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         {simulationResult ? (
           <View style={styles.resultSection}>
             {/* Bento Card de Resumo do Aporte */}
-            <View style={styles.metricsRow}>
-              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
-                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>TOTAL APORTE</Text>
-                <Text style={[styles.metricValue, isLight && styles.metricValueLight]}>
-                  R$ {simulationResult.contributionAmount}
-                </Text>
-              </View>
-              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
-                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>TOTAL ALOCADO</Text>
-                <Text style={[styles.metricValue, { color: isLight ? '#1B4D3E' : '#AECDC5' }]}>
-                  R$ {simulationResult.totalAllocated}
-                </Text>
-              </View>
-              <View style={[styles.metricCard, isLight && styles.metricCardLight]}>
-                <Text style={[styles.metricLabel, isLight && styles.metricLabelLight]}>SOBRA EM CAIXA</Text>
-                <Text style={[styles.metricValue, { color: isLight ? '#A0522D' : colors.tertiary }]}>
-                  R$ {simulationResult.remainingCash}
-                </Text>
-              </View>
-            </View>
+            <BentoRow testID="simulator-metrics">
+              {[
+                { label: 'TOTAL APORTE', value: simulationResult.contributionAmount, variant: 'cream' as const },
+                { label: 'TOTAL ALOCADO', value: simulationResult.totalAllocated, variant: 'forest' as const },
+                { label: 'TROCO', value: simulationResult.remainingCash, variant: 'gold' as const },
+              ].map((m) => (
+                <BentoTile key={m.label} variant={m.variant} style={{ paddingVertical: 12, paddingHorizontal: 6, minHeight: 88, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={[styles.metricLabel, { color: bento.variants[m.variant].muted }]}>{m.label}</Text>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                    style={[styles.metricValue, { color: bento.variants[m.variant].foreground }]}
+                  >
+                    {isPrivacyMode ? (
+                      'R$ ••••••'
+                    ) : (
+                      <>
+                        <Text style={styles.metricCurrency}>R$ </Text>
+                        {m.value}
+                      </>
+                    )}
+                  </Text>
+                </BentoTile>
+              ))}
+            </BentoRow>
+            <View style={{ height: layout.groupGap }} />
 
             {/* Lista de Ativos Sugeridos */}
             <Text style={[styles.listSectionTitle, isLight && styles.listSectionTitleLight]}>ATIVOS CONTEMPLADOS</Text>
@@ -278,7 +324,8 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                         <Text style={[styles.classBadgeText, isLight && styles.classBadgeTextLight]}>{config.label}</Text>
                       </View>
                       <Text style={[styles.subDetailText, isLight && styles.subDetailTextLight]}>
-                        Meta: {s.targetWeightPercent}% • Atual: {s.currentWeightPercent}%
+                        {extraShareTickers.includes(s.ticker) ? 'Cota extra do troco • ' : ''}
+                        Na classe após aporte: {s.targetWeightPercent}%
                       </Text>
                     </View>
 
@@ -292,7 +339,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
                             : (isLight ? styles.allocatedZeroLight : styles.allocatedZero),
                         ]}
                       >
-                        {hasAllocation ? `+R$ ${s.allocatedAmount}` : 'R$ 0,00'}
+                        {isPrivacyMode ? 'R$ ••••••' : hasAllocation ? `+R$ ${s.allocatedAmount}` : 'R$ 0,00'}
                       </Text>
                       <Text style={[styles.quantityText, isLight && styles.quantityTextLight]}>
                         {s.suggestedQuantity}{' '}
@@ -321,7 +368,6 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
           </View>
         ) : null}
 
-        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -345,7 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: borders.radiusSm,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: layout.screenPadding,
   },
   section: {
     marginBottom: spacing.md,
@@ -386,32 +432,36 @@ const styles = StyleSheet.create({
     color: colors.voidFloor,
   },
   resultSection: {
-    marginTop: spacing.sm,
+    marginTop: layout.sectionGap,
   },
   metricsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: spacing.md,
+    gap: space.sm,
+    marginBottom: layout.groupGap,
   },
   metricCard: {
     flex: 1,
-    backgroundColor: colors.neutral,
-    padding: spacing.sm + 2,
-    borderRadius: borders.radiusMd,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
   },
   metricLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 9,
+    fontSize: 10,
     color: '#8A8A8E',
     fontWeight: '700',
-    marginBottom: 4,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  metricCurrency: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   metricValue: {
     fontFamily: typography.fontFamily,
-    fontSize: typography.labelMd.fontSize,
+    fontSize: 21,
+    textAlign: 'center',
+    alignSelf: 'stretch',
     fontWeight: '700',
     color: colors.parchmentPale,
   },
@@ -423,16 +473,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs + 2,
   },
   suggestionsContainer: {
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusLg,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    paddingHorizontal: spacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: 'transparent',
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
   },
   suggestionCard: {
     flexDirection: 'row',
@@ -515,8 +558,7 @@ const styles = StyleSheet.create({
     color: '#111315',
   },
   metricCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
+    backgroundColor: 'transparent',
   },
   metricLabelLight: {
     color: '#6E6A63',
@@ -528,10 +570,8 @@ const styles = StyleSheet.create({
     color: '#111315',
   },
   suggestionsContainerLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.08,
+    backgroundColor: 'transparent',
+    borderTopColor: '#EAE4D7',
   },
   suggestionCardLight: {
     borderBottomColor: '#EAE4D7',

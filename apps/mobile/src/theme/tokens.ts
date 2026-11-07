@@ -4,6 +4,8 @@ export interface ColorTokens {
   neutral: string;
   surfaceContainerLow: string;
   surfaceCard?: string;
+  ebonyCard?: string;
+  outline?: string;
   primary: string;
   secondary: string;
   secondaryLight?: string;
@@ -31,6 +33,10 @@ export interface TypographyVariant {
 
 export interface TypographyTokens {
   fontFamily: string;
+  fontFamilyMono: string;
+  fontFamilyDisplay: string;
+  fontSizeXs: number;
+  fontSizeSm: number;
   sizes: {
     title: number;
     subtitle: number;
@@ -92,6 +98,8 @@ export const colors: ColorTokens = {
   neutral: '#191B1D',
   surfaceContainerLow: '#1A1C1E',
   surfaceCard: '#191B1D',
+  ebonyCard: '#191B1D',
+  outline: '#26292C',
   primary: '#D96628',
   secondary: '#2E4A44',
   secondaryLight: '#AECDC5',
@@ -111,6 +119,10 @@ export const colors: ColorTokens = {
 
 export const typography: TypographyTokens = {
   fontFamily: 'Space Mono',
+  fontFamilyMono: 'Space Mono',
+  fontFamilyDisplay: 'Space Mono',
+  fontSizeXs: 10,
+  fontSizeSm: 12,
   sizes: {
     title: 15,
     subtitle: 11,
@@ -201,6 +213,62 @@ export const spacing: SpacingTokens = {
   screenHorizontal: 16,
 };
 
+/**
+ * Escala de espaçamento ÚNICA do app (4/8/12/16/24/32). Nenhuma tela deve usar
+ * números soltos para margens/gaps: importe daqui ou use Section/FormField/FormGroup.
+ */
+export const space = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  xxl: 32,
+} as const;
+
+/** Decisões semânticas de layout derivadas da escala. */
+export const layout = {
+  /** Margem lateral das telas (único valor fora da escala: 20 = spacing.margin). */
+  screenPadding: 20,
+  /** Margem lateral e respiro superior das telas de aba (Home, Carteiras, Estatísticas). */
+  tabScreenPaddingX: spacing.md,
+  tabScreenPaddingTop: spacing.xs,
+  /** Entre rótulo e campo. */
+  labelGap: space.sm,
+  /** Entre campos de um mesmo grupo. */
+  fieldGap: space.xl,
+  /** Entre grupos de campos. */
+  groupGap: space.xxl,
+  /** Entre seções (separadas por linha fina). */
+  sectionGap: space.xxl,
+  /** Entre o título da seção e o conteúdo. */
+  sectionTitleGap: space.md,
+  /** Padding interno de linhas de lista / blocos. */
+  rowPadding: space.lg,
+  /** Padding interno de blocos que ainda usam superfície (modais, avisos). */
+  cardPadding: space.lg,
+} as const;
+
+/**
+ * Proporções da navbar e do menu "+": a pílula ativa deve envolver ícone+texto com
+ * pouca folga. Ajuste aqui, sem tocar nos componentes.
+ */
+export const dock = {
+  iconSize: 22,
+  /** Padding horizontal da pílula ativa (folga entre conteúdo e borda). */
+  pillPaddingX: 10,
+  /** Espaço entre o ícone e o texto da aba ativa. */
+  labelGap: 6,
+  /** Altura da pílula ativa. */
+  pillHeight: 44,
+  /** Largura do slot das abas inativas (ícone + folga). */
+  inactiveSlotWidth: 44,
+  /** Pílulas do menu "+": padding e espaço entre elas. */
+  menuPillPaddingX: 14,
+  menuPillPaddingY: 10,
+  menuPillGap: 10,
+} as const;
+
 export const borders: BorderTokens = {
   radiusSm: 6,
   radiusBase: 12,
@@ -211,6 +279,25 @@ export const borders: BorderTokens = {
   radiusFull: 9999,
   hairline: 1,
 };
+
+/** Bento Grid: tiles de cantos grandes sobre fundo escuro, com gap curto e uniforme. */
+export const bento = {
+  gap: 10,
+  tileRadius: 28,
+  innerRadius: 18,
+  tilePadding: 18,
+  tileMinHeight: 96,
+  variants: {
+    primary: { background: '#D96628', foreground: '#1A0E08', muted: 'rgba(26,14,8,0.65)' },
+    forest: { background: '#2E4A44', foreground: '#E6DECA', muted: 'rgba(230,222,202,0.7)' },
+    cream: { background: '#E6DECA', foreground: '#111315', muted: 'rgba(17,19,21,0.6)' },
+    gold: { background: '#D4A83B', foreground: '#1A1405', muted: 'rgba(26,20,5,0.65)' },
+    dark: { background: '#1C1E20', foreground: '#E6DECA', muted: '#8A8A8E' },
+    light: { background: '#FFFFFF', foreground: '#111315', muted: '#6E6A63' },
+  },
+} as const;
+
+export type BentoVariant = keyof typeof bento.variants;
 
 export const tokens: ThemeTokens = {
   colors,

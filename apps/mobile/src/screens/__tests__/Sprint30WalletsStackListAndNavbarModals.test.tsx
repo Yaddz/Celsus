@@ -142,7 +142,7 @@ describe('Sprint 30: Wallet Stack Real Depth, List Selector & Navbar Direct Moda
         />
       );
 
-      // Camadas de profundidade renderizadas
+      // Todas as demais carteiras são renderizadas (agrupadas atrás da selecionada)
       const layerOne = screen.getByTestId('wallet-depth-layer-1');
       const layerTwo = screen.getByTestId('wallet-depth-layer-2');
       expect(layerOne).toBeTruthy();
@@ -151,7 +151,7 @@ describe('Sprint 30: Wallet Stack Real Depth, List Selector & Navbar Direct Moda
       const layerOneStyle = [layerOne.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
       const layerTwoStyle = [layerTwo.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
 
-      // As camadas devem herdar as cores das próximas carteiras (#DB5A42 e #EF9F43)
+      // Cada card herda a cor da sua carteira (#DB5A42 e #EF9F43)
       expect(layerOneStyle.backgroundColor?.toUpperCase()).toBe('#DB5A42');
       expect(layerTwoStyle.backgroundColor?.toUpperCase()).toBe('#EF9F43');
 

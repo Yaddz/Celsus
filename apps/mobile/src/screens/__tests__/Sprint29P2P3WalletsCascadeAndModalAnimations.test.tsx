@@ -61,7 +61,7 @@ describe('Sprint 29: Wallets Deck Sync, Class Target Layout, Cascade Delete & Mo
   });
 
   describe('S29-T02: Macro Class Targets Layout & Persistence (No flex: 1 Squashing)', () => {
-    it('should render macro class name clearly and input wrapper with compact width (<= 84px) and persist target changes', async () => {
+    it('should render macro class name clearly and input wrapper with compact width (<= 140px, campo padrão com sufixo "% meta") and persist target changes', async () => {
       const port = await portfolioRepository.createPortfolio({
         name: 'Carteira Metas',
         docket_code: 'REV-MET-001',
@@ -85,7 +85,7 @@ describe('Sprint 29: Wallets Deck Sync, Class Target Layout, Cascade Delete & Mo
       const inputWrapper = screen.getByTestId('input-wrapper-class-STOCK');
       const flatStyle = [inputWrapper.props.style].flat().reduce((acc, s) => ({ ...acc, ...s }), {});
       expect(flatStyle.flex).toBeUndefined();
-      expect(flatStyle.width).toBeLessThanOrEqual(84);
+      expect(flatStyle.width).toBeLessThanOrEqual(140);
 
       // Altera o percentual de Ações
       fireEvent.changeText(inputStock, '50');

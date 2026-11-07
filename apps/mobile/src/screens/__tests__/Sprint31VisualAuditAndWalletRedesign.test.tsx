@@ -115,10 +115,11 @@ describe('Sprint 31: Visual Audit, Desjargonization, Notch Fix & Wallet Screen R
         />
       );
 
-      expect(screen.getByText('Celsus | Dados no Aparelho')).toBeDefined();
       expect(screen.queryByText(/Dossiê Local/i)).toBeNull();
       expect(screen.queryByText(/Local-First ─── Sovereign/i)).toBeNull();
-      expect(screen.getByText(/100% no Dispositivo/i)).toBeDefined();
+      // Selos e indicadores estáticos de exemplo foram removidos do Perfil
+      expect(screen.queryByText('Celsus | Dados no Aparelho')).toBeNull();
+      expect(screen.queryByText(/100% no Dispositivo/i)).toBeNull();
     });
 
     it('should use "Criar Carteira" instead of "Criar Dossiê" in PortfolioManagementScreen creation modal', async () => {

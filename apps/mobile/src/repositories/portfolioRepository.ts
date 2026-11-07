@@ -5,6 +5,7 @@ import {
   portfolioClassTargets,
   assets,
   transactions,
+  incomeEvents,
   Portfolio,
   PortfolioClassTarget,
 } from '../db/schema';
@@ -48,6 +49,8 @@ export class PortfolioRepository {
       name: params.name,
       description: params.description || null,
       docket_code: params.docket_code,
+      patrimony_goal: null,
+      monthly_contribution: null,
       is_archived: 0,
       created_at: now,
       updated_at: now,
@@ -115,6 +118,8 @@ export class PortfolioRepository {
       description: string;
       docket_code: string;
       is_archived: number;
+      patrimony_goal: string | null;
+      monthly_contribution: string | null;
     }>
   ): Promise<Portfolio | null> {
     const now = new Date().toISOString();
@@ -129,6 +134,17 @@ export class PortfolioRepository {
     return updated;
   }
 
+  /** Define a meta de patrimônio (R$) e o aporte mensal planejado da carteira. */
+  async setGoal(
+    id: string,
+    goal: { patrimonyGoal?: string | null; monthlyContribution?: string | null }
+  ): Promise<Portfolio | null> {
+    const params: Partial<{ patrimony_goal: string | null; monthly_contribution: string | null }> = {};
+    if (goal.patrimonyGoal !== undefined) params.patrimony_goal = goal.patrimonyGoal;
+    if (goal.monthlyContribution !== undefined) params.monthly_contribution = goal.monthlyContribution;
+    return this.updatePortfolio(id, params);
+  }
+
   async getClassTargets(portfolioId: string): Promise<PortfolioClassTarget[]> {
     return this.db
       .select()
@@ -138,7 +154,7 @@ export class PortfolioRepository {
 
   async setClassTargets(
     portfolioId: string,
-    targets: Array<{ asset_class: string; target_percentage: number }>
+    targets: Array<{ asset_class: string; target_percentage: number; receives_contribution?: boolean }>
   ): Promise<PortfolioClassTarget[]> {
     const now = new Date().toISOString();
 
@@ -158,6 +174,9 @@ export class PortfolioRepository {
           .update(portfolioClassTargets)
           .set({
             target_percentage: target.target_percentage,
+            ...(target.receives_contribution === undefined
+              ? {}
+              : { receives_contribution: target.receives_contribution ? 1 : 0 }),
             updated_at: now,
           })
           .where(eq(portfolioClassTargets.id, existing[0].id));
@@ -167,6 +186,7 @@ export class PortfolioRepository {
           portfolio_id: portfolioId,
           asset_class: target.asset_class,
           target_percentage: target.target_percentage,
+          receives_contribution: target.receives_contribution === false ? 0 : 1,
           updated_at: now,
         });
       }
@@ -175,6 +195,7 @@ export class PortfolioRepository {
     return this.getClassTargets(portfolioId);
   }
   async deletePortfolio(id: string): Promise<boolean> {
+    await this.db.delete(incomeEvents).where(eq(incomeEvents.portfolio_id, id));
     await this.db.delete(transactions).where(eq(transactions.portfolio_id, id));
     await this.db.delete(assets).where(eq(assets.portfolio_id, id));
     await this.db.delete(portfolioClassTargets).where(eq(portfolioClassTargets.portfolio_id, id));

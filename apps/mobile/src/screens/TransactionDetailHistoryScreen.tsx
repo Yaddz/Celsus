@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { colors, typography, spacing, borders } from '../theme/tokens';
+import { colors, typography, spacing, borders, layout, space } from '../theme/tokens';
 import { AssetClass, ASSET_CLASS_ATTRIBUTE_MAP } from '../components/ui/AttributeStatBar';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 
@@ -37,6 +37,8 @@ export interface TransactionHistoryItem {
   totalAmount: string;
   fees: string;
   notes?: string;
+  /** Hora do evento (HH:mm), quando disponível. */
+  tradeTime?: string;
 }
 
 export interface TransactionDetailHistoryScreenProps {
@@ -44,6 +46,7 @@ export interface TransactionDetailHistoryScreenProps {
   transaction?: TransactionDetailData;
   history?: TransactionHistoryItem[];
   isPrivacyMode?: boolean;
+  onTogglePrivacy?: () => void;
   onClose?: () => void;
   testID?: string;
   themeMode?: 'dark' | 'light';
@@ -100,6 +103,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   transaction = DEFAULT_TRANSACTION,
   history,
   isPrivacyMode = false,
+  onTogglePrivacy,
   onClose = () => {},
   testID = 'transaction-detail-history-screen',
   themeMode = 'dark',
@@ -110,6 +114,35 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   const historyList = history !== undefined
     ? history
     : (tx.id === DEFAULT_TRANSACTION.id ? DEFAULT_HISTORY : []);
+
+  const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const monthKey = (d: string): { key: string; label: string; sort: string } => {
+    let y = '';
+    let m = '';
+    const iso = /^(\d{4})-(\d{2})/.exec(d);
+    const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d);
+    if (iso) { y = iso[1]; m = iso[2]; } else if (br) { y = br[3]; m = br[2]; }
+    if (!y) return { key: 'outros', label: 'OUTROS', sort: '0000-00' };
+    return { key: `${y}-${m}`, label: `${MONTHS[parseInt(m, 10) - 1] ?? m} ${y}`.toUpperCase(), sort: `${y}-${m}` };
+  };
+  const sortableDate = (d: string) => {
+    const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(d);
+    const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d);
+    return iso ? `${iso[1]}${iso[2]}${iso[3]}` : br ? `${br[3]}${br[2]}${br[1]}` : '00000000';
+  };
+  // Mais recente primeiro; agrupa por mês/ano e destaca o evento mais recente.
+  const sortedHistory = [...historyList].sort((a, b) => sortableDate(b.tradeDate).localeCompare(sortableDate(a.tradeDate)));
+  type TimelineEntry = { kind: 'group'; label: string } | { kind: 'item'; item: TransactionHistoryItem; isLatest: boolean };
+  const timelineEntries: TimelineEntry[] = [];
+  let lastGroup = '';
+  sortedHistory.forEach((item, i) => {
+    const g = monthKey(item.tradeDate);
+    if (g.key !== lastGroup) {
+      timelineEntries.push({ kind: 'group', label: g.label });
+      lastGroup = g.key;
+    }
+    timelineEntries.push({ kind: 'item', item, isLatest: i === 0 });
+  });
 
   const assetClass = tx.assetClass || 'STOCK';
   const classConfig = ASSET_CLASS_ATTRIBUTE_MAP[assetClass] || {
@@ -129,8 +162,8 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
       <XpMinimalHeader
         onBack={onClose}
         title="Detalhes da Operação"
-        subtitle={classConfig.name}
         isPrivacyModeEnabled={isPrivacyMode}
+        onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
 
@@ -226,66 +259,75 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
           )}
         </View>
 
-        {/* Linha do Tempo / Histórico Completo de Movimentações */}
+        {/* Linha do tempo: trilho contínuo, nós por tipo, grupos por mês/ano */}
         <View testID="tx-history-list" style={styles.historySection}>
           <Text style={[styles.historySectionTitle, isLight && styles.historySectionTitleLight]}>HISTÓRICO DE OPERAÇÕES</Text>
 
           {historyList.length === 0 ? (
-            <View style={[styles.timelineContentCard, isLight && styles.timelineContentCardLight, { alignItems: 'center', paddingVertical: 18 }]}>
-              <MaterialIcons name="history" size={24} color={isLight ? '#8A857B' : '#8A8A8E'} style={{ marginBottom: 6 }} />
-              <Text style={{ color: isLight ? '#6E6A63' : '#8A8A8E', fontSize: 13, fontFamily: 'monospace' }}>
+            <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+              <MaterialIcons name="history" size={24} color={isLight ? '#8A857B' : '#8A8A8E'} style={{ marginBottom: 8 }} />
+              <Text style={{ color: isLight ? '#6E6A63' : '#8A8A8E', fontSize: 13, fontFamily: typography.fontFamily }}>
                 Nenhuma outra movimentação deste ativo
               </Text>
             </View>
           ) : (
-            historyList.map((item, idx) => {
-            const itemIsBuy = item.type === 'BUY';
-            const totalDisplay = isPrivacyMode ? '••••••' : item.totalAmount;
-
-            return (
-              <View key={item.id || `history-${idx}`} style={styles.timelineItem}>
-                {/* Linha vertical e nó da timeline */}
-                <View style={styles.timelineNodeContainer}>
-                  <View
-                    style={[
-                      styles.timelineNode,
-                      { backgroundColor: itemIsBuy ? colors.primary : colors.deficit },
-                    ]}
-                  />
-                  {idx < historyList.length - 1 && <View style={[styles.timelineLine, isLight && styles.timelineLineLight]} />}
-                </View>
-
-                {/* Card de Detalhe do Histórico */}
-                <View style={[styles.timelineContentCard, isLight && styles.timelineContentCardLight]}>
-                  <View style={styles.timelineHeaderRow}>
-                    <Text style={[styles.timelineDateText, isLight && styles.timelineDateTextLight]}>
-                      {item.tradeDate === tx.tradeDate ? 'Esta operação' : item.tradeDate}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.timelineTypeText,
-                        { color: itemIsBuy ? (isLight ? '#2E4A44' : colors.tertiary) : colors.deficit },
-                      ]}
-                    >
-                      {itemIsBuy ? 'COMPRA' : 'VENDA'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.timelineMetricsRow}>
-                    <View>
-                      <Text style={[styles.timelineAmountText, isLight && styles.timelineAmountTextLight]}>{totalDisplay}</Text>
-                      <Text style={[styles.timelineSubText, isLight && styles.timelineSubTextLight]}>
-                        {isPrivacyMode ? '••••••' : `${item.quantity} cotas`}
-                      </Text>
+            <View style={styles.tlContainer}>
+              {/* Linha vertical contínua atrás de todos os nós */}
+              <View style={[styles.tlRail, isLight && styles.tlRailLight]} />
+              {timelineEntries.map((entry, idx) => {
+                if (entry.kind === 'group') {
+                  return (
+                    <View key={`g-${entry.label}-${idx}`} style={styles.tlGroupRow}>
+                      <Text style={[styles.tlGroupText, isLight && styles.tlGroupTextLight]}>{entry.label}</Text>
                     </View>
-                    {item.notes && (
-                      <Text style={styles.timelineNotesText}>{item.notes}</Text>
-                    )}
+                  );
+                }
+                const { item, isLatest } = entry;
+                const itemIsBuy = item.type === 'BUY';
+                const nodeColor = itemIsBuy ? '#AECDC5' : colors.primary;
+                const totalDisplay = isPrivacyMode ? '••••••' : item.totalAmount;
+                const detailLine = isPrivacyMode
+                  ? '••••••'
+                  : `${item.quantity} cotas × ${item.unitPrice}`;
+                return (
+                  <View key={item.id || `history-${idx}`} style={styles.tlItem} testID={`tx-timeline-item-${item.id || idx}`}>
+                    <View style={styles.tlNodeCol}>
+                      <View
+                        style={[
+                          styles.tlNode,
+                          isLatest && styles.tlNodeLatest,
+                          { borderColor: nodeColor, backgroundColor: isLatest ? nodeColor : (isLight ? '#F4F1EA' : colors.voidFloor) },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name={itemIsBuy ? 'arrow-upward' : 'arrow-downward'}
+                          size={isLatest ? 13 : 10}
+                          color={isLatest ? colors.voidFloor : nodeColor}
+                        />
+                      </View>
+                    </View>
+                    <View style={[styles.tlBody, isLatest && styles.tlBodyLatest]}>
+                      <View style={styles.tlTopRow}>
+                        <Text style={[styles.tlDate, isLight && styles.tlDateLight]}>
+                          {item.tradeDate === tx.tradeDate ? 'Esta operação' : item.tradeDate}
+                          {item.tradeTime ? ` · ${item.tradeTime}` : ''}
+                        </Text>
+                        <Text style={[styles.tlType, { color: itemIsBuy ? (isLight ? '#2E4A44' : '#AECDC5') : colors.primary }]}>
+                          {itemIsBuy ? 'COMPRA' : 'VENDA'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.tlTotal, isLight && styles.tlTotalLight]}>{totalDisplay}</Text>
+                      <Text style={[styles.tlDetail, isLight && styles.tlDetailLight]}>{detailLine}</Text>
+                      {isLatest ? (
+                        <Text style={[styles.tlLatestTag, isLight && styles.tlLatestTagLight]}>MAIS RECENTE</Text>
+                      ) : null}
+                      {item.notes ? <Text style={styles.timelineNotesText}>{item.notes}</Text> : null}
+                    </View>
                   </View>
-                </View>
-              </View>
-            );
-          }))}
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -293,6 +335,120 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
 };
 
 const styles = StyleSheet.create({
+  tlContainer: {
+    position: 'relative',
+    paddingTop: 4,
+  },
+  tlRail: {
+    position: 'absolute',
+    left: 13,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#2A2D30',
+  },
+  tlRailLight: {
+    backgroundColor: '#D6CFBF',
+  },
+  tlGroupRow: {
+    paddingLeft: 40,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  tlGroupText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    color: '#8A8A8E',
+  },
+  tlGroupTextLight: {
+    color: '#6E6A63',
+  },
+  tlItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  tlNodeCol: {
+    width: 28,
+    alignItems: 'center',
+  },
+  tlNode: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  tlNodeLatest: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginTop: 0,
+  },
+  tlBody: {
+    flex: 1,
+    marginLeft: 12,
+    paddingBottom: 16,
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#26292C',
+  },
+  tlBodyLatest: {
+    borderBottomColor: '#3A3D40',
+  },
+  tlTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  tlDate: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: '#A8A296',
+  },
+  tlDateLight: {
+    color: '#6E6A63',
+  },
+  tlType: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  tlTotal: {
+    fontFamily: typography.fontFamily,
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.parchmentPale,
+    marginTop: 6,
+  },
+  tlTotalLight: {
+    color: '#111315',
+  },
+  tlDetail: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    color: '#8A8A8E',
+    marginTop: 4,
+  },
+  tlDetailLight: {
+    color: '#6E6A63',
+  },
+  tlLatestTag: {
+    alignSelf: 'flex-start',
+    marginTop: 10,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1,
+    color: colors.primary,
+  },
+  tlLatestTagLight: {
+    color: '#C24D18',
+  },
   container: {
     flex: 1,
     backgroundColor: colors.voidFloor,
@@ -338,20 +494,15 @@ const styles = StyleSheet.create({
     color: colors.parchmentPale,
   },
   scrollContent: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
+    paddingHorizontal: layout.screenPadding,
+    paddingTop: space.sm,
   },
   heroCard: {
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusLg,
-    padding: spacing.md,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
-    marginBottom: spacing.md,
-    shadowColor: '#000000',
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: 'transparent',
+    paddingTop: layout.sectionGap - space.sm,
+    borderTopWidth: borders.hairline,
+    borderTopColor: '#26292C',
+    marginBottom: layout.sectionGap,
   },
   heroHeader: {
     flexDirection: 'row',
@@ -477,11 +628,10 @@ const styles = StyleSheet.create({
   },
   timelineContentCard: {
     flex: 1,
-    backgroundColor: colors.neutral,
-    borderRadius: borders.radiusMd,
-    padding: spacing.md,
-    borderWidth: borders.hairline,
-    borderColor: '#26292C',
+    backgroundColor: 'transparent',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: borders.hairline,
+    borderBottomColor: '#26292C',
   },
   timelineHeaderRow: {
     flexDirection: 'row',
@@ -542,10 +692,8 @@ const styles = StyleSheet.create({
     color: '#111315',
   },
   heroCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.08,
+    backgroundColor: 'transparent',
+    borderTopColor: '#EAE4D7',
   },
   heroHeaderLight: {
     borderBottomColor: '#EAE4D7',
@@ -581,10 +729,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EAE4D7',
   },
   timelineContentCardLight: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#EAE4D7',
-    shadowColor: '#111315',
-    shadowOpacity: 0.06,
+    backgroundColor: 'transparent',
+    borderBottomColor: '#EAE4D7',
   },
   timelineDateTextLight: {
     color: '#6E6A63',

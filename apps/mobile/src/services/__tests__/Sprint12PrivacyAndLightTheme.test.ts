@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react-native';
 import App from '../../../App';
 import {
   PRIVACY_ASTERISK_MASK,
@@ -103,9 +103,10 @@ describe('S12-T02: TestPrivacyAsteriskMaskAndLightThemeTokens', () => {
       // Ativa o modo de privacidade na Home
       fireEvent.press(privacyButton);
 
-      // Verifica que a máscara 'R$ ••••••' é exibida na Home
-      const maskedElements = screen.getAllByText('R$ ••••••');
-      expect(maskedElements.length).toBeGreaterThanOrEqual(1);
+      // Verifica que a máscara 'R$ ••••••' é exibida na Home (o baralho mostra skeleton até a 1ª carga)
+      await waitFor(() => {
+        expect(screen.getAllByText('R$ ••••••').length).toBeGreaterThanOrEqual(1);
+      });
 
       // Verifica que o valor aberto não está mais visível
       expect(screen.queryByText('R$ 32.468,00')).toBeNull();

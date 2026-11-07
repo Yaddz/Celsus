@@ -84,14 +84,13 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
-    it('S19-T02: deve conter o card de perfil estilo XP com avatar circular, selo institucional, barra de nível e pílula de status', async () => {
-      const { getByTestId, getByText } = await render(
+    it('S19-T02: deve conter o card de perfil com avatar, nome e resumo local, sem elementos de exemplo', async () => {
+      const { getByTestId, getByText, queryByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
           onTogglePrivacyMode={jest.fn()}
           userName="Pedro"
           userInitials="PL"
-          investorProfile="Soberano"
         />
       );
 
@@ -99,41 +98,31 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const profileCard = getByTestId('investor-profile-card');
       expect(profileCard).toBeDefined();
 
-      // Iniciais do Avatar e Ação de Editar
+      // Iniciais do avatar e nome informados pelo chamador
       expect(getByText('PL')).toBeDefined();
-      expect(getByTestId('profile-edit-avatar')).toBeDefined();
-
-      // Nome do investidor
       expect(getByText('Pedro')).toBeDefined();
+      expect(getByTestId('profile-local-summary')).toBeDefined();
 
-      // Selo Dossiê Local Celsus
-      expect(getByTestId('profile-seal')).toBeDefined();
-
-      // Barra horizontal de nível (Local-First ─── Sovereign)
-      expect(getByTestId('profile-level-bar')).toBeDefined();
-
-      // Pílula de status do perfil
-      expect(getByTestId('profile-status-pill')).toBeDefined();
+      // Elementos decorativos/de exemplo foram removidos
+      expect(queryByTestId('profile-edit-avatar')).toBeNull();
+      expect(queryByTestId('profile-seal')).toBeNull();
+      expect(queryByTestId('profile-level-bar')).toBeNull();
+      expect(queryByTestId('profile-status-pill')).toBeNull();
     });
 
-    it('S19-T03: deve conter módulo horizontal "Dados das carteiras" com resumo lado a lado', async () => {
-      const { getByTestId, getByText } = await render(
+    it('S19-T03: deve conter o bloco de carteiras com dados reais (estado vazio sem carteiras)', async () => {
+      const { getByTestId, queryByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
           onTogglePrivacyMode={jest.fn()}
-          mainPortfolioName="Carteira Principal"
         />
       );
 
-      // Seção com os cards horizontais das carteiras
       expect(getByTestId('wallets-summary-section')).toBeDefined();
-
-      // Card da Carteira Principal
-      expect(getByTestId('wallet-summary-card-main')).toBeDefined();
-      expect(getByText('Carteira Principal')).toBeDefined();
-
-      // Card da Carteira de Reserva / Oportunidade
-      expect(getByTestId('wallet-summary-card-reserve')).toBeDefined();
+      // Sem carteiras cadastradas: estado vazio, nunca cards de exemplo
+      expect(getByTestId('wallets-empty-state')).toBeDefined();
+      expect(queryByTestId('wallet-summary-card-main')).toBeNull();
+      expect(queryByTestId('wallet-summary-card-reserve')).toBeNull();
     });
 
     it('S19-T04: deve conter bloco agrupado "Personalização" com Seletor de Aparência e ausência de switch redundante de privacidade', async () => {
@@ -203,7 +192,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
   // MÓDULO 9: AUDITORIA DE CONFORMIDADE VISUAL E CONTRASTE NO MODO CLARO
   // =========================================================================
   describe('Módulo 9 — Auditoria de Tema Claro (Light Mode: #F4F1EA / #FFFFFF / #111315)', () => {
-    it('S19-T07: SettingsBackupScreen deve aplicar fundo claro #F4F1EA e cards brancos #FFFFFF no modo light', async () => {
+    it('S19-T07: SettingsBackupScreen deve aplicar fundo claro #F4F1EA e tiles Bento brancos no modo light', async () => {
       const { getByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
@@ -217,9 +206,11 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const container = getByTestId('settings-backup-screen');
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
 
-      // Card de perfil com superfície clara
+      // Card de perfil como tile Bento claro
       const profileCard = getByTestId('investor-profile-card');
-      expect(StyleSheet.flatten(profileCard.props.style).backgroundColor).toBe('#FFFFFF');
+      const flat = StyleSheet.flatten(profileCard.props.style);
+      expect(flat.backgroundColor).toBe('#FFFFFF');
+      expect(flat.borderRadius).toBe(28);
     });
 
     it('S19-T08: PortfolioManagementScreen deve aplicar fundo claro #F4F1EA e superfícies claras no modo light', async () => {
@@ -234,7 +225,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
     });
 
-    it('S19-T09: ClassDetailScreen deve aplicar fundo #F4F1EA e superfície de cards #FFFFFF no modo light', async () => {
+    it('S19-T09: ClassDetailScreen deve aplicar fundo #F4F1EA e seções planas (sem card) no modo light', async () => {
       const { getByTestId } = await render(
         <ClassDetailScreen
           themeMode="light"
@@ -246,7 +237,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
 
       const donutCard = getByTestId('class-donut-chart');
-      expect(StyleSheet.flatten(donutCard.props.style).backgroundColor).toBe('#FFFFFF');
+      expect(StyleSheet.flatten(donutCard.props.style).backgroundColor).toBe('transparent');
     });
 
     it('S19-T10: TransactionDetailHistoryScreen deve aplicar fundo #F4F1EA no modo light', async () => {
@@ -261,7 +252,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
     });
 
-    it('S19-T11: StatisticsScreen deve aplicar fundo #F4F1EA e cards brancos #FFFFFF no modo light', async () => {
+    it('S19-T11: StatisticsScreen deve aplicar fundo #F4F1EA e seções planas (sem card) no modo light', async () => {
       const { getByTestId } = await render(
         <StatisticsScreen
           themeMode="light"
@@ -273,7 +264,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
 
       const chartCard = getByTestId('patrimony-line-chart-card');
-      expect(StyleSheet.flatten(chartCard.props.style).backgroundColor).toBe('#FFFFFF');
+      expect(StyleSheet.flatten(chartCard.props.style).backgroundColor).toBe('transparent');
     });
 
     it('S19-T12: TransactionScreen deve aplicar fundo #F4F1EA no modo light', async () => {

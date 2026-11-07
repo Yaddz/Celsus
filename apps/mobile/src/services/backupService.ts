@@ -426,6 +426,8 @@ const PORTFOLIOS_COLUMNS: (keyof Portfolio)[] = [
   'name',
   'description',
   'docket_code',
+  'patrimony_goal',
+  'monthly_contribution',
   'is_archived',
   'created_at',
   'updated_at',
@@ -436,6 +438,7 @@ const CLASS_TARGETS_COLUMNS: (keyof PortfolioClassTarget)[] = [
   'portfolio_id',
   'asset_class',
   'target_percentage',
+  'receives_contribution',
   'updated_at',
 ];
 
@@ -561,6 +564,8 @@ function parsePortfoliosFromCsv(csv: string): Portfolio[] {
     name: r.name,
     description: r.description === '' ? null : r.description,
     docket_code: r.docket_code,
+    patrimony_goal: r.patrimony_goal ? r.patrimony_goal : null,
+    monthly_contribution: r.monthly_contribution ? r.monthly_contribution : null,
     is_archived: Number(r.is_archived || 0),
     created_at: r.created_at,
     updated_at: r.updated_at,
@@ -573,6 +578,7 @@ function parseClassTargetsFromCsv(csv: string): PortfolioClassTarget[] {
     portfolio_id: r.portfolio_id,
     asset_class: r.asset_class,
     target_percentage: Number(r.target_percentage || 0),
+    receives_contribution: r.receives_contribution === undefined || r.receives_contribution === '' ? 1 : Number(r.receives_contribution),
     updated_at: r.updated_at,
   }));
 }
@@ -647,14 +653,16 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       }
 
       return { portfolios, classTargets, assets, transactions };
-    } catch {
-      return { portfolios: [], classTargets: [], assets: [], transactions: [] };
+    } catch (err) {
+      // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
+      throw new Error(
+        `Falha ao ler o banco local para o snapshot: ${err instanceof Error ? err.message : String(err)}`
+      );
     }
   }
 
-  async replaceAll(snapshot: BackupDatabaseSnapshot): Promise<void> {
+  private async writeSnapshot(snapshot: BackupDatabaseSnapshot): Promise<void> {
     const db = getDatabase();
-    if (!db) return;
     await db.delete(transactionsTable);
     await db.delete(assetsTable);
     await db.delete(classTargetsTable);
@@ -671,6 +679,30 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     for (const tx of snapshot.transactions) {
       await db.insert(transactionsTable).values(tx);
+    }
+  }
+
+  /**
+   * Substitui todo o banco pelo snapshot. Se qualquer inserção falhar, os dados
+   * anteriores são regravados (rollback compensatório) e o erro original é propagado.
+   */
+  async replaceAll(snapshot: BackupDatabaseSnapshot): Promise<void> {
+    const db = getDatabase();
+    if (!db) return;
+    const previous = await this.getSnapshot();
+    try {
+      await this.writeSnapshot(snapshot);
+    } catch (err) {
+      try {
+        await this.writeSnapshot(previous);
+      } catch (rollbackErr) {
+        throw new Error(
+          `Restauração falhou e o rollback também falhou: ${
+            rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr)
+          }`
+        );
+      }
+      throw err;
     }
   }
 

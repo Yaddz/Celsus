@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react-native';
+import { render, screen, fireEvent, within } from '@testing-library/react-native';
 import {
   TransactionDetailHistoryScreen,
   TransactionDetailData,
@@ -126,13 +126,14 @@ describe('S10-T03: TestTransactionHistoryNavigationAndDetails', () => {
       expect(screen.getByText(/1\.500,00/)).toBeTruthy(); // Valor Investido
 
       expect(screen.getByTestId('tx-detail-unit-price')).toBeTruthy();
-      expect(screen.getByText(/35,00/)).toBeTruthy(); // Cotação / Preço Unitário
+      // Cotação / Preço Unitário (restrito ao campo: a timeline também exibe o preço por evento)
+      expect(screen.getByTestId('tx-detail-unit-price')).toHaveTextContent(/35,00/);
 
       expect(screen.getByTestId('tx-detail-quantity')).toBeTruthy();
       expect(screen.getByText('42')).toBeTruthy(); // Quantidade
 
       expect(screen.getByTestId('tx-detail-fees')).toBeTruthy();
-      expect(screen.getByText(/5,00/)).toBeTruthy(); // Taxas
+      expect(screen.getByTestId('tx-detail-fees')).toHaveTextContent(/5,00/); // Taxas (campo próprio; a timeline mostra preços por evento)
 
       expect(screen.getByTestId('tx-detail-trade-date')).toBeTruthy();
       expect(screen.getByText(/2026-10-31/)).toBeTruthy(); // Data
