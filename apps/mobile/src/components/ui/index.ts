@@ -17,3 +17,4 @@ export * from './TransactionRow';
 export * from './TextField';
 export * from './PinDots';
 export * from './PinKeypad';
+export * from './HomeIncomeTile';
