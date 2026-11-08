@@ -575,7 +575,7 @@ export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
                           onPress={() => setSelectedBar(selectedBar === pt.month ? null : pt.month)}
                           style={[styles.barCol, isSelected && styles.barColSelected]}
                         >
-                          <View style={styles.barTrack}>
+                          <View style={[styles.barTrack, isLight && styles.barTrackLight]}>
                             <View
                               style={[
                                 styles.barFill,
@@ -604,7 +604,7 @@ export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
                           onPress={() => setSelectedBar(selectedBar === String(pt.year) ? null : String(pt.year))}
                           style={[styles.barCol, isSelected && styles.barColSelected]}
                         >
-                          <View style={styles.barTrack}>
+                          <View style={[styles.barTrack, isLight && styles.barTrackLight]}>
                             <View
                               style={[
                                 styles.barFill,
@@ -1003,6 +1003,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.04)',
     overflow: 'hidden',
+  },
+  barTrackLight: {
+    backgroundColor: '#EAE5D9',
   },
   barFill: {
     width: '100%',

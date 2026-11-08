@@ -51,8 +51,8 @@ const GoalProgressTileContent: React.FC<GoalProgressTileProps> = ({
   if (!hasGoal) {
     return (
       <BentoTile variant="dark" title="Meta de patrimônio" onPress={onPress} testID={testID} height={GOAL_TILE_HEIGHT}>
-        <Text style={{ fontFamily: typography.fontFamily, fontSize: 15, color: colors.parchmentPale }}>
-          Defina uma meta (ex.: R$ 100.000) e acompanhe o progresso.
+        <Text style={{ fontFamily: typography.fontFamily, fontSize: 13, color: colors.parchmentPale }}>
+          Defina sua meta e acompanhe o progresso.
         </Text>
         <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: colors.primary, marginTop: 8 }}>
           Definir meta →

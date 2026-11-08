@@ -26,6 +26,8 @@ import {
   AmbientOrb,
   GoalProgressTile,
   GoalEditorSheet,
+  HomeIncomeTile,
+  BentoRow,
 } from './src/components/ui';
 import { AssetClass } from './src/components/ui/AttributeStatBar';
 import { walletStore } from './src/stores/walletStore';
@@ -78,6 +80,9 @@ import { transactionService } from './src/services/transactionService';
 import { marketSyncService } from './src/services/marketSyncService';
 import { assetRepository } from './src/repositories/assetRepository';
 import { portfolioRepository } from './src/repositories/portfolioRepository';
+import { transactionRepository } from './src/repositories/transactionRepository';
+import { incomeRepository } from './src/repositories/incomeRepository';
+import { summarizeIncome } from './src/domain/finance/income';
 import { marketApiService, MarketQuote } from './src/services/marketApi';
 import { ASSET_CLASS_ATTRIBUTE_MAP } from './src/components/ui/AttributeStatBar';
 import Decimal from 'decimal.js';
@@ -245,6 +250,7 @@ function AppContent(props: {
   const [transactionsList, setTransactionsList] = useState<RecentTransactionItem[]>(getInitialTransactions);
   const [totalPatrimony, setTotalPatrimony] = useState('R$ 0,00');
   const [profitSummary, setProfitSummary] = useState('0,0% no ano');
+  const [homeIncomeTotal, setHomeIncomeTotal] = useState('0.00');
   // Lista de carteiras: fonte única compartilhada com a página de Carteiras (walletsStore).
   const { wallets: walletsList, loaded: walletsLoaded } = useWallets();
   const setWalletsList = (wallets: WalletCardData[]) => walletsStore.setWallets(wallets);
@@ -435,14 +441,12 @@ function AppContent(props: {
       }
       setPortfolioAssets(activeAssets);
 
-      const txs = await transactionService.getTransactionsByPortfolio(
-        activePortId || 'default-portfolio'
-      );
+      const txs = await transactionRepository.getAllTransactions();
       if (txs && txs.length > 0) {
         // Ativos já carregados: evita 1 consulta ao banco por movimentação.
         const assetById = new Map(activeAssets.map((a) => [a.id, a]));
         const mapped: RecentTransactionItem[] = await Promise.all(
-          txs.slice(0, 5).map(async (t) => {
+          txs.map(async (t) => {
             const asset = assetById.get(t.asset_id) ?? (await assetRepository.getAssetById(t.asset_id));
             return {
               id: t.id,
@@ -461,6 +465,18 @@ function AppContent(props: {
         setTransactionsList(mapped);
       } else {
         setTransactionsList([]);
+      }
+
+      // Carrega proventos para o tile da Home
+      try {
+        const rows = activePortId
+          ? await incomeRepository.listByPortfolio(activePortId)
+          : await incomeRepository.listAll();
+        const mappedIncs = rows.map((r) => ({ date: r.pay_date, amount: r.amount }));
+        const incSummary = summarizeIncome(mappedIncs, new Date().toISOString().slice(0, 10));
+        setHomeIncomeTotal(incSummary.totalYear);
+      } catch {
+        setHomeIncomeTotal('0.00');
       }
     } catch (err) {
       console.error('[App] Failed to refresh app data:', err);
@@ -637,13 +653,13 @@ function AppContent(props: {
               marketValue: homeDossier.classAllocation.CRYPTO.marketValue,
             },
           ]));
-          const txs = await transactionService.getTransactionsByPortfolio(activePort.id);
+          const txs = await transactionRepository.getAllTransactions();
           if (isStale()) return;
           if (txs && txs.length > 0) {
             // Ativos já carregados acima: evita 1 consulta ao banco por movimentação.
             const assetById = new Map((pAssets || []).map((a) => [a.id, a]));
             const mapped: RecentTransactionItem[] = await Promise.all(
-              txs.slice(0, 5).map(async (t) => {
+              txs.map(async (t) => {
                 const asset = assetById.get(t.asset_id) ?? (await assetRepository.getAssetById(t.asset_id));
                 return {
                   id: t.id,
@@ -662,6 +678,17 @@ function AppContent(props: {
             apply.push(() => setTransactionsList(mapped));
           } else {
             apply.push(() => setTransactionsList([]));
+          }
+
+          try {
+            const rows = activePort.id
+              ? await incomeRepository.listByPortfolio(activePort.id)
+              : await incomeRepository.listAll();
+            const mappedIncs = rows.map((r) => ({ date: r.pay_date, amount: r.amount }));
+            const incSummary = summarizeIncome(mappedIncs, new Date().toISOString().slice(0, 10));
+            apply.push(() => setHomeIncomeTotal(incSummary.totalYear));
+          } catch {
+            apply.push(() => setHomeIncomeTotal('0.00'));
           }
         } else {
           // Sem carteiras: a lista de movimentações vem de refreshAppData (não apagar aqui, evita corrida).
@@ -808,7 +835,7 @@ function AppContent(props: {
   }, []);
   const maskedRecentTransactions = useMemo(
     () =>
-      transactionsList.map((tx) => ({
+      transactionsList.slice(0, 5).map((tx) => ({
         ...tx,
         amountText: isPrivacyMode ? PRIVACY_CURRENCY_MASK : tx.amountText,
       })),
@@ -1004,7 +1031,7 @@ function AppContent(props: {
         <B3ImportScreen
           key={`b3-${b3ImportKey}`}
           onBack={() => setIsB3ImportOpen(false)}
-          onNavigateToPortfolio={(portId) => {
+          onNavigateToPortfolio={(portId, options) => {
             setIsB3ImportOpen(false);
             setIsSettingsBackupModalOpen(false);
             setIsIncomeHistoryOpen(false);
@@ -1014,6 +1041,10 @@ function AppContent(props: {
             const idx = walletsStore.getState().wallets.findIndex((w) => w.id === portId);
             if (idx >= 0) walletStore.setActiveIndex(idx, portId);
             refreshAppData();
+            if (options?.openMetas) {
+              setActiveTab('wallets');
+              setIsPortfolioManagerModalOpen(true);
+            }
           }}
           initialPortfolioId={activePortfolioId || undefined}
           isLight={isLight}
@@ -1777,17 +1808,31 @@ function AppContent(props: {
             themeMode={themeMode}
             testID="home-dot-matrix-card"
           />
-          {/* 2.1 Tile Bento da Meta de Patrimônio */}
+          {/* 2.1 Tile Bento da Meta de Patrimônio + Proventos lado a lado */}
           <View style={{ marginTop: 10 }}>
-            <GoalProgressTile
-              currentValue={homeMarketValue}
-              patrimonyGoal={goalInfo.goal}
-              monthlyContribution={goalInfo.monthly}
-              isPrivacyMode={isPrivacyMode}
-              loading={isWalletLoading}
-              onPress={homeGoalPress}
-              testID="home-goal-tile"
-            />
+            <BentoRow>
+              <View style={{ flex: 1 }}>
+                <GoalProgressTile
+                  currentValue={homeMarketValue}
+                  patrimonyGoal={goalInfo.goal}
+                  monthlyContribution={goalInfo.monthly}
+                  isPrivacyMode={isPrivacyMode}
+                  loading={isWalletLoading}
+                  onPress={homeGoalPress}
+                  testID="home-goal-tile"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <HomeIncomeTile
+                  totalAmount={homeIncomeTotal}
+                  isPrivacyMode={isPrivacyMode}
+                  loading={isWalletLoading}
+                  onPress={() => setIsIncomeHistoryOpen(true)}
+                  testID="home-income-tile"
+                  themeMode={themeMode}
+                />
+              </View>
+            </BentoRow>
           </View>
 
           {/* 3. Card de Movimentações Recentes Posicionado Mais Acima */}

@@ -25,7 +25,7 @@ export const HomeIncomeTile: React.FC<HomeIncomeTileProps> = ({
   themeMode = 'dark',
 }) => {
   const val = typeof totalAmount === 'number' ? totalAmount : parseFloat(totalAmount || '0') || 0;
-  const formatted = `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatted = val > 0 ? `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
   const display = isPrivacyMode ? 'R$ ••••••' : formatted;
   const v = bento.variants.gold;
 

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 import { b3ImportService, B3ImportReport, B3ImportProgress } from '../services/b3ImportService';
 import {
@@ -27,7 +28,7 @@ import { colors, typography } from '../theme/tokens';
 
 export interface B3ImportScreenProps {
   onBack: () => void;
-  onNavigateToPortfolio?: (portfolioId: string) => void;
+  onNavigateToPortfolio?: (portfolioId: string, options?: { openMetas?: boolean }) => void;
   initialPortfolioId?: string;
   bottomOffset?: number;
   isLight?: boolean;
@@ -638,11 +639,31 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
               )}
             </View>
 
+            {/* Sugestão e CTA de Metas e Alocação */}
+            <View style={[styles.reportCard, { backgroundColor: isLight ? '#EAE5D9' : '#22252A', borderColor: colors.primary, borderWidth: 1.5 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                <MaterialIcons name="tune" size={22} color={colors.primary} />
+                <Text style={[styles.reportTitle, { color: isLight ? '#111315' : colors.parchmentPale, fontSize: 16 }]}>
+                  Defina suas metas e alocação (%)
+                </Text>
+              </View>
+              <Text style={[styles.reportDetail, { color: isLight ? '#4A463F' : colors.parchmentMuted, marginBottom: 12 }]}>
+                Seus ativos foram cadastrados. Configure os percentuais desejados de cada classe e sua meta de patrimônio para liberar as recomendações inteligentes.
+              </Text>
+              <TouchableOpacity
+                testID="b3-report-configure-metas"
+                style={[styles.primaryButton, { marginTop: 0 }]}
+                onPress={() => props.onNavigateToPortfolio?.(report.portfolioId, { openMetas: true }) || props.onBack()}
+              >
+                <Text style={styles.primaryButtonText}>Definir metas e percentuais</Text>
+              </TouchableOpacity>
+            </View>
+
             <TouchableOpacity
-              style={styles.primaryButton}
+              style={styles.secondaryButton}
               onPress={() => props.onNavigateToPortfolio?.(report.portfolioId) || props.onBack()}
             >
-              <Text style={styles.primaryButtonText}>Ver carteira</Text>
+              <Text style={styles.secondaryButtonText}>Ver carteira no início</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.secondaryButton} onPress={handleUndo}>

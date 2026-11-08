@@ -126,22 +126,26 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
           {PERIOD_ORDER.map((p) => {
             const isSelected = p === activePeriod;
             return (
-              <TouchableOpacity
-                key={p}
-                activeOpacity={0.75}
-                onPress={() => handlePeriodChange(p)}
-                style={[styles.periodBtn, isLight && styles.periodBtnLight, isSelected && styles.periodBtnActive]}
-              >
-                <Text
+                <TouchableOpacity
+                  key={p}
+                  activeOpacity={0.75}
+                  onPress={() => handlePeriodChange(p)}
                   style={[
-                    styles.periodBtnText,
-                    isLight && styles.periodBtnTextLight,
-                    isSelected && styles.periodBtnTextActive,
+                    styles.periodBtn,
+                    isLight && styles.periodBtnLight,
+                    isSelected && (isLight ? styles.periodBtnActiveLight : styles.periodBtnActive),
                   ]}
                 >
-                  {PERIOD_LABELS[p]}
-                </Text>
-              </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.periodBtnText,
+                      isLight && styles.periodBtnTextLight,
+                      isSelected && (isLight ? styles.periodBtnTextActiveLight : styles.periodBtnTextActive),
+                    ]}
+                  >
+                    {PERIOD_LABELS[p]}
+                  </Text>
+                </TouchableOpacity>
             );
           })}
         </View>
@@ -195,10 +199,12 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
                           {
                             height: normalizedHeight,
                             backgroundColor: isSelected
-                              ? `${accentColor}55`
-                              : 'rgba(217, 102, 40, 0.18)',
-                            borderTopColor: isSelected ? (isLight ? '#111315' : colors.parchmentPale) : accentColor,
-                            borderTopWidth: isSelected ? 3 : 2,
+                              ? (isLight ? 'rgba(217, 102, 40, 0.75)' : `${accentColor}55`)
+                              : (isLight ? 'rgba(217, 102, 40, 0.50)' : 'rgba(217, 102, 40, 0.18)'),
+                            borderTopColor: isSelected
+                              ? (isLight ? '#111315' : colors.parchmentPale)
+                              : (isLight ? '#BF5216' : accentColor),
+                            borderTopWidth: isSelected ? 3 : (isLight ? 2.5 : 2),
                           },
                         ]}
                       />
@@ -209,7 +215,7 @@ export const PatrimonyLineChartCard: React.FC<PatrimonyLineChartCardProps> = ({
             </View>
 
             {/* Legenda Comparativa: Valor de Mercado vs Capital Investido */}
-            <View style={styles.legendRow}>
+            <View style={[styles.legendRow, isLight && styles.legendRowLight]}>
               <View testID="chart-legend-market-value" style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: accentColor }]} />
                 <Text style={[styles.legendText, isLight && styles.legendTextLight]}>Valor de Mercado</Text>
@@ -404,6 +410,9 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255, 255, 255, 0.05)',
   },
+  legendRowLight: {
+    borderTopColor: '#EAE4D7',
+  },
   legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -538,8 +547,15 @@ const styles = StyleSheet.create({
   periodBtnLight: {
     backgroundColor: '#F0EDE6',
   },
+  periodBtnActiveLight: {
+    backgroundColor: '#111315',
+  },
   periodBtnTextLight: {
     color: '#6E6A63',
+  },
+  periodBtnTextActiveLight: {
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   chartAreaLight: {},
   emptyChartTextLight: {

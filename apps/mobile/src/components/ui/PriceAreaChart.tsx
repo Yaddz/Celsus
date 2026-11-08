@@ -68,9 +68,9 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
                       styles.curveBar,
                       {
                         height: normalizedHeight,
-                        backgroundColor: 'rgba(217, 102, 40, 0.22)',
-                        borderTopColor: accentColor,
-                        borderTopWidth: 2,
+                        backgroundColor: isLight ? 'rgba(217, 102, 40, 0.48)' : 'rgba(217, 102, 40, 0.22)',
+                        borderTopColor: isLight ? '#C45517' : accentColor,
+                        borderTopWidth: isLight ? 2.5 : 2,
                       },
                     ]}
                   />

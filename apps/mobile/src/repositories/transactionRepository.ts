@@ -29,6 +29,10 @@ export class TransactionRepository {
       .sort((a, b) => b.trade_date.localeCompare(a.trade_date));
   }
 
+  getAllTransactionsSync(): Transaction[] {
+    return [...this.inMemoryCache].sort((a, b) => b.trade_date.localeCompare(a.trade_date));
+  }
+
   async createTransaction(
     params: Omit<NewTransaction, 'id' | 'created_at'> & { id?: string }
   ): Promise<Transaction> {
@@ -71,6 +75,19 @@ export class TransactionRepository {
       .select()
       .from(transactions)
       .where(eq(transactions.portfolio_id, portfolioId))
+      .orderBy(desc(transactions.trade_date));
+    for (const item of list) {
+      if (!this.inMemoryCache.some((c) => c.id === item.id)) {
+        this.inMemoryCache.push(item);
+      }
+    }
+    return list;
+  }
+
+  async getAllTransactions(): Promise<Transaction[]> {
+    const list = await this.db
+      .select()
+      .from(transactions)
       .orderBy(desc(transactions.trade_date));
     for (const item of list) {
       if (!this.inMemoryCache.some((c) => c.id === item.id)) {
