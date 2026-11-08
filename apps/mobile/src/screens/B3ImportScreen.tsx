@@ -33,9 +33,11 @@ export interface B3ImportScreenProps {
   initialPortfolioId?: string;
   bottomOffset?: number;
   isLight?: boolean;
+  embedded?: boolean;
+  onStepChange?: (step: ImportStep) => void;
 }
 
-type ImportStep = 'pick' | 'loading' | 'preview' | 'importing' | 'report';
+export type ImportStep = 'pick' | 'loading' | 'preview' | 'importing' | 'report';
 
 function formatBRL(val: any): string {
   if (val === null || val === undefined) return 'R$ 0,00';

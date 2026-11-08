@@ -40,6 +40,18 @@ export interface AnimatedModalSheetProps {
    * estarem presentes, como as metas por classe.
    */
   keepMountedWhenClosed?: boolean;
+  /** Modo snap de duas alturas: quando true, anima para expandedHeight; quando false, anima para collapsedHeight. */
+  expanded?: boolean;
+  /** Altura colapsada como fração da tela (padrão 0.5). */
+  collapsedHeight?: number;
+  /** Altura expandida como fração da tela (padrão 1.0). */
+  expandedHeight?: number;
+  /** Chamado quando o usuário solicita expansão. */
+  onRequestExpand?: () => void;
+  /** Chamado quando o usuário solicita colapso. */
+  onRequestCollapse?: () => void;
+  /** Se false, backdrop e botão voltar não fecham o sheet (padrão true). */
+  dismissible?: boolean;
 }
 
 /**
