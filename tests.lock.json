@@ -1,526 +1,531 @@
 {
   "protocol": "CELSUS_IMMUTABLE_TDD_LOCK_V1",
-  "updatedAt": "2026-11-08T00:13:39.574Z",
-  "totalLockedFiles": 104,
+  "updatedAt": "2026-11-08T00:31:22.014Z",
+  "totalLockedFiles": 105,
   "files": {
     "apps/mobile/src/components/__tests__/AppGate.test.tsx": {
       "sha256": "f6b7c6f652a1d97cf92ca445797941da059e95364ce08c1028fc68eaa204d4ce",
-      "lockedAt": "2026-11-08T00:13:39.565Z",
+      "lockedAt": "2026-11-08T00:31:21.994Z",
       "sizeBytes": 5764
     },
     "apps/mobile/src/components/ui/__tests__/AssetSearchRow.test.tsx": {
       "sha256": "287e323629c4caf3e4b3b01cab65b194db55b4092f8a11bf33f78e775918a99b",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.995Z",
       "sizeBytes": 1361
     },
     "apps/mobile/src/components/ui/__tests__/AttributeStatBar.test.tsx": {
       "sha256": "065ded5b122ec8bdb02e2f2096c40d71dc7f8e836b6b667c9ffa812da85d5251",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.995Z",
       "sizeBytes": 3443
     },
     "apps/mobile/src/components/ui/__tests__/DividendsCard.test.tsx": {
       "sha256": "7ebaaaff70aeefcbc53bf9d32ada7f695e411a5c4f5b907469f2e0003e71ca6a",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.995Z",
       "sizeBytes": 1471
     },
     "apps/mobile/src/components/ui/__tests__/DotMatrixV2.test.tsx": {
       "sha256": "41d2e93f6ee997126c34d830ec797095a20977896d0228b9da4c6f39b35c0ff1",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.995Z",
       "sizeBytes": 5137
     },
     "apps/mobile/src/components/ui/__tests__/GoalProgressTile.test.tsx": {
       "sha256": "bc5ebcebe777511b218f602a56b0e0657cdefb0c2423e75ccf8d80abe2db3b18",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.995Z",
       "sizeBytes": 1644
     },
     "apps/mobile/src/components/ui/__tests__/IndicatorGrid.test.tsx": {
       "sha256": "71fe9d0f30e53226cb7f9601a702b0751cfbe1d066e7e482b2918c4749db69a9",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.996Z",
       "sizeBytes": 1553
     },
     "apps/mobile/src/components/ui/__tests__/PinDots.test.tsx": {
       "sha256": "a76557123ea5be9b0393ef85319fcd1104acf7eb647b88eb73ea3c8bbb9ff69f",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.996Z",
       "sizeBytes": 1395
     },
     "apps/mobile/src/components/ui/__tests__/PinKeypad.test.tsx": {
       "sha256": "8d683a3e31fa9ab5368286362a9485c9acc9eb0b94714c6ff7c76941feb9dedb",
-      "lockedAt": "2026-11-08T00:13:39.566Z",
+      "lockedAt": "2026-11-08T00:31:21.996Z",
       "sizeBytes": 3206
     },
     "apps/mobile/src/components/ui/__tests__/PriceAreaChart.test.tsx": {
       "sha256": "af0c98162001ba754b33b92cb805274ad596bb74c41894e0384e634a7df67137",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 1602
     },
     "apps/mobile/src/components/ui/__tests__/QuickActionsMoreMenu.test.tsx": {
       "sha256": "fc1e6cb048445d23a86bac9f56979c744f5cb39707a3b47c25bc1c0be6ab8624",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 2781
     },
     "apps/mobile/src/components/ui/__tests__/RankingTable.test.tsx": {
       "sha256": "d4fe90af3db333b46445e28d1eea981281a73c4063169bf1a2f9937ddfc39ab1",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 1863
     },
     "apps/mobile/src/components/ui/__tests__/Sprint16WalletStackAndAllocation.test.tsx": {
       "sha256": "e5444befeeb82afea3bfe8409ea4466155468c4308ba4733a379983ba019b8e1",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 9519
     },
     "apps/mobile/src/components/ui/__tests__/Sprint35PortfolioCardStackGestures.test.tsx": {
       "sha256": "3924802f2c5351e0c6ed2c6c75ff807df0ab91b55f452cecf1b340b0675eda82",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 10520
     },
     "apps/mobile/src/components/ui/__tests__/Sprint38ScreenContainerAndHeaderLayout.test.tsx": {
       "sha256": "a36476c0c1fb2f767bd898eb0eb0e69549905787b33a09214242a68dccefe2f2",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.997Z",
       "sizeBytes": 4149
     },
     "apps/mobile/src/components/ui/__tests__/StackedWalletDeck.test.tsx": {
       "sha256": "8e2f61a0c7bcc0207b75f63debff816f82b7fb792775470a946bf01a3b755e0b",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 6217
     },
     "apps/mobile/src/components/ui/__tests__/StickyAddBar.test.tsx": {
       "sha256": "6941bf2e99c90017d30311f451d2aa4da40819a66f8ed01705d197dd8cc61b14",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 2065
     },
     "apps/mobile/src/components/ui/__tests__/XpMinimalHeader.test.tsx": {
       "sha256": "e2fcddcdadd5f10d52fbf8f56c37f06b7247552e2c8bf2a3e68fe33d84cce75e",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 3934
     },
     "apps/mobile/src/db/__tests__/schema.test.ts": {
       "sha256": "1facc9030adfd09c3fea4bfc8ee265a78d0125f20304443390c0f9a350ce37f7",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 4754
     },
     "apps/mobile/src/domain/__tests__/profile.test.ts": {
       "sha256": "1b43ab0cc1783027693166d389c3b4cd32943eb9d6c1b269ef880f9416a4145c",
-      "lockedAt": "2026-11-08T00:13:39.567Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 807
     },
     "apps/mobile/src/domain/finance/__tests__/Sprint24CorporateEventsSplitInplit.test.ts": {
       "sha256": "3334ecb712a62ea74467aacd2629e5c8e1b0227e2b042fac0d7514ffc7117144",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 8178
     },
     "apps/mobile/src/domain/finance/__tests__/allocationFill.test.ts": {
       "sha256": "ce5a89838e7dd8315abc92303db6aff4f0301a2e659ce4ab54987c8926e63d88",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 694
     },
     "apps/mobile/src/domain/finance/__tests__/assetProfile.test.ts": {
       "sha256": "d09a2438afbfe83ab1f64f2ef09927b90e511fb717cec2008b8702a6664550b2",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 7822
     },
     "apps/mobile/src/domain/finance/__tests__/averagePrice.test.ts": {
       "sha256": "36a6893360a57d4a6d85eaaff72476eb8acaf000182d36eefaef96e8673083ad",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:21.998Z",
       "sizeBytes": 8279
     },
     "apps/mobile/src/domain/finance/__tests__/consolidatedView.test.ts": {
       "sha256": "3056bc65c533bd0932779797e3c461a6f6db22acc41bd41a4ba5959129706c95",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.001Z",
       "sizeBytes": 11659
     },
     "apps/mobile/src/domain/finance/__tests__/donut.test.ts": {
       "sha256": "bc28f5a3b989d6fcc383a6d7d97e7d60fb2350348f796c8ac3cea11466cc52ea",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 2876
     },
     "apps/mobile/src/domain/finance/__tests__/downsamplePoints.test.ts": {
       "sha256": "1df26e240f850e3a03574d702e5298b68e4c9e3b9375e07858585be0e4f588b4",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 903
     },
     "apps/mobile/src/domain/finance/__tests__/fixedIncome.test.ts": {
       "sha256": "8d173807014ef78452c3ca4025f8ffd8f8e7459c9b036dc32f58222141d6b8a3",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 5174
     },
     "apps/mobile/src/domain/finance/__tests__/goalAndPlan.test.ts": {
       "sha256": "75ec83892d2b4ed0025e1b3f97fa2605d3a394fe949aacdd6bde1f39cd787ea5",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 4843
     },
     "apps/mobile/src/domain/finance/__tests__/periodSummary.test.ts": {
       "sha256": "86632148d54ba60ae1eabc11daa3725530b096da910bc3e769139c204e458418",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 8124
     },
     "apps/mobile/src/domain/finance/__tests__/portfolioHistory.test.ts": {
       "sha256": "78439b6b57a9f20e478930b347373f9ebeca871c40cffd1f0037bcf0ca26c268",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 11171
     },
     "apps/mobile/src/domain/finance/__tests__/rebalance.test.ts": {
       "sha256": "be1f8b7a70668dbc39b1430a3a19bc793549205e1bcd36c191415f184f6697a4",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 8110
     },
     "apps/mobile/src/domain/finance/__tests__/weights.test.ts": {
       "sha256": "df4671fcb67ff92aca272364fb28a6cd41b3ce26666e95a3ed4fe0a41a17f1af",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 6571
     },
     "apps/mobile/src/navigation/__tests__/backNavigation.test.ts": {
       "sha256": "54dbefab5ef213ddad1000b775bf5d52bb82aa2cbc7b2369b849285c802be57a",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 2265
     },
     "apps/mobile/src/navigation/__tests__/backNavigationLocked.test.ts": {
       "sha256": "1217dc250917842a3ae4ebaa5db28f02c1ad9a81fb8d92018160d8250b1ed889",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 997
     },
     "apps/mobile/src/repositories/__tests__/incomeRepository.test.ts": {
       "sha256": "c9df994009416db08086269afaac3a0e34fb67dff32fd425f2b59a2e4e1b9323",
-      "lockedAt": "2026-11-08T00:13:39.568Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 1032
     },
     "apps/mobile/src/repositories/__tests__/profileRepository.test.ts": {
       "sha256": "caa9b0bfe8656526918c349fadcc89cfbfb8abbb864589ea80e8946a038c6002",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 1235
     },
     "apps/mobile/src/screens/__tests__/AssetDetailScreen.test.tsx": {
       "sha256": "aa87bdc99628a81c9b34c3ac51d96e2b47b7a329c0ac8d95238b7a42cb2ea2f5",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.002Z",
       "sizeBytes": 1238
     },
     "apps/mobile/src/screens/__tests__/ClassAssetCards.test.tsx": {
       "sha256": "e274ae26e8c29162c121c3b2d4844380f1d7f959ef8bdab46bbdce110e45eab8",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 4016
     },
     "apps/mobile/src/screens/__tests__/ClassDetailScreen.test.tsx": {
       "sha256": "d10d73b6c296c059e50d11c3d73bc55453b0268b5d27b50c8d64e87d073447c8",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 5515
     },
     "apps/mobile/src/screens/__tests__/HomeLayoutV2.test.tsx": {
       "sha256": "5c50ee2fe6cf93c87797765fcb94ab617126263f852c01fb696878617578c59e",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 4077
     },
     "apps/mobile/src/screens/__tests__/LockScreen.test.tsx": {
       "sha256": "28fe1c47357638345889781576736791e2cca4dd4d9ed4932d6fb7f87b6d9299",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 5983
     },
     "apps/mobile/src/screens/__tests__/PortfolioManagementV2.test.tsx": {
       "sha256": "d3ae56140c31b61208eb3348e045fb84a39b0e153baa21e0a6c7e82048775552",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 2990
     },
     "apps/mobile/src/screens/__tests__/SearchAssetsScreen.test.tsx": {
       "sha256": "74968f663883ce30310370a929a49c9790e97924ba5e75462bde552fa3eeb776",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 1985
     },
     "apps/mobile/src/screens/__tests__/Sprint12HeaderAndProfile.test.tsx": {
-      "sha256": "47bd31c79335ea0322b2d343957958c3fd20073f3e8d03f502e49f277dbf2b84",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
-      "sizeBytes": 5319
+      "sha256": "c40c0b48485134a4c1ce48b1d5c516519a89dc44b82e1b1207b37aa107c2a393",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
+      "sizeBytes": 5328
     },
     "apps/mobile/src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx": {
       "sha256": "4515d386c2cb8cd802c349f4b01985a9b0b36ce34b7d00dd51a88ba186af717e",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 11431
     },
     "apps/mobile/src/screens/__tests__/Sprint18ReactiveLockWeightsAndAutocomplete.test.tsx": {
       "sha256": "996f405f86b387dc040faecdd692d89f737513e75051befa1c4a3d421056d32c",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 14200
     },
     "apps/mobile/src/screens/__tests__/Sprint19XpSettingsAndLightModeAudit.test.tsx": {
-      "sha256": "7e2531368131c2ba11feb3425a961ecad69a1319e3135066eaa2e0acb5892820",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
-      "sizeBytes": 11971
+      "sha256": "fe593feb308cb7f5ad346ab494d60366a5f405482f19bfc79e589326ae2f3ccd",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
+      "sizeBytes": 11961
     },
     "apps/mobile/src/screens/__tests__/Sprint25EndToEndPersistenceAndZeroMocks.test.tsx": {
       "sha256": "540d86c8736aabf336a7d2d66ba35bd4d8ad17ad045f3323791e932ea9ea69a5",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 13448
     },
     "apps/mobile/src/screens/__tests__/Sprint26PrivacyContrastAndNavbarStabilization.test.tsx": {
       "sha256": "7e5f962d00eba5bb401de6d06986b62e1b2bd18206978af8d103cb669ce5bb46",
-      "lockedAt": "2026-11-08T00:13:39.569Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 7047
     },
     "apps/mobile/src/screens/__tests__/Sprint27P0RealIntegrationAndNavigation.test.tsx": {
       "sha256": "3dab1afe960686d579c054b4862040a9fc8819196ca281a453c6e3fce36aacc1",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.003Z",
       "sizeBytes": 13129
     },
     "apps/mobile/src/screens/__tests__/Sprint28P1VisualConsistencyAndCharts.test.tsx": {
       "sha256": "d385790a86a6dcc9ea7fd2bfe607f40e9ecb75e6c3c1cc3bd0f1b888be647bc6",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 9729
     },
     "apps/mobile/src/screens/__tests__/Sprint29P2P3WalletsCascadeAndModalAnimations.test.tsx": {
       "sha256": "a5fb0ad8496a0c11209dd7c8a27b94cbaceea87be864ead64191df3343a52abc",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 8757
     },
     "apps/mobile/src/screens/__tests__/Sprint30WalletsStackListAndNavbarModals.test.tsx": {
       "sha256": "73eb4a4c2bf51b8e340af33389f8f80f79c14dd44a251d0b5537153840041b52",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 10657
     },
     "apps/mobile/src/screens/__tests__/Sprint31VisualAuditAndWalletRedesign.test.tsx": {
       "sha256": "e526ed46bbf64e7a17e60e2618401a4afb775d3f83416ae5b74a42f8bad9e947",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 10793
     },
     "apps/mobile/src/screens/__tests__/Sprint32DataPersistenceAndIntegration.test.tsx": {
       "sha256": "f75a327cd91564fb35898c25784a2f0585088c9e7ee76d70273b34d8b699d374",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 15170
     },
     "apps/mobile/src/screens/__tests__/Sprint33DeckStackDeleteAndModals.test.tsx": {
       "sha256": "5e46244ff5ed9e25188b8c5fcdfea06145fabb320eafaca205683b687609ba3d",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 8023
     },
     "apps/mobile/src/screens/__tests__/Sprint34XpHeaderStandardAndE2E.test.tsx": {
       "sha256": "c53a65ce48b05119dc06f0f3eb1c1877a3e20b4b92374fa2d830ab60b8dae540",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.004Z",
       "sizeBytes": 6811
     },
     "apps/mobile/src/screens/__tests__/Sprint36ActiveWalletSwitch.test.tsx": {
       "sha256": "9450b97b31780aaabba9726e4ea69c9250d696fb7d98caa030838206dff96ae1",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.006Z",
       "sizeBytes": 12715
     },
     "apps/mobile/src/screens/__tests__/Sprint37TransactionAutoFillAndFreeTicker.test.tsx": {
       "sha256": "ad9af4476a6a7dcd8cdc8d56a3eae2a99f4fbd7a1b5e81dc44c4840e04ea22b6",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.006Z",
       "sizeBytes": 10557
     },
     "apps/mobile/src/screens/__tests__/Sprint39GeneralBugsAndHardening.test.tsx": {
       "sha256": "a794668e4d48785c6b9d25249ea24f9b1811d1143a0b314d4ce12b4d171b2ff7",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.006Z",
       "sizeBytes": 16461
     },
     "apps/mobile/src/screens/__tests__/Sprint41SearchAndAssetFixes.test.tsx": {
       "sha256": "885df70fbe4c88d183099a28777de892d4f44c02302787fc9b57e400ccd5c1e5",
-      "lockedAt": "2026-11-08T00:13:39.570Z",
+      "lockedAt": "2026-11-08T00:31:22.006Z",
       "sizeBytes": 2012
     },
     "apps/mobile/src/screens/__tests__/Sprint44UserProfileDynamic.test.tsx": {
       "sha256": "f26bc58bdda8f11960378d058090c06eec6be8a57f987d86302d8d893b952a5f",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 4557
+    },
+    "apps/mobile/src/screens/__tests__/Sprint45SecurityProfile.test.tsx": {
+      "sha256": "2ac7e2318184b406895bb70211c5ea1f31abd99150827fdd76f670dd25f86b47",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
+      "sizeBytes": 13603
     },
     "apps/mobile/src/screens/__tests__/StatisticsScreenV2.test.tsx": {
       "sha256": "8177d41c9aab6c62fb532e2609a405bdfa84f26af3f5db1eaef2855370e402a1",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 6181
     },
     "apps/mobile/src/screens/__tests__/TransactionDetailHistoryScreen.test.tsx": {
       "sha256": "80c3cb089607ff132dba638faf830cb9166206ce3e2dda673c6f6bc3fb716157",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 6749
     },
     "apps/mobile/src/screens/onboarding/__tests__/AppGateOnboarding.test.tsx": {
       "sha256": "64329f3ff9231d2cf938c14cc28e390b2a8bccf8bae9250b2e166961c6702c01",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 4114
     },
     "apps/mobile/src/screens/onboarding/__tests__/OnboardingFlow.test.tsx": {
       "sha256": "6278f6fedce6390eb585bffa0713b2aa52c1c38caa6e7aff16e7358ec169cd8c",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 19420
     },
     "apps/mobile/src/services/__tests__/Sprint12PrivacyAndLightTheme.test.ts": {
       "sha256": "c006abaa7cf9a555cd116fcd66700ce4b00d96116e21e5cdfc3f93db04588205",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.007Z",
       "sizeBytes": 5116
     },
     "apps/mobile/src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts": {
       "sha256": "d655a08830237a1a7a4d0e5b07a09cfcd51b02721292a10bbf409a1f15af63f6",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.008Z",
       "sizeBytes": 12732
     },
     "apps/mobile/src/services/__tests__/androidBridgeFallback.test.ts": {
       "sha256": "f957d2927f2e8c1e6562db8307d0d1687b31ffc62fcbb8e04a1b8821b692f17b",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.008Z",
       "sizeBytes": 3484
     },
     "apps/mobile/src/services/__tests__/assetProfileApi.test.ts": {
       "sha256": "85cf82bf125760a61f683b09599d054ce37b2fff90ae9d6445b7a3106d29c344",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.008Z",
       "sizeBytes": 5554
     },
     "apps/mobile/src/services/__tests__/authService.test.ts": {
       "sha256": "e94ef21280b6e3b3f109969518d223a9e80137f8f250f7ddfc07446556e9f363",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.009Z",
       "sizeBytes": 12534
     },
     "apps/mobile/src/services/__tests__/backupService.test.ts": {
       "sha256": "18d17cc3bda2998f7fb2cf2688d92d0d00f4e89d5e143d0d71e41a12ac2fdf90",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 18503
     },
     "apps/mobile/src/services/__tests__/biometricProvider.test.ts": {
       "sha256": "26b6b1ae636102ce982b41d182d574f4cd597fc7633ee5061cfabaee4409b82e",
-      "lockedAt": "2026-11-08T00:13:39.571Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 1550
     },
     "apps/mobile/src/services/__tests__/marketApiIntegration.test.ts": {
       "sha256": "096d33e90c0945289147102f07fe58b8528ad17722f89bf5bfca110111a8383b",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 8553
     },
     "apps/mobile/src/services/__tests__/marketSyncService.test.ts": {
       "sha256": "08c78163330cd3c71aea2769eb17b7eb98b9ac592b1f196c553232de0ef5f491",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 12754
     },
     "apps/mobile/src/services/__tests__/privacyAndAuth.test.ts": {
       "sha256": "cdc979c69e72999b956ad1729e00dffd50df6e76c789bb7299ed39e40148ad88",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 2443
     },
     "apps/mobile/src/services/__tests__/rebalanceExecution.test.ts": {
       "sha256": "98cae3fc7bdc822fb608d2d87003f568dbe637eadbc87c331a4ee727023324f8",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 11261
     },
     "apps/mobile/src/services/__tests__/secureStorage.test.ts": {
       "sha256": "402e7819c47f2a70915ddf69c82733feb8878f7caf419abb40525393d87bb8bf",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 3450
     },
     "apps/mobile/src/services/__tests__/spreadsheetImport.test.ts": {
       "sha256": "ae3297a52270589829c79aa71a7b411515055a7cf0af516d16b2e5384abd653b",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.010Z",
       "sizeBytes": 4326
     },
     "apps/mobile/src/services/__tests__/transactionService.test.ts": {
       "sha256": "80e77f94b663ec4a1242f4408a36ebab83ae504e54a514fec8abd185468cf264",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 15289
     },
     "apps/mobile/src/stores/__tests__/profileStore.test.tsx": {
       "sha256": "1397745799495da633ad80cee6b51d495beea0a8171201a8ca406b0f8e9ad042",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 2153
     },
     "apps/mobile/src/stores/__tests__/sessionStore.test.ts": {
       "sha256": "aaf156e1bc2d766752d5c9491644c83abddd2359eabbc9ac56fe02eefecd81c6",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 2513
     },
     "apps/mobile/src/stores/__tests__/walletStore.test.tsx": {
       "sha256": "16d3020c40cfc7ed859edbd073d4166747c1fe4f5f8825677d914c499d79e2ca",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 3022
     },
     "apps/mobile/src/theme/__tests__/palettes.test.ts": {
       "sha256": "00d9d27295ece1ccbd9553fbdcd821ac4fd470c7aeeed06a5a29b75ffc0baf4b",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 6888
     },
     "apps/mobile/src/theme/__tests__/themeMode.test.ts": {
       "sha256": "e224ae7f5e9483164e8d9a7b1554acbebdfc79ce936e60080f69b8798c615f8c",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 4235
     },
     "apps/mobile/src/theme/__tests__/tokens.test.ts": {
       "sha256": "fe51c89542f758616f3fd53093b0ad9a513f74f57106b240502be92a071a9355",
-      "lockedAt": "2026-11-08T00:13:39.572Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 3952
     },
     "apps/mobile/src/utils/__tests__/decimalInput.test.ts": {
       "sha256": "bb3cf2fccb0a92735c016d218bb3a6f11599d5c4bef6f4d01a3128e8190ac321",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.011Z",
       "sizeBytes": 2286
     },
     "services/market-api/internal/brapi/client_test.go": {
       "sha256": "ea2d19693c9f881a430e26657f200906dd12efb150da3dbbdbb7ce2e80638cac",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 5055
     },
     "services/market-api/internal/cotahist/parser_test.go": {
       "sha256": "39a7a85bc06b595cc1e513215050ac66e41b1bef3b11d40f0f658fb111a0dd33",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 7334
     },
     "services/market-api/internal/cotahist/repository_test.go": {
       "sha256": "2569c137d8cdf6f161263f5d0da94b40be5314b1d64f94b6aa82ca7f6bbbde23",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 12682
     },
     "services/market-api/internal/cotahist/seed_test.go": {
       "sha256": "98b0125a649b2170d84700a16dfd6357dfedb8a57eee07b610ff797834ad033f",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 8397
     },
     "services/market-api/internal/fundamentals/fundamentals_test.go": {
       "sha256": "e730015bcb6dbfd89332e58dbbd059d6f708a4369ae034d61440d147c6d2c833",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 5521
     },
     "services/market-api/internal/fundamentals/live_test.go": {
       "sha256": "9ea47a42e0a08253d7c39a5e690851403c68c511c1ba0edb0975a49caf276eb6",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.012Z",
       "sizeBytes": 833
     },
     "services/market-api/internal/fundamentals/ranking_test.go": {
       "sha256": "46c9f7184c19cfe93941c21ee5bbd8520fa60f5b3cf8fedb00b57361bc99cb07",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 3126
     },
     "services/market-api/internal/http/fundamentals_handlers_test.go": {
       "sha256": "4db7c721e5fe200aabaf41ed939e46dd8be4d3182a8e8ac2eb5115de4284f41a",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 3600
     },
     "services/market-api/internal/http/handlers_test.go": {
       "sha256": "783a97695566ebfc24fe73312152d9d97c164ff4ee3991b081c54306ae49fdc1",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 7047
     },
     "services/market-api/internal/http/quotes_history_v5_test.go": {
       "sha256": "037d0129d414feb99137e0b34d2faa429fbff8c1191a757f3b40c2b70b18869d",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 7737
     },
     "services/market-api/internal/macro/rates_test.go": {
       "sha256": "82880196c83103fd5b105250c9c39e0cbad598523a891c1e672ef2076923064e",
-      "lockedAt": "2026-11-08T00:13:39.573Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 6021
     },
     "services/market-api/internal/yahoo/client_test.go": {
       "sha256": "bd10dcb2a8f3a0816a5ce3e658cc6c06a8b4ffc342381775899b902c25073c60",
-      "lockedAt": "2026-11-08T00:13:39.574Z",
+      "lockedAt": "2026-11-08T00:31:22.013Z",
       "sizeBytes": 9060
     },
     "services/market-api/internal/yahoo/singleflight_cache_test.go": {
       "sha256": "8b4af29bccc6c481c0f1bb3579f93dbf162be18214d2bf6e6a7501294ec075ee",
-      "lockedAt": "2026-11-08T00:13:39.574Z",
+      "lockedAt": "2026-11-08T00:31:22.014Z",
       "sizeBytes": 3379
     },
     "services/market-api/pkg/mobilebridge/bridge_test.go": {
       "sha256": "d5d5c9e6d776329e22555950c95e1a0e727eb11ffb7ec8600bffa22748fc62cc",
-      "lockedAt": "2026-11-08T00:13:39.574Z",
+      "lockedAt": "2026-11-08T00:31:22.014Z",
       "sizeBytes": 16879
     },
     "services/market-api/pkg/mobilebridge/fundamentals_bridge_test.go": {
       "sha256": "a5d435e273f93c0e82acfc65f19d28485f16c41d1623e8bba56e19400536210f",
-      "lockedAt": "2026-11-08T00:13:39.574Z",
+      "lockedAt": "2026-11-08T00:31:22.014Z",
       "sizeBytes": 1980
     },
     "services/market-api/pkg/mobilebridge/live_test.go": {
       "sha256": "a1f4db1721278fa2c2d2fee3e8a37ff2b715bfc6bd0d4e1555399ab135e5cf9d",
-      "lockedAt": "2026-11-08T00:13:39.574Z",
+      "lockedAt": "2026-11-08T00:31:22.014Z",
       "sizeBytes": 1761
     }
   }

@@ -92,7 +92,7 @@ describe('S12-T01: TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal', () =>
       expect(screen.getByTestId('theme-option-light')).toBeDefined();
 
       // Verifica Configurações dentro do Perfil: Segurança (PIN / Biometria)
-      expect(screen.getByTestId('biometric-switch')).toBeDefined();
+      expect(screen.getByTestId('security-biometric-switch')).toBeDefined();
 
       // Verifica Configurações dentro do Perfil: Backup (.celsus.zip)
       expect(screen.getByTestId('export-dossier-btn')).toBeDefined();

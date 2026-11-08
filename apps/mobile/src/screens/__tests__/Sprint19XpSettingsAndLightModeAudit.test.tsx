@@ -157,11 +157,9 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const section = getByTestId('settings-section-seguranca');
       expect(section).toBeDefined();
 
-      // Switch biométrico / PIN
-      expect(getByTestId('biometric-switch')).toBeDefined();
-
-      // Botão de testar / validar biometria
-      expect(getByTestId('test-biometric-btn')).toBeDefined();
+      // Controles de segurança Sprint 45 (PIN e Biometria)
+      expect(getByTestId('security-biometric-switch')).toBeDefined();
+      expect(getByTestId('security-create-pin')).toBeDefined();
     });
 
     it('S19-T06: deve conter bloco agrupado "Gestão de dados (.celsus.zip)" com Exportação, Modo e Importação', async () => {
