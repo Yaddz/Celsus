@@ -1,10 +1,17 @@
 import React from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Switch, Text, TouchableOpacity, View, TextInput, Modal } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoTile, DirectiveButton } from '../../components/ui';
+import { PinDots } from '../../components/ui/PinDots';
+import { PinKeypad } from '../../components/ui/PinKeypad';
 import { bento, BentoVariant, colors, typography } from '../../theme/tokens';
 import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { BackupImportMode, ExportArchiveResult } from '../../services/backupService';
+import { authService as defaultAuthService, AuthService } from '../../services/authService';
+import { profileRepository as defaultProfileRepository, ProfileRepository } from '../../repositories/profileRepository';
+import { sessionStore } from '../../stores/sessionStore';
+import { profileStore } from '../../stores/profileStore';
+import { resetDatabase } from '../../db/client';
 import { LocalWalletSummary, StatusBanner } from './useProfileSettings';
 
 /** Cores de texto de um tile conforme o tema (reaproveita os tokens do bento). */
@@ -168,40 +175,455 @@ export const AppearanceTile: React.FC<{ isLight: boolean; mode: 'dark' | 'light'
 
 export interface SecurityTileProps {
   isLight: boolean;
-  isBiometricEnabled: boolean;
-  isAppLocked: boolean;
-  onToggleBiometrics: (v: boolean) => void;
-  onTestBiometrics: () => void;
+  authService?: AuthService;
+  profileRepository?: ProfileRepository;
+  isBiometricEnabled?: boolean;
+  isAppLocked?: boolean;
+  onToggleBiometrics?: (v: boolean) => void;
+  onTestBiometrics?: () => void;
 }
 
-export const SecurityTile: React.FC<SecurityTileProps> = ({ isLight, isBiometricEnabled, isAppLocked, onToggleBiometrics, onTestBiometrics }) => {
+export const SecurityTile: React.FC<SecurityTileProps> = ({
+  isLight,
+  authService = defaultAuthService,
+  profileRepository = defaultProfileRepository,
+}) => {
   const { variant, fg, muted } = useTileColors(isLight);
+  const theme = isLight ? 'light' : 'dark';
+
+  const syncHasPin = typeof (authService as any).hasPinSync === 'function' ? (authService as any).hasPinSync() : null;
+  const syncBio = typeof (authService as any).isBiometricEnabledSync === 'function' ? (authService as any).isBiometricEnabledSync() : null;
+  const syncLock = typeof (authService as any).getAutoLockSecondsSync === 'function' ? (authService as any).getAutoLockSecondsSync() : null;
+  const initialName = profileStore.getState().name || '';
+
+  const [hasPin, setHasPin] = React.useState<boolean>(syncHasPin ?? false);
+  const [isBioEnabled, setIsBioEnabled] = React.useState<boolean>(syncBio ?? false);
+  const [canBio, setCanBio] = React.useState<boolean>(true);
+  const [autoLockSeconds, setAutoLockSeconds] = React.useState<number>(syncLock ?? 60);
+  const [userName, setUserName] = React.useState<string>(initialName);
+  const userNameRef = React.useRef<string>(initialName);
+
+  // Sheet / Modal state for PIN operations
+  const [pinMode, setPinMode] = React.useState<'none' | 'create' | 'change' | 'remove'>('none');
+  const [pinStep, setPinStep] = React.useState<number>(1);
+  const [pinInput, setPinInput] = React.useState<string>('');
+  const [firstPin, setFirstPin] = React.useState<string>('');
+  const [currentPin, setCurrentPin] = React.useState<string>('');
+  const [pinError, setPinError] = React.useState<string | null>(null);
+
+  // Wipe confirmation dialog
+  const [isWipeOpen, setIsWipeOpen] = React.useState<boolean>(false);
+  const [wipeText, setWipeText] = React.useState<string>('');
+
+  React.useEffect(() => {
+    let active = true;
+    async function loadData() {
+      try {
+        const p = await authService.hasPin();
+        const bio = await authService.isBiometricEnabled();
+        const can = await authService.canUseBiometrics();
+        const lockSec = await authService.getAutoLockSeconds();
+        const prof = await profileRepository.getProfile();
+        if (!active) return;
+        setHasPin(p);
+        setIsBioEnabled((curr) => (curr ? true : bio));
+        setCanBio(can);
+        setAutoLockSeconds(lockSec);
+        setUserName((curr) => (userNameRef.current ? userNameRef.current : prof.name));
+      } catch {}
+    }
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [authService, profileRepository]);
+
+  const handleDigit = async (d: string) => {
+    if (pinInput.length >= 6) return;
+    const next = pinInput + d;
+    setPinInput(next);
+    setPinError(null);
+
+    if (next.length === 6) {
+      if (pinMode === 'create') {
+        if (pinStep === 1) {
+          setFirstPin(next);
+          setPinInput('');
+          setPinStep(2);
+        } else if (pinStep === 2) {
+          if (next === firstPin) {
+            await authService.setPin(next);
+            setHasPin(true);
+            setPinMode('none');
+            setPinInput('');
+            setFirstPin('');
+          } else {
+            setPinError('PINs não coincidem');
+            setPinInput('');
+            setPinStep(1);
+          }
+        }
+      } else if (pinMode === 'change') {
+        if (pinStep === 1) {
+          const verify = await authService.verifyPin(next);
+          if (verify.ok) {
+            setCurrentPin(next);
+            setPinInput('');
+            setPinStep(2);
+          } else {
+            setPinError('PIN atual incorreto');
+            setPinInput('');
+          }
+        } else if (pinStep === 2) {
+          setFirstPin(next);
+          setPinInput('');
+          setPinStep(3);
+        } else if (pinStep === 3) {
+          if (next === firstPin) {
+            const res = await authService.changePin(currentPin, next);
+            if (res.ok) {
+              setPinMode('none');
+              setPinInput('');
+              setCurrentPin('');
+              setFirstPin('');
+            } else {
+              setPinError('Erro ao alterar PIN');
+              setPinInput('');
+              setPinStep(2);
+            }
+          } else {
+            setPinError('PINs não coincidem');
+            setPinInput('');
+            setPinStep(2);
+          }
+        }
+      } else if (pinMode === 'remove') {
+        const res = await authService.removePin(next);
+        if (res.ok) {
+          setHasPin(false);
+          setIsBioEnabled(false);
+          setPinMode('none');
+          setPinInput('');
+        } else {
+          setPinError('PIN incorreto');
+          setPinInput('');
+        }
+      }
+    }
+  };
+
+  const handleBackspace = () => {
+    setPinInput((prev) => prev.slice(0, -1));
+    setPinError(null);
+  };
+
+  const handleToggleBio = async (val: boolean) => {
+    if (val) {
+      const res = await authService.enableBiometrics();
+      if (res.success) {
+        setIsBioEnabled(true);
+      }
+    } else {
+      await authService.disableBiometrics();
+      setIsBioEnabled(false);
+    }
+  };
+
+  const handleSelectAutolock = async (sec: number) => {
+    await authService.setAutoLockSeconds(sec);
+    setAutoLockSeconds(sec);
+  };
+
+  const handleNameBlur = async () => {
+    const clean = (userNameRef.current || userName).trim();
+    if (clean.length >= 2) {
+      await profileRepository.setProfileName(clean);
+      await profileStore.load();
+    }
+  };
+
+  const handleConfirmWipe = async () => {
+    if (wipeText !== 'APAGAR') return;
+    await authService.resetAll();
+    await profileRepository.setOnboarded(false);
+    resetDatabase();
+    sessionStore.setStatus('onboarding');
+    setIsWipeOpen(false);
+    setWipeText('');
+  };
+
+  const autolockOptions = [
+    { sec: 0, label: 'Imediato' },
+    { sec: 30, label: '30 s' },
+    { sec: 60, label: '1 min' },
+    { sec: 300, label: '5 min' },
+  ];
+
+  const getPinSheetTitle = () => {
+    if (pinMode === 'create') {
+      return pinStep === 1 ? 'Digite seu PIN de 6 dígitos' : 'Confirme seu PIN';
+    }
+    if (pinMode === 'change') {
+      if (pinStep === 1) return 'Digite o PIN atual';
+      if (pinStep === 2) return 'Digite o novo PIN';
+      return 'Confirme o novo PIN';
+    }
+    if (pinMode === 'remove') {
+      return 'Digite o PIN atual para remover';
+    }
+    return '';
+  };
+
   return (
     <BentoTile variant={variant} testID="settings-section-seguranca">
       <SectionTitle icon="security" label="SEGURANÇA" fg={fg} />
-      <View style={s.switchRow}>
+
+      {/* Nome de usuário */}
+      <View style={{ marginBottom: 14 }}>
+        <Text style={[s.rowTitle, { color: fg, marginBottom: 4 }]}>Nome do Perfil</Text>
+        <TextInput
+          testID="security-name-input"
+          value={userName}
+          onChangeText={(t) => {
+            userNameRef.current = t;
+            setUserName(t);
+          }}
+          onBlur={handleNameBlur}
+          placeholder="Seu nome"
+          placeholderTextColor={muted}
+          style={[
+            s.textInput,
+            {
+              backgroundColor: isLight ? '#EAE4D7' : '#1C1E20',
+              color: fg,
+              borderColor: muted + '44',
+            },
+          ]}
+        />
+      </View>
+
+      {/* Status do PIN */}
+      <View style={[s.card, { backgroundColor: isLight ? '#EAE4D7' : '#1C1E20', borderColor: muted + '33' }]}>
         <View style={{ flex: 1 }}>
-          <Text style={[s.rowTitle, { color: fg }]}>Bloqueio biométrico / PIN</Text>
-          <Text style={[s.body, { color: muted }]}>Protege a abertura do app com digital, rosto ou PIN.</Text>
+          <Text testID="security-pin-status" style={[s.rowTitle, { color: fg }]}>
+            {hasPin ? 'PIN configurado' : 'Proteja o app com um PIN'}
+          </Text>
+          <Text style={[s.body, { color: muted }]}>
+            {hasPin
+              ? 'PIN de 6 dígitos ativo para proteção de acesso.'
+              : 'Defina um PIN de 6 dígitos para bloquear o app.'}
+          </Text>
+        </View>
+
+        {!hasPin ? (
+          <DirectiveButton
+            testID="security-create-pin"
+            label="Criar PIN"
+            variant="primary"
+            materialIcon="pin"
+            onPress={() => {
+              setPinMode('create');
+              setPinStep(1);
+              setPinInput('');
+              setPinError(null);
+            }}
+            themeMode={theme}
+          />
+        ) : (
+          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+            <DirectiveButton
+              testID="security-change-pin"
+              label="Alterar PIN"
+              variant="secondary"
+              materialIcon="edit"
+              onPress={() => {
+                setPinMode('change');
+                setPinStep(1);
+                setPinInput('');
+                setPinError(null);
+              }}
+              themeMode={theme}
+            />
+            <DirectiveButton
+              testID="security-remove-pin"
+              label="Remover PIN"
+              variant="danger"
+              materialIcon="delete"
+              onPress={() => {
+                setPinMode('remove');
+                setPinStep(1);
+                setPinInput('');
+                setPinError(null);
+              }}
+              themeMode={theme}
+            />
+          </View>
+        )}
+      </View>
+
+      {/* Switch de Biometria */}
+      <View style={[s.switchRow, { marginTop: 14 }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.rowTitle, { color: hasPin && canBio ? fg : muted }]}>Entrar com digital</Text>
+          <Text style={[s.body, { color: muted }]}>
+            {!hasPin
+              ? 'Crie um PIN primeiro'
+              : !canBio
+              ? 'Sensor biométrico não disponível'
+              : 'Desbloqueie com rapidez usando biometria.'}
+          </Text>
         </View>
         <Switch
-          testID="biometric-switch"
-          value={isBiometricEnabled}
-          onValueChange={onToggleBiometrics}
-          trackColor={{ false: isLight ? '#EAE4D7' : '#2A2D30', true: colors.secondary }}
-          thumbColor={isBiometricEnabled ? colors.primary : isLight ? '#C5BEB3' : '#8A8C90'}
+          testID="security-biometric-switch"
+          disabled={!hasPin}
+          value={hasPin && isBioEnabled}
+          onValueChange={handleToggleBio}
+          trackColor={{ false: isLight ? '#D5CFBE' : '#2A2D30', true: colors.secondary }}
+          thumbColor={isBioEnabled ? colors.primary : isLight ? '#C5BEB3' : '#8A8C90'}
         />
       </View>
-      <View style={{ marginTop: 12 }}>
+
+      {/* Seletor Bloquear Após */}
+      <View style={{ marginTop: 14 }}>
+        <Text style={[s.rowTitle, { color: hasPin ? fg : muted, marginBottom: 6 }]}>Bloquear após</Text>
+        {!hasPin && (
+          <Text style={[s.body, { color: muted, marginBottom: 4 }]}>Configure um PIN para ativar o bloqueio automático</Text>
+        )}
+        <View style={s.optionRow}>
+          {autolockOptions.map((opt) => {
+            const active = autoLockSeconds === opt.sec;
+            return (
+              <TouchableOpacity
+                key={opt.sec}
+                testID={`security-autolock-${opt.sec}`}
+                disabled={!hasPin}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active, disabled: !hasPin }}
+                onPress={() => handleSelectAutolock(opt.sec)}
+                style={[
+                  s.option,
+                  {
+                    borderColor: active ? colors.primary : muted + '44',
+                    backgroundColor: active ? colors.primary + '22' : 'transparent',
+                    opacity: hasPin ? 1 : 0.4,
+                  },
+                ]}
+              >
+                <Text style={[s.optionLabel, { color: active ? colors.primary : muted }]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Botão Bloquear Agora */}
+      <View style={{ marginTop: 14 }}>
         <DirectiveButton
-          testID="test-biometric-btn"
-          label={isAppLocked ? 'Aplicativo bloqueado — autenticar agora' : 'Testar autenticação biométrica'}
+          testID="security-lock-now"
+          disabled={!hasPin}
+          label="Bloquear agora"
           variant="secondary"
-          materialIcon="fingerprint"
-          onPress={onTestBiometrics}
-          themeMode={isLight ? 'light' : 'dark'}
+          materialIcon="lock"
+          onPress={() => sessionStore.lock()}
+          themeMode={theme}
         />
       </View>
+
+      {/* Ação Destrutiva Apagar Dados */}
+      <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: muted + '44' }}>
+        <DirectiveButton
+          testID="security-wipe"
+          label="Apagar todos os dados"
+          variant="danger"
+          materialIcon="warning"
+          onPress={() => {
+            setWipeText('');
+            setIsWipeOpen(true);
+          }}
+          themeMode={theme}
+        />
+      </View>
+
+      {/* Folha / Modal para digitar PIN */}
+      {pinMode !== 'none' && (
+        <View testID="security-pin-sheet" style={[s.pinSheetOverlay, { backgroundColor: isLight ? '#F4F1EA' : '#111315' }]}>
+          <View style={{ width: '100%', maxWidth: 360, alignItems: 'center' }}>
+            <Text style={[s.sheetTitle, { color: fg }]}>{getPinSheetTitle()}</Text>
+            {pinError && <Text style={s.pinErrorText}>{pinError}</Text>}
+
+            <View style={{ marginVertical: 20 }}>
+              <PinDots length={6} filled={pinInput.length} error={Boolean(pinError)} />
+            </View>
+
+            <PinKeypad
+              onDigit={handleDigit}
+              onBackspace={handleBackspace}
+              biometricAvailable={false}
+              themeMode={theme}
+            />
+
+            <TouchableOpacity
+              onPress={() => {
+                setPinMode('none');
+                setPinInput('');
+                setPinError(null);
+              }}
+              style={s.cancelButton}
+            >
+              <Text style={[s.body, { color: colors.primary, fontWeight: '700' }]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
+      {/* Diálogo de Confirmação de Wipe */}
+      {isWipeOpen && (
+        <View testID="security-wipe-dialog" style={[s.pinSheetOverlay, { backgroundColor: isLight ? '#F4F1EAEE' : '#111315EE' }]}>
+          <View style={[s.card, { width: '100%', maxWidth: 360, backgroundColor: isLight ? '#EAE4D7' : '#1C1E20', borderColor: colors.primary }]}>
+            <Text style={[s.sheetTitle, { color: colors.primary, marginBottom: 8 }]}>Apagar todos os dados</Text>
+            <Text style={[s.body, { color: fg, marginBottom: 12 }]}>
+              Esta ação excluirá permanentemente todas as suas carteiras, transações e configurações locais. Para confirmar, digite APAGAR abaixo:
+            </Text>
+            <TextInput
+              testID="security-wipe-confirm-input"
+              value={wipeText}
+              onChangeText={setWipeText}
+              placeholder="Digite APAGAR"
+              placeholderTextColor={muted}
+              autoCapitalize="characters"
+              style={[
+                s.textInput,
+                {
+                  backgroundColor: isLight ? '#F4F1EA' : '#111315',
+                  color: fg,
+                  borderColor: muted + '44',
+                  marginBottom: 16,
+                },
+              ]}
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <DirectiveButton
+                testID="security-wipe-cancel-btn"
+                label="Cancelar"
+                variant="secondary"
+                onPress={() => {
+                  setIsWipeOpen(false);
+                  setWipeText('');
+                }}
+                themeMode={theme}
+              />
+              <DirectiveButton
+                testID="security-wipe-confirm-btn"
+                label="APAGAR DEFINITIVAMENTE"
+                variant="danger"
+                disabled={wipeText !== 'APAGAR'}
+                onPress={handleConfirmWipe}
+                themeMode={theme}
+              />
+            </View>
+          </View>
+        </View>
+      )}
     </BentoTile>
   );
 };
@@ -309,4 +731,10 @@ const s = StyleSheet.create({
   optionLabel: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '700' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   manifest: { borderWidth: 1, borderRadius: bento.innerRadius, padding: 12, marginTop: 12 },
+  card: { borderWidth: 1, borderRadius: bento.innerRadius, padding: 14, marginTop: 8 },
+  textInput: { borderWidth: 1, borderRadius: bento.innerRadius, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: typography.fontFamily },
+  pinSheetOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  sheetTitle: { fontFamily: typography.fontFamily, fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 12 },
+  pinErrorText: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.primary, textAlign: 'center', marginBottom: 8 },
+  cancelButton: { marginTop: 16, padding: 10, alignItems: 'center' },
 });

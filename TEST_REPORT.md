@@ -7,10 +7,10 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | 88 suítes, **576 testes**, **0 falhas** (100% aprovado) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | 89 suítes, **586 testes**, **0 falhas** (100% aprovado) |
 | Motor de mercado (Go) | `npm run test:market` | **44 testes**, 0 falhas, 2 "live" pulados por padrão |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | sem erros nos arquivos de produção |
-| Integridade dos testes (TDD Lock) | `npm run test:verify` | 104 arquivos protegidos, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `npm run test:verify` | 105 arquivos protegidos, SHA-256 íntegros |
 
 ## Cobertura por área
 
@@ -19,7 +19,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 - **Componentes e telas**: header/dock/bento, cartão empilhado, ficha do ativo, busca e ranking, simulador, fluxo da Home (renderização, navegação, modo privacidade, tema claro).
 - **Segurança e Tela de Bloqueio (Sprint 43)**: `PinDots` (6 pontos, preenchimento, animação de tremor no erro via driver nativo, `useReducedMotion`), `PinKeypad` (grade 3x4, teclas redondas 72 dp, JellyPressable, botão de digital condicional, suporte a acessibilidade), `LockScreen` (saudação com perfil, bloqueio após 5 erros com timer mm:ss, auto-prompt de biometria ao montar, esqueci PIN com recuperação biométrica ou wipe destrutivo exigindo digitação "APAGAR"), `AppGate` / `useAppLock` (decisão de status loading/onboarding/locked/unlocked, detecção de ciclo de vida com `AppState`, bloqueio automático ao retornar do segundo plano conforme tolerância, capa de privacidade ao suspender app com PIN configurado), `backNavigation` (ação `'minimize'` para `BackHandler.exitApp()` com prioridade máxima quando em estado bloqueado).
 - **Onboarding e Perfil Dinâmico (Sprint 44 — Completo / Fase B)**: `OnboardingFlow` (máquina de passos Boas-vindas → Nome → PIN opcional → Digital → Pronto; validação 2–40 caracteres com trim e acentos; avatar dinâmico com iniciais; confirmação e aviso não bloqueante para PINs triviais; "Agora não" pulando PIN e digital; integração biométrica real; persistência estritamente atômica no fim; fluxo abreviado de migração D9 para bancos com carteiras existentes; substituição de "Pedro"/"PL" fixos em todas as telas por `useProfile()`; `AppGate` orquestrando onboarding de novo usuário e migração sem interferir nos mocks das suítes de teste de sprints anteriores).
-- **Perfil e Segurança (Sprint 45 — Fase A)**: `SecurityTile` e `useProfileSettings` (gerenciamento real de PIN: criar, alterar com confirmação e remover; biometria com teste real; seletor de tolerância de autolock 0s, 30s, 60s, 300s; ação bloquear agora acionando `sessionStore.lock()`; campo de nome editável atualizando `profileStore` e iniciais; ação destrutiva de wipe dos dados exigindo digitação de "APAGAR").
+- **Perfil e Segurança (Sprint 45 — Completo / Fase B)**: `SecurityTile` e `useProfileSettings` (gerenciamento real de PIN: criar, alterar com confirmação e remover; biometria com teste real; seletor de tolerância de autolock 0s, 30s, 60s, 300s; ação bloquear agora acionando `sessionStore.lock()`; campo de nome editável atualizando `profileStore` e iniciais; ação destrutiva de wipe dos dados exigindo digitação de "APAGAR"; compatibilidade preservada com configurações de perfil e testes de telas secundárias).
 - **Go** (`services/market-api`): parser COTAHIST, cliente Yahoo (failover, eventos), BCB, API REST, ponte `mobilebridge`, perfil/ranking de fundamentos com **páginas reais do Fundamentus** como fixtures (`internal/fundamentals/testdata`).
 
 ## Testes "live" (manuais)

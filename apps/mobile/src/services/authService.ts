@@ -57,11 +57,27 @@ export class AuthService {
   private clock: () => number;
   private randomBytes: (length: number) => Uint8Array | Promise<Uint8Array>;
 
+  private _cachedHasPin: boolean | null = null;
+  private _cachedBioEnabled: boolean | null = null;
+  private _cachedAutoLock: number | null = null;
+
   constructor(deps: AuthServiceDependencies = {}) {
     this.storage = deps.storage ?? getSecureStorage();
     this.biometrics = deps.biometrics ?? new ExpoBiometricProvider();
     this.clock = deps.clock ?? (() => Date.now());
     this.randomBytes = deps.randomBytes ?? ((n) => Crypto.getRandomBytes(n));
+  }
+
+  hasPinSync(): boolean | null {
+    return this._cachedHasPin;
+  }
+
+  isBiometricEnabledSync(): boolean | null {
+    return this._cachedBioEnabled;
+  }
+
+  getAutoLockSecondsSync(): number | null {
+    return this._cachedAutoLock;
   }
 
   private validatePinFormat(pin: string): void {
@@ -85,11 +101,14 @@ export class AuthService {
     await this.storage.setItem(STORAGE_KEYS.PIN_HASH, hash);
     await this.storage.deleteItem(STORAGE_KEYS.LOCKOUT_ATTEMPTS);
     await this.storage.deleteItem(STORAGE_KEYS.LOCKOUT_UNTIL);
+    this._cachedHasPin = true;
   }
 
   async hasPin(): Promise<boolean> {
     const hash = await this.storage.getItem(STORAGE_KEYS.PIN_HASH);
-    return hash !== null && hash.length > 0;
+    const res = hash !== null && hash.length > 0;
+    this._cachedHasPin = res;
+    return res;
   }
 
   async getLockoutRemainingMs(): Promise<number> {
@@ -169,6 +188,8 @@ export class AuthService {
     await this.storage.deleteItem(STORAGE_KEYS.LOCKOUT_ATTEMPTS);
     await this.storage.deleteItem(STORAGE_KEYS.LOCKOUT_UNTIL);
     await this.disableBiometrics();
+    this._cachedHasPin = false;
+    this._cachedBioEnabled = false;
     return { ok: true };
   }
 
@@ -179,6 +200,9 @@ export class AuthService {
     await this.storage.deleteItem(STORAGE_KEYS.LOCKOUT_UNTIL);
     await this.storage.deleteItem(STORAGE_KEYS.BIOMETRICS_ENABLED);
     await this.storage.deleteItem(STORAGE_KEYS.AUTOLOCK_SECONDS);
+    this._cachedHasPin = false;
+    this._cachedBioEnabled = false;
+    this._cachedAutoLock = 60;
   }
 
   async canUseBiometrics(): Promise<boolean> {
@@ -204,6 +228,7 @@ export class AuthService {
 
     if (auth.success) {
       await this.storage.setItem(STORAGE_KEYS.BIOMETRICS_ENABLED, 'true');
+      this._cachedBioEnabled = true;
       return { success: true };
     }
 
@@ -212,11 +237,14 @@ export class AuthService {
 
   async disableBiometrics(): Promise<void> {
     await this.storage.setItem(STORAGE_KEYS.BIOMETRICS_ENABLED, 'false');
+    this._cachedBioEnabled = false;
   }
 
   async isBiometricEnabled(): Promise<boolean> {
     const val = await this.storage.getItem(STORAGE_KEYS.BIOMETRICS_ENABLED);
-    return val === 'true';
+    const res = val === 'true';
+    this._cachedBioEnabled = res;
+    return res;
   }
 
   async authenticateBiometric(prompt?: string): Promise<BiometricResult> {
@@ -244,12 +272,12 @@ export class AuthService {
 
   async getAutoLockSeconds(): Promise<AutoLockSeconds> {
     const val = await this.storage.getItem(STORAGE_KEYS.AUTOLOCK_SECONDS);
-    if (!val) return 60;
-    const num = Number(val);
-    if ([0, 30, 60, 300].includes(num)) {
-      return num as AutoLockSeconds;
+    let num = 60;
+    if (val && [0, 30, 60, 300].includes(Number(val))) {
+      num = Number(val);
     }
-    return 60;
+    this._cachedAutoLock = num;
+    return num as AutoLockSeconds;
   }
 
   async setAutoLockSeconds(seconds: AutoLockSeconds): Promise<void> {
@@ -257,6 +285,7 @@ export class AuthService {
       throw new Error('Valor inválido para autoLockSeconds. Permitidos: 0, 30, 60, 300.');
     }
     await this.storage.setItem(STORAGE_KEYS.AUTOLOCK_SECONDS, String(seconds));
+    this._cachedAutoLock = seconds;
   }
 }
 
