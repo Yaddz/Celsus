@@ -118,6 +118,35 @@ nativo** (`cd apps/mobile && npx expo run:android`). Recarregar o JavaScript nã
   - Fluxo em 5 etapas: Seleção do arquivo → Leitura/Validação → Pré-visualização → Importação com progresso → Relatório final com botões de Ver carteira, Desfazer e Concluir.
   - Pontos de entrada: Perfil (BackupTile), Onboarding (DoneStep) e Empty states da Home e Carteiras.
 
+### Histórico de Proventos (`incomeHistory.ts` e `IncomeHistoryScreen.tsx`, Sprint 48)
+
+- **Domínio Puro (`src/domain/finance/incomeHistory.ts`)**:
+  - Aritmética pura e exata sem floats via `decimal.js`.
+  - `filterIncomes`: filtragem combinada por carteira, período (`from`/`to`), tipo (`kind`), ativo (`ticker`) e classe de ativo (`assetClass` via mapa injetado).
+  - `monthlySeries`: série mensal cronológica contínua que inclui todos os meses vazios com `0.00`.
+  - `yearlySeries`: totais por ano e média mensal dividida por 12 meses.
+  - `groupByMonth`: agrupamento decrescente por mês com itens ordenados por data desc.
+  - `rankByTicker`: ranking com cálculo proporcional e distribuição do maior resto (Hamilton method), garantindo soma exata de 100,00%.
+  - `trailing12m`: cálculo de proventos recebidos nos últimos 12 meses móveis (cruzamento de virada de ano).
+  - `yieldOnCost`: proventos de 12 meses divididos pelo custo dos ativos do escopo (`null` quando custo <= 0).
+  - `averagePerMonth`: média exata sobre a quantidade de meses do intervalo selecionado.
+  - `bestMonth`: identificação do mês de maior recebimento líquido.
+- **Repositório (`incomeRepository.ts`)**:
+  - Métodos `listFiltered`, `getById`, `updateIncome` e `deleteIncome`.
+  - Suporte completo a proventos com cotas, preço unitário e tipo (`RENDIMENTO`, `DIVIDENDO`, `JCP`).
+- **Tela e Experiência (`IncomeHistoryScreen.tsx`)**:
+  - Bento layout com `XpMinimalHeader` ("Proventos", "Valor líquido recebido").
+  - 4 tiles bento de destaque: Total no período, Média mensal, Rendimento sobre o custo (12m) e Melhor mês.
+  - Gráfico de barras nativo em Views com alternância Mensal / Anual, destaque do melhor mês e filtro interativo da lista por toque na barra.
+  - Seção "Quem mais pagou" com barras proporcionais e percentual do topo.
+  - Lista agrupada com subtotais por mês e linhas ricas com avatar de classe, ativo, data, quantidade × valor unitário.
+  - Folha de detalhe com Editar e Excluir (diálogo de confirmação com `ConfirmDialog`).
+  - Formulário de cadastro/edição manual de provento e botão de acesso rápido fixo.
+  - Estado vazio com atalho para Importação de extrato da B3.
+  - Suporte total a Modo Privacidade (`R$ ••••••`) e temas claro/escuro.
+  - Integração com `StatisticsScreen`: card-resumo ganha botão "Ver histórico" e o formulário antigo é migrado.
+  - Android Back handler com ação `'close-income-history'` em `backNavigation.ts`.
+
 ## 6. Design
 
 Ver [`DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md). Imagens de inspiração (XP, BTG, Pierre, Investidor10, paletas): `imgsinsp/`.

@@ -58,6 +58,7 @@ export interface StatisticsScreenProps {
 
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
+  onOpenIncomeHistory,
   isPrivacyMode = false,
   onTogglePrivacy,
   onProfilePress,
@@ -83,10 +84,6 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const [transactionsList, setTransactionsList] = useState<HistoricalTransactionInput[]>([]);
   const [portfoliosList, setPortfoliosList] = useState<Array<{ id: string; name: string }>>([]);
   const [incomes, setIncomes] = useState<Array<{ date: string; amount: string }>>([]);
-  const [isIncomeSheetOpen, setIsIncomeSheetOpen] = useState(false);
-  const [incomeTicker, setIncomeTicker] = useState('');
-  const [incomeAmount, setIncomeAmount] = useState('');
-  const [incomeDate, setIncomeDate] = useState(new Date().toISOString().slice(0, 10));
 
   const loadIncomes = async () => {
     try {
@@ -103,19 +100,6 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
     loadIncomes();
   }, [selectedPortfolioId]);
   const incomeSummary = summarizeIncome(incomes, new Date().toISOString().slice(0, 10));
-
-  const handleSaveIncome = async () => {
-    const amount = parseMoneyInput(incomeAmount);
-    const target = selectedPortfolioId !== 'all' ? selectedPortfolioId : portfoliosList[0]?.id;
-    if (!amount || Number(amount) <= 0 || !incomeTicker.trim() || !target || !/^\d{4}-\d{2}-\d{2}$/.test(incomeDate)) {
-      return;
-    }
-    await incomeRepository.addIncome({ portfolioId: target, ticker: incomeTicker, payDate: incomeDate, amount });
-    setIsIncomeSheetOpen(false);
-    setIncomeTicker('');
-    setIncomeAmount('');
-    loadIncomes();
-  };
 
   const loadData = async () => {
     try {
@@ -415,43 +399,41 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         {/* 4. Proventos (aba Resumo/Histórico da planilha) */}
         <View style={{ marginTop: bento.gap }}>
           <BentoRow>
-            {/* Só título e valor; tocar no card abre o registro de proventos. */}
+            {/* Tocar no card ou no botão abre o histórico de proventos */}
             <BentoTile
               variant="gold"
               span={2}
               title="Proventos estimados"
-              onPress={() => setIsIncomeSheetOpen(true)}
-              accessibilityLabel="Proventos estimados. Toque para registrar um provento"
+              onPress={onOpenIncomeHistory}
+              accessibilityLabel="Proventos estimados. Toque para ver histórico de proventos"
               testID="stats-income-tile"
             >
-              <Text style={[styles.metricValue, { color: bento.variants.gold.foreground, fontSize: 24 }]}>
-                {isPrivacyMode
-                  ? 'R$ ••••••'
-                  : `R$ ${parseFloat(incomeSummary.totalYear).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-              </Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                <Text style={[styles.metricValue, { color: bento.variants.gold.foreground, fontSize: 24 }]}>
+                  {isPrivacyMode
+                    ? 'R$ ••••••'
+                    : `R$ ${parseFloat(incomeSummary.totalYear).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                </Text>
+                <TouchableOpacity
+                  testID="stats-open-income-history-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel="Ver histórico de proventos"
+                  onPress={onOpenIncomeHistory}
+                  style={{
+                    backgroundColor: 'rgba(255, 179, 0, 0.15)',
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 16,
+                  }}
+                >
+                  <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '600', color: bento.variants.gold.foreground }}>
+                    Ver histórico
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </BentoTile>
           </BentoRow>
         </View>
-
-        <AnimatedModalSheet
-          visible={isIncomeSheetOpen}
-          onClose={() => setIsIncomeSheetOpen(false)}
-          themeMode={themeMode}
-          testID="income-sheet"
-        >
-          <Text style={[styles.metricsTitle, isLight && styles.metricsTitleLight, { marginBottom: 12 }]}>REGISTRAR PROVENTO</Text>
-          <LedgerInput label="Ativo" value={incomeTicker} onChangeText={setIncomeTicker} placeholder="MXRF11" keyboardType="default" testID="income-ticker-input" themeMode={themeMode} />
-          <LedgerInput label="Valor recebido" prefix="R$" value={incomeAmount} onChangeText={setIncomeAmount} placeholder="0,00" testID="income-amount-input" themeMode={themeMode} style={{ marginTop: 12 }} />
-          <LedgerInput label="Data (AAAA-MM-DD)" value={incomeDate} onChangeText={setIncomeDate} placeholder="2026-11-06" keyboardType="default" testID="income-date-input" themeMode={themeMode} style={{ marginTop: 12 }} />
-          <TouchableOpacity
-            testID="income-save-btn"
-            accessibilityRole="button"
-            onPress={handleSaveIncome}
-            style={{ backgroundColor: colors.primary, borderRadius: bento.tileRadius, paddingVertical: 16, alignItems: 'center', marginTop: 20 }}
-          >
-            <Text style={{ fontFamily: typography.fontFamily, fontWeight: '700', color: '#1A0E08' }}>Salvar provento</Text>
-          </TouchableOpacity>
-        </AnimatedModalSheet>
 
         {/* Espaçador para o Dock Flutuante */}
         <View style={{ height: 100 }} />

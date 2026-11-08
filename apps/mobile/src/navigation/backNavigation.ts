@@ -16,6 +16,7 @@ export interface BackState {
   activeTab: DockTabId;
   isSettingsOpen: boolean;
   isB3ImportOpen?: boolean;
+  isIncomeHistoryOpen?: boolean;
   isTransactionDetailOpen: boolean;
   isAllTransactionsOpen: boolean;
   isClassDetailOpen: boolean;
@@ -28,6 +29,7 @@ export interface BackState {
 export type BackAction =
   | 'minimize'
   | 'close-b3-import'
+  | 'close-income-history'
   | 'close-settings'
   | 'close-transaction-detail'
   | 'close-all-transactions'
@@ -42,6 +44,7 @@ export type BackAction =
 export function resolveBackAction(state: BackState): BackAction {
   if (state.isLocked) return 'minimize';
   if (state.isB3ImportOpen) return 'close-b3-import';
+  if (state.isIncomeHistoryOpen) return 'close-income-history';
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';

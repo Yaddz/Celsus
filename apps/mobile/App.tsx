@@ -51,6 +51,7 @@ import {
   AssetDetailScreen,
 } from './src/screens';
 import { B3ImportScreen } from './src/screens/B3ImportScreen';
+import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
 import {
   redactCurrencyValue,
   redactPercentageValue,
@@ -187,6 +188,7 @@ function AppContent() {
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(false);
+  const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
@@ -647,6 +649,7 @@ function AppContent() {
     activeTab,
     isSettingsOpen: isSettingsBackupModalOpen,
     isB3ImportOpen,
+    isIncomeHistoryOpen,
     isTransactionDetailOpen: selectedRecentTransaction !== null,
     isAllTransactionsOpen: isAllTransactionsModalOpen,
     isClassDetailOpen: selectedClassDetail !== null,
@@ -664,6 +667,9 @@ function AppContent() {
           return true;
         case 'close-b3-import':
           setIsB3ImportOpen(false);
+          return true;
+        case 'close-income-history':
+          setIsIncomeHistoryOpen(false);
           return true;
         case 'close-transaction-modal':
           setIsTransactionModalOpen(false);
@@ -974,6 +980,35 @@ function AppContent() {
             setActivePortfolioId(portId);
           }}
           initialPortfolioId={activePortfolioId || undefined}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 3c. Tela: Histórico de Proventos (tela cheia)
+  if (isIncomeHistoryOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right', 'bottom']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <IncomeHistoryScreen
+          onBack={() => setIsIncomeHistoryOpen(false)}
+          onOpenB3Import={() => {
+            setIsIncomeHistoryOpen(false);
+            setIsB3ImportOpen(true);
+          }}
+          initialPortfolioId={activePortfolioId || undefined}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
         />
       </SafeAreaView>
     );
@@ -1381,6 +1416,7 @@ function AppContent() {
             setIsPrivacyMode(next.isPrivacyModeEnabled);
           }}
           themeMode={themeMode}
+          onOpenIncomeHistory={() => setIsIncomeHistoryOpen(true)}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
           onClassPress={(cls) => setSelectedClassDetail(cls)}
         />

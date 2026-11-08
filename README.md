@@ -22,6 +22,8 @@ um motor de mercado em Go — embutido no app Android — traz cotações, hist�
 | **Livro-razão** | Compras e vendas com preço médio, quantidade, proventos e extrato. |
 | **Renda fixa** | Cálculo em base 252 (% CDI, IPCA+, pré) com taxas do Banco Central. |
 | **Importação da planilha** | Carga da planilha de controle (carteira AUVP) com relatório de verificação, sem apagar dados. |
+| **Histórico de proventos** | Histórico consolidado e por carteira (filtros, gráfico mensal/anual interativo, rendimento sobre o custo 12m, melhor mês, ranking por ativo e gestão completa). |
+| **Importação de extrato B3** | Leitura local de extratos da Área do Investidor B3 (.xlsx/.csv), reconciliação inteligente e importação idempotente. |
 | **Backup e privacidade** | Exportação/importação `.celsus.zip` (CSVs + manifest SHA-256), modo privacidade e bloqueio biométrico. |
 | **Tema** | Escuro e claro, interface em Bento Grid. |
 

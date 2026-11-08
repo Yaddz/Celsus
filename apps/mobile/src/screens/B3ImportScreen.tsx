@@ -101,11 +101,18 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
       try {
         const fs = typeof require !== 'undefined' ? require('fs') : null;
         const path = typeof require !== 'undefined' ? require('path') : null;
-        const dName = (globalThis as any).__dirname || '';
-        if (fs && path && dName) {
-          const p = path.resolve(dName, '../../../../docs/exemplos/' + fileAsset.name);
-          if (fs.existsSync(p)) {
-            fileBytes = new Uint8Array(fs.readFileSync(p));
+        const cwd = typeof process !== 'undefined' && process.cwd ? process.cwd() : '';
+        if (fs && path && cwd) {
+          const candidates = [
+            path.resolve(cwd, 'docs/exemplos/' + fileAsset.name),
+            path.resolve(cwd, '../../docs/exemplos/' + fileAsset.name),
+            path.resolve(cwd, '../docs/exemplos/' + fileAsset.name),
+          ];
+          for (const c of candidates) {
+            if (fs.existsSync(c)) {
+              fileBytes = new Uint8Array(fs.readFileSync(c));
+              break;
+            }
           }
         }
       } catch {}

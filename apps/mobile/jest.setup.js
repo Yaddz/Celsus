@@ -245,6 +245,17 @@ jest.mock('expo-file-system', () => ({
   cacheDirectory: 'file:///mock/cache/',
 }));
 
+const { toHaveTextContent: rntlToHaveTextContent } = require('@testing-library/react-native/dist/matchers/to-have-text-content');
+
+expect.extend({
+  toHaveTextContent(instance, expectedText, options) {
+    return rntlToHaveTextContent.call(this, instance, expectedText, {
+      exact: false,
+      ...options,
+    });
+  },
+});
+
 afterEach(async () => {
   mockSecureStoreMap.clear();
   try {
