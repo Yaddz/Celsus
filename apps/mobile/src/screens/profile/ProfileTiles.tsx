@@ -330,7 +330,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
   };
 
   const handleSelectAutolock = async (sec: number) => {
-    await authService.setAutoLockSeconds(sec);
+    await authService.setAutoLockSeconds(sec as any);
     setAutoLockSeconds(sec);
   };
 
@@ -447,7 +447,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
             <DirectiveButton
               testID="security-remove-pin"
               label="Remover PIN"
-              variant="danger"
+              variant="destructive"
               materialIcon="delete"
               onPress={() => {
                 setPinMode('remove');
@@ -534,7 +534,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
         <DirectiveButton
           testID="security-wipe"
           label="Apagar todos os dados"
-          variant="danger"
+          variant="destructive"
           materialIcon="warning"
           onPress={() => {
             setWipeText('');
@@ -615,7 +615,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
               <DirectiveButton
                 testID="security-wipe-confirm-btn"
                 label="APAGAR DEFINITIVAMENTE"
-                variant="danger"
+                variant="destructive"
                 disabled={wipeText !== 'APAGAR'}
                 onPress={handleConfirmWipe}
                 themeMode={theme}
