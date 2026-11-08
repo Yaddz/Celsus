@@ -47,6 +47,7 @@ import { marketApiService } from '../services/marketApi';
 
 export interface StatisticsScreenProps {
   onClose?: () => void;
+  onOpenIncomeHistory?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   onProfilePress?: () => void;

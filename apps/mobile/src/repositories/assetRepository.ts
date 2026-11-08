@@ -84,6 +84,10 @@ export class AssetRepository {
     return list;
   }
 
+  async listAll(): Promise<Asset[]> {
+    return this.db.select().from(assets);
+  }
+
   async getAssetsByClass(
     portfolioId: string,
     assetClass: string
