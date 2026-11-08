@@ -61,6 +61,16 @@ export class AssetRepository {
     return newAsset;
   }
 
+  async listByPortfolio(portfolioId: string): Promise<Asset[]> {
+    return this.getAssetsByPortfolio(portfolioId);
+  }
+
+  async addAsset(
+    params: Omit<NewAsset, 'id' | 'created_at' | 'updated_at'> & { id?: string }
+  ): Promise<Asset> {
+    return this.createAsset(params);
+  }
+
   async getAssetsByPortfolio(portfolioId: string): Promise<Asset[]> {
     const list = await this.db
       .select()

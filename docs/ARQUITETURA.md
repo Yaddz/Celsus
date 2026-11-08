@@ -97,7 +97,28 @@ nativo** (`cd apps/mobile && npx expo run:android`). Recarregar o JavaScript nã
   - Tela de bloqueio (`LockScreen`): tela cheia nativa com `PinDots` (animação nativa de shake), `PinKeypad` (72dp JellyPressable), contador de lockout, auto-prompt de digital e modal de recuperação ("Esqueci o PIN") com biometria ou wipe local seguro exigindo confirmação explícita "APAGAR".
   - Navegação do botão Voltar (`backNavigation`): em estado bloqueado (`isLocked`), o botão físico/gesto de voltar possui prioridade máxima retornando a ação `'minimize'` (`BackHandler.exitApp()`), impedindo evasão da tela de bloqueio.
 
-## 5. Design
+## 5. Importação de Extrato da B3
+
+- **Leitor e Descompactador (`src/services/b3/readStatementFile.ts`)**:
+  - Lê arquivos `.xlsx` (descompactação ZIP pura via `fflate` sem dependência de DOM ou Node, stream tokenizado de XML de `xl/sharedStrings.xml` e planilhas) e `.csv` (com detecção automática de delimitador `;` ou `,` e suporte a BOM UTF-8).
+  - Trata datas como texto e números seriais do Excel.
+  - Erros tipados: `EmptyFileError`, `UnrecognizedFormatError`, `MissingColumnError`, `UnsupportedStatementError` (detecta e orienta caso enviado relatório de negociação em vez de movimentação).
+- **Domínio e Planejamento (`src/domain/b3`)**:
+  - `parseStatementRows`: normaliza datas (`YYYY-MM-DD`), instituições, divide `TICKER - NOME` e trata campos nulos/numéricos.
+  - `classifyMovement`: classificação exata (COMPRA por liquidação ou subscrição exercida, VENDA por liquidação de débito, PROVENTOS como Rendimento/Dividendo/JCP, IGNORADOS para direitos não exercidos e transferências de custódia, e REVISAR para eventos não automatizados).
+  - `normalizeTicker`: direitos e recibos de subscrição (`XXXX12`/`XXXX13` → `XXXX11`).
+  - `inferAssetClass`: catálogo estático local (units `ALUP11`/`BPAC11` como `STOCK`), heurísticas de FII no nome e sufixos 3/4/5/6.
+  - `reconcileOpeningBalances`: reconciliação de saldo anterior com janela móvel de 20 dias para eventos de provento e proteção contra venda a descoberto.
+  - `buildImportPlan`: cria plano cronológico determinístico com `external_id` estável (`b3:<hash>`), controle de duplicatas e somas em `Decimal`.
+- **Serviço e Transações (`src/services/b3ImportService.ts`)**:
+  - `preview`: cruza dados do arquivo com o banco local.
+  - `apply`: criação de novos ativos, lançamento de saldo inicial inferido (preço manual ou cotação histórica), execução atômica via `transactionService` com tolerância a falhas sem abortar o lote, gravação de proventos com tipo/cotas/valor unitário, verificação matemática com `matches = true` e marcação de lote em `app_meta` (`b3:last_batch`).
+  - `undoLastImport`: operação reversível que remove transações/proventos do lote e ativos vazios criados por ele.
+- **Telas e Navegação (`B3ImportScreen.tsx`)**:
+  - Fluxo em 5 etapas: Seleção do arquivo → Leitura/Validação → Pré-visualização → Importação com progresso → Relatório final com botões de Ver carteira, Desfazer e Concluir.
+  - Pontos de entrada: Perfil (BackupTile), Onboarding (DoneStep) e Empty states da Home e Carteiras.
+
+## 6. Design
 
 Ver [`DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md). Imagens de inspiração (XP, BTG, Pierre, Investidor10, paletas): `imgsinsp/`.
 

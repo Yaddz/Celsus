@@ -21,6 +21,7 @@ export interface XpMinimalHeaderProps {
   /** Botão extra à esquerda do olho (ex.: favoritar na ficha do ativo). */
   rightAccessory?: React.ReactNode;
   testID?: string;
+  backTestID?: string;
 }
 
 /**
@@ -43,6 +44,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
   scrollY,
   rightAccessory,
   testID = 'xp-minimal-header',
+  backTestID = 'header-back-button',
 }) => {
   const isLight = themeMode === 'light';
   const theme = THEME_COLORS[themeMode] || THEME_COLORS.dark;
@@ -89,7 +91,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
       {/* Canto Esquerdo: Botão Voltar OU Avatar do Usuário */}
       {onBack ? (
         <TouchableOpacity
-          testID="header-back-button"
+          testID={backTestID}
           onPress={onBack}
           activeOpacity={0.7}
           style={styles.backButtonContainer}

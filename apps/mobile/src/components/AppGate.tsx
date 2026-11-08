@@ -16,6 +16,7 @@ export interface AppGateProps {
   clock?: () => number;
   themeMode?: 'dark' | 'light';
   bypassOnboardingUntilSprint44?: boolean;
+  onOnboardingComplete?: (action?: 'import_b3' | 'create_wallet' | 'explore') => void;
 }
 
 function resolveSyncIfPossible<T>(val: any): T | null {
@@ -218,6 +219,7 @@ export const AppGate: React.FC<AppGateProps> = ({
   clock,
   themeMode = 'dark',
   bypassOnboardingUntilSprint44,
+  onOnboardingComplete,
 }) => {
   const { status, isBackgrounded, hasPin, isMigration } = useAppLock({
     authService,
@@ -246,6 +248,7 @@ export const AppGate: React.FC<AppGateProps> = ({
           profileRepository={profileRepository}
           themeMode={themeMode}
           isMigration={isMigration}
+          onComplete={onOnboardingComplete}
         />
       </View>
     );

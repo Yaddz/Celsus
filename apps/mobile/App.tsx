@@ -50,6 +50,7 @@ import {
   SearchAssetsScreen,
   AssetDetailScreen,
 } from './src/screens';
+import { B3ImportScreen } from './src/screens/B3ImportScreen';
 import {
   redactCurrencyValue,
   redactPercentageValue,
@@ -185,6 +186,7 @@ function AppContent() {
   const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
+  const [isB3ImportOpen, setIsB3ImportOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
@@ -644,6 +646,7 @@ function AppContent() {
     isLocked: sessionStore.getState().status === 'locked',
     activeTab,
     isSettingsOpen: isSettingsBackupModalOpen,
+    isB3ImportOpen,
     isTransactionDetailOpen: selectedRecentTransaction !== null,
     isAllTransactionsOpen: isAllTransactionsModalOpen,
     isClassDetailOpen: selectedClassDetail !== null,
@@ -658,6 +661,9 @@ function AppContent() {
       switch (action) {
         case 'minimize':
           BackHandler.exitApp();
+          return true;
+        case 'close-b3-import':
+          setIsB3ImportOpen(false);
           return true;
         case 'close-transaction-modal':
           setIsTransactionModalOpen(false);
@@ -932,11 +938,42 @@ function AppContent() {
           onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
           onClose={() => setIsSettingsBackupModalOpen(false)}
           onDataRestored={() => refreshAppData()}
+          onOpenB3Import={() => {
+            setIsSettingsBackupModalOpen(false);
+            setIsB3ImportOpen(true);
+          }}
           themeMode={themeMode}
           onThemeModeChange={(mode) => {
             setThemeMode(mode);
             themeModeService.setThemeMode(mode);
           }}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // 3b. Tela: Importação B3 (tela cheia)
+  if (isB3ImportOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right', 'bottom']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <B3ImportScreen
+          onBack={() => setIsB3ImportOpen(false)}
+          onNavigateToPortfolio={(portId) => {
+            setIsB3ImportOpen(false);
+            setActivePortfolioId(portId);
+          }}
+          initialPortfolioId={activePortfolioId || undefined}
         />
       </SafeAreaView>
     );

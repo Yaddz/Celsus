@@ -3,15 +3,18 @@ import {
   PortfolioClassTarget,
   Asset,
   Transaction,
+  IncomeEvent,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
   transactions as transactionsTable,
+  incomeEvents as incomeEventsTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
 import { AssetRepository, assetRepository } from '../repositories/assetRepository';
 import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
+import { IncomeRepository, incomeRepository } from '../repositories/incomeRepository';
 import { calculatePositionFromTransactions } from '../domain/finance/averagePrice';
 
 export type BackupImportMode = 'RESTORE' | 'MERGE';
@@ -32,7 +35,8 @@ export interface BackupManifest {
     'class_targets.csv': ManifestFileEntry;
     'assets.csv': ManifestFileEntry;
     'transactions.csv': ManifestFileEntry;
-    [key: string]: ManifestFileEntry;
+    'income_events.csv'?: ManifestFileEntry;
+    [key: string]: ManifestFileEntry | undefined;
   };
 }
 
@@ -41,6 +45,7 @@ export interface BackupDatabaseSnapshot {
   classTargets: PortfolioClassTarget[];
   assets: Asset[];
   transactions: Transaction[];
+  incomeEvents?: IncomeEvent[];
 }
 
 export interface ExportArchiveResult {
@@ -53,6 +58,8 @@ export interface ExportArchiveResult {
     'class_targets.csv': string;
     'assets.csv': string;
     'transactions.csv': string;
+    'income_events.csv'?: string;
+    [key: string]: string | undefined;
   };
 }
 
@@ -480,6 +487,39 @@ const TRANSACTIONS_COLUMNS: (keyof Transaction)[] = [
   'created_at',
 ];
 
+const INCOME_EVENTS_COLUMNS: (keyof IncomeEvent)[] = [
+  'id',
+  'portfolio_id',
+  'ticker',
+  'pay_date',
+  'amount',
+  'notes',
+  'source',
+  'external_id',
+  'kind',
+  'quantity',
+  'unit_amount',
+  'created_at',
+];
+
+function parseIncomeEventsFromCsv(csvText?: string): IncomeEvent[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    portfolio_id: r.portfolio_id,
+    ticker: r.ticker,
+    pay_date: r.pay_date,
+    amount: r.amount,
+    notes: r.notes === '' ? null : r.notes,
+    source: r.source || 'MANUAL',
+    external_id: r.external_id === '' ? null : r.external_id,
+    kind: r.kind === '' ? null : r.kind,
+    quantity: r.quantity === '' ? null : r.quantity,
+    unit_amount: r.unit_amount === '' ? null : r.unit_amount,
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
 function escapeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '';
   const str = String(val);
@@ -652,7 +692,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         transactions.push(...pTxs);
       }
 
-      return { portfolios, classTargets, assets, transactions };
+      const incomeEvents = await incomeRepository.listAll();
+      return { portfolios, classTargets, assets, transactions, incomeEvents };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
       throw new Error(
@@ -663,6 +704,9 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
 
   private async writeSnapshot(snapshot: BackupDatabaseSnapshot): Promise<void> {
     const db = getDatabase();
+    if (snapshot.incomeEvents) {
+      await db.delete(incomeEventsTable);
+    }
     await db.delete(transactionsTable);
     await db.delete(assetsTable);
     await db.delete(classTargetsTable);
@@ -679,6 +723,11 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     for (const tx of snapshot.transactions) {
       await db.insert(transactionsTable).values(tx);
+    }
+    if (snapshot.incomeEvents) {
+      for (const ie of snapshot.incomeEvents) {
+        await db.insert(incomeEventsTable).values(ie);
+      }
     }
   }
 
@@ -819,6 +868,42 @@ export class BackupService {
     const classTargetsCsv = serializeToCsv(snapshot.classTargets, CLASS_TARGETS_COLUMNS);
     const assetsCsv = serializeToCsv(snapshot.assets, ASSETS_COLUMNS);
     const transactionsCsv = serializeToCsv(snapshot.transactions, TRANSACTIONS_COLUMNS);
+    const incomeEvents = snapshot.incomeEvents || (await incomeRepository.listAll());
+
+    const manifestFiles: Record<string, ManifestFileEntry> = {
+      'portfolios.csv': {
+        rows: snapshot.portfolios.length,
+        sha256: BackupService.computeSha256(portfoliosCsv),
+      },
+      'class_targets.csv': {
+        rows: snapshot.classTargets.length,
+        sha256: BackupService.computeSha256(classTargetsCsv),
+      },
+      'assets.csv': {
+        rows: snapshot.assets.length,
+        sha256: BackupService.computeSha256(assetsCsv),
+      },
+      'transactions.csv': {
+        rows: snapshot.transactions.length,
+        sha256: BackupService.computeSha256(transactionsCsv),
+      },
+    };
+
+    const files: Record<string, string> = {
+      'portfolios.csv': portfoliosCsv,
+      'class_targets.csv': classTargetsCsv,
+      'assets.csv': assetsCsv,
+      'transactions.csv': transactionsCsv,
+    };
+
+    if (incomeEvents.length > 0) {
+      const incomeEventsCsv = serializeToCsv(incomeEvents, INCOME_EVENTS_COLUMNS);
+      manifestFiles['income_events.csv'] = {
+        rows: incomeEvents.length,
+        sha256: BackupService.computeSha256(incomeEventsCsv),
+      };
+      files['income_events.csv'] = incomeEventsCsv;
+    }
 
     const manifest: BackupManifest = {
       format: 'CELSUS_ARCHIVE',
@@ -826,35 +911,11 @@ export class BackupService {
       appVersion: '0.1.0',
       exportedAt: exportDate.toISOString(),
       currency: 'BRL',
-      files: {
-        'portfolios.csv': {
-          rows: snapshot.portfolios.length,
-          sha256: BackupService.computeSha256(portfoliosCsv),
-        },
-        'class_targets.csv': {
-          rows: snapshot.classTargets.length,
-          sha256: BackupService.computeSha256(classTargetsCsv),
-        },
-        'assets.csv': {
-          rows: snapshot.assets.length,
-          sha256: BackupService.computeSha256(assetsCsv),
-        },
-        'transactions.csv': {
-          rows: snapshot.transactions.length,
-          sha256: BackupService.computeSha256(transactionsCsv),
-        },
-      },
+      files: manifestFiles as BackupManifest['files'],
     };
 
     const manifestJson = JSON.stringify(manifest, null, 2);
-
-    const files = {
-      'manifest.json': manifestJson,
-      'portfolios.csv': portfoliosCsv,
-      'class_targets.csv': classTargetsCsv,
-      'assets.csv': assetsCsv,
-      'transactions.csv': transactionsCsv,
-    };
+    files['manifest.json'] = manifestJson;
 
     const zipBytes = BackupService.createZipArchive(files);
     const fileName = `celsus-dossier-${formatArchiveTimestamp(exportDate)}.celsus.zip`;
@@ -863,7 +924,7 @@ export class BackupService {
       fileName,
       zipBytes,
       manifest,
-      files,
+      files: files as ExportArchiveResult['files'],
     };
   }
 
@@ -937,6 +998,9 @@ export class BackupService {
       classTargets: parseClassTargetsFromCsv(extracted['class_targets.csv']),
       assets: parseAssetsFromCsv(extracted['assets.csv']),
       transactions: parseTransactionsFromCsv(extracted['transactions.csv']),
+      incomeEvents: extracted['income_events.csv']
+        ? parseIncomeEventsFromCsv(extracted['income_events.csv'])
+        : undefined,
     };
 
     // 5. Execute transactional import (RESTORE or MERGE)

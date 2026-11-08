@@ -20,6 +20,7 @@ export interface SettingsBackupScreenProps {
   onTogglePrivacyMode: (enabled: boolean) => void;
   onClose?: () => void;
   onDataRestored?: () => void;
+  onOpenB3Import?: () => void;
   themeMode?: ThemeMode;
   onThemeModeChange?: (mode: ThemeMode) => void;
   /** Dados do usuário só aparecem quando informados; não há valores de exemplo. */
@@ -38,6 +39,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   onTogglePrivacyMode,
   onClose,
   onDataRestored,
+  onOpenB3Import,
   themeMode,
   onThemeModeChange,
   userName,
@@ -80,6 +82,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
       onExport={p.exportDossier}
       onImport={p.importDossier}
       onImportSpreadsheet={p.importSpreadsheet}
+      onImportB3={onOpenB3Import}
     />
   );
 

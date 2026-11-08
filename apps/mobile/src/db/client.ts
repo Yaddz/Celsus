@@ -79,6 +79,11 @@ CREATE TABLE IF NOT EXISTS income_events (
   pay_date TEXT NOT NULL,
   amount TEXT NOT NULL,
   notes TEXT,
+  source TEXT NOT NULL DEFAULT 'MANUAL',
+  external_id TEXT,
+  kind TEXT,
+  quantity TEXT,
+  unit_amount TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
 );
@@ -274,6 +279,11 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
     column: 'receives_contribution',
     ddl: 'ALTER TABLE portfolio_class_targets ADD COLUMN receives_contribution INTEGER NOT NULL DEFAULT 1',
   },
+  { table: 'income_events', column: 'source', ddl: "ALTER TABLE income_events ADD COLUMN source TEXT NOT NULL DEFAULT 'MANUAL'" },
+  { table: 'income_events', column: 'external_id', ddl: 'ALTER TABLE income_events ADD COLUMN external_id TEXT' },
+  { table: 'income_events', column: 'kind', ddl: 'ALTER TABLE income_events ADD COLUMN kind TEXT' },
+  { table: 'income_events', column: 'quantity', ddl: 'ALTER TABLE income_events ADD COLUMN quantity TEXT' },
+  { table: 'income_events', column: 'unit_amount', ddl: 'ALTER TABLE income_events ADD COLUMN unit_amount TEXT' },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {

@@ -41,6 +41,14 @@ export class TransactionRepository {
     return newTx;
   }
 
+  async listByPortfolio(portfolioId: string): Promise<Transaction[]> {
+    return this.getTransactionsByPortfolio(portfolioId);
+  }
+
+  async deleteTransaction(id: string): Promise<void> {
+    await this.db.delete(transactions).where(eq(transactions.id, id));
+  }
+
   async getTransactionsByPortfolio(portfolioId: string): Promise<Transaction[]> {
     return this.db
       .select()

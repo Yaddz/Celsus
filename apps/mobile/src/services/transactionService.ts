@@ -15,7 +15,7 @@ export interface CreateTransactionInput {
   unitPrice: string | number;
   fees?: string | number;
   notes?: string | null;
-  source?: 'MANUAL' | 'OPEN_FINANCE';
+  source?: 'MANUAL' | 'OPEN_FINANCE' | 'B3_IMPORT';
   externalId?: string | null;
 }
 

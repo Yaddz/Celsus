@@ -104,6 +104,11 @@ export const incomeEvents = sqliteTable('income_events', {
   pay_date: text('pay_date').notNull(), // YYYY-MM-DD
   amount: text('amount').notNull(), // R$ decimal em texto
   notes: text('notes'),
+  source: text('source').notNull().default('MANUAL'),
+  external_id: text('external_id'),
+  kind: text('kind'),
+  quantity: text('quantity'),
+  unit_amount: text('unit_amount'),
   created_at: text('created_at').notNull(),
 });
 

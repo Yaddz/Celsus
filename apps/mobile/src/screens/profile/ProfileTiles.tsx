@@ -638,6 +638,7 @@ export interface BackupTileProps {
   onExport: () => void;
   onImport: () => void;
   onImportSpreadsheet: () => void;
+  onImportB3?: () => void;
 }
 
 export const BackupTile: React.FC<BackupTileProps> = ({
@@ -648,6 +649,7 @@ export const BackupTile: React.FC<BackupTileProps> = ({
   onExport,
   onImport,
   onImportSpreadsheet,
+  onImportB3,
 }) => {
   const { variant, fg, muted } = useTileColors(isLight);
   const theme = isLight ? 'light' : 'dark';
@@ -708,6 +710,16 @@ export const BackupTile: React.FC<BackupTileProps> = ({
           themeMode={theme}
         />
         <DirectiveButton testID="import-spreadsheet-btn" label="Importar dados da planilha" variant="primary" materialIcon="table-chart" onPress={onImportSpreadsheet} themeMode={theme} />
+        {onImportB3 && (
+          <DirectiveButton
+            testID="import-b3-btn"
+            label="Importar extrato da B3"
+            variant="primary"
+            materialIcon="account-balance"
+            onPress={onImportB3}
+            themeMode={theme}
+          />
+        )}
       </View>
     </BentoTile>
   );
