@@ -278,7 +278,7 @@ versionados: **mudança em Go só chega ao aparelho com `npm run build:native` +
 | Metas | Carteiras → `portfolioRepository.setClassTargets` / `assetRepository.updateAssetTargetInClass` | recálculo com cadeados que fecha 100%; gravação das metas por ativo com *debounce*. |
 | Aporte | `SimulatorScreen` → `calculateTwoPhaseContribution` → `rebalanceExecutionService` | plano em duas fases, confirmação, execução em lote como compras. |
 | Meta de patrimônio | `GoalEditorSheet` → `portfolioRepository.setGoal` | valor-alvo e aporte mensal da carteira. |
-| Importação B3 | `B3ImportScreen` → `b3ImportService.preview/apply/undoLastImport` | ver `REGRAS_DE_NEGOCIO.md` §8. |
+| Importação B3 | `B3ImportSheet` → `B3ImportScreen` (embedded) → `b3ImportService.preview/apply/undoLastImport` | Bottom sheet com snap em duas alturas (50% em pick, 100% em preview/report; não dispensável em importing); ver `REGRAS_DE_NEGOCIO.md` §8. |
 | Backup | Perfil → `backupService.export/importDossierArchive` | `.celsus.zip` com CSVs + `manifest.json` (SHA-256 por arquivo); importação `RESTORE` (substitui) ou `MERGE` (por UUID). |
 | Eventos corporativos | `marketSyncService.syncCorporateEvents` | ajusta quantidade/PM em splits/inplits de forma idempotente (`external_id`). |
 
@@ -298,6 +298,7 @@ versionados: **mudança em Go só chega ao aparelho com `npm run build:native` +
   compartilhado**, ligado só enquanto há skeleton montado.
 - **Curva patrimonial e resumos memoizados** em Análises; proventos com `useMemo` por filtro.
 - **Carteiras não recalcula saldos** quando já usa a lista compartilhada (os saldos com cotação vêm do App).
+- **Lista de ativos rolável com limite de altura** (`maxHeight` 55% da janela, `nestedScrollEnabled: true`) na tela Carteiras para rolagem fluida em carteiras com dezenas/centenas de ativos.
 - **App mantido montado** durante o rebloqueio (sem recarga ao desbloquear).
 
 ---

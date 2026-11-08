@@ -182,8 +182,14 @@ async function readFileAssetBytes(fileAsset: DocumentPicker.DocumentPickerAsset)
 
 export function B3ImportScreen(props: B3ImportScreenProps) {
   const isLight = !!props.isLight;
+  const embedded = !!props.embedded;
+  const onStepChange = props.onStepChange;
   const styles = React.useMemo(() => makeStyles(isLight), [isLight]);
   const [step, setStep] = useState<ImportStep>('pick');
+
+  useEffect(() => {
+    onStepChange?.(step);
+  }, [step, onStepChange]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [fileName, setFileName] = useState<string>('');
@@ -337,14 +343,32 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
   };
 
   return (
-    <View testID="b3-import-screen" style={styles.container}>
-      <XpMinimalHeader
-        title="Importar extrato da B3"
-        subtitle="Processamento 100% local e seguro"
-        onBack={props.onBack}
-        backTestID="xp-header-back"
-        themeMode={isLight ? 'light' : 'dark'}
-      />
+    <View testID="b3-import-screen" style={[styles.container, embedded && styles.containerEmbedded]}>
+      {embedded ? (
+        <View style={styles.embeddedHeader}>
+          <View style={styles.embeddedHeaderTitles}>
+            <Text style={styles.embeddedHeaderTitle}>Importar extrato da B3</Text>
+            <Text style={styles.embeddedHeaderSubtitle}>Processamento 100% local e seguro</Text>
+          </View>
+          <TouchableOpacity
+            testID="xp-header-back"
+            style={styles.embeddedCloseButton}
+            onPress={props.onBack}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <MaterialIcons name="close" size={20} color={isLight ? '#111315' : '#FFFFFF'} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <XpMinimalHeader
+          title="Importar extrato da B3"
+          subtitle="Processamento 100% local e seguro"
+          onBack={props.onBack}
+          backTestID="xp-header-back"
+          themeMode={isLight ? 'light' : 'dark'}
+        />
+      )}
 
       <ScrollView
         contentContainerStyle={[
@@ -857,6 +881,44 @@ const makeStyles = (isLight: boolean) => {
     container: {
       flex: 1,
       backgroundColor: c.bg,
+    },
+    containerEmbedded: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+    embeddedHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 20,
+      paddingTop: 14,
+      paddingBottom: 14,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+      backgroundColor: c.bg,
+    },
+    embeddedHeaderTitles: {
+      flex: 1,
+      marginRight: 12,
+    },
+    embeddedHeaderTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: c.text,
+      letterSpacing: -0.3,
+    },
+    embeddedHeaderSubtitle: {
+      fontSize: 12,
+      color: c.muted,
+      marginTop: 2,
+    },
+    embeddedCloseButton: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: isLight ? '#EFEBE1' : '#22252A',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     content: {
       padding: 16,

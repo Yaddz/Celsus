@@ -7,10 +7,10 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | 100 suítes, **648 testes**, **0 falhas** (100% aprovado) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | 103 suítes, **658 testes**, **0 falhas** (100% aprovado) |
 | Motor de mercado (Go) | `npm run test:market` | **44 testes**, 0 falhas, 2 "live" pulados por padrão |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | sem erros nos arquivos de produção |
-| Integridade dos testes (TDD Lock) | `npm run test:verify` | 116 arquivos protegidos, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `npm run test:verify` | 119 arquivos protegidos, SHA-256 íntegros |
 
 ## Cobertura por área
 
@@ -50,7 +50,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
   - S52-T2: Estado inicial vazio na tela Home sem criação automática da carteira AUVP ou qualquer outra carteira fictícia.
   - S52-T3: `resetDatabase()` limpando integralmente metadados sem manter chaves residuais de seed.
   - S52-T4: Ausência de qualquer movimentação residual nos lançamentos do extrato na inicialização limpa.
-- **Modal B3 em Duas Alturas e Rolagem da Lista de Ativos (Sprint 53 — Fase A / Bloqueado)**: Testes de especificação (IDs S53-T01 a S53-T10) cobrindo:
+- **Modal B3 em Duas Alturas e Rolagem da Lista de Ativos (Sprint 53 — Completo / Fase B)**: Testes de especificação (IDs S53-T01 a S53-T10) cobrindo:
   - S53-T01: `AnimatedModalSheet` sem props novas mantém comportamento retrocompatível padrão.
   - S53-T02: `AnimatedModalSheet` modo snap calcula altura ~50% colapsado e ~100% expandido.
   - S53-T03: `AnimatedModalSheet` com `dismissible=false` bloqueia fechamento via backdrop e botão voltar.

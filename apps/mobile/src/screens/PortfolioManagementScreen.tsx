@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  useWindowDimensions,
 } from 'react-native';
 import { useHeaderScrollFade } from '../hooks/useHeaderScrollFade';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -78,6 +79,7 @@ export interface PortfolioManagementScreenProps {
   initialClassTargets?: ClassTarget[];
   initialAssets?: AssetItem[];
   initialPortfolios?: any[];
+  initialPortfolioId?: string;
   testID?: string;
   initialActiveIndex?: number;
   autoOpenNewPortfolioModal?: boolean;
@@ -314,6 +316,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   initialClassTargets,
   initialAssets,
   initialPortfolios,
+  initialPortfolioId,
   testID = 'portfolio-management-screen',
   initialActiveIndex = 0,
   autoOpenNewPortfolioModal = false,
@@ -330,6 +333,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     // fallback for test without SafeAreaProvider
   }
   const isLight = themeMode === 'light';
+  const { height: windowHeight } = useWindowDimensions();
 
   const [privacyMode, setPrivacyMode] = useState<boolean>(
     Boolean(isPrivacyMode || (privacyAndAuthService?.getState ? privacyAndAuthService.getState().isPrivacyModeEnabled : false))
@@ -1539,7 +1543,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               </Text>
             </View>
           ) : (
-            <View style={styles.assetsList}>
+            <ScrollView
+              testID="portfolio-assets-list"
+              style={[
+                styles.assetsList,
+                { maxHeight: Math.max(240, Math.round(windowHeight * 0.55)) },
+              ]}
+              nestedScrollEnabled={true}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
               {currentClassAssets.map((asset) => (
                 <AssetRow
                   key={asset.id}
@@ -1556,7 +1569,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   onChangeWeight={rowHandlers.onChangeWeight}
                 />
               ))}
-            </View>
+            </ScrollView>
           )}
 
           {/* Botão para abrir o modal de adicionar ativo */}

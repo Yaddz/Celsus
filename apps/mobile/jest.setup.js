@@ -113,6 +113,33 @@ function syncRender(element, options = {}) {
 
   const result = {
     ...queries,
+    UNSAFE_getByType: (type) => {
+      const rootNode = renderer.container.children[0];
+      let found = null;
+      function walk(fiber) {
+        if (!fiber || found) return;
+        const fType = fiber.type;
+        const matches =
+          fType === type ||
+          (type && typeof type === 'function' && (fType?.name === type.name || fType?.displayName === type.displayName)) ||
+          (type && typeof type === 'object' && (fType?.displayName === type.displayName || fType?.name === type.name)) ||
+          (type === require('react-native').Modal && (fType?.name === 'Modal' || fType === 'Modal'));
+        if (matches) {
+          found = {
+            type: fType,
+            props: fiber.memoizedProps || fiber.pendingProps || {},
+          };
+          return;
+        }
+        walk(fiber.child);
+        walk(fiber.sibling);
+      }
+      walk(rootNode?.unstable_fiber);
+      if (!found) {
+        throw new Error(`UNSAFE_getByType: element not found`);
+      }
+      return found;
+    },
     rerender,
     unmount,
     toJSON,

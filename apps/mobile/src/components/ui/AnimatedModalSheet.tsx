@@ -13,6 +13,7 @@ import {
   ScrollView,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { borders } from '../../theme/tokens';
 
 export interface AnimatedModalSheetProps {
@@ -70,10 +71,24 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
   contentStyle,
   scrollable,
   keepMountedWhenClosed = false,
+  expanded,
+  collapsedHeight = 0.5,
+  expandedHeight = 1.0,
+  onRequestExpand,
+  onRequestCollapse,
+  dismissible = true,
 }) => {
   const { height: windowHeight } = useWindowDimensions();
   const offscreen = windowHeight;
   const isLight = themeMode === 'light';
+
+  let insetsTop = 0;
+  try {
+    const insets = useSafeAreaInsets();
+    insetsTop = insets?.top ?? 0;
+  } catch {
+    insetsTop = 0;
+  }
 
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   useEffect(() => {
@@ -117,6 +132,7 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
   };
 
   const handleBackdropPress = () => {
+    if (!dismissible) return;
     onClose();
     runCloseAnimation();
   };
@@ -152,20 +168,30 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
     ) : null;
   }
 
+  // Snap mode vs padrão
+  const isSnap = expanded !== undefined;
+  const isExpanded = !!expanded;
+  const currentFraction = isSnap ? (isExpanded ? expandedHeight : collapsedHeight) : maxHeight;
+
   // Com o teclado aberto o sheet sobe acima dele e encolhe para caber na tela.
   const available = windowHeight - keyboardHeight - 40;
-  const targetHeight = Math.min(windowHeight * maxHeight, available);
-  const sheetHeightStyle: ViewStyle = fill
+  const targetHeight = Math.min(windowHeight * currentFraction, available);
+  const isFill = fill || (isSnap && isExpanded);
+
+  const sheetHeightStyle: ViewStyle = isFill
     ? { height: targetHeight, marginBottom: keyboardHeight }
     : { maxHeight: targetHeight, marginBottom: keyboardHeight };
-  const useScroll = scrollable ?? !fill;
+  const useScroll = scrollable ?? !isFill;
 
   return (
     <Modal
       visible={shouldRender}
       transparent
       animationType="none"
-      onRequestClose={onClose}
+      onRequestClose={() => {
+        if (!dismissible) return;
+        onClose();
+      }}
       statusBarTranslucent
     >
       <View testID={testID} style={styles.overlay}>
@@ -182,6 +208,7 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
           style={[
             styles.sheetContainer,
             isLight && styles.sheetContainerLight,
+            isSnap && isExpanded && insetsTop > 0 && { paddingTop: insetsTop },
             sheetHeightStyle,
             { transform: [{ translateY }] },
           ]}

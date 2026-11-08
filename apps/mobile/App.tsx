@@ -54,6 +54,7 @@ import {
   AssetDetailScreen,
 } from './src/screens';
 import { B3ImportScreen } from './src/screens/B3ImportScreen';
+import { B3ImportSheet } from './src/components/B3ImportSheet';
 import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
 import {
   redactCurrencyValue,
@@ -1018,40 +1019,28 @@ function AppContent(props: {
     }
   }, [props.initialAction]);
   const renderB3ImportModal = () => (
-    <Modal
+    <B3ImportSheet
+      key={`b3-${b3ImportKey}`}
       visible={isB3ImportOpen}
-      animationType={props.initialAction === 'import_b3' ? 'none' : 'slide'}
-      presentationStyle="fullScreen"
-      onRequestClose={() => setIsB3ImportOpen(false)}
-    >
-      <SafeAreaView
-        style={[styles.safeArea, { backgroundColor: isLight ? LIGHT_THEME_TOKENS.backgroundPrimary : colors.voidFloor }]}
-        edges={['top', 'left', 'right', 'bottom']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <B3ImportScreen
-          key={`b3-${b3ImportKey}`}
-          onBack={() => setIsB3ImportOpen(false)}
-          onNavigateToPortfolio={(portId, options) => {
-            setIsB3ImportOpen(false);
-            setIsSettingsBackupModalOpen(false);
-            setIsIncomeHistoryOpen(false);
-            setActivePortfolioId(portId);
-            // Seleciona a carteira importada também no baralho/Home (antes só o id mudava e a Home
-            // continuava mostrando a carteira anterior).
-            const idx = walletsStore.getState().wallets.findIndex((w) => w.id === portId);
-            if (idx >= 0) walletStore.setActiveIndex(idx, portId);
-            refreshAppData();
-            if (options?.openMetas) {
-              setActiveTab('wallets');
-              setIsPortfolioManagerModalOpen(true);
-            }
-          }}
-          initialPortfolioId={activePortfolioId || undefined}
-          isLight={isLight}
-        />
-      </SafeAreaView>
-    </Modal>
+      onClose={() => setIsB3ImportOpen(false)}
+      isLight={isLight}
+      initialPortfolioId={activePortfolioId || undefined}
+      onNavigateToPortfolio={(portId, options) => {
+        setIsB3ImportOpen(false);
+        setIsSettingsBackupModalOpen(false);
+        setIsIncomeHistoryOpen(false);
+        setActivePortfolioId(portId);
+        // Seleciona a carteira importada também no baralho/Home (antes só o id mudava e a Home
+        // continuava mostrando a carteira anterior).
+        const idx = walletsStore.getState().wallets.findIndex((w) => w.id === portId);
+        if (idx >= 0) walletStore.setActiveIndex(idx, portId);
+        refreshAppData();
+        if (options?.openMetas) {
+          setActiveTab('wallets');
+          setIsPortfolioManagerModalOpen(true);
+        }
+      }}
+    />
   );
 
   // 3. Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
