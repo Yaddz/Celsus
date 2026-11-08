@@ -187,6 +187,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
   isLight,
   authService = defaultAuthService,
   profileRepository = defaultProfileRepository,
+  onToggleBiometrics,
 }) => {
   const { variant, fg, muted } = useTileColors(isLight);
   const theme = isLight ? 'light' : 'dark';
@@ -318,6 +319,11 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
   };
 
   const handleToggleBio = async (val: boolean) => {
+    if (onToggleBiometrics) {
+      onToggleBiometrics(val);
+      setIsBioEnabled(val);
+      return;
+    }
     if (val) {
       const res = await authService.enableBiometrics();
       if (res.success) {

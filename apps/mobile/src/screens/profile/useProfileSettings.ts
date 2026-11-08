@@ -87,12 +87,16 @@ export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeMode
           message: 'O Celsus exigirá autenticação biométrica ou PIN ao abrir o app.',
         });
       } else {
+        const message =
+          res.reason === 'pin_required'
+            ? 'Crie um PIN antes de ativar a biometria.'
+            : res.reason === 'biometrics_unavailable'
+            ? 'Biometria não disponível neste aparelho ou nenhuma digital cadastrada no sistema.'
+            : 'Autenticação biométrica cancelada ou não reconhecida.';
         setBanner({
           type: 'error',
           title: 'NÃO FOI POSSÍVEL ATIVAR',
-          message: res.reason === 'pin_required'
-            ? 'Crie um PIN antes de ativar a biometria.'
-            : 'Biometria não disponível ou cancelada.',
+          message,
         });
       }
     } else {

@@ -218,6 +218,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   // Biometric Handlers
   const handleEnableBiometrics = useCallback(async () => {
     try {
+      if (pin && !(await authService.hasPin())) {
+        await authService.setPin(pin);
+      }
       const res = await authService.enableBiometrics();
       if (res && res.success) {
         setBiometricEnabled(true);
@@ -233,7 +236,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     } catch {
       setBiometricFailed(true);
     }
-  }, [authService, handleFinish, isMigration, steps]);
+  }, [authService, handleFinish, isMigration, pin, steps]);
 
   const handleSkipBiometrics = useCallback(() => {
     setBiometricEnabled(false);
