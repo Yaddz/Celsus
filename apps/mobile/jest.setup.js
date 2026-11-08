@@ -181,6 +181,14 @@ jest.mock('expo-crypto', () => {
 });
 
 const mockSecureStoreMap = new Map();
+function mockAssertValidSecureStoreKey(key) {
+  if (!key || typeof key !== 'string' || !/^[a-zA-Z0-9._-]+$/.test(key)) {
+    throw new Error(
+      'Invalid key provided to SecureStore. Keys must not be empty and contain only alphanumeric characters, ".", "-", and "_".'
+    );
+  }
+}
+
 jest.mock('expo-secure-store', () => ({
   AFTER_FIRST_UNLOCK: 0,
   AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 1,
@@ -191,12 +199,15 @@ jest.mock('expo-secure-store', () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 6,
   isAvailableAsync: jest.fn(async () => true),
   getItemAsync: jest.fn(async (key) => {
+    mockAssertValidSecureStoreKey(key);
     return mockSecureStoreMap.has(key) ? mockSecureStoreMap.get(key) : null;
   }),
   setItemAsync: jest.fn(async (key, value) => {
+    mockAssertValidSecureStoreKey(key);
     mockSecureStoreMap.set(key, String(value));
   }),
   deleteItemAsync: jest.fn(async (key) => {
+    mockAssertValidSecureStoreKey(key);
     mockSecureStoreMap.delete(key);
   }),
   __mockStore: mockSecureStoreMap,
