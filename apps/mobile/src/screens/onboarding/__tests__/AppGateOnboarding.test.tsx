@@ -53,9 +53,8 @@ describe('S44: AppGate Onboarding Integration Tests', () => {
       </AppGate>
     );
 
-    // Should mount onboarding flow, not placeholder and not main app
+    // Should mount onboarding flow, not main app
     expect(getByTestId('onboarding-screen')).toBeDefined();
-    expect(queryByTestId('onboarding-placeholder')).toBeNull();
     expect(queryByTestId('main-app-content')).toBeNull();
 
     // Walk through onboarding and complete

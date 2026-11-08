@@ -223,5 +223,10 @@ jest.mock('expo-local-authentication', () => ({
 
 afterEach(async () => {
   mockSecureStoreMap.clear();
+  try {
+    const { sessionStore } = require('./src/stores/sessionStore');
+    sessionStore.setStatus('loading');
+    sessionStore.markBackgrounded(0);
+  } catch {}
   await cleanup();
 });

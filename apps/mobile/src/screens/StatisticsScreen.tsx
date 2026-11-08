@@ -38,6 +38,7 @@ import {
 } from '../domain/finance/consolidatedView';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { incomeRepository } from '../repositories/incomeRepository';
+import { useProfile } from '../stores/profileStore';
 import { summarizeIncome } from '../domain/finance/income';
 import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { assetRepository } from '../repositories/assetRepository';
@@ -70,6 +71,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const activeWalletIndex = useActiveWalletIndex();
   // Segue a carteira selecionada no baralho; o usuário ainda pode escolher "Consolidadas".
   const { scrollY, scrollProps } = useHeaderScrollFade();
+  const { name: profileName, initials: profileInitials } = useProfile();
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(activeWalletId ?? 'all'); // 'all' = Carteiras Consolidadas
   useEffect(() => {
     if (activeWalletId) setSelectedPortfolioId(activeWalletId);
@@ -282,8 +284,8 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <XpMinimalHeader
-        userName="Pedro"
-        userInitials="PL"
+        userName={profileName || 'Usuário'}
+        userInitials={profileInitials || 'U'}
         palette={getPortfolioPalette(activeWalletIndex)}
         onAvatarPress={onProfilePress}
         isPrivacyModeEnabled={isPrivacyMode}

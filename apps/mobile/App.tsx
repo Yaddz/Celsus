@@ -36,6 +36,7 @@ import { spreadsheetImportService } from './src/services/spreadsheetImportServic
 import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import { AppGate } from './src/components/AppGate';
 import { sessionStore } from './src/stores/sessionStore';
+import { useProfile } from './src/stores/profileStore';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -167,6 +168,7 @@ function getInitialTransactions(): RecentTransactionItem[] {
 
 function AppContent() {
   const insets = useSafeAreaInsets();
+  const { name: profileName, initials: profileInitials } = useProfile();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeModeService.getThemeMode());
@@ -1532,8 +1534,8 @@ function AppContent() {
         {/* Header Minimalista XP (Avatar + Nome na esquerda, Globo + Olho na direita) */}
         <XpMinimalHeader
           testID="xp-minimal-header"
-          userName="Pedro"
-          userInitials="PL"
+          userName={profileName || 'Usuário'}
+          userInitials={profileInitials || 'U'}
           isPrivacyModeEnabled={isPrivacyMode}
           onAvatarPress={homeOpenSettings}
           onGlobePress={homeGlobePress}

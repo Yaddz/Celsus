@@ -440,7 +440,7 @@ describe('S44: OnboardingFlow Specification Tests', () => {
 
   it('S44-T19: Migration flow (D9) for existing user starts at Name, no Welcome, and finishes without DoneStep', async () => {
     const onComplete = jest.fn();
-    const { getByTestId, queryByTestId, getByText } = await render(
+    const { getByTestId, queryByTestId, getByText, queryByText } = await render(
       <OnboardingFlow
         isMigration={true}
         authService={mockAuthService}

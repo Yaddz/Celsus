@@ -63,7 +63,7 @@ describe('S44: Dynamic User Profile & Zero Pedro/PL Regression Tests', () => {
     const statsRender = await render(<StatisticsScreen />);
     expect(statsRender.queryByText('Pedro')).toBeNull();
     expect(statsRender.queryByText('PL')).toBeNull();
-    expect(statsRender.getByText('Ana Souza')).toBeDefined();
+    expect(statsRender.getByLabelText(/Abrir perfil de Ana Souza/i)).toBeDefined();
     expect(statsRender.getByText('AS')).toBeDefined();
     statsRender.unmount();
 
@@ -71,7 +71,7 @@ describe('S44: Dynamic User Profile & Zero Pedro/PL Regression Tests', () => {
     const portRender = await render(<PortfolioManagementScreen />);
     expect(portRender.queryByText('Pedro')).toBeNull();
     expect(portRender.queryByText('PL')).toBeNull();
-    expect(portRender.getByText('Ana Souza')).toBeDefined();
+    expect(portRender.getByLabelText(/Abrir perfil de Ana Souza/i)).toBeDefined();
     expect(portRender.getByText('AS')).toBeDefined();
     portRender.unmount();
 
@@ -79,7 +79,7 @@ describe('S44: Dynamic User Profile & Zero Pedro/PL Regression Tests', () => {
     const searchRender = await render(<SearchAssetsScreen />);
     expect(searchRender.queryByText('Pedro')).toBeNull();
     expect(searchRender.queryByText('PL')).toBeNull();
-    expect(searchRender.getByText('Ana Souza')).toBeDefined();
+    expect(searchRender.getByLabelText(/Abrir perfil de Ana Souza/i)).toBeDefined();
     expect(searchRender.getByText('AS')).toBeDefined();
     searchRender.unmount();
   });

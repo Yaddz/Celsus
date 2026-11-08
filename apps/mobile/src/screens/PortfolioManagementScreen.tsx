@@ -36,6 +36,7 @@ import { TransactionDetailHistoryScreen } from './TransactionDetailHistoryScreen
 import { walletStore } from '../stores/walletStore';
 import { walletsStore, useWallets } from '../stores/walletsStore';
 import { privacyAndAuthService } from '../services/privacyAndAuth';
+import { useProfile } from '../stores/profileStore';
 
 interface PortfolioItem {
   id: string;
@@ -322,6 +323,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   prefillAsset,
 }) => {
   let insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  const { name: profileName, initials: profileInitials } = useProfile();
   try {
     insets = useSafeAreaInsets();
   } catch {
@@ -1258,8 +1260,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       {!modalOnly && (
         <>
           <XpMinimalHeader
-            userName="Pedro"
-            userInitials="PL"
+            userName={profileName || 'Usuário'}
+            userInitials={profileInitials || 'U'}
             palette={getPortfolioPalette(activeIndex)}
             onAvatarPress={onProfilePress}
             isPrivacyModeEnabled={privacyMode}

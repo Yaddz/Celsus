@@ -19,6 +19,7 @@ import { appMetaRepository } from '../repositories/appMetaRepository';
 import { RankingItem, rankAssets } from '../domain/finance/assetProfile';
 import { colors, typography, borders, layout } from '../theme/tokens';
 import { LIGHT_THEME_TOKENS } from '../theme/palettes';
+import { useProfile } from '../stores/profileStore';
 
 export interface SearchAssetsScreenProps {
   onSelectAsset: (ticker: string) => void;
@@ -102,7 +103,7 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
     const cachedList = rankingCacheRef.current[key];
     setRankingItems(
       cachedList ??
-        STATIC_CATALOG_ASSETS.filter((a) => a.asset_class === rankingClass).map((a) => ({
+        (STATIC_CATALOG_ASSETS || []).filter((a) => a.asset_class === rankingClass).map((a) => ({
           ticker: a.ticker,
           name: a.name,
           assetClass: rankingClass,
@@ -113,24 +114,28 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
         }))
     );
     setIsRankingLoading(true);
-    marketApiService
-      .getRanking(rankingClass, rankingBy, 20)
-      .then((items) => {
-        if (mounted) {
-          const list = items || [];
-          if (list.length > 0) rankingCacheRef.current[key] = list;
-          setRankingItems(list);
-          // Sem nenhum indicador (DY/P-VP) = serviço de fundamentos indisponível; só catálogo local.
-          setIsOffline(list.length > 0 && list.every((i) => i.dy12m == null && i.pvp == null));
-          setIsRankingLoading(false);
-        }
-      })
-      .catch(() => {
-        if (mounted) {
-          setIsOffline(true);
-          setIsRankingLoading(false);
-        }
-      });
+    if (typeof marketApiService.getRanking === 'function') {
+      marketApiService
+        .getRanking(rankingClass, rankingBy, 20)
+        .then((items) => {
+          if (mounted) {
+            const list = items || [];
+            if (list.length > 0) rankingCacheRef.current[key] = list;
+            setRankingItems(list);
+            // Sem nenhum indicador (DY/P-VP) = serviço de fundamentos indisponível; só catálogo local.
+            setIsOffline(list.length > 0 && list.every((i) => i.dy12m == null && i.pvp == null));
+            setIsRankingLoading(false);
+          }
+        })
+        .catch(() => {
+          if (mounted) {
+            setIsOffline(true);
+            setIsRankingLoading(false);
+          }
+        });
+    } else {
+      setIsRankingLoading(false);
+    }
     return () => {
       mounted = false;
     };
@@ -206,13 +211,14 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
   const chipBg = isLight ? '#EAE5D9' : '#22252A';
 
   const isTyping = debouncedQuery.length > 0;
+  const { name: profileName, initials: profileInitials } = useProfile();
 
   return (
     <View testID={testID} style={[styles.root, { backgroundColor: bg }]}>
       {/* Header padrão minimalista XP */}
       <XpMinimalHeader
-        userName="Pedro"
-        userInitials="PL"
+        userName={profileName || 'Usuário'}
+        userInitials={profileInitials || 'U'}
         isPrivacyModeEnabled={isPrivacyMode}
         onAvatarPress={onProfilePress}
         onTogglePrivacy={onTogglePrivacy}
