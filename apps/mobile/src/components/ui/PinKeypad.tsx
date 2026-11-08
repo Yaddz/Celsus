@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Pressable, PressableProps, StyleProp, View, ViewStyle, Text, StyleSheet } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { JellyPressable } from './JellyPressable';
 import { colors, typography } from '../../theme/tokens';
+import { useReducedMotion } from '../../hooks/useReducedMotion';
 
 export interface PinKeypadProps {
   onDigit: (digit: string) => void;
@@ -15,6 +15,52 @@ export interface PinKeypadProps {
   testID?: string;
 }
 
+
+/**
+ * Tecla do teclado de PIN com feedback de toque bem visível: encolhe e acende um halo laranja ao
+ * encostar e volta com mola ao soltar. Mesmo num toque rápido a volta dura ~250 ms, então o retorno
+ * aparece. Só transform/opacity com driver nativo.
+ */
+const KeypadKey: React.FC<
+  Omit<PressableProps, 'style'> & { style?: StyleProp<ViewStyle>; reduced: boolean; children?: React.ReactNode }
+> = ({ style, reduced, children, disabled, onPressIn, onPressOut, ...rest }) => {
+  const pressed = useRef(new Animated.Value(0)).current;
+  const pressIn = () => {
+    pressed.stopAnimation();
+    Animated.timing(pressed, { toValue: 1, duration: reduced ? 1 : 70, useNativeDriver: true }).start();
+  };
+  const pressOut = () => {
+    if (reduced) {
+      Animated.timing(pressed, { toValue: 0, duration: 120, useNativeDriver: true }).start();
+      return;
+    }
+    Animated.spring(pressed, { toValue: 0, damping: 11, stiffness: 220, mass: 0.7, useNativeDriver: true }).start();
+  };
+  const scale = reduced ? 1 : pressed.interpolate({ inputRange: [0, 1], outputRange: [1, 0.88] });
+  return (
+    <Pressable
+      {...rest}
+      disabled={disabled}
+      onPressIn={(e) => {
+        pressIn();
+        onPressIn?.(e);
+      }}
+      onPressOut={(e) => {
+        pressOut();
+        onPressOut?.(e);
+      }}
+    >
+      <Animated.View style={[style, { transform: [{ scale }] }]}>
+        <Animated.View
+          pointerEvents="none"
+          style={[StyleSheet.absoluteFill, styles.halo, { opacity: pressed.interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }) }]}
+        />
+        {children}
+      </Animated.View>
+    </Pressable>
+  );
+};
+
 export const PinKeypad: React.FC<PinKeypadProps> = ({
   onDigit,
   onBackspace,
@@ -26,14 +72,34 @@ export const PinKeypad: React.FC<PinKeypadProps> = ({
   testID = 'pin-keypad',
 }) => {
   const isLight = themeMode === 'light';
+  const reduced = useReducedMotion();
 
-  const keyBg = isLight ? '#EAE4D7' : '#1C1E20';
+  // Entrada do teclado: as 4 linhas sobem e aparecem em cascata (só transform/opacity, driver nativo).
+  const rows = useRef([0, 1, 2, 3].map(() => new Animated.Value(0))).current;
+  useEffect(() => {
+    if (reduced) {
+      rows.forEach((v) => v.setValue(1));
+      return;
+    }
+    Animated.stagger(
+      45,
+      rows.map((v) => Animated.spring(v, { toValue: 1, damping: 16, stiffness: 180, mass: 0.8, useNativeDriver: true }))
+    ).start();
+  }, [reduced, rows]);
+  const rowStyle = (i: number) => ({
+    opacity: rows[i],
+    transform: [{ translateY: rows[i].interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }],
+  });
+
+  const keyBg = isLight ? '#FFFFFF' : '#191B1D';
+  const keyBorder = isLight ? '#EAE4D7' : '#26292C';
   const textFg = isLight ? '#111315' : '#E6DECA';
   const iconColor = isLight ? '#111315' : '#E6DECA';
 
   const renderDigitKey = (num: number) => (
     <View key={num} style={styles.keyWrapper}>
-      <JellyPressable
+      <KeypadKey
+        reduced={reduced}
         testID={`pin-key-${num}`}
         accessibilityRole="button"
         accessibilityLabel={`Dígito ${num}`}
@@ -41,43 +107,44 @@ export const PinKeypad: React.FC<PinKeypadProps> = ({
         onPress={() => onDigit(String(num))}
         style={[
           styles.keyCircle,
-          { backgroundColor: keyBg },
+          { backgroundColor: keyBg, borderColor: keyBorder },
           disabled && styles.disabledKey,
         ]}
       >
         <Text style={[styles.digitText, { color: textFg }]}>{num}</Text>
-      </JellyPressable>
+      </KeypadKey>
     </View>
   );
 
   return (
     <View testID={testID} style={styles.container}>
       {/* Linha 1 */}
-      <View style={styles.row}>
+      <Animated.View style={[styles.row, rowStyle(0)]}>
         {renderDigitKey(1)}
         {renderDigitKey(2)}
         {renderDigitKey(3)}
-      </View>
+      </Animated.View>
 
       {/* Linha 2 */}
-      <View style={styles.row}>
+      <Animated.View style={[styles.row, rowStyle(1)]}>
         {renderDigitKey(4)}
         {renderDigitKey(5)}
         {renderDigitKey(6)}
-      </View>
+      </Animated.View>
 
       {/* Linha 3 */}
-      <View style={styles.row}>
+      <Animated.View style={[styles.row, rowStyle(2)]}>
         {renderDigitKey(7)}
         {renderDigitKey(8)}
         {renderDigitKey(9)}
-      </View>
+      </Animated.View>
 
       {/* Linha 4 */}
-      <View style={styles.row}>
+      <Animated.View style={[styles.row, rowStyle(3)]}>
         <View style={styles.keyWrapper}>
           {biometricAvailable ? (
-            <JellyPressable
+            <KeypadKey
+        reduced={reduced}
               testID="pin-key-biometric"
               accessibilityRole="button"
               accessibilityLabel="Autenticar com biometria"
@@ -85,12 +152,12 @@ export const PinKeypad: React.FC<PinKeypadProps> = ({
               onPress={onBiometric}
               style={[
                 styles.keyCircle,
-                { backgroundColor: keyBg },
+                { backgroundColor: keyBg, borderColor: keyBorder },
                 disabled && styles.disabledKey,
               ]}
             >
               <MaterialIcons name="fingerprint" size={30} color={iconColor} />
-            </JellyPressable>
+            </KeypadKey>
           ) : (
             <View style={styles.emptyPlaceholder} />
           )}
@@ -99,7 +166,8 @@ export const PinKeypad: React.FC<PinKeypadProps> = ({
         {renderDigitKey(0)}
 
         <View style={styles.keyWrapper}>
-          <JellyPressable
+          <KeypadKey
+        reduced={reduced}
             testID="pin-key-backspace"
             accessibilityRole="button"
             accessibilityLabel="Apagar dígito"
@@ -109,14 +177,14 @@ export const PinKeypad: React.FC<PinKeypadProps> = ({
             delayLongPress={400}
             style={[
               styles.keyCircle,
-              { backgroundColor: keyBg },
+              { backgroundColor: keyBg, borderColor: keyBorder },
               disabled && styles.disabledKey,
             ]}
           >
             <MaterialIcons name="backspace" size={24} color={iconColor} />
-          </JellyPressable>
+          </KeypadKey>
         </View>
-      </View>
+      </Animated.View>
     </View>
   );
 };
@@ -144,16 +212,21 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
+    borderWidth: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
   digitText: {
     fontSize: 26,
-    fontWeight: '600',
+    fontWeight: '500',
     fontFamily: typography.fontFamily,
   },
   disabledKey: {
     opacity: 0.35,
+  },
+  halo: {
+    borderRadius: 36,
+    backgroundColor: colors.primary,
   },
   emptyPlaceholder: {
     width: 72,

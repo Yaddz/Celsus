@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -85,75 +85,95 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   const [portfoliosList, setPortfoliosList] = useState<Array<{ id: string; name: string }>>([]);
   const [incomes, setIncomes] = useState<Array<{ date: string; amount: string }>>([]);
 
+  const incomesSeqRef = React.useRef(0);
   const loadIncomes = async () => {
+    const seq = ++incomesSeqRef.current;
     try {
       const rows =
         selectedPortfolioId === 'all'
           ? await incomeRepository.listAll()
           : await incomeRepository.listByPortfolio(selectedPortfolioId);
-      setIncomes(rows.map((r) => ({ date: r.pay_date, amount: r.amount })));
+      if (seq === incomesSeqRef.current) setIncomes(rows.map((r) => ({ date: r.pay_date, amount: r.amount })));
     } catch {
-      setIncomes([]);
+      if (seq === incomesSeqRef.current) setIncomes([]);
     }
   };
   useEffect(() => {
     loadIncomes();
   }, [selectedPortfolioId]);
-  const incomeSummary = summarizeIncome(incomes, new Date().toISOString().slice(0, 10));
+  const incomeSummary = useMemo(() => summarizeIncome(incomes, new Date().toISOString().slice(0, 10)), [incomes]);
 
+  // Cada troca de carteira invalida a carga anterior (evita a resposta atrasada de outra carteira
+  // sobrescrever a atual).
+  const loadSeqRef = React.useRef(0);
   const loadData = async () => {
+    const seq = ++loadSeqRef.current;
+    const isStale = () => seq !== loadSeqRef.current;
     try {
       setLoading(true);
       const allPortfolios = await portfolioRepository.listPortfolios(false);
+      if (isStale()) return;
       setPortfoliosList(allPortfolios.map((p) => ({ id: p.id, name: p.name })));
 
-      const consolidationInputs: PortfolioConsolidationInput[] = await Promise.all(
+      // Ativos e metas de cada carteira lidos UMA vez (antes os ativos eram lidos de novo mais abaixo).
+      const loaded = await Promise.all(
         allPortfolios.map(async (p) => {
-          const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
-          const pTargets = await portfolioRepository.getClassTargets(p.id);
-
-          const mappedAssets = await Promise.all(
-            pAssets.map(async (a) => {
-              let quotePrice: string | null = null;
-              if (a.ticker) {
-                try {
-                  const cached = await marketApiService.getCachedQuote(a.ticker);
-                  if (cached?.currentPrice) {
-                    quotePrice = cached.currentPrice;
-                  } else {
-                    const fetched = await marketApiService.fetchQuotes([a.ticker]);
-                    if (fetched && fetched.length > 0 && fetched[0].currentPrice) {
-                      quotePrice = fetched[0].currentPrice;
-                    }
-                  }
-                } catch {}
-              }
-              const currentPrice = a.manual_price_override || quotePrice || a.average_price;
-              return {
-                id: a.id,
-                ticker: a.ticker,
-                assetClass: a.asset_class as any,
-                quantity: a.quantity,
-                averagePrice: a.average_price,
-                currentPrice,
-                manualPriceOverride: a.manual_price_override,
-              };
-            })
-          );
-
-          return {
-            id: p.id,
-            name: p.name,
-            docketCode: p.docket_code,
-            isArchived: p.is_archived,
-            assets: mappedAssets,
-            classTargets: pTargets.map((ct) => ({
-              assetClass: ct.asset_class as any,
-              targetPercentage: ct.target_percentage,
-            })),
-          };
+          const [pAssets, pTargets] = await Promise.all([
+            assetRepository.getAssetsByPortfolio(p.id),
+            portfolioRepository.getClassTargets(p.id),
+          ]);
+          return { p, pAssets, pTargets };
         })
       );
+
+      // Cotações: cache local por ticker e uma única chamada de rede, em lote, para as que faltam
+      // (antes: 1 requisição por ativo sem cache).
+      const quoteByTicker: Record<string, string> = {};
+      const tickers = Array.from(
+        new Set(loaded.flatMap(({ pAssets }) => pAssets.map((a) => a.ticker).filter((t): t is string => !!t)))
+      );
+      const missing: string[] = [];
+      await Promise.all(
+        tickers.map(async (t) => {
+          try {
+            const cached = await marketApiService.getCachedQuote(t);
+            if (cached?.currentPrice) quoteByTicker[t.toUpperCase()] = cached.currentPrice;
+            else missing.push(t);
+          } catch {}
+        })
+      );
+      if (missing.length > 0) {
+        try {
+          const fetched = await marketApiService.fetchQuotes(missing);
+          for (const q of fetched || []) {
+            if (q?.currentPrice) quoteByTicker[q.ticker.toUpperCase()] = q.currentPrice;
+          }
+        } catch {}
+      }
+      if (isStale()) return;
+
+      const consolidationInputs: PortfolioConsolidationInput[] = loaded.map(({ p, pAssets, pTargets }) => ({
+        id: p.id,
+        name: p.name,
+        docketCode: p.docket_code,
+        isArchived: p.is_archived,
+        assets: pAssets.map((a) => {
+          const quotePrice = a.ticker ? quoteByTicker[a.ticker.toUpperCase()] ?? null : null;
+          return {
+            id: a.id,
+            ticker: a.ticker,
+            assetClass: a.asset_class as any,
+            quantity: a.quantity,
+            averagePrice: a.average_price,
+            currentPrice: a.manual_price_override || quotePrice || a.average_price,
+            manualPriceOverride: a.manual_price_override,
+          };
+        }),
+        classTargets: pTargets.map((ct) => ({
+          assetClass: ct.asset_class as any,
+          targetPercentage: ct.target_percentage,
+        })),
+      }));
 
       const targetInputs = selectedPortfolioId === 'all'
         ? consolidationInputs
@@ -162,41 +182,35 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
       setConsolidatedData(dossier);
 
       // Coleta ativos e transações da carteira selecionada ou consolidadas
-      let targetAssets: any[] = [];
-      let targetTxs: any[] = [];
+      const selected = loaded.filter(({ p }) => selectedPortfolioId === 'all' || p.id === selectedPortfolioId);
+      const targetAssets: any[] = selected.flatMap(({ pAssets }) => pAssets);
+      const txLists = await Promise.all(
+        selected.map(({ p }) => transactionRepository.getTransactionsByPortfolio(p.id))
+      );
+      if (isStale()) return;
+      const targetTxs: any[] = txLists.flat();
 
-      for (const p of allPortfolios) {
-        if (selectedPortfolioId === 'all' || p.id === selectedPortfolioId) {
-          const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
-          const pTxs = await transactionRepository.getTransactionsByPortfolio(p.id);
-          targetAssets.push(...pAssets);
-          targetTxs.push(...pTxs);
-        }
-      }
+      const mappedTxs: HistoricalTransactionInput[] = targetTxs.map((t) => ({
+        id: t.id,
+        assetId: t.asset_id,
+        type: t.type as any,
+        tradeDate: t.trade_date,
+        quantity: t.quantity,
+        unitPrice: t.unit_price,
+        fees: t.fees,
+      }));
+      // Sempre substitui (inclusive por vazio): uma carteira sem movimentações não herda a curva
+      // e as movimentações da carteira vista antes.
+      setTransactionsList(mappedTxs);
 
-      if (targetTxs.length > 0) {
-        const mappedTxs: HistoricalTransactionInput[] = targetTxs.map((t) => ({
-          id: t.id,
-          assetId: t.asset_id,
-          type: t.type as any,
-          tradeDate: t.trade_date,
-          quantity: t.quantity,
-          unitPrice: t.unit_price,
-          fees: t.fees,
-        }));
-        setTransactionsList(mappedTxs);
-
+      if (mappedTxs.length > 0) {
         const histQuotesMap: Record<string, Record<string, string>> = {};
         const todayStr = new Date().toISOString().slice(0, 10);
         for (const a of targetAssets) {
-          if (a.ticker) {
-            try {
-              const cached = await marketApiService.getCachedQuote(a.ticker);
-              if (cached?.currentPrice) {
-                if (!histQuotesMap[a.ticker]) histQuotesMap[a.ticker] = {};
-                histQuotesMap[a.ticker][todayStr] = cached.currentPrice;
-              }
-            } catch {}
+          const price = a.ticker ? quoteByTicker[a.ticker.toUpperCase()] : undefined;
+          if (price) {
+            if (!histQuotesMap[a.ticker]) histQuotesMap[a.ticker] = {};
+            histQuotesMap[a.ticker][todayStr] = price;
           }
         }
 
@@ -212,15 +226,14 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
           transactions: mappedTxs,
           historicalQuotes: Object.keys(histQuotesMap).length > 0 ? histQuotesMap : undefined,
         });
-
-        if (curve && curve.length > 0) {
-          setDailyCurve(curve);
-        }
+        setDailyCurve(curve && curve.length > 0 ? curve : []);
+      } else {
+        setDailyCurve([]);
       }
     } catch {
       // Se houver erro ou dados vazios, mantém curva e dados padrão
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   };
 
@@ -229,9 +242,16 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   }, [selectedPortfolioId]);
 
   // Filtragem da série histórica e cálculo do resumo financeiro
-  const filteredCurve = filterCurveByPeriod(dailyCurve, selectedPeriodFilter);
-  const activeCurve = filteredCurve.length > 0 ? filteredCurve : dailyCurve;
-  const periodSummary = calculatePeriodSummary(activeCurve, transactionsList);
+  // Memoizados: a curva diária pode ter milhares de pontos e antes era refiltrada a cada render
+  // (inclusive ao rolar a tela, que anima o header).
+  const activeCurve = useMemo(() => {
+    const filteredCurve = filterCurveByPeriod(dailyCurve, selectedPeriodFilter);
+    return filteredCurve.length > 0 ? filteredCurve : dailyCurve;
+  }, [dailyCurve, selectedPeriodFilter]);
+  const periodSummary = useMemo(
+    () => calculatePeriodSummary(activeCurve, transactionsList),
+    [activeCurve, transactionsList]
+  );
 
   const totalBalanceStr = consolidatedData
     ? `R$ ${parseFloat(consolidatedData.totalMarketValue || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`

@@ -1,7 +1,7 @@
 # SPEC — Onboarding, tela de bloqueio (PIN + digital) e carga de dados pelo extrato da B3
 
 > Sprints **42 a 48** (42–45 segurança/onboarding · 46–47 importação B3 · 48 histórico de proventos). Documento autossuficiente para outra IA implementar.
-> Os prompts de execução estão em [`PROMPTS_SPRINTS_42_48.md`](./PROMPTS_SPRINTS_42_48.md).
+> **Documento histórico**: as sprints 42–48 já foram implementadas; o estado atual está em [`ARQUITETURA.md`](./ARQUITETURA.md) e [`REGRAS_DE_NEGOCIO.md`](./REGRAS_DE_NEGOCIO.md). Os prompts de execução usados pelo agente ficam só na máquina local (`PROMPTS_SPRINTS_42_48.md`, fora do git).
 > Contexto geral do projeto: [`ARQUITETURA.md`](./ARQUITETURA.md) e [`../DESIGN_SYSTEM.md`](../DESIGN_SYSTEM.md).
 > Arquivo de exemplo real do extrato: [`exemplos/b3-movimentacao-exemplo.xlsx`](./exemplos/b3-movimentacao-exemplo.xlsx) (33 linhas, tabela no Apêndice A).
 

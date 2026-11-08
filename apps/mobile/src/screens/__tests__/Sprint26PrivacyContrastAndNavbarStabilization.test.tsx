@@ -127,7 +127,7 @@ describe('Sprint 26: Privacy Mask, WCAG Contrast & Floating Navbar Stabilization
   });
 
   describe('S26-T03: Redundant Privacy Switch Removal in Settings Screen (Bug #5)', () => {
-    it('should not render privacy-mode-switch in SettingsBackupScreen', async () => {
+    it('should render the privacy-mode-switch in SettingsBackupScreen now that the profile has no header', async () => {
       await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
@@ -135,11 +135,12 @@ describe('Sprint 26: Privacy Mask, WCAG Contrast & Floating Navbar Stabilization
         />
       );
 
-      // O switch redundante deve ter sido removido
-      expect(screen.queryByTestId('privacy-mode-switch')).toBeNull();
+      // Sem o header, o Perfil traz o próprio switch de privacidade
+      expect(screen.getByTestId('privacy-mode-switch')).toBeTruthy();
 
       // Seletor de aparência e seção de personalização devem permanecer
       expect(screen.getByTestId('settings-section-personalizacao')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('appearance-row'));
       expect(screen.getByTestId('theme-option-dark')).toBeTruthy();
       expect(screen.getByTestId('theme-option-light')).toBeTruthy();
     });

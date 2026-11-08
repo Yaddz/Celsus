@@ -198,7 +198,7 @@ const StackedWalletDeckContent: React.FC<Omit<StackedWalletDeckProps, 'loading'>
   };
 
   const springBack = (tension: number) =>
-    Animated.spring(panY, { toValue: 0, useNativeDriver: false, friction: 8, tension }).start();
+    Animated.spring(panY, { toValue: 0, useNativeDriver: true, friction: 8, tension }).start();
 
   const handleRelease = (e: any, gestureState?: PanResponderGestureState) => {
     const latest = latestRef.current;

@@ -31,16 +31,23 @@ um motor de mercado em Go — embutido no app Android — traz cotações, hist�
 
 ```text
 Celsus/
-├── apps/mobile/            App Expo / React Native (TypeScript) + módulo nativo `celsus-market`
-├── services/market-api/    Motor de mercado em Go (API REST e ponte gomobile para Android)
-├── docs/ARQUITETURA.md     Arquitetura, rotas, decisões e como rodar
-├── DESIGN_SYSTEM.md        Tokens e componentes do design Bento
-├── TEST_REPORT.md          Estado atual dos testes
-├── scripts/                start-all.js · build-native-bridge.js · test-lock.js
-├── imgsinsp/               Imagens de inspiração visual
-├── .agents/rules/          Regras de trabalho do agente (TDD Lock, polyfills de runtime)
-└── tests.lock.json         Manifesto SHA-256 dos testes bloqueados
+├── apps/mobile/              App Expo / React Native (TypeScript) + módulo nativo `celsus-market`
+├── services/market-api/      Motor de mercado em Go (API REST e ponte gomobile para Android)
+├── docs/
+│   ├── ARQUITETURA.md        Camadas, fluxo de dados, navegação, estado, banco, mercado, segurança, desempenho
+│   ├── REGRAS_DE_NEGOCIO.md  Fórmulas: preço médio, metas, aporte, renda fixa, curva, proventos, B3, backup
+│   ├── MELHORIAS.md          Roadmap de melhorias dentro do escopo (e o que a última revisão já aplicou)
+│   ├── SPEC_ONBOARDING_LOGIN_B3.md  Especificação histórica das sprints 42–48 (já implementadas)
+│   └── exemplos/             Extrato B3 de exemplo (usado pelos testes)
+├── DESIGN_SYSTEM.md          Tokens e componentes do design Bento
+├── TEST_REPORT.md            Estado atual dos testes
+├── scripts/                  start-all.js · build-native-bridge.js · test-lock.js
+├── .agents/rules/            Regras de trabalho do agente (TDD Lock, polyfills de runtime)
+└── tests.lock.json           Manifesto SHA-256 dos testes bloqueados
 ```
+
+Material pessoal de referência (imagens de inspiração em `imgsinsp/`, prompts do agente em `docs/PROMPTS_*.md`)
+fica só na máquina local e é ignorado pelo git.
 
 ## Como rodar
 
@@ -88,7 +95,12 @@ Banco Central/SGS (CDI e IPCA). Nenhum dado pessoal é enviado: o app só consul
 
 ## Mais documentação
 
-- [`docs/ARQUITETURA.md`](./docs/ARQUITETURA.md) — camadas, rotas da API, ponte nativa, regras de dados.
+- [`docs/ARQUITETURA.md`](./docs/ARQUITETURA.md) — como o app funciona por dentro: inicialização, troca de carteira,
+  navegação por estado, stores, banco SQLite (tabelas, migrações, índices), motor de mercado e ponte nativa,
+  sessão/PIN/biometria, fluxos de escrita e decisões de desempenho.
+- [`docs/REGRAS_DE_NEGOCIO.md`](./docs/REGRAS_DE_NEGOCIO.md) — todas as fórmulas e regras financeiras.
+- [`docs/MELHORIAS.md`](./docs/MELHORIAS.md) — roadmap priorizado (P0–P2) e registro da revisão de 08/11/2026.
 - [`DESIGN_SYSTEM.md`](./DESIGN_SYSTEM.md) — tokens, bento, componentes, movimento.
-- [`docs/SPEC_ONBOARDING_LOGIN_B3.md`](./docs/SPEC_ONBOARDING_LOGIN_B3.md) e [`docs/PROMPTS_SPRINTS_42_48.md`](./docs/PROMPTS_SPRINTS_42_48.md) — próximas sprints: onboarding, tela de bloqueio (PIN + digital), importação do extrato da B3 e histórico de proventos.
+- [`docs/SPEC_ONBOARDING_LOGIN_B3.md`](./docs/SPEC_ONBOARDING_LOGIN_B3.md) — especificação (histórica) de onboarding,
+  bloqueio, importação B3 e histórico de proventos.
 - Licença do template Expo: [`apps/mobile/LICENSE`](./apps/mobile/LICENSE).

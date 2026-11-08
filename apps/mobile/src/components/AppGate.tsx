@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Text, AppState, AppStateStatus } from 'react-native';
+import { View, StyleSheet, Text, AppState, AppStateStatus, Modal, BackHandler } from 'react-native';
 import { useSession, sessionStore as defaultSessionStore } from '../stores/sessionStore';
 import { profileRepository as defaultProfileRepository, ProfileRepository } from '../repositories/profileRepository';
 import { authService as defaultAuthService, AuthService } from '../services/authService';
@@ -232,6 +232,13 @@ export const AppGate: React.FC<AppGateProps> = ({
   const isLight = themeMode === 'light';
   const bgColor = isLight ? '#F4F1EA' : '#111315';
 
+  // Depois do 1º desbloqueio o app fica montado durante os bloqueios seguintes (volta do segundo
+  // plano): antes ele era desmontado e, ao desbloquear, recarregava tudo (banco, cotações, fontes) e
+  // perdia a tela em que o usuário estava. Onboarding (ex.: "Esqueci o PIN") desmonta normalmente.
+  const hasUnlockedOnceRef = useRef(false);
+  if (status === 'unlocked') hasUnlockedOnceRef.current = true;
+  if (status === 'onboarding') hasUnlockedOnceRef.current = false;
+
   if (status === 'loading') {
     return (
       <View testID="app-gate-loading" style={[styles.loadingContainer, { backgroundColor: bgColor }]}>
@@ -254,9 +261,31 @@ export const AppGate: React.FC<AppGateProps> = ({
     );
   }
 
+  const keepAppMounted = status === 'locked' && hasUnlockedOnceRef.current;
+
   return (
     <View style={styles.flex}>
-      {status === 'locked' ? (
+      {keepAppMounted ? (
+        <>
+          {/* Conteúdo escondido (não desenhado) enquanto bloqueado. */}
+          <View
+            style={[styles.flex, styles.hiddenApp]}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+          >
+            {children}
+          </View>
+          {/* Em Modal para ficar por cima de qualquer Modal aberto pelo app (Importação B3, detalhes...).
+              Voltar com o app bloqueado minimiza, como na regra de navegação. */}
+          <Modal
+            visible
+            animationType="none"
+            onRequestClose={() => BackHandler.exitApp()}
+          >
+            <LockScreen authService={authService} themeMode={themeMode} />
+          </Modal>
+        </>
+      ) : status === 'locked' ? (
         <LockScreen authService={authService} themeMode={themeMode} />
       ) : (
         children
@@ -301,6 +330,9 @@ const styles = StyleSheet.create({
   },
   hiddenCover: {
     opacity: 0,
+  },
+  hiddenApp: {
+    display: 'none',
   },
   logoText: {
     fontSize: 28,

@@ -58,14 +58,14 @@ function matchCanonicalKey(header: string): string | null {
     .toLowerCase()
     .trim();
 
-  if (/entrada.*saida/.test(clean)) return 'entradaSaida';
+  if (/entrada.*sa.*da/.test(clean) || /entrada.*saida/.test(clean)) return 'entradaSaida';
   if (/^data$/.test(clean)) return 'data';
-  if (/movimentaca?o/.test(clean)) return 'movimentacao';
+  if (/movimenta.*o/.test(clean) || /movimentaca?o/.test(clean)) return 'movimentacao';
   if (/^produto/.test(clean)) return 'produto';
-  if (/instituica?o/.test(clean)) return 'instituicao';
+  if (/institui.*o/.test(clean) || /instituica?o/.test(clean)) return 'instituicao';
   if (/^quantidade/.test(clean)) return 'quantidade';
-  if (/pre[cç]o.*unit[aá]rio/.test(clean)) return 'precoUnitario';
-  if (/valor.*opera[cç][aã]o/.test(clean)) return 'valorOperacao';
+  if (/pre.*o.*unit.*rio/.test(clean) || /pre[cç]o.*unit[aá]rio/.test(clean)) return 'precoUnitario';
+  if (/valor.*opera.*o/.test(clean) || /valor.*opera[cç][aã]o/.test(clean)) return 'valorOperacao';
 
   return null;
 }
@@ -198,17 +198,32 @@ export async function readStatementFile(
   }
 
   const lowerName = fileName.toLowerCase();
-  const isXlsx = lowerName.endsWith('.xlsx');
-  const isCsv = lowerName.endsWith('.csv');
+  let isXlsx = lowerName.endsWith('.xlsx');
+  let isCsv = lowerName.endsWith('.csv');
 
   if (!isXlsx && !isCsv) {
-    throw new UnrecognizedFormatError(
-      `Formato de arquivo não suportado: ${fileName}. Use arquivos .xlsx ou .csv.`
-    );
+    if (fileBytes[0] === 0x50 && fileBytes[1] === 0x4b) {
+      isXlsx = true;
+    } else if (lowerName.endsWith('.txt') || !lowerName.includes('.')) {
+      isCsv = true;
+    } else {
+      throw new UnrecognizedFormatError(
+        `Formato de arquivo não suportado: ${fileName}. Use arquivos .xlsx ou .csv.`
+      );
+    }
   }
 
   if (isCsv) {
-    const text = new TextDecoder('utf-8').decode(fileBytes);
+    let text: string;
+    try {
+      text = new TextDecoder('utf-8', { fatal: true }).decode(fileBytes);
+    } catch {
+      try {
+        text = new TextDecoder('iso-8859-1').decode(fileBytes);
+      } catch {
+        text = new TextDecoder('utf-8').decode(fileBytes);
+      }
+    }
     const cleanText = text.replace(/^\uFEFF/, '');
     if (!cleanText.trim()) {
       throw new EmptyFileError('Arquivo CSV vazio');

@@ -15,6 +15,7 @@ import { colors, typography } from '../../theme/tokens';
 import { AuthService, authService as defaultAuthService } from '../../services/authService';
 import { ProfileRepository, profileRepository as defaultProfileRepository } from '../../repositories/profileRepository';
 import { sessionStore } from '../../stores/sessionStore';
+import { profileStore } from '../../stores/profileStore';
 import { deriveInitials } from '../../domain/profile';
 import { PinDots } from '../../components/ui/PinDots';
 import { PinKeypad } from '../../components/ui/PinKeypad';
@@ -122,6 +123,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
     (action?: 'import_b3' | 'create_wallet' | 'explore') => {
       profileRepository.setProfileName(trimmedName);
       profileRepository.setOnboarded(true);
+      profileStore.setName(trimmedName);
+      profileStore.setOnboarded(true);
 
       if (pin) {
         authService.setPin(pin);

@@ -88,6 +88,7 @@ describe('S12-T01: TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal', () =>
       expect(screen.queryByText(/Moderado/i)).toBeNull();
 
       // Verifica Configurações dentro do Perfil: Seletor de Tema
+      fireEvent.press(screen.getByTestId('appearance-row'));
       expect(screen.getByTestId('theme-option-dark')).toBeDefined();
       expect(screen.getByTestId('theme-option-light')).toBeDefined();
 
@@ -95,6 +96,7 @@ describe('S12-T01: TestHeaderMinimalXPGlobalHeaderRemovalAndProfileModal', () =>
       expect(screen.getByTestId('security-biometric-switch')).toBeDefined();
 
       // Verifica Configurações dentro do Perfil: Backup (.celsus.zip)
+      fireEvent.press(screen.getByTestId('backup-row'));
       expect(screen.getByTestId('export-dossier-btn')).toBeDefined();
     });
   });

@@ -1,31 +1,52 @@
-# Dependencies
+# ---------------------------------------------------------------------------
+# Celsus — arquivos que NÃO vão para o repositório
+# ---------------------------------------------------------------------------
+
+# Dependências
 node_modules/
 .pnp
 .pnp.js
 
-# Expo / React Native
+# Expo / React Native / Metro
 .expo/
 dist/
 web-build/
 build/
+expo-env.d.ts
+.metro-health-check*
+*.tsbuildinfo
+
+# Pastas nativas geradas (Continuous Native Generation: vêm do app.json)
+/android/
+/ios/
+apps/mobile/android/
+apps/mobile/ios/
 .gradle/
 **/build/
 **/.gradle/
-/android/
-apps/mobile/android/
-/ios/
-apps/mobile/ios/
+.kotlin/
+**/.cxx/
+# O módulo nativo celsus-market é código-fonte (inclui o .jar e os .so do gomobile): fica versionado.
 !apps/mobile/modules/**
 apps/mobile/modules/**/build/
 apps/mobile/modules/**/.gradle/
+apps/mobile/modules/**/.cxx/
+apps/mobile/modules/**/.kotlin/
+
+# Artefatos de build e assinatura
+*.apk
+*.aab
+*.ipa
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
+*.pem
 *.mobileprovision
 *.orig.*
 
-# Go binaries & local market cache DB
+# Motor de mercado Go: binários e banco/cache local
 services/market-api/bin/
 services/market-api/*.exe
 services/market-api/*.db*
@@ -33,20 +54,42 @@ services/market-api/data/*.db
 services/market-api/data/*.db-shm
 services/market-api/data/*.db-wal
 services/market-api/data/COTAHIST*
+*.test
+*.prof
 
-# Environment variables
+# Variáveis de ambiente
 .env
 .env.local
 .env.*.local
 
-# OS / IDE
+# Material de referência pessoal (não faz parte do produto)
+# - imagens de inspiração visual (prints de outros apps, paletas)
+# - prompts de execução usados pelo agente nas sprints
+imgsinsp/
+docs/PROMPTS_*.md
+*.psd
+*.fig
+*.sketch
+
+# Ferramentas de IA / agentes locais (as regras em .agents/rules/ continuam versionadas)
+.claude/
+.cursor/
+.windsurf/
+
+# SO / IDE
 .DS_Store
 Thumbs.db
+desktop.ini
+*.swp
+*~
 .vscode/
 .idea/
-.claude/
 
-# Logs & Coverage
+# Logs, cobertura e temporários
 *.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 coverage/
 *.out
+*.tmp

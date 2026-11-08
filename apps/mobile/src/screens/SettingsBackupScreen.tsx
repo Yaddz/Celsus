@@ -1,15 +1,19 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { BentoGrid } from '../components/ui';
-import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
-import { useHeaderScrollFade } from '../hooks/useHeaderScrollFade';
+import { BentoGrid, BentoTile } from '../components/ui';
 import { bento, colors, layout } from '../theme/tokens';
 import { ThemeMode } from '../theme/palettes';
 import { useProfileSettings } from './profile/useProfileSettings';
+import { useProfile } from '../stores/profileStore';
 import {
   AppearanceTile,
   BackupTile,
+  GroupLabel,
   IdentityTile,
+  PrivacyRow,
+  ProfileNameRow,
+  profileGroupCardStyle,
+  WipeDataRow,
   SecurityTile,
   StatusBannerTile,
   WalletsTile,
@@ -47,21 +51,25 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   testID = 'settings-backup-screen',
 }) => {
   const { width } = useWindowDimensions();
-  const { scrollY, scrollProps } = useHeaderScrollFade();
   const p = useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeModeChange, onDataRestored });
   const twoColumns = width >= TWO_COLUMN_MIN_WIDTH;
+  const [sec, setSec] = React.useState<{ hasPin: boolean; biometricEnabled: boolean } | null>(null);
   const mode = p.isLight ? 'light' : 'dark';
+  const profile = useProfile();
 
   const identity = (
     <IdentityTile
       isLight={p.isLight}
-      userName={userName}
-      userInitials={userInitials}
+      userName={userName ?? (profile.name || undefined)}
+      userInitials={userInitials ?? (profile.initials || undefined)}
       walletCount={p.wallets.length}
       assetCount={p.wallets.reduce((n, w) => n + w.assetCount, 0)}
       onClose={onClose}
+      hasPin={sec ? sec.hasPin : undefined}
+      biometricEnabled={sec ? sec.biometricEnabled : undefined}
     />
   );
+  const nameRow = <ProfileNameRow isLight={p.isLight} first />;
   const wallets = <WalletsTile isLight={p.isLight} isPrivacyMode={isPrivacyMode} wallets={p.wallets} />;
   const appearance = <AppearanceTile isLight={p.isLight} mode={mode} onSelect={p.selectTheme} />;
   const security = (
@@ -71,8 +79,24 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
       isAppLocked={p.isAppLocked}
       onToggleBiometrics={p.toggleBiometrics}
       onTestBiometrics={p.testBiometricLock}
+      onStatusChange={setSec}
+      showWipe={false}
+      showName={false}
     />
   );
+  const groupAccount = <GroupLabel label="CONTA" isLight={p.isLight} testID="profile-group-account" />;
+  const groupProtection = <GroupLabel label="PROTEÇÃO" isLight={p.isLight} testID="profile-group-protection" />;
+  const groupData = <GroupLabel label="DADOS" isLight={p.isLight} testID="profile-group-data" />;
+  const privacy = <PrivacyRow isLight={p.isLight} enabled={isPrivacyMode} onToggle={p.togglePrivacy} />;
+  const variant = p.isLight ? 'light' : 'dark';
+  const card = (id: string, ...rows: React.ReactNode[]) => (
+    <BentoTile variant={variant} testID={id} style={profileGroupCardStyle}>
+      {rows.map((r, i) => (
+        <React.Fragment key={i}>{r}</React.Fragment>
+      ))}
+    </BentoTile>
+  );
+  const banner = p.banner ? <StatusBannerTile banner={p.banner} isLight={p.isLight} /> : null;
   const backup = (
     <BackupTile
       isLight={p.isLight}
@@ -83,42 +107,39 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
       onImport={p.importDossier}
       onImportSpreadsheet={p.importSpreadsheet}
       onImportB3={onOpenB3Import}
+      footer={<WipeDataRow isLight={p.isLight} />}
     />
   );
 
   return (
     <View testID={testID} style={[styles.container, p.isLight && styles.containerLight]}>
-      <XpMinimalHeader
-        title="Perfil & Configurações"
-        subtitle="Preferências, segurança e backup"
-        onBack={onClose}
-        themeMode={p.currentThemeMode}
-        isPrivacyModeEnabled={isPrivacyMode}
-        onTogglePrivacy={() => p.togglePrivacy(!isPrivacyMode)}
-        scrollY={scrollY}
-      />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} {...scrollProps}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
-          {p.banner ? <StatusBannerTile banner={p.banner} isLight={p.isLight} /> : null}
           {twoColumns ? (
             <View style={styles.columns}>
               <BentoGrid style={styles.column} testID="profile-column-left">
                 {identity}
-                {wallets}
-                {appearance}
+                {banner}
+                {groupAccount}
+                {card('profile-card-account', nameRow, wallets, appearance, privacy)}
               </BentoGrid>
               <BentoGrid style={styles.column} testID="profile-column-right">
-                {security}
-                {backup}
+                {groupProtection}
+                {card('profile-card-protection', security)}
+                {groupData}
+                {card('profile-card-data', backup)}
               </BentoGrid>
             </View>
           ) : (
             <BentoGrid>
               {identity}
-              {wallets}
-              {appearance}
-              {security}
-              {backup}
+              {banner}
+              {groupAccount}
+              {card('profile-card-account', nameRow, wallets, appearance, privacy)}
+              {groupProtection}
+              {card('profile-card-protection', security)}
+              {groupData}
+              {card('profile-card-data', backup)}
             </BentoGrid>
           )}
         </View>
@@ -130,7 +151,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.voidFloor },
   containerLight: { backgroundColor: '#F4F1EA' },
-  scrollContent: { padding: layout.screenPadding, paddingBottom: 40, alignItems: 'center' },
+  scrollContent: { padding: layout.screenPadding, paddingTop: 4, paddingBottom: 40, alignItems: 'center' },
   content: { width: '100%', maxWidth: MAX_CONTENT_WIDTH, gap: bento.gap },
   columns: { flexDirection: 'row', gap: bento.gap, alignItems: 'flex-start' },
   column: { flex: 1 },

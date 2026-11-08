@@ -83,7 +83,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
           return (
             <View
               key={i}
-              style={{ height: 1, backgroundColor: `rgba(${fadeRgb},${Math.pow(1 - t, 1.5).toFixed(3)})` }}
+              style={{ height: 1, backgroundColor: `rgba(${fadeRgb},${Math.pow(1 - t, 2).toFixed(3)})` }}
             />
           );
         })}
@@ -201,7 +201,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
 
 /** Altura fixa do header: evita saltos de layout entre variantes (avatar, voltar+título+subtítulo). */
 export const HEADER_HEIGHT = 64;
-const FADE_HEIGHT = 24;
+const FADE_HEIGHT = 10;
 
 const styles = StyleSheet.create({
   fadeStrip: {

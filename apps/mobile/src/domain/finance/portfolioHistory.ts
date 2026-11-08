@@ -85,32 +85,6 @@ function countBusinessDays(startDateStr: string, endDateStr: string): number {
   return count;
 }
 
-function getLatestAvailableQuote(
-  ticker: string,
-  targetDate: string,
-  quotesMap?: Record<string, Record<string, string | number>>
-): string | null {
-  if (!quotesMap || !quotesMap[ticker]) {
-    return null;
-  }
-  const tickerQuotes = quotesMap[ticker];
-  if (tickerQuotes[targetDate] !== undefined) {
-    return tickerQuotes[targetDate].toString();
-  }
-
-  // Look back for the latest quote on or before targetDate
-  const availableDates = Object.keys(tickerQuotes)
-    .filter((d) => d <= targetDate)
-    .sort();
-
-  if (availableDates.length > 0) {
-    const latestDate = availableDates[availableDates.length - 1];
-    return tickerQuotes[latestDate].toString();
-  }
-
-  return null;
-}
-
 /**
  * S5-T01: Reconstrução exata da curva histórica investedCapital vs marketValue
  * cruzando aportes/vendas com preços do COTAHIST e curva de Renda Fixa.
@@ -143,51 +117,96 @@ export function calculateDailyPatrimonyCurve(
 
   const resultCurve: HistoricalPricePoint[] = [];
 
+  // Pré-processamento (antes, a cada dia e para cada ativo, TODAS as transações eram filtradas e
+  // reordenadas, e as datas de cotação eram reordenadas a cada consulta: O(dias × ativos × transações),
+  // o que travava a aba Análises com alguns anos de histórico). As datas avaliadas são crescentes, então
+  // a posição de cada ativo avança de forma incremental, aplicando as transações na MESMA ordem (sort
+  // estável por data) e com as MESMAS operações Decimal: o resultado é idêntico ao cálculo do zero.
+  interface AssetState {
+    asset: HistoricalAssetInput;
+    txs: HistoricalTransactionInput[];
+    next: number;
+    qty: Decimal;
+    cost: Decimal;
+  }
+  const states: AssetState[] = assets.map((asset) => ({
+    asset,
+    txs: transactions
+      .filter((tx) => tx.assetId === asset.id || tx.ticker === asset.ticker)
+      .sort((a, b) => a.tradeDate.localeCompare(b.tradeDate)),
+    next: 0,
+    qty: new Decimal(0),
+    cost: new Decimal(0),
+  }));
+  const sortedCdiDates = macroRates?.dailyCDI ? Object.keys(macroRates.dailyCDI).sort() : [];
+  const quoteDatesCache = new Map<string, string[]>();
+  const latestQuote = (ticker: string, targetDate: string): string | null => {
+    const tickerQuotes = historicalQuotes?.[ticker];
+    if (!tickerQuotes) return null;
+    if (tickerQuotes[targetDate] !== undefined) return tickerQuotes[targetDate].toString();
+    let dates = quoteDatesCache.get(ticker);
+    if (!dates) {
+      dates = Object.keys(tickerQuotes).sort();
+      quoteDatesCache.set(ticker, dates);
+    }
+    // Maior data <= targetDate (busca binária na lista ordenada).
+    let lo = 0;
+    let hi = dates.length - 1;
+    let found = -1;
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1;
+      if (dates[mid] <= targetDate) {
+        found = mid;
+        lo = mid + 1;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    return found >= 0 ? tickerQuotes[dates[found]].toString() : null;
+  };
+
   for (const date of evalDates) {
     let totalInvested = new Decimal(0);
     let totalMarketValue = new Decimal(0);
 
-    for (const asset of assets) {
-      // Find all transactions for this asset up to date
-      const assetTxs = transactions
-        .filter((tx) => (tx.assetId === asset.id || tx.ticker === asset.ticker) && tx.tradeDate <= date)
-        .sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
-
-      if (assetTxs.length === 0) {
-        continue;
-      }
-
-      // Compute exact position and cost basis without intermediate PM truncation
-      let activeQty = new Decimal(0);
-      let activeCost = new Decimal(0);
-
-      for (const tx of assetTxs) {
+    for (const st of states) {
+      const asset = st.asset;
+      // Aplica as transações até a data (posição e custo exatos, sem truncar o PM no caminho)
+      while (st.next < st.txs.length && st.txs[st.next].tradeDate <= date) {
+        const tx = st.txs[st.next++];
         const qty = new Decimal(tx.quantity);
         const price = new Decimal(tx.unitPrice);
         const fees = new Decimal(tx.fees || 0);
 
         if (tx.type === 'BUY') {
           const buyCost = qty.mul(price).plus(fees);
-          activeCost = activeCost.plus(buyCost);
-          activeQty = activeQty.plus(qty);
+          st.cost = st.cost.plus(buyCost);
+          st.qty = st.qty.plus(qty);
         } else if (tx.type === 'SELL') {
-          if (!activeQty.isZero()) {
-            const currentPm = activeCost.div(activeQty);
+          if (!st.qty.isZero()) {
+            const currentPm = st.cost.div(st.qty);
             const soldCost = qty.mul(currentPm);
-            activeCost = activeCost.minus(soldCost);
-            activeQty = activeQty.minus(qty);
-            if (activeQty.isZero()) {
-              activeCost = new Decimal(0);
+            st.cost = st.cost.minus(soldCost);
+            st.qty = st.qty.minus(qty);
+            if (st.qty.isZero()) {
+              st.cost = new Decimal(0);
             }
           }
         }
       }
+
+      if (st.next === 0) {
+        continue;
+      }
+      const activeQty = st.qty;
+      const activeCost = st.cost;
 
       if (activeQty.isZero()) {
         continue;
       }
 
       totalInvested = totalInvested.plus(activeCost);
+      const earliestDate = st.txs[0].tradeDate;
 
       // Determine Market Value for this asset
       if (
@@ -203,25 +222,18 @@ export function calculateDailyPatrimonyCurve(
 
         if (indexer === 'CDI') {
           // Accumulate CDI rates from earliest buy date to current date
-          const earliestDate = assetTxs[0].tradeDate;
           const cdiRates: number[] = [];
-          if (macroRates?.dailyCDI) {
-            const allCdiDates = Object.keys(macroRates.dailyCDI).sort();
-            for (const d of allCdiDates) {
-              if (d >= earliestDate && d <= date) {
-                cdiRates.push(macroRates.dailyCDI[d]);
-              }
-            }
+          for (const d of sortedCdiDates) {
+            if (d > date) break;
+            if (d >= earliestDate) cdiRates.push(macroRates!.dailyCDI![d]);
           }
           const cdiResult = calculateCDIAccrual(principal.toString(), rate, cdiRates);
           totalMarketValue = totalMarketValue.plus(new Decimal(cdiResult.currentValue));
         } else if (indexer === 'PRE') {
-          const earliestDate = assetTxs[0].tradeDate;
           const bDays = countBusinessDays(earliestDate, date);
           const preResult = calculatePreFixedAccrual(principal.toString(), rate, bDays);
           totalMarketValue = totalMarketValue.plus(new Decimal(preResult.currentValue));
         } else if (indexer === 'IPCA') {
-          const earliestDate = assetTxs[0].tradeDate;
           const bDays = countBusinessDays(earliestDate, date);
           const ipcaVar = macroRates?.ipcaRates?.[date] || 0;
           const ipcaResult = calculateIPCAPlusAccrual(principal.toString(), rate, bDays, ipcaVar);
@@ -231,7 +243,7 @@ export function calculateDailyPatrimonyCurve(
         }
       } else {
         // Variable income (STOCK, FII, CRYPTO)
-        const quoteStr = getLatestAvailableQuote(asset.ticker, date, historicalQuotes);
+        const quoteStr = latestQuote(asset.ticker, date);
         const quote = quoteStr ? new Decimal(quoteStr) : activeCost.div(activeQty);
         const assetMv = activeQty.mul(quote);
         totalMarketValue = totalMarketValue.plus(assetMv);

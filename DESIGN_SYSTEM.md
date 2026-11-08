@@ -2,7 +2,7 @@
 
 Fonte da verdade no código: `apps/mobile/src/theme/tokens.ts` (cores, tipografia, espaçamento, `layout`, `bento`),
 `theme/palettes.ts` (paletas por carteira e temas claro/escuro) e `src/components/ui`.
-Inspirações visuais: pasta `imgsinsp/` (XP, BTG, Pierre, Investidor10 e as paletas de *Disco Elysium*).
+Inspirações visuais: pasta local `imgsinsp/` (fora do git) com referências de XP, BTG, Pierre, Investidor10 e as paletas de *Disco Elysium*.
 
 ## Princípios
 - **Bento:** a tela é uma grade de tiles de cantos grandes, fundo escuro `#111315`, tiles `#1C1E20`, sem bordas nem brilhos.

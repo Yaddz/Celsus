@@ -262,7 +262,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     }
   };
 
+  // Só a busca mais recente preenche as sugestões (respostas fora de ordem não sobrescrevem a atual).
+  const tickerSearchSeqRef = useRef(0);
   const handleTickerSearch = async (text: string, overrideCategory?: string) => {
+    const seq = ++tickerSearchSeqRef.current;
     setTickerQuery(text);
     const cat = overrideCategory !== undefined ? overrideCategory : selectedCategory;
     if (!text || text.trim().length === 0) {
@@ -271,12 +274,13 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     }
     try {
       const results = await marketApiService.searchCatalog(text.trim());
+      if (seq !== tickerSearchSeqRef.current) return;
       const filtered = cat === 'ALL'
         ? (results || [])
         : (results || []).filter((r) => r.asset_class === cat);
       setTickerSuggestions(filtered);
     } catch {
-      setTickerSuggestions([]);
+      if (seq === tickerSearchSeqRef.current) setTickerSuggestions([]);
     }
   };
 
@@ -306,6 +310,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   };
 
   const handleSelectSuggestion = (item: { ticker: string; name?: string; asset_class?: string }) => {
+    tickerSearchSeqRef.current++; // descarta buscas ainda em andamento
     const upperTicker = item.ticker.trim().toUpperCase();
     const existing = assets.find((a) => a.ticker.toUpperCase() === upperTicker);
 

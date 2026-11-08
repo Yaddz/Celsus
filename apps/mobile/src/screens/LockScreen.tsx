@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Animated } from 'react-native';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Vibration,
-  TextInput,
-  Modal,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PinDots } from '../components/ui/PinDots';
 import { PinKeypad } from '../components/ui/PinKeypad';
-import { useProfile } from '../stores/profileStore';
+import { AnimatedModalSheet } from '../components/ui/AnimatedModalSheet';
+import { DangerConfirmSheet, DANGER_COLOR } from '../components/ui/DangerConfirmSheet';
+import { useProfile, profileStore } from '../stores/profileStore';
 import { authService as defaultAuthService, AuthService } from '../services/authService';
 import { sessionStore as defaultSessionStore } from '../stores/sessionStore';
 import { resetDatabase } from '../db/client';
@@ -47,7 +48,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [lockoutRemainingSec, setLockoutRemainingSec] = useState<number>(0);
   const [isForgotModalVisible, setIsForgotModalVisible] = useState(false);
-  const [resetConfirmText, setResetConfirmText] = useState('');
   const [biometricActive, setBiometricActive] = useState(false);
 
   const lockoutTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -97,9 +97,11 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     };
   }, [authService, checkLockout]);
 
-  // Contagem regressiva do timer de lockout
+  // Contagem regressiva do timer de lockout: um único intervalo enquanto durar o bloqueio
+  // (antes o intervalo era desfeito e recriado a cada segundo, pois dependia do próprio contador).
+  const isLockedOut = lockoutRemainingSec > 0;
   useEffect(() => {
-    if (lockoutRemainingSec > 0) {
+    if (isLockedOut) {
       lockoutTimerRef.current = setInterval(() => {
         setLockoutRemainingSec((prev) => {
           if (prev <= 1) {
@@ -115,7 +117,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     return () => {
       if (lockoutTimerRef.current) clearInterval(lockoutTimerRef.current);
     };
-  }, [lockoutRemainingSec]);
+  }, [isLockedOut]);
 
   const handleDigit = async (digit: string) => {
     if (lockoutRemainingSec > 0) return;
@@ -142,7 +144,12 @@ export const LockScreen: React.FC<LockScreenProps> = ({
           setLockoutRemainingSec(sec);
           setErrorMessage('Muitas tentativas incorretas.');
         } else {
-          setErrorMessage('PIN incorreto · 4 tentativas restantes');
+          const left = res.attemptsRemaining;
+          setErrorMessage(
+            typeof left === 'number'
+              ? `PIN incorreto · ${left} ${left === 1 ? 'tentativa restante' : 'tentativas restantes'}`
+              : 'PIN incorreto'
+          );
         }
       }
     }
@@ -185,6 +192,7 @@ export const LockScreen: React.FC<LockScreenProps> = ({
     try {
       await resetDatabase();
     } catch {}
+    profileStore.reset();
     setIsForgotModalVisible(false);
     defaultSessionStore.setStatus('onboarding');
     onResetComplete?.();
@@ -192,53 +200,56 @@ export const LockScreen: React.FC<LockScreenProps> = ({
 
   const bg = isLight ? '#F4F1EA' : '#111315';
   const fg = isLight ? '#111315' : '#E6DECA';
-  const muted = isLight ? '#6E6A63' : '#8A8C90';
-  const cardBg = isLight ? '#FFFFFF' : '#1C1E20';
+  const muted = isLight ? '#6E6A63' : '#8A8A8E';
 
   const isKeypadDisabled = lockoutRemainingSec > 0;
+  const firstName = (profile.name || '').trim().split(/\s+/)[0];
+  const [isResetSheetVisible, setIsResetSheetVisible] = useState(false);
+
+  // Entrada da tela: saudação desce e aparece suavemente enquanto o teclado sobe em cascata.
+  const enter = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(enter, { toValue: 1, duration: 320, useNativeDriver: true }).start();
+  }, [enter]);
+  const enterStyle = {
+    opacity: enter,
+    transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [-12, 0] }) }],
+  };
+  const canRecoverWithBiometrics = biometricActive && biometricAvailable;
 
   return (
     <View testID={testID} style={[styles.container, { backgroundColor: bg }]}>
-      {/* Avatar e Boas-Vindas */}
-      <View testID="lock-avatar" style={[styles.avatar, { borderColor: colors.primary }]}>
-        <Text style={[styles.avatarText, { color: fg }]}>
-          {profile.initials || 'C'}
-        </Text>
-      </View>
+      <Text style={styles.brand}>CELSUS</Text>
 
-      <Text testID="lock-title" style={[styles.title, { color: fg }]}>
-        {`Olá, ${profile.name || 'Investidor'}`}
-      </Text>
-
-      {/* Subtítulo / Mensagem de Erro */}
-      <Text
-        testID="lock-error"
-        style={[
-          styles.subtitle,
-          { color: errorMessage ? colors.primary : muted },
-        ]}
-      >
-        {errorMessage || 'Digite seu PIN para entrar'}
-      </Text>
-
-      {/* Contador Regressivo de Lockout */}
-      {lockoutRemainingSec > 0 && (
-        <View style={styles.lockoutRow}>
-          <MaterialIcons name="timer" size={16} color={colors.primary} />
-          <Text testID="lock-lockout-timer" style={styles.lockoutTimer}>
-            {`Tente novamente em ${formatLockoutSeconds(lockoutRemainingSec)}`}
-          </Text>
+      <Animated.View style={[styles.header, enterStyle]}>
+        <View testID="lock-avatar" style={styles.avatar}>
+          {profile.initials ? (
+            <Text style={styles.avatarText}>{profile.initials}</Text>
+          ) : (
+            <MaterialIcons name="lock-outline" size={30} color="#1A0E08" />
+          )}
         </View>
-      )}
 
-      {/* Pontos do PIN */}
-      <PinDots
-        filled={pin.length}
-        error={isErrorShake}
-        themeMode={themeMode}
-      />
+        <Text testID="lock-title" style={[styles.title, { color: fg }]}>
+          {firstName ? `Olá, ${firstName}` : 'Bem-vindo de volta'}
+        </Text>
 
-      {/* Teclado Numérico */}
+        <Text testID="lock-error" style={[styles.subtitle, { color: errorMessage ? colors.primary : muted }]}>
+          {errorMessage || 'Digite seu PIN para entrar'}
+        </Text>
+
+        {lockoutRemainingSec > 0 && (
+          <View style={[styles.lockoutRow, { backgroundColor: colors.primary + '1F' }]}>
+            <MaterialIcons name="timer" size={16} color={colors.primary} />
+            <Text testID="lock-lockout-timer" style={styles.lockoutTimer}>
+              {`Tente novamente em ${formatLockoutSeconds(lockoutRemainingSec)}`}
+            </Text>
+          </View>
+        )}
+
+        <PinDots filled={pin.length} error={isErrorShake} themeMode={themeMode} />
+      </Animated.View>
+
       <PinKeypad
         onDigit={handleDigit}
         onBackspace={handleBackspace}
@@ -249,7 +260,6 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         themeMode={themeMode}
       />
 
-      {/* Esqueci o PIN */}
       <TouchableOpacity
         testID="lock-forgot-pin"
         accessibilityRole="button"
@@ -257,91 +267,66 @@ export const LockScreen: React.FC<LockScreenProps> = ({
         onPress={handleOpenForgotPin}
         style={styles.forgotButton}
       >
-        <Text style={[styles.forgotText, { color: muted }]}>Esqueci o PIN</Text>
+        <Text style={styles.forgotText}>Esqueci o PIN</Text>
       </TouchableOpacity>
 
-      {/* Modal / Diálogo de Recuperação de PIN */}
-      <Modal
-        visible={isForgotModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsForgotModalVisible(false)}
+      {/* Esqueci o PIN com digital ativa: recuperar pela digital ou apagar os dados */}
+      <AnimatedModalSheet
+        visible={isForgotModalVisible && canRecoverWithBiometrics}
+        onClose={() => setIsForgotModalVisible(false)}
+        themeMode={themeMode}
+        testID="forgot-pin-sheet"
       >
-        <View testID="forgot-pin-dialog" style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: cardBg }]}>
-            <Text style={[styles.modalTitle, { color: fg }]}>Esqueci meu PIN</Text>
-
-            {biometricActive && biometricAvailable ? (
-              <View style={{ gap: 14 }}>
-                <Text style={[styles.modalBody, { color: muted }]}>
-                  Sua biometria está configurada. Deseja autenticar com digital ou rosto para desbloquear o app?
-                </Text>
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  onPress={async () => {
-                    const res = await authService.authenticateBiometric('Recuperar acesso ao Celsus');
-                    if (res.success) {
-                      setIsForgotModalVisible(false);
-                      defaultSessionStore.unlock();
-                    }
-                  }}
-                  style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-                >
-                  <Text style={styles.primaryBtnText}>Usar biometria</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <View style={{ gap: 12 }}>
-                <Text style={[styles.modalBody, { color: muted }]}>
-                  O Celsus é local e soberano: seus dados não saem do aparelho e não há recuperação de conta em nuvem.
-                </Text>
-                <Text style={[styles.modalBody, { color: colors.primary, fontWeight: '600' }]}>
-                  A única alternativa sem a biometria é apagar todos os dados locais e reconfigurar o perfil.
-                </Text>
-                <Text style={[styles.modalBody, { color: muted, fontSize: 13 }]}>
-                  Digite APAGAR abaixo para confirmar:
-                </Text>
-                <TextInput
-                  testID="reset-confirmation-input"
-                  style={[
-                    styles.input,
-                    { color: fg, borderColor: isLight ? '#C5BEB3' : '#33363A' },
-                  ]}
-                  value={resetConfirmText}
-                  onChangeText={setResetConfirmText}
-                  placeholder="APAGAR"
-                  placeholderTextColor={muted}
-                  autoCapitalize="characters"
-                />
-                <TouchableOpacity
-                  testID="confirm-reset-button"
-                  accessibilityRole="button"
-                  disabled={resetConfirmText !== 'APAGAR'}
-                  onPress={handleConfirmReset}
-                  style={[
-                    styles.primaryBtn,
-                    {
-                      backgroundColor:
-                        resetConfirmText === 'APAGAR' ? colors.primary : '#552222',
-                      opacity: resetConfirmText === 'APAGAR' ? 1 : 0.5,
-                    },
-                  ]}
-                >
-                  <Text style={styles.primaryBtnText}>Apagar tudo e recomeçar</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setIsForgotModalVisible(false)}
-              style={styles.cancelBtn}
-            >
-              <Text style={[styles.cancelBtnText, { color: muted }]}>Cancelar</Text>
-            </TouchableOpacity>
+        <View testID="forgot-pin-dialog" style={styles.sheetBody}>
+          <View style={[styles.sheetIcon, { backgroundColor: colors.primary + '1F' }]}>
+            <MaterialIcons name="fingerprint" size={28} color={colors.primary} />
           </View>
+          <Text style={[styles.sheetTitle, { color: fg }]}>Esqueceu o PIN?</Text>
+          <Text style={[styles.sheetText, { color: muted }]}>
+            Sua digital está ativa. Use-a para entrar e depois troque o PIN em Perfil → Proteção.
+          </Text>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={async () => {
+              const res = await authService.authenticateBiometric('Recuperar acesso ao Celsus');
+              if (res.success) {
+                setIsForgotModalVisible(false);
+                defaultSessionStore.unlock();
+              }
+            }}
+            style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          >
+            <Text style={styles.primaryBtnText}>Usar digital</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={() => {
+              setIsForgotModalVisible(false);
+              setIsResetSheetVisible(true);
+            }}
+            style={styles.linkBtn}
+          >
+            <Text style={[styles.linkText, { color: DANGER_COLOR }]}>Apagar dados e recomeçar</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </AnimatedModalSheet>
+
+      {/* Sem digital: a única saída é apagar os dados locais */}
+      <DangerConfirmSheet
+        visible={(isForgotModalVisible && !canRecoverWithBiometrics) || isResetSheetVisible}
+        onClose={() => {
+          setIsForgotModalVisible(false);
+          setIsResetSheetVisible(false);
+        }}
+        onConfirm={handleConfirmReset}
+        title="Apagar dados e recomeçar?"
+        message="O Celsus guarda tudo só neste aparelho e não tem recuperação em nuvem. Sem o PIN, a saída é apagar os dados locais e configurar o perfil de novo."
+        confirmLabel="Apagar tudo"
+        themeMode={themeMode}
+        testID={canRecoverWithBiometrics ? 'forgot-pin-reset-dialog' : 'forgot-pin-dialog'}
+        inputTestID="reset-confirmation-input"
+        confirmTestID="confirm-reset-button"
+      />
     </View>
   );
 };
@@ -353,11 +338,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
   },
+  brand: {
+    position: 'absolute',
+    top: 56,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 4,
+    color: colors.primary,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 2,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
@@ -366,85 +364,88 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '700',
     fontFamily: typography.fontFamily,
+    color: '#1A0E08',
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     fontFamily: typography.fontFamily,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   subtitle: {
     fontSize: 14,
     fontFamily: typography.fontFamily,
-    marginBottom: 8,
     textAlign: 'center',
   },
   lockoutRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginVertical: 4,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   lockoutTimer: {
     color: colors.primary,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
+    fontFamily: typography.fontFamily,
   },
   forgotButton: {
-    marginTop: 18,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
   },
   forgotText: {
     fontSize: 14,
+    fontWeight: '600',
     fontFamily: typography.fontFamily,
+    color: colors.primary,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
+  sheetBody: {
     alignItems: 'center',
-    padding: 24,
+    gap: 12,
+    paddingTop: 4,
   },
-  modalContent: {
-    width: '100%',
-    maxWidth: 360,
-    borderRadius: 16,
-    padding: 24,
+  sheetIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  modalTitle: {
-    fontSize: 18,
+  sheetTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 20,
     fontWeight: '700',
-    marginBottom: 12,
   },
-  modalBody: {
+  sheetText: {
+    fontFamily: typography.fontFamily,
     fontSize: 14,
     lineHeight: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
+    textAlign: 'center',
   },
   primaryBtn: {
-    borderRadius: 8,
-    paddingVertical: 12,
+    alignSelf: 'stretch',
+    height: 50,
+    borderRadius: 14,
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginTop: 4,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
+    color: '#1A0E08',
+    fontWeight: '700',
+    fontSize: 15,
+    fontFamily: typography.fontFamily,
+  },
+  linkBtn: {
+    paddingVertical: 10,
+  },
+  linkText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
     fontWeight: '600',
-    fontSize: 14,
-  },
-  cancelBtn: {
-    marginTop: 12,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelBtnText: {
-    fontSize: 14,
   },
 });

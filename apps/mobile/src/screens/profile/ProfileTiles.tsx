@@ -1,9 +1,14 @@
 import React from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View, TextInput, Modal } from 'react-native';
+import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BentoTile, DirectiveButton } from '../../components/ui';
+import { BentoTile } from '../../components/ui';
 import { PinDots } from '../../components/ui/PinDots';
 import { PinKeypad } from '../../components/ui/PinKeypad';
+import { AnimatedModalSheet } from '../../components/ui/AnimatedModalSheet';
+import { CircleIconButton } from '../../components/ui/CircleIconButton';
+import { DangerConfirmSheet, DANGER_COLOR } from '../../components/ui/DangerConfirmSheet';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { TextField } from '../../components/ui/TextField';
 import { bento, BentoVariant, colors, typography } from '../../theme/tokens';
 import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { BackupImportMode, ExportArchiveResult } from '../../services/backupService';
@@ -14,35 +19,174 @@ import { profileStore } from '../../stores/profileStore';
 import { resetDatabase } from '../../db/client';
 import { LocalWalletSummary, StatusBanner } from './useProfileSettings';
 
-/** Cores de texto de um tile conforme o tema (reaproveita os tokens do bento). */
-const useTileColors = (isLight: boolean) => {
-  const variant: BentoVariant = isLight ? 'light' : 'dark';
-  return { variant, fg: bento.variants[variant].foreground, muted: bento.variants[variant].muted };
-};
+// ---------------------------------------------------------------------------------------------
+// Cores e peças compartilhadas do Perfil
+// ---------------------------------------------------------------------------------------------
 
-const SectionTitle: React.FC<{ icon: keyof typeof MaterialIcons.glyphMap; label: string; fg: string }> = ({ icon, label, fg }) => (
-  <View style={s.sectionTitleRow}>
-    <MaterialIcons name={icon} size={18} color={colors.primary} />
-    <Text style={[s.sectionTitle, { color: fg }]}>{label}</Text>
-  </View>
-);
+/** Paleta do Perfil derivada dos tokens do bento (cartão, texto, apoio, rebaixado e divisória). */
+const usePalette = (isLight: boolean) => {
+  const variant: BentoVariant = isLight ? 'light' : 'dark';
+  return {
+    variant,
+    theme: (isLight ? 'light' : 'dark') as 'light' | 'dark',
+    fg: bento.variants[variant].foreground,
+    muted: bento.variants[variant].muted,
+    inset: isLight ? '#F6F2EA' : '#161819',
+    divider: isLight ? '#ECE6DA' : '#2A2D30',
+  };
+};
 
 const formatBRL = (v: string) =>
   `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+export const GroupLabel: React.FC<{ label: string; isLight: boolean; testID?: string }> = ({ label, isLight, testID }) => (
+  <Text testID={testID} accessibilityRole="header" style={[s.groupLabel, { color: usePalette(isLight).muted }]}>
+    {label}
+  </Text>
+);
+
+interface ListRowProps {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  subtitle?: string;
+  isLight: boolean;
+  first?: boolean;
+  danger?: boolean;
+  disabled?: boolean;
+  onPress?: () => void;
+  testID?: string;
+  titleTestID?: string;
+  subtitleTestID?: string;
+  right?: React.ReactNode;
+  value?: string;
+  expanded?: boolean;
+  children?: React.ReactNode;
+}
+
+/** Linha de lista do Perfil: ícone em pastilha, título, subtítulo, valor e chevron. */
+const ListRow: React.FC<ListRowProps> = ({
+  icon,
+  title,
+  subtitle,
+  isLight,
+  first,
+  danger,
+  disabled,
+  onPress,
+  testID,
+  titleTestID,
+  subtitleTestID,
+  right,
+  value,
+  expanded,
+  children,
+}) => {
+  const p = usePalette(isLight);
+  const tint = danger ? DANGER_COLOR : colors.primary;
+  const row = (
+    <View style={[s.listRow, disabled && { opacity: 0.45 }]}>
+      <View style={[s.iconChip, { backgroundColor: tint + (isLight ? '1A' : '24') }]}>
+        <MaterialIcons name={icon} size={18} color={tint} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text testID={titleTestID} style={[s.rowTitle, { color: danger ? DANGER_COLOR : p.fg }]}>{title}</Text>
+        {subtitle ? (
+          <Text testID={subtitleTestID} style={[s.rowSubtitle, { color: p.muted }]}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {right ?? (
+        <>
+          {value ? <Text style={[s.rowValue, { color: p.muted }]} numberOfLines={1}>{value}</Text> : null}
+          {onPress ? (
+            <MaterialIcons name={expanded ? 'expand-less' : 'chevron-right'} size={22} color={p.muted} />
+          ) : null}
+        </>
+      )}
+    </View>
+  );
+  return (
+    <View style={!first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.divider }}>
+      {onPress ? (
+        <TouchableOpacity
+          testID={testID}
+          accessibilityRole="button"
+          accessibilityLabel={title}
+          accessibilityState={{ disabled: !!disabled, expanded }}
+          disabled={disabled}
+          onPress={onPress}
+          activeOpacity={0.7}
+        >
+          {row}
+        </TouchableOpacity>
+      ) : (
+        <View testID={testID}>{row}</View>
+      )}
+      {children}
+    </View>
+  );
+};
+
+/** Linha que abre um painel rebaixado logo abaixo (carteiras, aparência, horários, backup…). */
+const ExpandableRow: React.FC<
+  Omit<ListRowProps, 'expanded' | 'onPress' | 'children'> & { content: React.ReactNode; rowTestID?: string }
+> = ({ content, rowTestID, isLight, ...rest }) => {
+  const [open, setOpen] = React.useState(false);
+  const p = usePalette(isLight);
+  return (
+    <ListRow {...rest} isLight={isLight} testID={rowTestID} expanded={open} onPress={() => setOpen((o) => !o)}>
+      {open ? <View style={[s.panel, { backgroundColor: p.inset }]}>{content}</View> : null}
+    </ListRow>
+  );
+};
+
+/** Linha de ação dentro de um painel (ícone, rótulo, chevron). */
+const PanelAction: React.FC<{
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  onPress: () => void;
+  isLight: boolean;
+  testID?: string;
+  first?: boolean;
+  danger?: boolean;
+}> = ({ icon, label, onPress, isLight, testID, first, danger }) => {
+  const p = usePalette(isLight);
+  const tint = danger ? DANGER_COLOR : colors.primary;
+  return (
+    <TouchableOpacity
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      activeOpacity={0.7}
+      style={[s.panelAction, !first && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.divider }]}
+    >
+      <MaterialIcons name={icon} size={18} color={tint} />
+      <Text style={[s.panelActionText, { color: danger ? DANGER_COLOR : p.fg }]}>{label}</Text>
+      <MaterialIcons name="chevron-right" size={20} color={p.muted} />
+    </TouchableOpacity>
+  );
+};
+
+const appSwitch = (isLight: boolean, value: boolean) => ({
+  trackColor: { false: isLight ? '#D5CFBE' : '#2A2D30', true: colors.primary + '88' },
+  thumbColor: value ? colors.primary : isLight ? '#FFFFFF' : '#8A8C90',
+});
+
 // ---------------------------------------------------------------------------------------------
 
 export const StatusBannerTile: React.FC<{ banner: StatusBanner; isLight: boolean }> = ({ banner, isLight }) => {
-  const { variant, fg, muted } = useTileColors(isLight);
-  const icon = banner.type === 'error' ? 'gpp-bad' : banner.type === 'success' ? 'verified-user' : 'info';
-  const accent = banner.type === 'error' ? colors.primary : banner.type === 'success' ? '#2E4A44' : colors.tertiary;
+  const p = usePalette(isLight);
+  const icon = banner.type === 'error' ? 'error-outline' : banner.type === 'success' ? 'check-circle-outline' : 'info-outline';
+  const accent = banner.type === 'error' ? DANGER_COLOR : banner.type === 'success' ? '#3F8F6B' : colors.primary;
   return (
-    <BentoTile variant={variant} testID="settings-status-banner" style={{ borderWidth: 1, borderColor: accent }}>
-      <View style={s.sectionTitleRow}>
-        <MaterialIcons name={icon} size={18} color={accent} />
-        <Text style={[s.sectionTitle, { color: fg }]}>{banner.title}</Text>
+    <BentoTile variant={p.variant} testID="settings-status-banner" style={[s.groupCard, { flexDirection: 'row', gap: 12, padding: 14 }]}>
+      <MaterialIcons name={icon} size={20} color={accent} />
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[s.rowTitle, { color: p.fg }]}>{banner.title}</Text>
+        <Text style={[s.rowSubtitle, { color: p.muted }]}>{banner.message}</Text>
       </View>
-      <Text style={[s.body, { color: muted }]}>{banner.message}</Text>
     </BentoTile>
   );
 };
@@ -55,81 +199,133 @@ export interface IdentityTileProps {
   userInitials?: string;
   walletCount: number;
   assetCount: number;
+  /** Mostra o botão voltar no topo (mesmo botão redondo do header das outras telas). */
   onClose?: () => void;
+  /** Estado de proteção exibido como chips sob o nome (opcional). */
+  hasPin?: boolean;
+  biometricEnabled?: boolean;
 }
 
-/** Identidade do usuário e resumo real dos dados no aparelho (sem valores de exemplo). */
-export const IdentityTile: React.FC<IdentityTileProps> = ({ isLight, userName, userInitials, walletCount, assetCount, onClose }) => {
-  const { variant, fg, muted } = useTileColors(isLight);
+const StatusChip: React.FC<{ testID: string; icon: keyof typeof MaterialIcons.glyphMap; label: string; active: boolean; isLight: boolean }> = ({
+  testID,
+  icon,
+  label,
+  active,
+  isLight,
+}) => {
+  const p = usePalette(isLight);
   return (
-    <BentoTile variant={variant} testID="investor-profile-card">
-      <View style={s.identityRow}>
-        <View style={[s.avatar, { borderColor: colors.primary }]}>
+    <View testID={testID} style={[s.chip, { backgroundColor: isLight ? '#FFFFFF' : '#1C1E20', borderColor: p.divider }]}>
+      <MaterialIcons name={icon} size={14} color={active ? colors.primary : p.muted} />
+      <Text style={[s.chipText, { color: active ? p.fg : p.muted }]}>{label}</Text>
+    </View>
+  );
+};
+
+/** Topo do Perfil: voltar, avatar, nome, resumo real dos dados e chips de proteção. Sem cartão. */
+export const IdentityTile: React.FC<IdentityTileProps> = ({
+  isLight,
+  userName,
+  userInitials,
+  walletCount,
+  assetCount,
+  onClose,
+  hasPin,
+  biometricEnabled,
+}) => {
+  const p = usePalette(isLight);
+  return (
+    <View testID="investor-profile-card">
+      {onClose ? (
+        <View style={s.topBar}>
+          <CircleIconButton
+            testID="close-settings-btn"
+            icon="arrow-back"
+            accessibilityLabel="Voltar"
+            onPress={onClose}
+            themeMode={p.theme}
+          />
+        </View>
+      ) : null}
+      <View style={s.heroCol}>
+        <View style={[s.avatarHero, { backgroundColor: colors.primary }]}>
           {userInitials ? (
-            <Text style={[s.avatarText, { color: fg }]}>{userInitials}</Text>
+            <Text style={s.avatarHeroText}>{userInitials}</Text>
           ) : (
-            <MaterialIcons name="person" size={26} color={muted} />
+            <MaterialIcons name="person" size={34} color="#1A0E08" />
           )}
         </View>
-        <View style={{ flex: 1 }}>
-          {userName ? <Text style={[s.name, { color: fg }]}>{userName}</Text> : null}
-          <Text testID="profile-local-summary" style={[s.body, { color: muted }]}>
-            {`${walletCount} ${walletCount === 1 ? 'carteira' : 'carteiras'} · ${assetCount} ${assetCount === 1 ? 'ativo' : 'ativos'} neste aparelho`}
-          </Text>
-        </View>
-        {onClose ? (
-          <TouchableOpacity
-            testID="close-settings-btn"
-            accessibilityRole="button"
-            accessibilityLabel="Fechar perfil"
-            onPress={onClose}
-            style={[s.closeBtn, { backgroundColor: isLight ? '#EAE4D7' : '#2A2D30' }]}
-          >
-            <MaterialIcons name="close" size={20} color={fg} />
-          </TouchableOpacity>
+        {userName ? <Text style={[s.name, { color: p.fg }]}>{userName}</Text> : null}
+        <Text testID="profile-local-summary" style={[s.rowSubtitle, { color: p.muted, textAlign: 'center' }]}>
+          {`${walletCount} ${walletCount === 1 ? 'carteira' : 'carteiras'} · ${assetCount} ${assetCount === 1 ? 'ativo' : 'ativos'} neste aparelho`}
+        </Text>
+        {hasPin !== undefined ? (
+          <View style={s.chipRow}>
+            <StatusChip testID="profile-chip-pin" icon="lock-outline" label={hasPin ? 'PIN ativo' : 'Sem PIN'} active={hasPin} isLight={isLight} />
+            {hasPin ? (
+              <StatusChip
+                testID="profile-chip-biometric"
+                icon="fingerprint"
+                label={biometricEnabled ? 'Digital' : 'Sem digital'}
+                active={!!biometricEnabled}
+                isLight={isLight}
+              />
+            ) : null}
+          </View>
         ) : null}
       </View>
-    </BentoTile>
+    </View>
   );
 };
 
 // ---------------------------------------------------------------------------------------------
 
-export const WalletsTile: React.FC<{ isLight: boolean; isPrivacyMode: boolean; wallets: LocalWalletSummary[] }> = ({
+export const WalletsTile: React.FC<{ isLight: boolean; isPrivacyMode: boolean; wallets: LocalWalletSummary[]; first?: boolean }> = ({
   isLight,
   isPrivacyMode,
   wallets,
+  first,
 }) => {
-  const { variant, fg, muted } = useTileColors(isLight);
+  const p = usePalette(isLight);
   return (
-    <BentoTile variant={variant} testID="wallets-summary-section">
-      <SectionTitle icon="account-balance-wallet" label="CARTEIRAS NESTE APARELHO" fg={fg} />
-      {wallets.length === 0 ? (
-        <Text testID="wallets-empty-state" style={[s.body, { color: muted }]}>
-          Nenhuma carteira cadastrada ainda.
-        </Text>
-      ) : (
-        wallets.map((w, i) => (
-          <View
-            key={w.id}
-            testID={`wallet-summary-${w.id}`}
-            style={[s.walletRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: muted + '55' }]}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[s.rowTitle, { color: fg }]}>{w.name}</Text>
-              <Text style={[s.body, { color: muted }]}>
-                {`${w.assetCount} ${w.assetCount === 1 ? 'ativo' : 'ativos'}`}
-              </Text>
-            </View>
-            {w.patrimonyGoal ? (
-              <Text style={[s.body, { color: fg }]}>
-                {`Meta ${isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatBRL(w.patrimonyGoal)}`}
-              </Text>
-            ) : null}
-          </View>
-        ))
-      )}
-    </BentoTile>
+    <View testID="wallets-summary-section">
+      <ExpandableRow
+        icon="account-balance-wallet"
+        title="Carteiras"
+        value={String(wallets.length)}
+        isLight={isLight}
+        first={first}
+        rowTestID="wallets-row"
+        content={
+          wallets.length === 0 ? (
+            <Text testID="wallets-empty-state" style={[s.rowSubtitle, { color: p.muted, paddingVertical: 4 }]}>
+              Nenhuma carteira cadastrada ainda.
+            </Text>
+          ) : (
+            wallets.map((w, i) => (
+              <View
+                key={w.id}
+                testID={`wallet-summary-${w.id}`}
+                style={[s.walletRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.divider }]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={[s.panelActionText, { color: p.fg }]}>{w.name}</Text>
+                  <Text style={[s.rowSubtitle, { color: p.muted }]}>{`${w.assetCount} ${w.assetCount === 1 ? 'ativo' : 'ativos'}`}</Text>
+                </View>
+                {w.patrimonyGoal ? (
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[s.caption, { color: p.muted }]}>Meta</Text>
+                    <Text style={[s.panelActionText, { color: p.fg }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatBRL(w.patrimonyGoal)}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            ))
+          )
+        }
+      />
+    </View>
   );
 };
 
@@ -139,35 +335,177 @@ export const AppearanceTile: React.FC<{ isLight: boolean; mode: 'dark' | 'light'
   isLight,
   mode,
   onSelect,
-}) => {
-  const { variant, fg, muted } = useTileColors(isLight);
-  const options: Array<{ id: 'dark' | 'light'; label: string; icon: keyof typeof MaterialIcons.glyphMap }> = [
-    { id: 'dark', label: 'Escuro', icon: 'dark-mode' },
-    { id: 'light', label: 'Claro', icon: 'light-mode' },
-  ];
+}) => (
+  <View testID="settings-section-personalizacao">
+    <ExpandableRow
+      icon="palette"
+      title="Aparência"
+      value={mode === 'dark' ? 'Escuro' : 'Claro'}
+      isLight={isLight}
+      rowTestID="appearance-row"
+      content={
+        <SegmentedControl
+          value={mode}
+          onChange={onSelect}
+          themeMode={isLight ? 'light' : 'dark'}
+          options={[
+            { id: 'dark', label: 'Escuro', icon: 'dark-mode', testID: 'theme-option-dark' },
+            { id: 'light', label: 'Claro', icon: 'light-mode', testID: 'theme-option-light' },
+          ]}
+        />
+      }
+    />
+  </View>
+);
+
+export const PrivacyRow: React.FC<{ isLight: boolean; enabled: boolean; onToggle: (v: boolean) => void }> = ({ isLight, enabled, onToggle }) => (
+  <ListRow
+    icon={enabled ? 'visibility-off' : 'visibility'}
+    title="Modo privacidade"
+    subtitle="Oculta os valores em reais"
+    isLight={isLight}
+    right={<Switch testID="privacy-mode-switch" value={enabled} onValueChange={onToggle} {...appSwitch(isLight, enabled)} />}
+  />
+);
+
+// ---------------------------------------------------------------------------------------------
+
+/** Nome do perfil: linha com o nome atual que abre o campo de edição (salva ao sair do campo). */
+export const ProfileNameRow: React.FC<{
+  isLight: boolean;
+  profileRepository?: ProfileRepository;
+  first?: boolean;
+}> = ({ isLight, profileRepository = defaultProfileRepository, first }) => {
+  const initialName = profileStore.getState().name || '';
+  const [userName, setUserName] = React.useState<string>(initialName);
+  const userNameRef = React.useRef<string>(initialName);
+  const lastSavedRef = React.useRef<string>(initialName.trim());
+  const timerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    profileRepository
+      .getProfile()
+      .then((prof) => {
+        if (!active || userNameRef.current) return;
+        userNameRef.current = prof.name;
+        lastSavedRef.current = prof.name.trim();
+        setUserName(prof.name);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [profileRepository]);
+
+  // Salva sozinho: ao parar de digitar (0,6 s), ao sair do campo e ao fechar a linha/tela. Antes só
+  // salvava no blur, que não acontece quando o campo some (fechar a linha ou voltar).
+
+  const save = React.useCallback(async () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    const clean = userNameRef.current.trim();
+    if (clean.length < 2 || clean === lastSavedRef.current) return;
+    lastSavedRef.current = clean;
+    await profileRepository.setProfileName(clean);
+    await profileStore.load();
+  }, [profileRepository]);
+
+  React.useEffect(
+    () => () => {
+      if (timerRef.current) save().catch(() => {});
+    },
+    [save]
+  );
+
+  const handleChange = (t: string) => {
+    userNameRef.current = t;
+    setUserName(t);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      save().catch(() => {});
+    }, 600);
+  };
+
   return (
-    <BentoTile variant={variant} testID="settings-section-personalizacao">
-      <SectionTitle icon="tune" label="APARÊNCIA" fg={fg} />
-      <View style={s.optionRow}>
-        {options.map((o) => {
-          const active = mode === o.id;
-          return (
-            <TouchableOpacity
-              key={o.id}
-              testID={`theme-option-${o.id}`}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              onPress={() => onSelect(o.id)}
-              activeOpacity={0.8}
-              style={[s.option, { borderColor: active ? colors.primary : muted + '55' }, active && { backgroundColor: colors.primary + '22' }]}
-            >
-              <MaterialIcons name={o.icon} size={20} color={active ? colors.primary : muted} />
-              <Text style={[s.optionLabel, { color: active ? fg : muted }]}>{o.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </BentoTile>
+    <ExpandableRow
+      icon="person-outline"
+      title="Nome do perfil"
+      value={userName || undefined}
+      isLight={isLight}
+      first={first}
+      rowTestID="security-name-row"
+      content={
+        <TextField
+          testID="security-name-input"
+          value={userName}
+          onChangeText={handleChange}
+          onBlur={() => {
+            save().catch(() => {});
+          }}
+          onSubmitEditing={() => {
+            save().catch(() => {});
+          }}
+          returnKeyType="done"
+          autoCapitalize="words"
+          placeholder="Seu nome"
+          helper="Entre 2 e 40 caracteres. Salva automaticamente."
+          maxLength={40}
+          compact
+          themeMode={isLight ? 'light' : 'dark'}
+        />
+      }
+    />
+  );
+};
+
+// ---------------------------------------------------------------------------------------------
+
+/** "Apagar todos os dados": linha vermelha que abre a confirmação em bottom sheet. */
+export const WipeDataRow: React.FC<{
+  isLight: boolean;
+  authService?: AuthService;
+  profileRepository?: ProfileRepository;
+  first?: boolean;
+}> = ({ isLight, authService = defaultAuthService, profileRepository = defaultProfileRepository, first }) => {
+  const [open, setOpen] = React.useState(false);
+
+  const handleConfirm = async () => {
+    await authService.resetAll();
+    await profileRepository.setOnboarded(false);
+    resetDatabase();
+    profileStore.reset();
+    sessionStore.setStatus('onboarding');
+    setOpen(false);
+  };
+
+  return (
+    <View>
+      <ListRow
+        icon="delete-outline"
+        isLight={isLight}
+        first={first}
+        danger
+        testID="security-wipe"
+        title="Apagar todos os dados"
+        onPress={() => setOpen(true)}
+      />
+      <DangerConfirmSheet
+        visible={open}
+        onClose={() => setOpen(false)}
+        onConfirm={handleConfirm}
+        title="Apagar todos os dados?"
+        message="Carteiras, movimentações, proventos e configurações deste aparelho serão excluídos para sempre. Faça um backup antes, se quiser guardar uma cópia."
+        confirmLabel="Apagar tudo"
+        themeMode={isLight ? 'light' : 'dark'}
+        testID="security-wipe-dialog"
+        inputTestID="security-wipe-confirm-input"
+        confirmTestID="security-wipe-confirm-btn"
+        cancelTestID="security-wipe-cancel-btn"
+      />
+    </View>
   );
 };
 
@@ -181,30 +519,42 @@ export interface SecurityTileProps {
   isAppLocked?: boolean;
   onToggleBiometrics?: (v: boolean) => void;
   onTestBiometrics?: () => void;
+  /** Exibe a linha 'Apagar todos os dados' dentro da Segurança (o Perfil a coloca em Dados). */
+  showWipe?: boolean;
+  /** Exibe a linha de nome dentro da Segurança (o Perfil a coloca em Conta). */
+  showName?: boolean;
+  /** Notifica o Perfil quando o estado de PIN/digital muda (chips do topo). */
+  onStatusChange?: (status: { hasPin: boolean; biometricEnabled: boolean }) => void;
 }
+
+const AUTOLOCK_OPTIONS = [
+  { id: 0, label: 'Imediato', testID: 'security-autolock-0' },
+  { id: 30, label: '30 s', testID: 'security-autolock-30' },
+  { id: 60, label: '1 min', testID: 'security-autolock-60' },
+  { id: 300, label: '5 min', testID: 'security-autolock-300' },
+];
 
 export const SecurityTile: React.FC<SecurityTileProps> = ({
   isLight,
   authService = defaultAuthService,
   profileRepository = defaultProfileRepository,
   onToggleBiometrics,
+  onStatusChange,
+  showWipe = true,
+  showName = true,
 }) => {
-  const { variant, fg, muted } = useTileColors(isLight);
-  const theme = isLight ? 'light' : 'dark';
+  const p = usePalette(isLight);
 
   const syncHasPin = typeof (authService as any).hasPinSync === 'function' ? (authService as any).hasPinSync() : null;
   const syncBio = typeof (authService as any).isBiometricEnabledSync === 'function' ? (authService as any).isBiometricEnabledSync() : null;
   const syncLock = typeof (authService as any).getAutoLockSecondsSync === 'function' ? (authService as any).getAutoLockSecondsSync() : null;
-  const initialName = profileStore.getState().name || '';
 
   const [hasPin, setHasPin] = React.useState<boolean>(syncHasPin ?? false);
   const [isBioEnabled, setIsBioEnabled] = React.useState<boolean>(syncBio ?? false);
   const [canBio, setCanBio] = React.useState<boolean>(true);
   const [autoLockSeconds, setAutoLockSeconds] = React.useState<number>(syncLock ?? 60);
-  const [userName, setUserName] = React.useState<string>(initialName);
-  const userNameRef = React.useRef<string>(initialName);
 
-  // Sheet / Modal state for PIN operations
+  // Sheet de PIN (criar / alterar / remover)
   const [pinMode, setPinMode] = React.useState<'none' | 'create' | 'change' | 'remove'>('none');
   const [pinStep, setPinStep] = React.useState<number>(1);
   const [pinInput, setPinInput] = React.useState<string>('');
@@ -212,32 +562,46 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
   const [currentPin, setCurrentPin] = React.useState<string>('');
   const [pinError, setPinError] = React.useState<string | null>(null);
 
-  // Wipe confirmation dialog
-  const [isWipeOpen, setIsWipeOpen] = React.useState<boolean>(false);
-  const [wipeText, setWipeText] = React.useState<string>('');
+  React.useEffect(() => {
+    onStatusChange?.({ hasPin, biometricEnabled: hasPin && isBioEnabled });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPin, isBioEnabled]);
 
   React.useEffect(() => {
     let active = true;
     async function loadData() {
       try {
-        const p = await authService.hasPin();
+        const pin = await authService.hasPin();
         const bio = await authService.isBiometricEnabled();
         const can = await authService.canUseBiometrics();
         const lockSec = await authService.getAutoLockSeconds();
-        const prof = await profileRepository.getProfile();
         if (!active) return;
-        setHasPin(p);
+        setHasPin(pin);
         setIsBioEnabled((curr) => (curr ? true : bio));
         setCanBio(can);
         setAutoLockSeconds(lockSec);
-        setUserName((curr) => (userNameRef.current ? userNameRef.current : prof.name));
       } catch {}
     }
     loadData();
     return () => {
       active = false;
     };
-  }, [authService, profileRepository]);
+  }, [authService]);
+
+  const openPin = (mode: 'create' | 'change' | 'remove') => {
+    setPinMode(mode);
+    setPinStep(1);
+    setPinInput('');
+    setFirstPin('');
+    setCurrentPin('');
+    setPinError(null);
+  };
+
+  const closePin = () => {
+    setPinMode('none');
+    setPinInput('');
+    setPinError(null);
+  };
 
   const handleDigit = async (d: string) => {
     if (pinInput.length >= 6) return;
@@ -245,70 +609,62 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
     setPinInput(next);
     setPinError(null);
 
-    if (next.length === 6) {
-      if (pinMode === 'create') {
-        if (pinStep === 1) {
-          setFirstPin(next);
+    if (next.length < 6) return;
+    if (pinMode === 'create') {
+      if (pinStep === 1) {
+        setFirstPin(next);
+        setPinInput('');
+        setPinStep(2);
+      } else if (next === firstPin) {
+        await authService.setPin(next);
+        setHasPin(true);
+        closePin();
+        setFirstPin('');
+      } else {
+        setPinError('Os PINs não coincidem. Tente de novo.');
+        setPinInput('');
+        setPinStep(1);
+      }
+    } else if (pinMode === 'change') {
+      if (pinStep === 1) {
+        const verify = await authService.verifyPin(next);
+        if (verify.ok) {
+          setCurrentPin(next);
           setPinInput('');
           setPinStep(2);
-        } else if (pinStep === 2) {
-          if (next === firstPin) {
-            await authService.setPin(next);
-            setHasPin(true);
-            setPinMode('none');
-            setPinInput('');
-            setFirstPin('');
-          } else {
-            setPinError('PINs não coincidem');
-            setPinInput('');
-            setPinStep(1);
-          }
-        }
-      } else if (pinMode === 'change') {
-        if (pinStep === 1) {
-          const verify = await authService.verifyPin(next);
-          if (verify.ok) {
-            setCurrentPin(next);
-            setPinInput('');
-            setPinStep(2);
-          } else {
-            setPinError('PIN atual incorreto');
-            setPinInput('');
-          }
-        } else if (pinStep === 2) {
-          setFirstPin(next);
-          setPinInput('');
-          setPinStep(3);
-        } else if (pinStep === 3) {
-          if (next === firstPin) {
-            const res = await authService.changePin(currentPin, next);
-            if (res.ok) {
-              setPinMode('none');
-              setPinInput('');
-              setCurrentPin('');
-              setFirstPin('');
-            } else {
-              setPinError('Erro ao alterar PIN');
-              setPinInput('');
-              setPinStep(2);
-            }
-          } else {
-            setPinError('PINs não coincidem');
-            setPinInput('');
-            setPinStep(2);
-          }
-        }
-      } else if (pinMode === 'remove') {
-        const res = await authService.removePin(next);
-        if (res.ok) {
-          setHasPin(false);
-          setIsBioEnabled(false);
-          setPinMode('none');
-          setPinInput('');
         } else {
-          setPinError('PIN incorreto');
+          setPinError('PIN atual incorreto');
           setPinInput('');
         }
+      } else if (pinStep === 2) {
+        setFirstPin(next);
+        setPinInput('');
+        setPinStep(3);
+      } else if (next === firstPin) {
+        const res = await authService.changePin(currentPin, next);
+        if (res.ok) {
+          closePin();
+          setCurrentPin('');
+          setFirstPin('');
+        } else {
+          setPinError('Não foi possível alterar o PIN');
+          setPinInput('');
+          setPinStep(2);
+        }
+      } else {
+        setPinError('Os PINs não coincidem. Tente de novo.');
+        setPinInput('');
+        setPinStep(2);
+      }
+    } else if (pinMode === 'remove') {
+      const res = await authService.removePin(next);
+      if (res.ok) {
+        setHasPin(false);
+        setIsBioEnabled(false);
+        closePin();
+      } else {
+        setPinError('PIN incorreto');
+        setPinInput('');
       }
     }
   };
@@ -326,9 +682,7 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
     }
     if (val) {
       const res = await authService.enableBiometrics();
-      if (res.success) {
-        setIsBioEnabled(true);
-      }
+      if (res.success) setIsBioEnabled(true);
     } else {
       await authService.disableBiometrics();
       setIsBioEnabled(false);
@@ -340,297 +694,120 @@ export const SecurityTile: React.FC<SecurityTileProps> = ({
     setAutoLockSeconds(sec);
   };
 
-  const handleNameBlur = async () => {
-    const clean = (userNameRef.current || userName).trim();
-    if (clean.length >= 2) {
-      await profileRepository.setProfileName(clean);
-      await profileStore.load();
-    }
-  };
-
-  const handleConfirmWipe = async () => {
-    if (wipeText !== 'APAGAR') return;
-    await authService.resetAll();
-    await profileRepository.setOnboarded(false);
-    resetDatabase();
-    sessionStore.setStatus('onboarding');
-    setIsWipeOpen(false);
-    setWipeText('');
-  };
-
-  const autolockOptions = [
-    { sec: 0, label: 'Imediato' },
-    { sec: 30, label: '30 s' },
-    { sec: 60, label: '1 min' },
-    { sec: 300, label: '5 min' },
-  ];
-
-  const getPinSheetTitle = () => {
-    if (pinMode === 'create') {
-      return pinStep === 1 ? 'Digite seu PIN de 6 dígitos' : 'Confirme seu PIN';
-    }
+  const pinTitle = (() => {
+    if (pinMode === 'create') return pinStep === 1 ? 'Digite seu PIN de 6 dígitos' : 'Confirme seu PIN';
     if (pinMode === 'change') {
       if (pinStep === 1) return 'Digite o PIN atual';
       if (pinStep === 2) return 'Digite o novo PIN';
       return 'Confirme o novo PIN';
     }
-    if (pinMode === 'remove') {
-      return 'Digite o PIN atual para remover';
-    }
+    if (pinMode === 'remove') return 'Digite o PIN atual para remover';
     return '';
-  };
+  })();
+  const pinSubtitle =
+    pinMode === 'remove'
+      ? 'Sem PIN, o app abre direto e a digital é desligada.'
+      : 'Use 6 números que você não esqueça. Evite sequências.';
 
   return (
-    <BentoTile variant={variant} testID="settings-section-seguranca">
-      <SectionTitle icon="security" label="SEGURANÇA" fg={fg} />
+    <View testID="settings-section-seguranca">
+      {showName ? <ProfileNameRow isLight={isLight} profileRepository={profileRepository} first /> : null}
 
-      {/* Nome de usuário */}
-      <View style={{ marginBottom: 14 }}>
-        <Text style={[s.rowTitle, { color: fg, marginBottom: 4 }]}>Nome do Perfil</Text>
-        <TextInput
-          testID="security-name-input"
-          value={userName}
-          onChangeText={(t) => {
-            userNameRef.current = t;
-            setUserName(t);
-          }}
-          onBlur={handleNameBlur}
-          placeholder="Seu nome"
-          placeholderTextColor={muted}
-          style={[
-            s.textInput,
-            {
-              backgroundColor: isLight ? '#EAE4D7' : '#1C1E20',
-              color: fg,
-              borderColor: muted + '44',
-            },
-          ]}
-        />
-      </View>
-
-      {/* Status do PIN */}
-      <View style={[s.card, { backgroundColor: isLight ? '#EAE4D7' : '#1C1E20', borderColor: muted + '33' }]}>
-        <View style={{ flex: 1 }}>
-          <Text testID="security-pin-status" style={[s.rowTitle, { color: fg }]}>
-            {hasPin ? 'PIN configurado' : 'Proteja o app com um PIN'}
-          </Text>
-          <Text style={[s.body, { color: muted }]}>
-            {hasPin
-              ? 'PIN de 6 dígitos ativo para proteção de acesso.'
-              : 'Defina um PIN de 6 dígitos para bloquear o app.'}
-          </Text>
-        </View>
-
-        {!hasPin ? (
-          <DirectiveButton
-            testID="security-create-pin"
-            label="Criar PIN"
-            variant="primary"
-            materialIcon="pin"
-            onPress={() => {
-              setPinMode('create');
-              setPinStep(1);
-              setPinInput('');
-              setPinError(null);
-            }}
-            themeMode={theme}
-          />
-        ) : (
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-            <DirectiveButton
-              testID="security-change-pin"
-              label="Alterar PIN"
-              variant="secondary"
-              materialIcon="edit"
-              onPress={() => {
-                setPinMode('change');
-                setPinStep(1);
-                setPinInput('');
-                setPinError(null);
-              }}
-              themeMode={theme}
-            />
-            <DirectiveButton
-              testID="security-remove-pin"
-              label="Remover PIN"
-              variant="destructive"
-              materialIcon="delete"
-              onPress={() => {
-                setPinMode('remove');
-                setPinStep(1);
-                setPinInput('');
-                setPinError(null);
-              }}
-              themeMode={theme}
-            />
-          </View>
-        )}
-      </View>
-
-      {/* Switch de Biometria */}
-      <View style={[s.switchRow, { marginTop: 14 }]}>
-        <View style={{ flex: 1 }}>
-          <Text style={[s.rowTitle, { color: hasPin && canBio ? fg : muted }]}>Entrar com digital</Text>
-          <Text style={[s.body, { color: muted }]}>
-            {!hasPin
-              ? 'Crie um PIN primeiro'
-              : !canBio
-              ? 'Sensor biométrico não disponível'
-              : 'Desbloqueie com rapidez usando biometria.'}
-          </Text>
-        </View>
-        <Switch
-          testID="security-biometric-switch"
-          disabled={!hasPin}
-          value={hasPin && isBioEnabled}
-          onValueChange={handleToggleBio}
-          trackColor={{ false: isLight ? '#D5CFBE' : '#2A2D30', true: colors.secondary }}
-          thumbColor={isBioEnabled ? colors.primary : isLight ? '#C5BEB3' : '#8A8C90'}
-        />
-      </View>
-
-      {/* Seletor Bloquear Após */}
-      <View style={{ marginTop: 14 }}>
-        <Text style={[s.rowTitle, { color: hasPin ? fg : muted, marginBottom: 6 }]}>Bloquear após</Text>
-        {!hasPin && (
-          <Text style={[s.body, { color: muted, marginBottom: 4 }]}>Configure um PIN para ativar o bloqueio automático</Text>
-        )}
-        <View style={s.optionRow}>
-          {autolockOptions.map((opt) => {
-            const active = autoLockSeconds === opt.sec;
-            return (
-              <TouchableOpacity
-                key={opt.sec}
-                testID={`security-autolock-${opt.sec}`}
-                disabled={!hasPin}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active, disabled: !hasPin }}
-                onPress={() => handleSelectAutolock(opt.sec)}
-                style={[
-                  s.option,
-                  {
-                    borderColor: active ? colors.primary : muted + '44',
-                    backgroundColor: active ? colors.primary + '22' : 'transparent',
-                    opacity: hasPin ? 1 : 0.4,
-                  },
-                ]}
-              >
-                <Text style={[s.optionLabel, { color: active ? colors.primary : muted }]}>{opt.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Botão Bloquear Agora */}
-      <View style={{ marginTop: 14 }}>
-        <DirectiveButton
-          testID="security-lock-now"
-          disabled={!hasPin}
-          label="Bloquear agora"
-          variant="secondary"
-          materialIcon="lock"
-          onPress={() => sessionStore.lock()}
-          themeMode={theme}
-        />
-      </View>
-
-      {/* Ação Destrutiva Apagar Dados */}
-      <View style={{ marginTop: 20, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: muted + '44' }}>
-        <DirectiveButton
-          testID="security-wipe"
-          label="Apagar todos os dados"
-          variant="destructive"
-          materialIcon="warning"
-          onPress={() => {
-            setWipeText('');
-            setIsWipeOpen(true);
-          }}
-          themeMode={theme}
-        />
-      </View>
-
-      {/* Folha / Modal para digitar PIN */}
-      {pinMode !== 'none' && (
-        <View testID="security-pin-sheet" style={[s.pinSheetOverlay, { backgroundColor: isLight ? '#F4F1EA' : '#111315' }]}>
-          <View style={{ width: '100%', maxWidth: 360, alignItems: 'center' }}>
-            <Text style={[s.sheetTitle, { color: fg }]}>{getPinSheetTitle()}</Text>
-            {pinError && <Text style={s.pinErrorText}>{pinError}</Text>}
-
-            <View style={{ marginVertical: 20 }}>
-              <PinDots length={6} filled={pinInput.length} error={Boolean(pinError)} />
+      {hasPin ? (
+        <ExpandableRow
+          icon="lock-outline"
+          isLight={isLight}
+          first={!showName}
+          title="PIN de acesso"
+          subtitle="PIN configurado"
+          subtitleTestID="security-pin-status"
+          value="Gerenciar"
+          rowTestID="security-pin-row"
+          content={
+            <View>
+              <PanelAction first icon="edit" label="Alterar PIN" isLight={isLight} testID="security-change-pin" onPress={() => openPin('change')} />
+              <PanelAction icon="lock-open" label="Remover PIN" danger isLight={isLight} testID="security-remove-pin" onPress={() => openPin('remove')} />
             </View>
+          }
+        />
+      ) : (
+        <ListRow
+          icon="lock-outline"
+          isLight={isLight}
+          first={!showName}
+          testID="security-create-pin"
+          title="PIN de acesso"
+          subtitle="Proteja o app com um PIN"
+          subtitleTestID="security-pin-status"
+          value="Criar"
+          onPress={() => openPin('create')}
+        />
+      )}
 
-            <PinKeypad
-              onDigit={handleDigit}
-              onBackspace={handleBackspace}
-              biometricAvailable={false}
-              themeMode={theme}
-            />
+      <ListRow
+        icon="fingerprint"
+        isLight={isLight}
+        disabled={!hasPin || !canBio}
+        title="Entrar com digital"
+        subtitle={!hasPin ? 'Crie um PIN primeiro' : !canBio ? 'Sensor biométrico não disponível' : 'Desbloqueie sem digitar o PIN'}
+        right={
+          <Switch
+            testID="security-biometric-switch"
+            disabled={!hasPin}
+            value={hasPin && isBioEnabled}
+            onValueChange={handleToggleBio}
+            {...appSwitch(isLight, hasPin && isBioEnabled)}
+          />
+        }
+      />
 
-            <TouchableOpacity
-              onPress={() => {
-                setPinMode('none');
-                setPinInput('');
-                setPinError(null);
-              }}
-              style={s.cancelButton}
-            >
-              <Text style={[s.body, { color: colors.primary, fontWeight: '700' }]}>Cancelar</Text>
+      {hasPin ? (
+        <>
+          <ExpandableRow
+            icon="schedule"
+            isLight={isLight}
+            title="Bloquear após"
+            subtitle="Tempo em segundo plano"
+            value={AUTOLOCK_OPTIONS.find((o) => o.id === autoLockSeconds)?.label}
+            rowTestID="security-autolock-row"
+            content={
+              <SegmentedControl
+                value={autoLockSeconds}
+                onChange={handleSelectAutolock}
+                themeMode={p.theme}
+                options={AUTOLOCK_OPTIONS}
+              />
+            }
+          />
+          <ListRow
+            icon="lock-clock"
+            isLight={isLight}
+            testID="security-lock-now"
+            title="Bloquear agora"
+            onPress={() => sessionStore.lock()}
+          />
+        </>
+      ) : null}
+
+      {showWipe ? <WipeDataRow isLight={isLight} authService={authService} profileRepository={profileRepository} /> : null}
+
+      <AnimatedModalSheet visible={pinMode !== 'none'} onClose={closePin} themeMode={p.theme} testID="security-pin-modal" maxHeight={0.92}>
+        {pinMode !== 'none' ? (
+          <View testID="security-pin-sheet" style={s.pinSheet}>
+            <View style={[s.pinIcon, { backgroundColor: colors.primary + '1F' }]}>
+              <MaterialIcons name={pinMode === 'remove' ? 'lock-open' : 'lock-outline'} size={24} color={colors.primary} />
+            </View>
+            <Text style={[s.sheetTitle, { color: p.fg }]}>{pinTitle}</Text>
+            <Text style={[s.sheetSubtitle, { color: pinError ? DANGER_COLOR : p.muted }]}>{pinError ?? pinSubtitle}</Text>
+            <PinDots length={6} filled={pinInput.length} error={Boolean(pinError)} themeMode={p.theme} />
+            <PinKeypad onDigit={handleDigit} onBackspace={handleBackspace} biometricAvailable={false} themeMode={p.theme} />
+            <TouchableOpacity accessibilityRole="button" onPress={closePin} style={s.cancelButton}>
+              <Text style={[s.cancelText, { color: p.muted }]}>Cancelar</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      )}
-
-      {/* Diálogo de Confirmação de Wipe */}
-      {isWipeOpen && (
-        <View testID="security-wipe-dialog" style={[s.pinSheetOverlay, { backgroundColor: isLight ? '#F4F1EAEE' : '#111315EE' }]}>
-          <View style={[s.card, { width: '100%', maxWidth: 360, backgroundColor: isLight ? '#EAE4D7' : '#1C1E20', borderColor: colors.primary }]}>
-            <Text style={[s.sheetTitle, { color: colors.primary, marginBottom: 8 }]}>Apagar todos os dados</Text>
-            <Text style={[s.body, { color: fg, marginBottom: 12 }]}>
-              Esta ação excluirá permanentemente todas as suas carteiras, transações e configurações locais. Para confirmar, digite APAGAR abaixo:
-            </Text>
-            <TextInput
-              testID="security-wipe-confirm-input"
-              value={wipeText}
-              onChangeText={setWipeText}
-              placeholder="Digite APAGAR"
-              placeholderTextColor={muted}
-              autoCapitalize="characters"
-              style={[
-                s.textInput,
-                {
-                  backgroundColor: isLight ? '#F4F1EA' : '#111315',
-                  color: fg,
-                  borderColor: muted + '44',
-                  marginBottom: 16,
-                },
-              ]}
-            />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <DirectiveButton
-                testID="security-wipe-cancel-btn"
-                label="Cancelar"
-                variant="secondary"
-                onPress={() => {
-                  setIsWipeOpen(false);
-                  setWipeText('');
-                }}
-                themeMode={theme}
-              />
-              <DirectiveButton
-                testID="security-wipe-confirm-btn"
-                label="APAGAR DEFINITIVAMENTE"
-                variant="destructive"
-                disabled={wipeText !== 'APAGAR'}
-                onPress={handleConfirmWipe}
-                themeMode={theme}
-              />
-            </View>
-          </View>
-        </View>
-      )}
-    </BentoTile>
+        ) : null}
+      </AnimatedModalSheet>
+    </View>
   );
 };
 
@@ -645,6 +822,8 @@ export interface BackupTileProps {
   onImport: () => void;
   onImportSpreadsheet: () => void;
   onImportB3?: () => void;
+  /** Linhas extras no fim do grupo (ex.: apagar dados). */
+  footer?: React.ReactNode;
 }
 
 export const BackupTile: React.FC<BackupTileProps> = ({
@@ -656,103 +835,115 @@ export const BackupTile: React.FC<BackupTileProps> = ({
   onImport,
   onImportSpreadsheet,
   onImportB3,
+  footer,
 }) => {
-  const { variant, fg, muted } = useTileColors(isLight);
-  const theme = isLight ? 'light' : 'dark';
-  const modes: Array<{ id: BackupImportMode; testID: string; title: string; sub: string; icon: keyof typeof MaterialIcons.glyphMap }> = [
-    { id: 'MERGE', testID: 'import-mode-merge', title: 'MESCLAR', sub: 'Mantém os dados atuais e inclui só o que for novo', icon: 'merge-type' },
-    { id: 'RESTORE', testID: 'import-mode-restore', title: 'RESTAURAR', sub: 'Substitui tudo pelo conteúdo do backup', icon: 'settings-backup-restore' },
-  ];
+  const p = usePalette(isLight);
   return (
-    <BentoTile variant={variant} testID="settings-section-gestao-dados">
-      <SectionTitle icon="folder-zip" label="BACKUP E DADOS" fg={fg} />
-      <Text style={[s.body, { color: muted }]}>
-        Backup seguro (.celsus.zip) com carteiras, ativos e movimentações. A integridade é verificada antes de importar.
-      </Text>
-
-      <View style={{ marginTop: 12 }}>
-        <DirectiveButton testID="export-dossier-btn" label="Exportar backup .celsus.zip" variant="primary" materialIcon="file-download" onPress={onExport} themeMode={theme} />
-      </View>
-
-      {lastExport ? (
-        <View style={[s.manifest, { borderColor: muted + '55' }]}>
-          <Text style={[s.rowTitle, { color: fg }]}>{lastExport.fileName}</Text>
-          {(['portfolios.csv', 'assets.csv', 'transactions.csv'] as const).map((f) => (
-            <Text key={f} style={[s.mono, { color: muted }]}>
-              {`${f}: ${lastExport.manifest.files[f].rows} linhas · SHA-256 ${lastExport.manifest.files[f].sha256.slice(0, 16)}…`}
-            </Text>
-          ))}
-        </View>
-      ) : null}
-
-      <View style={s.optionRow}>
-        {modes.map((m) => {
-          const active = importMode === m.id;
-          return (
-            <TouchableOpacity
-              key={m.id}
-              testID={m.testID}
-              accessibilityRole="button"
-              accessibilityState={{ selected: active }}
-              activeOpacity={0.8}
-              onPress={() => onChangeImportMode(m.id)}
-              style={[s.option, s.modeOption, { borderColor: active ? colors.primary : muted + '55' }, active && { backgroundColor: colors.primary + '22' }]}
-            >
-              <MaterialIcons name={m.icon} size={18} color={active ? colors.primary : muted} />
-              <Text style={[s.optionLabel, { color: active ? fg : muted }]}>{m.title}</Text>
-              <Text style={[s.mono, { color: muted, textAlign: 'center' }]}>{m.sub}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={{ marginTop: 12, gap: 10 }}>
-        <DirectiveButton
-          testID="import-dossier-btn"
-          label={importMode === 'MERGE' ? 'Importar e mesclar dados' : 'Restaurar e substituir dados'}
-          variant="secondary"
-          materialIcon="file-upload"
-          onPress={onImport}
-          themeMode={theme}
+    <View testID="settings-section-gestao-dados">
+      {onImportB3 ? (
+        <ListRow
+          icon="account-balance"
+          isLight={isLight}
+          first
+          testID="import-b3-btn"
+          title="Importar extrato B3"
+          subtitle="Planilha da Área do Investidor"
+          onPress={onImportB3}
         />
-        <DirectiveButton testID="import-spreadsheet-btn" label="Importar dados da planilha" variant="primary" materialIcon="table-chart" onPress={onImportSpreadsheet} themeMode={theme} />
-        {onImportB3 && (
-          <DirectiveButton
-            testID="import-b3-btn"
-            label="Importar extrato da B3"
-            variant="primary"
-            materialIcon="account-balance"
-            onPress={onImportB3}
-            themeMode={theme}
-          />
-        )}
-      </View>
-    </BentoTile>
+      ) : null}
+      <ExpandableRow
+        icon="inventory-2"
+        title="Backup e restauração"
+        subtitle="Arquivo .celsus.zip"
+        isLight={isLight}
+        first={!onImportB3}
+        rowTestID="backup-row"
+        content={
+          <View style={{ gap: 12 }}>
+            <Text style={[s.rowSubtitle, { color: p.muted }]}>
+              Carteiras, ativos e movimentações num arquivo só. A integridade é conferida antes de importar.
+            </Text>
+
+            <View style={[s.panelGroup, { backgroundColor: isLight ? '#FFFFFF' : '#1C1E20', borderColor: p.divider }]}>
+              <PanelAction first icon="file-download" label="Exportar backup" isLight={isLight} testID="export-dossier-btn" onPress={onExport} />
+            </View>
+            {lastExport ? (
+              <View style={{ gap: 2 }}>
+                <Text style={[s.caption, { color: p.fg }]}>{lastExport.fileName}</Text>
+                {(['portfolios.csv', 'assets.csv', 'transactions.csv'] as const).map((f) => (
+                  <Text key={f} style={[s.mono, { color: p.muted }]}>
+                    {`${f}: ${lastExport.manifest.files[f].rows} linhas · SHA-256 ${lastExport.manifest.files[f].sha256.slice(0, 12)}…`}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+
+            <Text style={[s.panelLabel, { color: p.muted }]}>Ao importar</Text>
+            <SegmentedControl
+              value={importMode}
+              onChange={onChangeImportMode}
+              themeMode={p.theme}
+              options={[
+                { id: 'MERGE', label: 'Mesclar', icon: 'merge-type', testID: 'import-mode-merge' },
+                { id: 'RESTORE', label: 'Restaurar', icon: 'settings-backup-restore', testID: 'import-mode-restore' },
+              ]}
+            />
+            <Text style={[s.caption, { color: p.muted }]}>
+              {importMode === 'MERGE'
+                ? 'Mantém os dados atuais e inclui só o que for novo.'
+                : 'Substitui tudo pelo conteúdo do backup.'}
+            </Text>
+
+            <View style={[s.panelGroup, { backgroundColor: isLight ? '#FFFFFF' : '#1C1E20', borderColor: p.divider }]}>
+              <PanelAction
+                first
+                icon="file-upload"
+                label={importMode === 'MERGE' ? 'Importar e mesclar dados' : 'Restaurar e substituir dados'}
+                isLight={isLight}
+                testID="import-dossier-btn"
+                onPress={onImport}
+              />
+              <PanelAction icon="table-chart" label="Importar dados da planilha" isLight={isLight} testID="import-spreadsheet-btn" onPress={onImportSpreadsheet} />
+            </View>
+          </View>
+        }
+      />
+      {footer}
+    </View>
   );
 };
 
 const s = StyleSheet.create({
-  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
-  sectionTitle: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  body: { fontFamily: typography.fontFamily, fontSize: 12, lineHeight: 18 },
-  mono: { fontFamily: typography.fontFamilyMono, fontSize: 10, marginTop: 2 },
-  rowTitle: { fontFamily: typography.fontFamily, fontSize: 14, fontWeight: '700' },
-  name: { fontFamily: typography.fontFamily, fontSize: 18, fontWeight: '700' },
-  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontFamily: typography.fontFamily, fontSize: 15, fontWeight: '700' },
-  closeBtn: { padding: 8, borderRadius: 14 },
+  groupLabel: { fontFamily: typography.fontFamily, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginTop: 10, marginLeft: 6 },
+  groupCard: { paddingVertical: 2, paddingHorizontal: 16 },
+  listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 10 },
+  iconChip: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  rowTitle: { fontFamily: typography.fontFamily, fontSize: 15, fontWeight: '600' },
+  rowSubtitle: { fontFamily: typography.fontFamily, fontSize: 12, lineHeight: 17, marginTop: 1 },
+  rowValue: { fontFamily: typography.fontFamily, fontSize: 13, maxWidth: 140 },
+  caption: { fontFamily: typography.fontFamily, fontSize: 12, lineHeight: 17 },
+  mono: { fontFamily: typography.fontFamilyMono, fontSize: 10 },
+  panel: { borderRadius: 16, padding: 12, marginBottom: 12, gap: 10 },
+  panelGroup: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 12 },
+  panelLabel: { fontFamily: typography.fontFamily, fontSize: 11, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase' },
+  panelAction: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48 },
+  panelActionText: { flex: 1, fontFamily: typography.fontFamily, fontSize: 14, fontWeight: '600' },
   walletRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  optionRow: { flexDirection: 'row', gap: bento.gap, marginTop: 6 },
-  option: { flex: 1, borderWidth: 1, borderRadius: bento.innerRadius, padding: 12, alignItems: 'center', gap: 6 },
-  modeOption: { paddingVertical: 14 },
-  optionLabel: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '700' },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  manifest: { borderWidth: 1, borderRadius: bento.innerRadius, padding: 12, marginTop: 12 },
-  card: { borderWidth: 1, borderRadius: bento.innerRadius, padding: 14, marginTop: 8 },
-  textInput: { borderWidth: 1, borderRadius: bento.innerRadius, paddingHorizontal: 12, paddingVertical: 10, fontSize: 14, fontFamily: typography.fontFamily },
-  pinSheetOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  sheetTitle: { fontFamily: typography.fontFamily, fontSize: 18, fontWeight: '700', textAlign: 'center', marginBottom: 12 },
-  pinErrorText: { fontFamily: typography.fontFamily, fontSize: 13, color: colors.primary, textAlign: 'center', marginBottom: 8 },
-  cancelButton: { marginTop: 16, padding: 10, alignItems: 'center' },
+  topBar: { flexDirection: 'row', alignItems: 'center', height: 48 },
+  heroCol: { alignItems: 'center', gap: 6, paddingBottom: 6 },
+  avatarHero: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  avatarHeroText: { fontFamily: typography.fontFamily, fontSize: 26, fontWeight: '700', color: '#1A0E08' },
+  name: { fontFamily: typography.fontFamily, fontSize: 20, fontWeight: '700' },
+  chipRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, height: 30, borderRadius: 15, borderWidth: StyleSheet.hairlineWidth },
+  chipText: { fontFamily: typography.fontFamily, fontSize: 12, fontWeight: '600' },
+  pinSheet: { alignItems: 'center', paddingTop: 4 },
+  pinIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  sheetTitle: { fontFamily: typography.fontFamily, fontSize: 19, fontWeight: '700', textAlign: 'center' },
+  sheetSubtitle: { fontFamily: typography.fontFamily, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 4, minHeight: 18 },
+  cancelButton: { paddingVertical: 12, paddingHorizontal: 24, marginTop: 4 },
+  cancelText: { fontFamily: typography.fontFamily, fontSize: 15, fontWeight: '600' },
 });
+
+/** Estilo dos cartões de grupo do Perfil (usado pela tela). */
+export const profileGroupCardStyle = s.groupCard;

@@ -36,7 +36,7 @@ import { spreadsheetImportService } from './src/services/spreadsheetImportServic
 import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import { AppGate } from './src/components/AppGate';
 import { sessionStore } from './src/stores/sessionStore';
-import { useProfile } from './src/stores/profileStore';
+import { useProfile, profileStore } from './src/stores/profileStore';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -83,11 +83,43 @@ import { ASSET_CLASS_ATTRIBUTE_MAP } from './src/components/ui/AttributeStatBar'
 import Decimal from 'decimal.js';
 
 
+/** Tema atual para quem desenha fora do AppContent (bloqueio e onboarding). */
+function useGlobalThemeMode(): ThemeMode {
+  const [mode, setMode] = useState<ThemeMode>(themeModeService.getThemeMode());
+  useEffect(() => {
+    const unsubscribe = themeModeService.subscribe(setMode);
+    // Tema salvo no aparelho. No Jest o tema começa sempre escuro (as suítes contam com isso).
+    if (process.env.NODE_ENV !== 'test') themeModeService.hydrate().then(setMode).catch(() => {});
+    return unsubscribe;
+  }, []);
+  return mode;
+}
+
 export default function App() {
+  const themeMode = useGlobalThemeMode();
+  const [initialAction, setInitialAction] = useState<'import_b3' | 'create_wallet' | 'explore' | null>(null);
+
+  // Nome e iniciais do perfil para a tela de bloqueio, os headers e o Perfil (antes ninguém carregava
+  // o perfil na abertura e o bloqueio mostrava "Investidor").
+  // No Jest fica de fora: a leitura assíncrona atravessava o reset de banco entre as suítes de tela.
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'test') profileStore.ensureLoaded().catch(() => {});
+  }, []);
   return (
     <SafeAreaProvider>
-      <AppGate bypassOnboardingUntilSprint44>
-        <AppContent />
+      {/* No app real o onboarding roda (nome, PIN opcional, digital). As suítes antigas de telas montam
+          <App /> direto na Home, então só no Jest o portão pula o onboarding. */}
+      <AppGate
+        themeMode={themeMode}
+        bypassOnboardingUntilSprint44={process.env.NODE_ENV === 'test'}
+        onOnboardingComplete={(action) => {
+          if (action) setInitialAction(action);
+        }}
+      >
+        <AppContent
+          initialAction={initialAction}
+          onClearInitialAction={() => setInitialAction(null)}
+        />
       </AppGate>
     </SafeAreaProvider>
   );
@@ -168,12 +200,20 @@ function getInitialTransactions(): RecentTransactionItem[] {
   return [];
 }
 
-function AppContent() {
+function AppContent(props: {
+  initialAction?: 'import_b3' | 'create_wallet' | 'explore' | null;
+  onClearInitialAction?: () => void;
+} = {}) {
   const insets = useSafeAreaInsets();
   const { name: profileName, initials: profileInitials } = useProfile();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeModeService.getThemeMode());
+  // O tema salvo é lido no início (hydrate) e pode mudar fora daqui: acompanha o serviço.
+  useEffect(() => themeModeService.subscribe(setThemeMode), []);
+  useEffect(() => {
+    profileStore.ensureLoaded().catch(() => {});
+  }, []);
   const [activeWalletIndex, setActiveWalletIndex] = useState(0);
 
   const activePalette = getPortfolioPalette(activeWalletIndex);
@@ -192,6 +232,7 @@ function AppContent() {
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
+  const [b3ImportKey, setB3ImportKey] = useState(0);
   const [prefillAsset, setPrefillAsset] = useState<{
     ticker: string;
     name: string;
@@ -245,62 +286,73 @@ function AppContent() {
       // 1. Carrega dados consolidados das carteiras locais
       const allPortfolios = await portfolioRepository.listPortfolios(false);
       if (allPortfolios && allPortfolios.length > 0) {
-        const quoteCacheMap: Record<string, MarketQuote> = {};
-        const inputs: PortfolioConsolidationInput[] = await Promise.all(
+        // Ativos e metas de todas as carteiras em paralelo; cotações resolvidas UMA vez por ticker:
+        // cache local primeiro e, para o que faltar, uma única chamada de rede em lote (antes era
+        // 1 requisição por ativo sem cache, repetida a cada fechamento de modal).
+        const loaded = await Promise.all(
           allPortfolios.map(async (p) => {
-            const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
-            const pTargets = await portfolioRepository.getClassTargets(p.id);
-            const mappedAssets = await Promise.all(
-              pAssets.map(async (a) => {
-                let quotePrice: string | null = null;
-                if (a.ticker) {
-                  try {
-                    const normTicker = a.ticker.toUpperCase();
-                    if (!quoteCacheMap[normTicker]?.currentPrice) {
-                      let cached = await marketApiService.getCachedQuote(a.ticker);
-                      if (!cached) {
-                        try {
-                          const fetched = await marketApiService.fetchQuotes([a.ticker]);
-                          if (fetched && fetched.length > 0) {
-                            cached = fetched[0];
-                          }
-                        } catch {}
-                      }
-                      if (cached) {
-                        quoteCacheMap[normTicker] = cached;
-                      }
-                    }
-                    if (quoteCacheMap[normTicker]?.currentPrice) {
-                      quotePrice = quoteCacheMap[normTicker].currentPrice;
-                    }
-                  } catch (err) {
-                    console.error('[App] Failed to get cached quote for', a.ticker, err);
-                  }
-                }
-                const currentPrice = a.manual_price_override || quotePrice || a.average_price;
-                return {
-                  id: a.id,
-                  ticker: a.ticker,
-                  assetClass: a.asset_class as any,
-                  quantity: a.quantity,
-                  averagePrice: a.average_price,
-                  currentPrice,
-                };
-              })
-            );
-            return {
-              id: p.id,
-              name: p.name,
-              docketCode: p.docket_code,
-              isArchived: p.is_archived,
-              assets: mappedAssets,
-              classTargets: pTargets.map((ct) => ({
-                assetClass: ct.asset_class as any,
-                targetPercentage: ct.target_percentage,
-              })),
-            };
+            const [pAssets, pTargets] = await Promise.all([
+              assetRepository.getAssetsByPortfolio(p.id),
+              portfolioRepository.getClassTargets(p.id),
+            ]);
+            return { p, pAssets, pTargets };
           })
         );
+        const quoteCacheMap: Record<string, MarketQuote> = {};
+        const allTickers = Array.from(
+          new Set(
+            loaded.flatMap(({ pAssets }) =>
+              pAssets.map((a) => a.ticker?.toUpperCase()).filter((t): t is string => !!t)
+            )
+          )
+        );
+        const missing: string[] = [];
+        await Promise.all(
+          allTickers.map(async (t) => {
+            try {
+              const cached = await marketApiService.getCachedQuote(t);
+              if (cached?.currentPrice) quoteCacheMap[t] = cached;
+              else if (!failedQuoteTickers.current.has(t)) missing.push(t);
+            } catch (err) {
+              console.error('[App] Failed to get cached quote for', t, err);
+            }
+          })
+        );
+        if (missing.length > 0) {
+          try {
+            const fetched = await marketApiService.fetchQuotes(missing);
+            const got = new Set<string>();
+            for (const q of fetched || []) {
+              const key = q.ticker.toUpperCase();
+              quoteCacheMap[key] = q;
+              got.add(key);
+            }
+            missing.forEach((t) => !got.has(t) && failedQuoteTickers.current.add(t));
+          } catch {
+            missing.forEach((t) => failedQuoteTickers.current.add(t));
+          }
+        }
+        const inputs: PortfolioConsolidationInput[] = loaded.map(({ p, pAssets, pTargets }) => ({
+          id: p.id,
+          name: p.name,
+          docketCode: p.docket_code,
+          isArchived: p.is_archived,
+          assets: pAssets.map((a) => {
+            const quotePrice = a.ticker ? quoteCacheMap[a.ticker.toUpperCase()]?.currentPrice ?? null : null;
+            return {
+              id: a.id,
+              ticker: a.ticker,
+              assetClass: a.asset_class as any,
+              quantity: a.quantity,
+              averagePrice: a.average_price,
+              currentPrice: a.manual_price_override || quotePrice || a.average_price,
+            };
+          }),
+          classTargets: pTargets.map((ct) => ({
+            assetClass: ct.asset_class as any,
+            targetPercentage: ct.target_percentage,
+          })),
+        }));
         setCachedQuotes(quoteCacheMap);
 
         const dossier = consolidatePortfolios(inputs);
@@ -377,20 +429,21 @@ function AppContent() {
 
       // 2. Carrega movimentações e ativos da carteira ativa ou primeira cadastrada
       const activePortId = allPortfolios?.[activeWalletIndex]?.id || allPortfolios?.[0]?.id;
+      let activeAssets: any[] = [];
       if (activePortId) {
-        const pAssets = await assetRepository.getAssetsByPortfolio(activePortId);
-        setPortfolioAssets(pAssets || []);
-      } else {
-        setPortfolioAssets([]);
+        activeAssets = (await assetRepository.getAssetsByPortfolio(activePortId)) || [];
       }
+      setPortfolioAssets(activeAssets);
 
       const txs = await transactionService.getTransactionsByPortfolio(
         activePortId || 'default-portfolio'
       );
       if (txs && txs.length > 0) {
+        // Ativos já carregados: evita 1 consulta ao banco por movimentação.
+        const assetById = new Map(activeAssets.map((a) => [a.id, a]));
         const mapped: RecentTransactionItem[] = await Promise.all(
           txs.slice(0, 5).map(async (t) => {
-            const asset = await assetRepository.getAssetById(t.asset_id);
+            const asset = assetById.get(t.asset_id) ?? (await assetRepository.getAssetById(t.asset_id));
             return {
               id: t.id,
               ticker: asset?.ticker || (t as any).ticker || 'ATIVO',
@@ -920,6 +973,55 @@ function AppContent() {
     </AnimatedModalSheet>
   );
 
+  // 3a. Importação B3: tela cheia que entra deslizando (Modal), por cima do Perfil ou do Histórico de
+  // proventos, de onde é aberta. O voltar do Android fecha só ela (onRequestClose) e a origem fica.
+  const openB3Import = () => {
+    setB3ImportKey((k) => k + 1);
+    setIsB3ImportOpen(true);
+  };
+
+  useEffect(() => {
+    if (props.initialAction === 'import_b3') {
+      openB3Import();
+      props.onClearInitialAction?.();
+    } else if (props.initialAction === 'create_wallet') {
+      setOpenCreatePortfolioModal(true);
+      props.onClearInitialAction?.();
+    }
+  }, [props.initialAction]);
+  const renderB3ImportModal = () => (
+    <Modal
+      visible={isB3ImportOpen}
+      animationType="slide"
+      presentationStyle="fullScreen"
+      onRequestClose={() => setIsB3ImportOpen(false)}
+    >
+      <SafeAreaView
+        style={[styles.safeArea, { backgroundColor: isLight ? LIGHT_THEME_TOKENS.backgroundPrimary : colors.voidFloor }]}
+        edges={['top', 'left', 'right', 'bottom']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <B3ImportScreen
+          key={`b3-${b3ImportKey}`}
+          onBack={() => setIsB3ImportOpen(false)}
+          onNavigateToPortfolio={(portId) => {
+            setIsB3ImportOpen(false);
+            setIsSettingsBackupModalOpen(false);
+            setIsIncomeHistoryOpen(false);
+            setActivePortfolioId(portId);
+            // Seleciona a carteira importada também no baralho/Home (antes só o id mudava e a Home
+            // continuava mostrando a carteira anterior).
+            const idx = walletsStore.getState().wallets.findIndex((w) => w.id === portId);
+            if (idx >= 0) walletStore.setActiveIndex(idx, portId);
+            refreshAppData();
+          }}
+          initialPortfolioId={activePortfolioId || undefined}
+          isLight={isLight}
+        />
+      </SafeAreaView>
+    </Modal>
+  );
+
   // 3. Modal: Configurações / Backup (.celsus.zip) & Perfil do Investidor
   if (isSettingsBackupModalOpen) {
     return (
@@ -936,51 +1038,19 @@ function AppContent() {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <View style={styles.sheetDragHandleContainer}>
-          <View style={[styles.sheetDragHandle, isLight && styles.sheetDragHandleLight]} />
-        </View>
         <SettingsBackupScreen
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
           onClose={() => setIsSettingsBackupModalOpen(false)}
           onDataRestored={() => refreshAppData()}
-          onOpenB3Import={() => {
-            setIsSettingsBackupModalOpen(false);
-            setIsB3ImportOpen(true);
-          }}
+          onOpenB3Import={openB3Import}
           themeMode={themeMode}
           onThemeModeChange={(mode) => {
             setThemeMode(mode);
             themeModeService.setThemeMode(mode);
           }}
         />
-      </SafeAreaView>
-    );
-  }
-
-  // 3b. Tela: Importação B3 (tela cheia)
-  if (isB3ImportOpen) {
-    return (
-      <SafeAreaView
-        style={[
-          styles.safeArea,
-          {
-            backgroundColor: isLight
-              ? LIGHT_THEME_TOKENS.backgroundPrimary
-              : colors.voidFloor,
-          },
-        ]}
-        edges={['top', 'left', 'right', 'bottom']}
-      >
-        <StatusBar style={isLight ? 'dark' : 'light'} />
-        <B3ImportScreen
-          onBack={() => setIsB3ImportOpen(false)}
-          onNavigateToPortfolio={(portId) => {
-            setIsB3ImportOpen(false);
-            setActivePortfolioId(portId);
-          }}
-          initialPortfolioId={activePortfolioId || undefined}
-        />
+        {renderB3ImportModal()}
       </SafeAreaView>
     );
   }
@@ -1002,14 +1072,12 @@ function AppContent() {
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <IncomeHistoryScreen
           onBack={() => setIsIncomeHistoryOpen(false)}
-          onOpenB3Import={() => {
-            setIsIncomeHistoryOpen(false);
-            setIsB3ImportOpen(true);
-          }}
+          onOpenB3Import={openB3Import}
           initialPortfolioId={activePortfolioId || undefined}
           isPrivacyMode={isPrivacyMode}
           themeMode={themeMode}
         />
+        {renderB3ImportModal()}
       </SafeAreaView>
     );
   }
@@ -1102,6 +1170,9 @@ function AppContent() {
             }}
             themeMode={themeMode}
           />
+          {renderTransactionModal()}
+          {renderPortfolioManagerModal()}
+          {renderSimulatorModal()}
         </SafeAreaView>
       </Modal>
     );
@@ -1131,10 +1202,7 @@ function AppContent() {
           }}
           themeMode={themeMode}
           onClose={() => setIsAllTransactionsModalOpen(false)}
-          onSelectTransaction={(tx) => {
-            setIsAllTransactionsModalOpen(false);
-            setSelectedRecentTransaction(tx);
-          }}
+          onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
         />
         <FloatingBottomDock
           activeTab={activeTab}
@@ -1166,6 +1234,9 @@ function AppContent() {
           }}
           themeMode={themeMode}
         />
+        {renderTransactionModal()}
+        {renderPortfolioManagerModal()}
+        {renderSimulatorModal()}
       </SafeAreaView>
     );
   }
@@ -1175,25 +1246,24 @@ function AppContent() {
     const classRawAssets = portfolioAssets.filter((a) => a.asset_class === selectedClassDetail);
     // Valor de mercado de cada ativo e total da categoria: a fatia do donut é a participação real do
     // ativo na categoria (soma 100%), não a meta nem um valor padrão.
-    const grossOf = (a: any): Decimal => {
+    // Mesma precedência de preço da Home (consolidatePortfolios): preço manual > cotação > preço médio.
+    // Antes a cotação vencia o preço manual aqui, e o detalhe da classe divergia do card da Home.
+    const priceOf = (a: any): Decimal => {
       const cached = cachedQuotes[a.ticker?.toUpperCase()] || null;
-      const price = cached?.currentPrice
-        ? new Decimal(cached.currentPrice)
-        : a.manual_price_override
+      return a.manual_price_override
         ? new Decimal(a.manual_price_override)
+        : cached?.currentPrice
+        ? new Decimal(cached.currentPrice)
         : new Decimal(a.average_price || '0');
-      return new Decimal(a.quantity || '0').mul(price);
     };
+    const grossOf = (a: any): Decimal => new Decimal(a.quantity || '0').mul(priceOf(a));
     const classTotalGross = classRawAssets.reduce((sum, a) => sum.plus(grossOf(a)), new Decimal(0));
     const classAssetsForDetail: ClassAssetDetailItem[] = classRawAssets
       .map((a) => {
         const qtyDec = new Decimal(a.quantity || '0');
         const avgDec = new Decimal(a.average_price || '0');
         const investedDec = qtyDec.mul(avgDec);
-        const cached = cachedQuotes[a.ticker?.toUpperCase()] || null;
-        const currentPriceDec = cached?.currentPrice
-          ? new Decimal(cached.currentPrice)
-          : (a.manual_price_override ? new Decimal(a.manual_price_override) : avgDec);
+        const currentPriceDec = priceOf(a);
         const grossDec = qtyDec.mul(currentPriceDec);
         const profitDec = grossDec.minus(investedDec);
         const profitPctDec = investedDec.gt(0) ? profitDec.div(investedDec).mul(100) : new Decimal(0);
@@ -1322,6 +1392,9 @@ function AppContent() {
             }}
             themeMode={themeMode}
           />
+          {renderTransactionModal()}
+          {renderPortfolioManagerModal()}
+          {renderSimulatorModal()}
         </SafeAreaView>
       </Modal>
     );
@@ -1628,9 +1701,9 @@ function AppContent() {
           showsVerticalScrollIndicator={false}
         >
           {isOffline && (
-            <View testID="market-status-indicator" style={styles.offlineBanner}>
-              <MaterialIcons name="cloud-off" size={16} color={colors.secondary} />
-              <Text style={styles.offlineBannerText}>Modo Offline • Exibindo dados locais em cache</Text>
+            <View testID="market-status-indicator" style={[styles.offlineBanner, isLight && styles.offlineBannerLight]}>
+              <MaterialIcons name="cloud-off" size={16} color={isLight ? '#8A5A2B' : colors.secondary} />
+              <Text style={[styles.offlineBannerText, isLight && styles.offlineBannerTextLight]}>Modo Offline • Exibindo dados locais em cache</Text>
             </View>
           )}
 
@@ -1671,6 +1744,7 @@ function AppContent() {
                     }}
                     style={[
                       styles.pageDot,
+                      isLight && styles.pageDotLight,
                       isSelected && [styles.pageDotActive, { backgroundColor: pal.accent }],
                     ]}
                   />
@@ -1758,6 +1832,7 @@ function AppContent() {
       {renderTransactionModal()}
       {renderPortfolioManagerModal()}
       {renderSimulatorModal()}
+      {renderB3ImportModal()}
     </SafeAreaView>
   );
 }
@@ -1789,19 +1864,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
   },
-  sheetDragHandleContainer: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  sheetDragHandle: {
-    width: 38,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#3A3D42',
-  },
-  sheetDragHandleLight: {
-    backgroundColor: '#D1CCC0',
-  },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1818,6 +1880,13 @@ const styles = StyleSheet.create({
     color: '#D4A373',
     fontSize: 12,
     fontWeight: '500',
+  },
+  offlineBannerLight: {
+    backgroundColor: '#F6EBDD',
+    borderColor: '#E2C9A6',
+  },
+  offlineBannerTextLight: {
+    color: '#8A5A2B',
   },
   ambientGlow: {
     position: 'absolute',
@@ -1910,6 +1979,9 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  pageDotLight: {
+    backgroundColor: 'rgba(17, 19, 21, 0.18)',
   },
   pageDotActive: {
     width: 18,

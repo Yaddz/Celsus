@@ -27,6 +27,10 @@ describe('Matriz tela × voltar (resolveBackAction)', () => {
     ['Análises + Detalhe da classe (fecha antes de trocar de aba)', { activeTab: 'stats', isClassDetailOpen: true }, 'close-class-detail'],
     ['Carteiras + Configurações', { activeTab: 'wallets', isSettingsOpen: true }, 'close-settings'],
     ['Detalhe + Configurações: a camada superior (config) fecha primeiro', { isTransactionDetailOpen: true, isSettingsOpen: true }, 'close-settings'],
+    ['Importação B3 aberta pelo Perfil: volta para o Perfil', { isSettingsOpen: true, isB3ImportOpen: true }, 'close-b3-import'],
+    ['Importação B3 aberta pelo Histórico de proventos: volta para o Histórico', { activeTab: 'stats', isIncomeHistoryOpen: true, isB3ImportOpen: true }, 'close-b3-import'],
+    ['Perfil aberto sobre um sheet: o Perfil cobre o sheet e fecha primeiro', { activeTab: 'wallets', isPortfolioManagerOpen: true, isSettingsOpen: true }, 'close-settings'],
+    ['Detalhe da operação aberto pelo extrato completo: volta para o extrato', { isAllTransactionsOpen: true, isTransactionDetailOpen: true }, 'close-transaction-detail'],
     ['Modal de movimentação sobre qualquer coisa', { activeTab: 'wallets', isClassDetailOpen: true, isTransactionModalOpen: true }, 'close-transaction-modal'],
   ];
 

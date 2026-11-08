@@ -9,6 +9,14 @@ import { ProfileRepository } from '../../repositories/profileRepository';
 import { InMemorySecureStorage } from '../../services/secureStorage';
 import { resetDatabase } from '../../db/client';
 
+const openRow = (getByTestId: (id: string) => any, rowId: string, childId: string) => {
+  try {
+    getByTestId(childId);
+  } catch {
+    fireEvent.press(getByTestId(rowId));
+  }
+};
+
 describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
   let mockStorage: InMemorySecureStorage;
   let authService: AuthService;
@@ -109,6 +117,7 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
     // Finaliza criação
     await waitFor(async () => {
       expect(await authService.hasPin()).toBe(true);
+      openRow(getByTestId, 'security-pin-row', 'security-change-pin');
       expect(getByTestId('security-change-pin')).toBeDefined();
       expect(getByTestId('security-remove-pin')).toBeDefined();
     });
@@ -128,6 +137,7 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
       />
     );
 
+    openRow(getByTestId, 'security-pin-row', 'security-change-pin');
     expect(getByTestId('security-pin-status')).toBeDefined();
     expect(getByText(/PIN configurado/i)).toBeDefined();
 
@@ -186,6 +196,7 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
       />
     );
 
+    openRow(getByTestId, 'security-pin-row', 'security-remove-pin');
     fireEvent.press(getByTestId('security-remove-pin'));
 
     // Pede o PIN atual para confirmação
@@ -259,6 +270,8 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
     // Padrão é 60 segundos
     expect(await authService.getAutoLockSeconds()).toBe(60);
 
+    openRow(getByTestId, 'security-autolock-row', 'security-autolock-30');
+
     // Seleciona 30 s
     await act(async () => {
       fireEvent.press(getByTestId('security-autolock-30'));
@@ -311,6 +324,7 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
       />
     );
 
+    openRow(getByTestId, 'security-name-row', 'security-name-input');
     const nameInput = getByTestId('security-name-input');
     expect(nameInput.props.value).toBe('Pedro Lima');
 
@@ -385,7 +399,7 @@ describe('Sprint 45: Perfil -> Segurança (spec §6)', () => {
     expect(getByTestId('settings-section-seguranca')).toBeDefined();
     expect(getByTestId('security-pin-status')).toBeDefined();
     expect(getByTestId('security-biometric-switch')).toBeDefined();
-    expect(getByTestId('security-lock-now')).toBeDefined();
+    openRow(getByTestId, 'security-name-row', 'security-name-input');
     expect(getByTestId('security-name-input')).toBeDefined();
     expect(getByTestId('security-wipe')).toBeDefined();
   });

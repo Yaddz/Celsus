@@ -22,28 +22,56 @@ export interface B3ImportScreenProps {
   onNavigateToPortfolio?: (portfolioId: string) => void;
   initialPortfolioId?: string;
   bottomOffset?: number;
+  isLight?: boolean;
 }
 
 type ImportStep = 'pick' | 'loading' | 'preview' | 'importing' | 'report';
 
 function base64ToUint8Array(base64: string): Uint8Array {
+  const clean = base64.replace(/[\r\n\s]/g, '');
   if (typeof atob === 'function') {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
+    try {
+      const binary = atob(clean);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    } catch {}
   }
   const gBuffer = typeof global !== 'undefined' ? (global as any).Buffer : null;
   if (gBuffer) {
-    const buf = gBuffer.from(base64, 'base64');
-    return new Uint8Array(buf.buffer, buf.byteOffset, buf.length);
+    try {
+      const buf = gBuffer.from(clean, 'base64');
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.length);
+    } catch {}
   }
-  return new Uint8Array(0);
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  const lookup = new Uint8Array(256);
+  for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
+  let len = clean.length;
+  if (len === 0) return new Uint8Array(0);
+  let padding = 0;
+  if (clean.endsWith('==')) padding = 2;
+  else if (clean.endsWith('=')) padding = 1;
+  const byteLength = ((len * 3) >> 2) - padding;
+  const bytes = new Uint8Array(byteLength);
+  let byteIndex = 0;
+  for (let i = 0; i < len; i += 4) {
+    const c0 = lookup[clean.charCodeAt(i)];
+    const c1 = lookup[clean.charCodeAt(i + 1)];
+    const c2 = lookup[clean.charCodeAt(i + 2)];
+    const c3 = lookup[clean.charCodeAt(i + 3)];
+    bytes[byteIndex++] = (c0 << 2) | (c1 >> 4);
+    if (byteIndex < byteLength) bytes[byteIndex++] = ((c1 & 15) << 4) | (c2 >> 2);
+    if (byteIndex < byteLength) bytes[byteIndex++] = ((c2 & 3) << 6) | (c3 & 63);
+  }
+  return bytes;
 }
 
 export function B3ImportScreen(props: B3ImportScreenProps) {
+  const isLight = !!props.isLight;
+  const styles = React.useMemo(() => makeStyles(isLight), [isLight]);
   const [step, setStep] = useState<ImportStep>('pick');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
@@ -118,13 +146,69 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
       } catch {}
 
       if (!fileBytes) {
-        try {
-          const base64 = await FileSystem.readAsStringAsync(fileAsset.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          fileBytes = base64ToUint8Array(base64);
-        } catch {
-          throw new Error('Não foi possível ler o arquivo');
+        let lastError: any = null;
+
+        // Strategy 1: Parity with File API if file is provided
+        if ((fileAsset as any).file && typeof (fileAsset as any).file.arrayBuffer === 'function') {
+          try {
+            const ab = await (fileAsset as any).file.arrayBuffer();
+            fileBytes = new Uint8Array(ab);
+          } catch (e) {
+            lastError = e;
+          }
+        }
+
+        // Strategy 2: React Native fetch blob (native content:// and file:// stream)
+        if (!fileBytes) {
+          try {
+            const blobRes = await fetch(fileAsset.uri);
+            const blob = await blobRes.blob();
+            fileBytes = await new Promise<Uint8Array>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                if (reader.result instanceof ArrayBuffer) {
+                  resolve(new Uint8Array(reader.result));
+                } else if (typeof reader.result === 'string') {
+                  const parts = reader.result.split(',');
+                  resolve(base64ToUint8Array(parts.length > 1 ? parts[1] : parts[0]));
+                } else {
+                  reject(new Error('Leitura retornou formato não suportado'));
+                }
+              };
+              reader.onerror = () => reject(reader.error || new Error('Falha no FileReader'));
+              reader.readAsArrayBuffer(blob);
+            });
+          } catch (e) {
+            lastError = e;
+          }
+        }
+
+        // Strategy 3: Expo FileSystem readAsStringAsync (Base64 for binary / XLSX)
+        if (!fileBytes) {
+          try {
+            const base64 = await FileSystem.readAsStringAsync(fileAsset.uri, {
+              encoding: FileSystem.EncodingType.Base64,
+            });
+            fileBytes = base64ToUint8Array(base64);
+          } catch (e) {
+            lastError = e;
+          }
+        }
+
+        // Strategy 4: Expo FileSystem readAsStringAsync (UTF-8 for CSV / text)
+        if (!fileBytes) {
+          try {
+            const text = await FileSystem.readAsStringAsync(fileAsset.uri, {
+              encoding: FileSystem.EncodingType.UTF8,
+            });
+            fileBytes = new TextEncoder().encode(text);
+          } catch (e) {
+            lastError = e;
+          }
+        }
+
+        if (!fileBytes || fileBytes.length === 0) {
+          throw new Error(lastError?.message || 'Arquivo inacessível ou vazio');
         }
       }
 
@@ -194,6 +278,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
         subtitle="Processamento 100% local e seguro"
         onBack={props.onBack}
         backTestID="xp-header-back"
+        themeMode={isLight ? 'light' : 'dark'}
       />
 
       <ScrollView
@@ -435,28 +520,39 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (isLight: boolean) => {
+  const c = {
+    bg: isLight ? '#F4F1EA' : '#111315',
+    card: isLight ? '#FFFFFF' : '#1C1E20',
+    chip: isLight ? '#EAE4D7' : '#2A2C2E',
+    text: isLight ? '#191B1D' : '#FFF',
+    muted: isLight ? '#6E6A63' : '#A0A4A8',
+    detail: isLight ? '#3A3A3C' : '#E0E0E0',
+    ok: isLight ? '#2E7D32' : '#4CAF50',
+  };
+
+  return StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111315',
+    backgroundColor: c.bg,
   },
   content: {
     padding: 16,
   },
   card: {
-    backgroundColor: '#1C1E20',
+    backgroundColor: c.card,
     borderRadius: 16,
     padding: 20,
     marginTop: 12,
   },
   cardTitle: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
   },
   instructionText: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 14,
     lineHeight: 22,
     marginBottom: 16,
@@ -480,14 +576,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   secondaryButton: {
-    backgroundColor: '#2A2C2E',
+    backgroundColor: c.chip,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 10,
   },
   secondaryButtonText: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -497,7 +593,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   textButtonText: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 14,
   },
   buttonDisabled: {
@@ -509,12 +605,12 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   loadingText: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 16,
     marginTop: 16,
   },
   subLoadingText: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 13,
     marginTop: 6,
   },
@@ -522,7 +618,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   sectionHeader: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 16,
     fontWeight: '700',
     marginTop: 16,
@@ -534,17 +630,17 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryTile: {
-    backgroundColor: '#1C1E20',
+    backgroundColor: c.card,
     borderRadius: 12,
     padding: 12,
     width: '48%',
   },
   summaryLabel: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 12,
   },
   summaryValue: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 20,
     fontWeight: '700',
     marginTop: 4,
@@ -555,7 +651,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   obSection: {
-    backgroundColor: '#1C1E20',
+    backgroundColor: c.card,
     borderRadius: 12,
     padding: 16,
     marginTop: 16,
@@ -570,12 +666,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   obTicker: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 14,
     fontWeight: '600',
   },
   obDesc: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 12,
     marginVertical: 6,
     lineHeight: 16,
@@ -586,7 +682,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   chip: {
-    backgroundColor: '#2A2C2E',
+    backgroundColor: c.chip,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
@@ -595,12 +691,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF8A00',
   },
   chipText: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 12,
     fontWeight: '600',
   },
   assetRow: {
-    backgroundColor: '#1C1E20',
+    backgroundColor: c.card,
     padding: 12,
     borderRadius: 10,
     flexDirection: 'row',
@@ -609,17 +705,17 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   assetTicker: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 14,
     fontWeight: '700',
   },
   assetName: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 12,
     maxWidth: 220,
   },
   classBadge: {
-    backgroundColor: '#2A2C2E',
+    backgroundColor: c.chip,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -638,31 +734,32 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   reportTitle: {
-    color: '#FFF',
+    color: c.text,
     fontSize: 20,
     fontWeight: '700',
   },
   reportSubtitle: {
-    color: '#A0A4A8',
+    color: c.muted,
     fontSize: 14,
     marginTop: 6,
     lineHeight: 20,
   },
   reportCard: {
-    backgroundColor: '#1C1E20',
+    backgroundColor: c.card,
     padding: 16,
     borderRadius: 12,
     marginTop: 16,
   },
   verificationText: {
-    color: '#4CAF50',
+    color: c.ok,
     fontSize: 14,
     fontWeight: '700',
     marginBottom: 10,
   },
   reportDetail: {
-    color: '#E0E0E0',
+    color: c.detail,
     fontSize: 13,
     lineHeight: 20,
   },
 });
+};

@@ -1,3 +1,4 @@
+import { getSecureStorage } from '../services/secureStorage';
 export type PortfolioPaletteId = 'classic' | 'harbor' | 'docks' | 'tribunal';
 
 export interface PortfolioPalette {
@@ -117,8 +118,11 @@ export function getThemeColors(mode: ThemeMode): ThemeModeColors {
   return THEME_COLORS[mode] || THEME_COLORS.dark;
 }
 
+const THEME_STORAGE_KEY = 'celsus.theme_mode';
+
 export class ThemeModeService {
   private currentMode: ThemeMode = 'dark';
+  private listeners = new Set<(mode: ThemeMode) => void>();
 
   getThemeMode(): ThemeMode {
     return this.currentMode;
@@ -126,16 +130,52 @@ export class ThemeModeService {
 
   setThemeMode(mode: ThemeMode): ThemeMode {
     this.currentMode = mode;
+    this.persist(mode);
+    this.emit();
     return this.currentMode;
   }
 
   toggleThemeMode(): ThemeMode {
-    this.currentMode = this.currentMode === 'dark' ? 'light' : 'dark';
-    return this.currentMode;
+    return this.setThemeMode(this.currentMode === 'dark' ? 'light' : 'dark');
   }
 
   reset(): void {
     this.currentMode = 'dark';
+    this.emit();
+  }
+
+  /** Avisa quem desenha fora do App (tela de bloqueio, onboarding) quando o tema muda. */
+  subscribe(listener: (mode: ThemeMode) => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /** Lê o tema salvo no aparelho (sobrevive a reinícios do app). */
+  async hydrate(): Promise<ThemeMode> {
+    try {
+      const saved = await getSecureStorage().getItem(THEME_STORAGE_KEY);
+      if ((saved === 'light' || saved === 'dark') && saved !== this.currentMode) {
+        this.currentMode = saved;
+        this.emit();
+      }
+    } catch {}
+    return this.currentMode;
+  }
+
+  private persist(mode: ThemeMode) {
+    try {
+      Promise.resolve(getSecureStorage().setItem(THEME_STORAGE_KEY, mode)).catch(() => {});
+    } catch {}
+  }
+
+  private emit() {
+    this.listeners.forEach((l) => {
+      try {
+        l(this.currentMode);
+      } catch {}
+    });
   }
 }
 

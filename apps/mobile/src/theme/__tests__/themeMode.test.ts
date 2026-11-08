@@ -89,6 +89,7 @@ describe('S8-T02: TestDarkAndLightThemeModeSwitch', () => {
         })
       );
 
+      fireEvent.press(screen.getByTestId('appearance-row'));
       const lightButton = screen.getByTestId('theme-option-light');
       expect(lightButton).toBeDefined();
 

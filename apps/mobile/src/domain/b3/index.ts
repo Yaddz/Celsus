@@ -38,16 +38,27 @@ function matchCanonicalKey(header: string): string | null {
     .toLowerCase()
     .trim();
 
-  if (/entrada.*saida/.test(clean)) return 'entradaSaida';
+  if (/entrada.*sa.*da/.test(clean) || /entrada.*saida/.test(clean)) return 'entradaSaida';
   if (/^data$/.test(clean)) return 'data';
-  if (/movimentaca?o/.test(clean)) return 'movimentacao';
+  if (/movimenta.*o/.test(clean) || /movimentaca?o/.test(clean)) return 'movimentacao';
   if (/^produto/.test(clean)) return 'produto';
-  if (/instituica?o/.test(clean)) return 'instituicao';
+  if (/institui.*o/.test(clean) || /instituica?o/.test(clean)) return 'instituicao';
   if (/^quantidade/.test(clean)) return 'quantidade';
-  if (/pre[cç]o.*unit[aá]rio/.test(clean)) return 'precoUnitario';
-  if (/valor.*opera[cç][aã]o/.test(clean)) return 'valorOperacao';
+  if (/pre.*o.*unit.*rio/.test(clean) || /pre[cç]o.*unit[aá]rio/.test(clean)) return 'precoUnitario';
+  if (/valor.*opera.*o/.test(clean) || /valor.*opera[cç][aã]o/.test(clean)) return 'valorOperacao';
 
   return null;
+}
+
+function cleanB3Number(val: string): string {
+  const clean = val.replace(/R\$\s*/gi, '').replace(/\s+/g, '').trim();
+  if (clean.includes('.') && clean.includes(',')) {
+    return clean.replace(/\./g, '').replace(',', '.');
+  }
+  if (clean.includes(',')) {
+    return clean.replace(',', '.');
+  }
+  return clean;
 }
 
 function getRowField(row: Record<string, string>, canonicalKey: string): string {
@@ -92,13 +103,13 @@ export function parseStatementRows(rawRows: Array<Record<string, string>>): Pars
     const institution = rawInst.replace(/\.+$/, '').trim();
 
     const rawQty = getRowField(row, 'quantidade').trim();
-    const quantity = rawQty === '-' || rawQty === '' ? '0' : rawQty;
+    const quantity = rawQty === '-' || rawQty === '' ? '0' : cleanB3Number(rawQty);
 
     const rawPrice = getRowField(row, 'precoUnitario').trim();
-    const unitPrice = rawPrice === '-' || rawPrice === '' ? null : rawPrice.replace(',', '.');
+    const unitPrice = rawPrice === '-' || rawPrice === '' ? null : cleanB3Number(rawPrice);
 
     const rawVal = getRowField(row, 'valorOperacao').trim();
-    const operationValue = rawVal === '-' || rawVal === '' ? null : rawVal.replace(',', '.');
+    const operationValue = rawVal === '-' || rawVal === '' ? null : cleanB3Number(rawVal);
 
     return {
       rowNo: idx + 1,
@@ -149,7 +160,16 @@ export function classifyMovement(row: ParsedStatementRow): MovementClassificatio
   }
 
   // 3. Liquidação (BUY or SELL)
-  if (normMovement === 'Transferência - Liquidação') {
+  const normMovClean = normMovement
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+
+  if (
+    normMovement === 'Transferência - Liquidação' ||
+    /transferencia\s*[-–]\s*liquidacao/i.test(normMovClean)
+  ) {
     const qtyNum = Number(row.quantity);
     const priceNum = row.unitPrice !== null ? Number(row.unitPrice) : NaN;
 
@@ -169,7 +189,10 @@ export function classifyMovement(row: ParsedStatementRow): MovementClassificatio
     normMovement === 'Rendimento' ||
     normMovement === 'Dividendo' ||
     normMovement === 'Juros Sobre Capital Próprio' ||
-    normMovement === 'JCP'
+    normMovement === 'JCP' ||
+    /^rendimento/i.test(normMovClean) ||
+    /^dividendo/i.test(normMovClean) ||
+    /juros sobre capital|jcp/i.test(normMovClean)
   ) {
     if (row.entryExit === 'CREDIT') {
       return { kind: 'INCOME', reason: row.rawMovement };
@@ -628,3 +651,79 @@ export function buildImportPlan(params: {
     newItemsCount,
   };
 }
+
+/**
+ * Normaliza o nome da instituição financeira da B3 para exibição amigável.
+ */
+export function normalizeInstitutionName(raw: string): string {
+  if (!raw) return 'Outros';
+  const clean = raw.trim().toUpperCase();
+  if (clean.includes('BTG PACTUAL')) return 'BTG Pactual';
+  if (clean.includes('XP INVESTIMENTOS')) return 'XP Investimentos';
+  if (clean.includes('RICO')) return 'Rico';
+  if (clean.includes('CLEAR')) return 'Clear';
+  if (clean.includes('INTER')) return 'Banco Inter';
+  if (clean.includes('NU INVEST') || clean.includes('EASYNVEST') || clean.includes('NUBANK')) return 'NuInvest';
+  if (clean.includes('ITAU') || clean.includes('ITAÚ')) return 'Itaú Corretora';
+  if (clean.includes('BRADESCO') || clean.includes('AGORA') || clean.includes('ÁGORA')) return 'Ágora Investimentos';
+  if (clean.includes('SANTANDER')) return 'Santander Corretora';
+  if (clean.includes('GENIAL')) return 'Genial Investimentos';
+  if (clean.includes('TORO')) return 'Toro Investimentos';
+  if (clean.includes('ORAMA') || clean.includes('ÓRAMA')) return 'Órama';
+  if (clean.includes('C6')) return 'C6 Bank';
+
+  // Fallback: remove sufixos comuns como CCTVM, S/A, etc. e capitaliza
+  return raw
+    .replace(/\b(CCTVM|S\/A|S\.A\.|LTDA|DISTRIBUIDORA|TITULOS|VALORES|MOBILIARIOS)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .replace(/[.,-]+$/, '')
+    .trim();
+}
+
+/**
+ * Extrai lista única de corretoras normalizadas a partir das linhas do extrato.
+ */
+export function getDistinctBrokers(rows: Array<Record<string, string>>): string[] {
+  const set = new Set<string>();
+  for (const r of rows) {
+    const inst = getRowField(r, 'instituicao');
+    if (inst) {
+      set.add(normalizeInstitutionName(inst));
+    }
+  }
+  return Array.from(set).sort();
+}
+
+/**
+ * Converte data DD/MM/AAAA para timestamp numérico para ordenação.
+ */
+function parseB3DateToTimestamp(dateStr: string): number {
+  if (!dateStr) return 0;
+  const parts = dateStr.trim().split('/');
+  if (parts.length === 3) {
+    const d = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const y = parseInt(parts[2], 10);
+    return new Date(y, m, d).getTime();
+  }
+  return 0;
+}
+
+/**
+ * Mescla múltiplos conjuntos de linhas de extrato e ordena globalmente de forma cronológica crescente.
+ */
+export function mergeAndSortStatementRows(
+  filesRows: Array<Array<Record<string, string>>>
+): Array<Record<string, string>> {
+  const allRows: Array<Record<string, string>> = [];
+  for (const rows of filesRows) {
+    allRows.push(...rows);
+  }
+
+  return allRows.sort((a, b) => {
+    const dateA = parseB3DateToTimestamp(getRowField(a, 'data'));
+    const dateB = parseB3DateToTimestamp(getRowField(b, 'data'));
+    return dateA - dateB;
+  });
+}
+

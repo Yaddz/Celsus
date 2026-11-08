@@ -89,7 +89,17 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("[CELSUS MARKET-API] Servidor HTTP de mercado ouvindo em http://localhost%s", addr)
-	if err := http.ListenAndServe(addr, handler); err != nil && err != http.ErrServerClosed {
+	// Timeouts explícitos: sem eles uma conexão lenta/parada segura o servidor indefinidamente.
+	// WriteTimeout cobre as consultas mais lentas a provedores externos (cada uma limitada a 10-15s).
+	httpServer := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      90 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("Erro ao subir servidor HTTP: %v", err)
 	}
 }

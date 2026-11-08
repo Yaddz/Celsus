@@ -115,6 +115,20 @@ CREATE TABLE IF NOT EXISTS asset_profile_cache (
 );
 `;
 
+/**
+ * Índices das consultas quentes (por carteira, por ativo, por data e deduplicação por external_id).
+ * Rodam DEPOIS das migrações de coluna: em bancos antigos `income_events.external_id` só existe após
+ * applySchemaUpgrades, e criar o índice antes derrubaria a abertura do banco.
+ */
+export const SCHEMA_INDEXES_SQL = `CREATE INDEX IF NOT EXISTS idx_class_targets_portfolio ON portfolio_class_targets(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_assets_portfolio ON assets(portfolio_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_portfolio_date ON transactions(portfolio_id, trade_date);
+CREATE INDEX IF NOT EXISTS idx_transactions_asset ON transactions(asset_id);
+CREATE INDEX IF NOT EXISTS idx_income_events_portfolio_date ON income_events(portfolio_id, pay_date);
+CREATE INDEX IF NOT EXISTS idx_income_events_external ON income_events(external_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_external ON transactions(external_id);
+`;
+
 const inMemoryStore: Record<string, any[]> = {
   portfolios: [],
   portfolio_class_targets: [],
@@ -293,6 +307,7 @@ function applySchemaUpgrades(raw: SQLiteDatabase) {
       raw.execSync(up.ddl);
     }
   }
+  raw.execSync(SCHEMA_INDEXES_SQL);
 }
 
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
@@ -304,9 +319,32 @@ export function onDatabaseReset(listener: () => void) {
   resetListeners.push(listener);
 }
 
+/** Marcas que sobrevivem a "Apagar todos os dados" (ex.: a semente AUVP não deve voltar sozinha). */
+const META_KEYS_KEPT_ON_WIPE = ['seed:auvp:v1'];
+
+/**
+ * Apaga todos os dados do usuário. No Jest/web em memória limpa as tabelas em memória; no aparelho
+ * apaga as linhas de todas as tabelas do SQLite (o esquema fica). Antes, no aparelho, só a memória
+ * era limpa e "Apagar todos os dados" não apagava nada do banco.
+ */
 export function resetDatabase() {
   for (const k of Object.keys(inMemoryStore)) {
     inMemoryStore[k] = [];
+  }
+  if (_rawSqliteDb && !isTestEnvironment()) {
+    const tables = _rawSqliteDb.getAllSync<{ name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '__drizzle%'"
+    );
+    _rawSqliteDb.withTransactionSync(() => {
+      for (const { name } of tables) {
+        if (name === 'app_meta') {
+          const kept = META_KEYS_KEPT_ON_WIPE.map((k) => `'${k}'`).join(', ');
+          _rawSqliteDb!.execSync(`DELETE FROM app_meta WHERE key NOT IN (${kept})`);
+        } else {
+          _rawSqliteDb!.execSync(`DELETE FROM "${name}"`);
+        }
+      }
+    });
   }
   for (const listener of resetListeners) {
     try {
@@ -320,9 +358,12 @@ export function resetDatabase() {
 export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof drizzle> {
   if (!_dbInstance) {
     try {
-      _rawSqliteDb = openDatabaseSync(dbName);
-      _rawSqliteDb.execSync(INITIAL_SCHEMA_SQL);
-      applySchemaUpgrades(_rawSqliteDb);
+      // Reaproveita a conexão aberta por getRawSqliteDatabase (antes abria uma segunda conexão).
+      if (!_rawSqliteDb) {
+        _rawSqliteDb = openDatabaseSync(dbName);
+        _rawSqliteDb.execSync(INITIAL_SCHEMA_SQL);
+        applySchemaUpgrades(_rawSqliteDb);
+      }
       _dbInstance = drizzle(_rawSqliteDb, { schema });
     } catch (err) {
       if (!isTestEnvironment()) {

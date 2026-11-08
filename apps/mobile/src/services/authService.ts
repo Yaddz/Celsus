@@ -6,7 +6,12 @@ export interface VerifyPinResult {
   ok: boolean;
   reason?: 'invalid_pin' | 'locked' | 'no_pin_set';
   remainingMs?: number;
+  /** PIN errado: quantas tentativas faltam antes do primeiro bloqueio temporário. */
+  attemptsRemaining?: number;
 }
+
+/** Tentativas erradas permitidas antes do primeiro bloqueio (o 5º erro já bloqueia por 30s). */
+export const PIN_ATTEMPTS_BEFORE_LOCKOUT = 5;
 
 export interface ChangePinResult {
   ok: boolean;
@@ -155,7 +160,11 @@ export class AuthService {
       return { ok: false, reason: 'locked', remainingMs: lockoutDelay };
     }
 
-    return { ok: false, reason: 'invalid_pin' };
+    return {
+      ok: false,
+      reason: 'invalid_pin',
+      attemptsRemaining: Math.max(0, PIN_ATTEMPTS_BEFORE_LOCKOUT - attempts),
+    };
   }
 
   async changePin(oldPin: string, newPin: string): Promise<ChangePinResult> {

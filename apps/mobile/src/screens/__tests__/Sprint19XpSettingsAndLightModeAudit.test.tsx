@@ -63,9 +63,9 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
   // MÓDULO 7: TELA DE CONFIGURAÇÕES NO PADRÃO XP (SettingsBackupScreen.tsx)
   // =========================================================================
   describe('Módulo 7 — Arquitetura da Tela de Configurações no Padrão XP', () => {
-    it('S19-T01: deve conter o XpMinimalHeader no topo com botão voltar que aciona onClose', async () => {
+    it('S19-T01: o Perfil não usa XpMinimalHeader; o botão fechar do card de identidade aciona onClose', async () => {
       const mockOnClose = jest.fn();
-      const { getByTestId } = await render(
+      const { getByTestId, queryByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
           onTogglePrivacyMode={jest.fn()}
@@ -73,14 +73,14 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
         />
       );
 
-      // Header padrão XP
-      expect(getByTestId('xp-minimal-header')).toBeDefined();
+      // Sem header: nenhuma barra superior no Perfil
+      expect(queryByTestId('xp-minimal-header')).toBeNull();
 
-      // Botão de voltar do header
-      const backBtn = getByTestId('header-back-button');
-      expect(backBtn).toBeDefined();
+      // Botão de fechar no card de identidade
+      const closeBtn = getByTestId('close-settings-btn');
+      expect(closeBtn).toBeDefined();
 
-      fireEvent.press(backBtn);
+      fireEvent.press(closeBtn);
       expect(mockOnClose).toHaveBeenCalledTimes(1);
     });
 
@@ -120,12 +120,13 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
 
       expect(getByTestId('wallets-summary-section')).toBeDefined();
       // Sem carteiras cadastradas: estado vazio, nunca cards de exemplo
+      fireEvent.press(getByTestId('wallets-row'));
       expect(getByTestId('wallets-empty-state')).toBeDefined();
       expect(queryByTestId('wallet-summary-card-main')).toBeNull();
       expect(queryByTestId('wallet-summary-card-reserve')).toBeNull();
     });
 
-    it('S19-T04: deve conter bloco agrupado "Personalização" com Seletor de Aparência e ausência de switch redundante de privacidade', async () => {
+    it('S19-T04: deve conter bloco agrupado "Personalização" com Seletor de Aparência e o switch de privacidade (o Perfil não tem header)', async () => {
       const { getByTestId, queryByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
@@ -137,10 +138,11 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const section = getByTestId('settings-section-personalizacao');
       expect(section).toBeDefined();
 
-      // Modo Privacidade controlado exclusivamente pelo ícone de olho no Header XP (zero switch redundante)
-      expect(queryByTestId('privacy-mode-switch')).toBeNull();
+      // Sem header no Perfil, o Modo Privacidade é controlado pelo switch do próprio Perfil
+      expect(getByTestId('privacy-mode-switch')).toBeDefined();
 
       // Seletor de Tema (Aparência: Escuro / Claro)
+      fireEvent.press(getByTestId('appearance-row'));
       expect(getByTestId('theme-option-dark')).toBeDefined();
       expect(getByTestId('theme-option-light')).toBeDefined();
     });
@@ -175,6 +177,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       expect(section).toBeDefined();
 
       // Botão exportar dossiê .celsus.zip
+      fireEvent.press(getByTestId('backup-row'));
       expect(getByTestId('export-dossier-btn')).toBeDefined();
 
       // Modo de importação (Merge vs Restore)
@@ -190,7 +193,7 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
   // MÓDULO 9: AUDITORIA DE CONFORMIDADE VISUAL E CONTRASTE NO MODO CLARO
   // =========================================================================
   describe('Módulo 9 — Auditoria de Tema Claro (Light Mode: #F4F1EA / #FFFFFF / #111315)', () => {
-    it('S19-T07: SettingsBackupScreen deve aplicar fundo claro #F4F1EA e tiles Bento brancos no modo light', async () => {
+    it('S19-T07: SettingsBackupScreen deve aplicar fundo claro #F4F1EA, topo sem cartão e grupos em tiles Bento brancos no modo light', async () => {
       const { getByTestId } = await render(
         <SettingsBackupScreen
           isPrivacyMode={false}
@@ -204,9 +207,13 @@ describe('Sprint 19 — Módulo 7 & 9: Configurações no Padrão XP e Auditoria
       const container = getByTestId('settings-backup-screen');
       expect(StyleSheet.flatten(container.props.style).backgroundColor).toBe('#F4F1EA');
 
-      // Card de perfil como tile Bento claro
+      // Topo do perfil (avatar e nome) sem cartão nem fundo próprio
       const profileCard = getByTestId('investor-profile-card');
-      const flat = StyleSheet.flatten(profileCard.props.style);
+      expect(StyleSheet.flatten(profileCard.props.style)?.backgroundColor).toBeUndefined();
+
+      // Grupos (Conta, Proteção, Dados) como tiles Bento claros
+      const accountCard = getByTestId('profile-card-account');
+      const flat = StyleSheet.flatten(accountCard.props.style);
       expect(flat.backgroundColor).toBe('#FFFFFF');
       expect(flat.borderRadius).toBe(28);
     });

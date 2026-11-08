@@ -34,14 +34,11 @@ export const PinDots: React.FC<PinDotsProps> = ({
     }
   }, [error, shakeAnim]);
 
-  const activeColor = error
-    ? colors.primary
-    : isLight
-    ? '#111315'
-    : '#E6DECA';
+  // Pontos preenchidos em laranja (cor de destaque do app); erro em vermelho.
+  const activeColor = error ? '#E05252' : colors.primary;
 
   const borderColor = error
-    ? colors.primary
+    ? '#E05252'
     : isLight
     ? '#C5BEB3'
     : '#4A4D52';

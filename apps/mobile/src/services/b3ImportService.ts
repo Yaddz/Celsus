@@ -25,6 +25,7 @@ export interface B3ImportChoices {
       price?: string;
     }
   >;
+  splitByBroker?: boolean;
 }
 
 export interface B3ImportProgress {

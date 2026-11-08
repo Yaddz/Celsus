@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { profileRepository, ProfileRepository } from '../repositories/profileRepository';
 import { deriveInitials } from '../domain/profile';
 
@@ -41,6 +41,32 @@ class ProfileStore {
 
   private notify() {
     this.listeners.forEach((l) => l(this.state));
+  }
+
+  private loading: Promise<void> | null = null;
+
+  /**
+   * Carrega o perfil uma vez, com novas tentativas: na abertura o banco ainda pode estar ocupado
+   * (portão, semente, migrações) e uma falha silenciosa deixava os headers com "U".
+   */
+  ensureLoaded(): Promise<void> {
+    if (this.state.loaded) return Promise.resolve();
+    if (!this.loading) {
+      this.loading = (async () => {
+        for (let attempt = 0; attempt < 5; attempt++) {
+          try {
+            await this.load();
+            return;
+          } catch (e) {
+            if (attempt === 4) console.warn('[perfil] não foi possível carregar o nome', e);
+            await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
+          }
+        }
+      })().finally(() => {
+        this.loading = null;
+      });
+    }
+    return this.loading;
   }
 
   async load(): Promise<void> {
@@ -93,6 +119,10 @@ export function useProfile(): ProfileState & {
   refresh: () => Promise<void>;
 } {
   const state = useSyncExternalStore(profileStore.subscribe, () => profileStore.getState());
+  // Qualquer tela que mostra o nome garante que o perfil foi lido (no Jest fica a cargo de cada teste).
+  useEffect(() => {
+    if (!state.loaded && process.env.NODE_ENV !== 'test') profileStore.ensureLoaded().catch(() => {});
+  }, [state.loaded]);
   return {
     ...state,
     setName: (name) => profileStore.setName(name),

@@ -43,12 +43,15 @@ export type BackAction =
 
 export function resolveBackAction(state: BackState): BackAction {
   if (state.isLocked) return 'minimize';
+  // A ordem segue a ordem de desenho do App.tsx: a camada que cobre as outras fecha primeiro.
+  // Importação B3 cobre o Perfil e o Histórico de proventos (de onde é aberta); o Perfil cobre tudo
+  // o que está por baixo, inclusive sheets abertos antes dele.
   if (state.isB3ImportOpen) return 'close-b3-import';
+  if (state.isSettingsOpen) return 'close-settings';
   if (state.isIncomeHistoryOpen) return 'close-income-history';
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
-  if (state.isSettingsOpen) return 'close-settings';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';
   if (state.isAssetDetailOpen) return 'close-asset-detail';
   if (state.isAllTransactionsOpen) return 'close-all-transactions';

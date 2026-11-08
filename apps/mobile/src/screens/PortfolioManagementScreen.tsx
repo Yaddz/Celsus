@@ -628,7 +628,14 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
 
   // Saldos de todas as carteiras: lidos do banco só quando a lista de carteiras muda (1 consulta por
   // carteira). Antes isto rodava também a cada mudança de `assets`, refazendo N consultas por troca.
+  // Lista de carteiras: a mesma fonte da Home (walletsStore). Sem App (ex.: testes isolados) usa a lista local.
+  const { wallets: sharedWallets, loaded: sharedLoaded } = useWallets();
+  const useShared = sharedLoaded && sharedWallets.length > 0 && !initialPortfolios;
+  // Com a lista compartilhada (saldos já calculados pelo App com cotações) e sem o seletor legado,
+  // os saldos locais não aparecem em lugar nenhum: pula as N consultas ao banco.
+  const skipLocalBalances = useShared && Boolean(onPortfolioIndexChange);
   useEffect(() => {
+    if (skipLocalBalances) return undefined;
     let cancelled = false;
     const calculateBalances = async () => {
       const balances: Record<string, number> = {};
@@ -650,7 +657,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     return () => {
       cancelled = true;
     };
-  }, [portfolios]);
+  }, [portfolios, skipLocalBalances]);
 
   // O saldo da carteira ativa acompanha os ativos em memória, sem novas consultas ao banco.
   useEffect(() => {
@@ -961,7 +968,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   // -------------------------------------------------------------------------
   // Handlers: Autocomplete & Adicionar Ativo (Módulo 5)
   // -------------------------------------------------------------------------
+  // Só a busca mais recente pode preencher as sugestões: digitando rápido, uma resposta atrasada de
+  // um termo antigo sobrescrevia a lista do termo atual.
+  const autocompleteSeqRef = useRef(0);
   const handleAutocompleteChange = async (text: string) => {
+    const seq = ++autocompleteSeqRef.current;
     setAssetValidationError(null);
     setAutocompleteQuery(text);
     setNewTicker(text);
@@ -985,6 +996,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         apiMatches = results.filter((r) => !r.assetClass || r.assetClass === selectedClassTab);
       }
     } catch {}
+    if (seq !== autocompleteSeqRef.current) return;
 
     const combined = [...localMatches];
     for (const apiItem of apiMatches) {
@@ -997,6 +1009,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   };
 
   const handleSelectAutocomplete = (item: any) => {
+    autocompleteSeqRef.current++; // descarta buscas ainda em andamento
     setAssetValidationError(null);
     setNewTicker(item.ticker);
     setNewName(item.name || item.ticker);
@@ -1203,10 +1216,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
     []
   );
 
-  // Mapeamento dos portfolios para o StackedWalletDeck
-  // Lista de carteiras: a mesma fonte da Home (walletsStore). Sem App (ex.: testes isolados) usa a lista local.
-  const { wallets: sharedWallets, loaded: sharedLoaded } = useWallets();
-  const useShared = sharedLoaded && sharedWallets.length > 0 && !initialPortfolios;
+  // Mapeamento dos portfolios para o StackedWalletDeck (lista compartilhada lida mais acima: useWallets).
   const deckPortfolios: StackedWalletItem[] = useMemo(() => {
     if (useShared) {
       return sharedWallets.map((w) => ({
