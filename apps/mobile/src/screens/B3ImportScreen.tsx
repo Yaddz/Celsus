@@ -7,6 +7,7 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
+  Modal,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
@@ -193,6 +194,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
   );
   const [newPortfolioName, setNewPortfolioName] = useState<string>('');
   const [isCreatingNewPortfolio, setIsCreatingNewPortfolio] = useState(false);
+  const [isIgnoredModalOpen, setIsIgnoredModalOpen] = useState(false);
 
   const [classOverrides, setClassOverrides] = useState<
     Record<string, 'STOCK' | 'FII' | 'FIXED_INCOME' | 'CRYPTO'>
@@ -438,11 +440,19 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
                 <Text style={styles.summaryValue}>{plan.incomes.length}</Text>
                 <Text style={styles.summarySub}>{formatBRL(plan.totals.incomes)}</Text>
               </View>
-              <View style={styles.summaryTile}>
-                <Text style={styles.summaryLabel}>Ignorados</Text>
+              <TouchableOpacity
+                testID="b3-ignored-tile"
+                activeOpacity={0.7}
+                style={styles.summaryTile}
+                onPress={() => setIsIgnoredModalOpen(true)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={styles.summaryLabel}>Ignorados</Text>
+                  <MaterialIcons name="help-outline" size={13} color={isLight ? '#7C786E' : '#A0A4A8'} />
+                </View>
                 <Text style={styles.summaryValue}>{plan.ignored.length}</Text>
-                <Text style={styles.summarySub}>Sem efeito</Text>
-              </View>
+                <Text style={styles.summarySub}>Sem efeito ℹ️</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Broker separation choice */}
@@ -741,6 +751,85 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal explicativo de movimentações sem efeito */}
+      {plan && (
+        <Modal
+          testID="b3-ignored-modal"
+          visible={isIgnoredModalOpen}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setIsIgnoredModalOpen(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.modalTitle}>O que são movimentações sem efeito?</Text>
+                  <Text style={styles.modalSubtitle}>
+                    São lançamentos da B3 estritamente escriturais ou transitórios que não representam compra, venda ou dinheiro em conta.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  testID="b3-ignored-modal-close"
+                  style={styles.modalCloseBtn}
+                  onPress={() => setIsIgnoredModalOpen(false)}
+                >
+                  <MaterialIcons name="close" size={22} color={isLight ? '#111315' : '#F4F1EA'} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalInfoBox}>
+                <Text style={styles.modalInfoTitle}>Por que foram descartados:</Text>
+                <Text style={styles.modalInfoBullet}>
+                  • <Text style={{ fontWeight: '700' }}>Direitos de subscrição:</Text> Cupons transitórios (ex: final 12/13) que expiraram ou foram convertidos.
+                </Text>
+                <Text style={styles.modalInfoBullet}>
+                  • <Text style={{ fontWeight: '700' }}>Atualizações de custódia:</Text> Marcações técnicas e conciliações internas da B3.
+                </Text>
+                <Text style={styles.modalInfoBullet}>
+                  • <Text style={{ fontWeight: '700' }}>Recibos e transferências:</Text> Registros sem contrapartida financeira.
+                </Text>
+              </View>
+
+              <Text style={[styles.sectionHeader, { marginTop: 14, marginBottom: 8 }]}>
+                Movimentações ignoradas ({plan.ignored.length})
+              </Text>
+              <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+                {plan.ignored.length === 0 ? (
+                  <Text style={[styles.modalSubtitle, { textAlign: 'center', marginVertical: 12 }]}>
+                    Nenhuma movimentação ignorada.
+                  </Text>
+                ) : (
+                  plan.ignored.map((item, idx) => (
+                    <View key={idx} style={styles.ignoredRow}>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={styles.ignoredTicker}>{item.ticker}</Text>
+                          <Text style={styles.ignoredDate}>{item.tradeDate}</Text>
+                        </View>
+                        <Text style={styles.ignoredDesc} numberOfLines={1}>
+                          {item.rawMovement}
+                        </Text>
+                      </View>
+                      <View style={styles.ignoredBadge}>
+                        <Text style={styles.ignoredBadgeText}>Escritural</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+
+              <TouchableOpacity
+                style={[styles.primaryButton, { marginTop: 16 }]}
+                onPress={() => setIsIgnoredModalOpen(false)}
+              >
+                <Text style={styles.primaryButtonText}>Entendi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -1190,6 +1279,94 @@ const makeStyles = (isLight: boolean) => {
       borderRadius: 12,
       fontSize: 14,
       marginTop: 8,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.65)',
+      justifyContent: 'center',
+      padding: 20,
+    },
+    modalContent: {
+      backgroundColor: c.card,
+      borderRadius: 24,
+      padding: 22,
+      borderWidth: 1,
+      borderColor: c.border,
+      maxHeight: '85%',
+    },
+    modalHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      marginBottom: 12,
+    },
+    modalTitle: {
+      color: c.text,
+      fontSize: 18,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+      marginBottom: 4,
+    },
+    modalSubtitle: {
+      color: c.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    modalCloseBtn: {
+      padding: 4,
+    },
+    modalInfoBox: {
+      backgroundColor: isLight ? '#FAF5EE' : '#1E1B18',
+      padding: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: isLight ? '#F0E5D3' : '#33271D',
+      marginVertical: 8,
+      gap: 4,
+    },
+    modalInfoTitle: {
+      color: c.accent,
+      fontSize: 12,
+      fontWeight: '700',
+      marginBottom: 2,
+    },
+    modalInfoBullet: {
+      color: c.text,
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    ignoredRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingVertical: 10,
+      borderBottomWidth: 1,
+      borderBottomColor: c.border,
+    },
+    ignoredTicker: {
+      color: c.text,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    ignoredDate: {
+      color: c.muted,
+      fontSize: 12,
+    },
+    ignoredDesc: {
+      color: c.muted,
+      fontSize: 12,
+      marginTop: 2,
+    },
+    ignoredBadge: {
+      backgroundColor: isLight ? '#F0ECE1' : '#2A2C2E',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 9999,
+    },
+    ignoredBadgeText: {
+      color: c.muted,
+      fontSize: 11,
+      fontWeight: '600',
     },
   });
 };

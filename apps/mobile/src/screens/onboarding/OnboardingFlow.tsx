@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -85,6 +86,26 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [pinError, setPinError] = useState<string | null>(null);
   const [biometricEnabled, setBiometricEnabled] = useState<boolean>(false);
   const [biometricFailed, setBiometricFailed] = useState<boolean>(false);
+
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const translateXAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    translateXAnim.setValue(18);
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateXAnim, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [currentStepIndex]);
 
   const isLight = themeMode === 'light';
   const bg = isLight ? '#FAF8F3' : '#111315';
@@ -315,6 +336,16 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
+          <Animated.View
+            testID="onboarding-animated-step"
+            style={[
+              styles.stepAnimatedWrapper,
+              {
+                opacity: fadeAnim,
+                transform: [{ translateX: translateXAnim }],
+              },
+            ]}
+          >
           {/* STEP 1: WELCOME */}
           {currentStep === 'welcome' && (
             <View style={styles.stepContainer}>
@@ -601,6 +632,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </View>
             </View>
           )}
+          </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
       </SafeAreaView>
@@ -611,6 +643,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
+  },
+  stepAnimatedWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
   },
   topBar: {
     flexDirection: 'row',
