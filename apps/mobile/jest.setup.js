@@ -221,6 +221,30 @@ jest.mock('expo-local-authentication', () => ({
   cancelAuthenticate: jest.fn(async () => {}),
 }));
 
+jest.mock('expo-document-picker', () => ({
+  getDocumentAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [
+      {
+        uri: 'file:///mock/b3.xlsx',
+        name: 'b3-movimentacao-exemplo.xlsx',
+        size: 1234,
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      },
+    ],
+  })),
+}));
+
+jest.mock('expo-file-system', () => ({
+  readAsStringAsync: jest.fn(async () => 'mock-content'),
+  EncodingType: {
+    Base64: 'base64',
+    UTF8: 'utf8',
+  },
+  documentDirectory: 'file:///mock/documents/',
+  cacheDirectory: 'file:///mock/cache/',
+}));
+
 afterEach(async () => {
   mockSecureStoreMap.clear();
   try {
