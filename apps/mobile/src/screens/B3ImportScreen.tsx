@@ -36,6 +36,22 @@ export interface B3ImportScreenProps {
 
 type ImportStep = 'pick' | 'loading' | 'preview' | 'importing' | 'report';
 
+function formatBRL(val: any): string {
+  if (val === null || val === undefined) return 'R$ 0,00';
+  let num: number;
+  if (typeof val === 'object' && typeof val.toNumber === 'function') {
+    num = val.toNumber();
+  } else if (typeof val === 'number') {
+    num = val;
+  } else {
+    num = parseFloat(String(val).replace(',', '.'));
+  }
+  if (isNaN(num)) return 'R$ 0,00';
+  const parts = num.toFixed(2).split('.');
+  const intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `R$ ${intPart},${parts[1]}`;
+}
+
 function base64ToUint8Array(base64: string): Uint8Array {
   const clean = base64.replace(/[\r\n\s]/g, '');
   if (typeof atob === 'function') {
@@ -168,6 +184,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [brokers, setBrokers] = useState<string[]>([]);
   const [isSplitByBroker, setIsSplitByBroker] = useState<boolean>(true);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
@@ -226,6 +243,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
         allFilesRows.push(rows);
       }
 
+      setSelectedFiles(fileNames);
       setFileName(
         fileNames.length === 1
           ? fileNames[0]
@@ -334,14 +352,33 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
         {step === 'pick' && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Como exportar da B3</Text>
-            <Text style={styles.instructionText}>
-              1. Acesse a Área do Investidor B3{'\n'}
-              2. Vá em Extratos → Movimentação{'\n'}
-              3. Escolha o período e clique em Exportar (.xlsx)
-            </Text>
-            <Text style={styles.privacyNote}>
-              🔒 Seus dados financeiros não saem do seu aparelho. Todo o processamento é feito localmente.
-            </Text>
+            <View style={styles.instructionList}>
+              <View style={styles.instructionStep}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>1</Text>
+                </View>
+                <Text style={styles.instructionStepText}>Acesse a Área do Investidor B3</Text>
+              </View>
+              <View style={styles.instructionStep}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>2</Text>
+                </View>
+                <Text style={styles.instructionStepText}>Vá em Extratos → Movimentação</Text>
+              </View>
+              <View style={styles.instructionStep}>
+                <View style={styles.stepNumberBadge}>
+                  <Text style={styles.stepNumberText}>3</Text>
+                </View>
+                <Text style={styles.instructionStepText}>Escolha o período e clique em Exportar (.xlsx)</Text>
+              </View>
+            </View>
+
+            <View style={styles.privacyCard}>
+              <MaterialIcons name="lock-outline" size={18} color={isLight ? '#C85A17' : '#FF8A00'} />
+              <Text style={styles.privacyNote}>
+                Seus dados financeiros não saem do seu aparelho. Todo o processamento é feito localmente.
+              </Text>
+            </View>
 
             {errorMessage && <Text style={styles.errorText}>{errorMessage}</Text>}
 
@@ -366,24 +403,40 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
         {/* Step 2: Preview */}
         {step === 'preview' && plan && (
           <View testID="b3-preview-summary" style={styles.previewContainer}>
-            <Text style={styles.sectionHeader}>Resumo do arquivo: {fileName}</Text>
+            <View style={styles.previewHeaderCard}>
+              <Text style={styles.sectionHeader}>
+                Resumo {selectedFiles.length > 1 ? `dos ${selectedFiles.length} arquivos selecionados` : `do arquivo: ${fileName}`}
+              </Text>
+              {selectedFiles.length > 1 && (
+                <View style={styles.fileChipsRow}>
+                  {selectedFiles.map((f, i) => (
+                    <View key={i} style={styles.fileChip}>
+                      <MaterialIcons name="insert-drive-file" size={14} color={isLight ? '#6E6A63' : '#D5CAA8'} />
+                      <Text style={styles.fileChipText} numberOfLines={1}>
+                        {f}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
 
             {/* Summary grid */}
             <View style={styles.summaryGrid}>
               <View style={styles.summaryTile}>
                 <Text style={styles.summaryLabel}>Compras</Text>
                 <Text style={styles.summaryValue}>{plan.buys.length}</Text>
-                <Text style={styles.summarySub}>R$ {plan.totals.buys.toFixed(2)}</Text>
+                <Text style={styles.summarySub}>{formatBRL(plan.totals.buys)}</Text>
               </View>
               <View style={styles.summaryTile}>
                 <Text style={styles.summaryLabel}>Vendas</Text>
                 <Text style={styles.summaryValue}>{plan.sells.length}</Text>
-                <Text style={styles.summarySub}>R$ {plan.totals.sells.toFixed(2)}</Text>
+                <Text style={styles.summarySub}>{formatBRL(plan.totals.sells)}</Text>
               </View>
               <View style={styles.summaryTile}>
                 <Text style={styles.summaryLabel}>Proventos</Text>
                 <Text style={styles.summaryValue}>{plan.incomes.length}</Text>
-                <Text style={styles.summarySub}>R$ {plan.totals.incomes.toFixed(2)}</Text>
+                <Text style={styles.summarySub}>{formatBRL(plan.totals.incomes)}</Text>
               </View>
               <View style={styles.summaryTile}>
                 <Text style={styles.summaryLabel}>Ignorados</Text>
@@ -609,30 +662,42 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
         {/* Step 4: Report */}
         {step === 'report' && report && (
           <View testID="b3-report" style={styles.reportContainer}>
-            <Text style={styles.reportTitle}>Relatório de Importação B3</Text>
-            <Text style={styles.reportSubtitle}>
-              {report.imported.buys} compras, {report.imported.sells} venda e{' '}
-              {report.imported.incomes} proventos importados com sucesso!
-            </Text>
+            <View style={styles.reportHeader}>
+              <View style={styles.successBadge}>
+                <MaterialIcons name="check" size={24} color={isLight ? '#2D6A4F' : '#4CAF50'} />
+              </View>
+              <Text style={styles.reportTitle}>Relatório de Importação B3</Text>
+              <Text style={styles.reportSubtitle}>
+                {report.imported.buys} compras, {report.imported.sells} venda e{' '}
+                {report.imported.incomes} proventos importados com sucesso!
+              </Text>
+            </View>
 
             <View style={styles.reportCard}>
-              <Text style={styles.verificationText}>
-                {report.verification.matches
-                  ? '✓ Verificação financeira conferida com sucesso'
-                  : '⚠ Divergência nos totais'}
-              </Text>
-              <Text style={styles.reportDetail}>
-                Total Compras: R$ {report.verification.actualBuys}
-              </Text>
-              <Text style={styles.reportDetail}>
-                Total Vendas: R$ {report.verification.actualSells}
-              </Text>
-              <Text style={styles.reportDetail}>
-                Total Proventos: R$ {report.verification.actualIncomes}
-              </Text>
+              <View style={styles.verificationBadge}>
+                <Text style={styles.verificationText}>
+                  {report.verification.matches
+                    ? '✓ Verificação financeira conferida com sucesso'
+                    : '⚠ Divergência nos totais'}
+                </Text>
+              </View>
+              <View style={styles.verificationGrid}>
+                <View style={styles.verificationRow}>
+                  <Text style={styles.verificationLabel}>Total Compras:</Text>
+                  <Text style={styles.verificationValue}>{formatBRL(report.verification.actualBuys)}</Text>
+                </View>
+                <View style={styles.verificationRow}>
+                  <Text style={styles.verificationLabel}>Total Vendas:</Text>
+                  <Text style={styles.verificationValue}>{formatBRL(report.verification.actualSells)}</Text>
+                </View>
+                <View style={styles.verificationRow}>
+                  <Text style={styles.verificationLabel}>Total Proventos:</Text>
+                  <Text style={styles.verificationValue}>{formatBRL(report.verification.actualIncomes)}</Text>
+                </View>
+              </View>
               {report.duplicates.buys + report.duplicates.sells + report.duplicates.incomes >
                 0 && (
-                <Text style={styles.reportDetail}>
+                <Text style={[styles.reportDetail, { marginTop: 10 }]}>
                   Itens já existentes: {report.duplicates.buys} compras, {report.duplicates.sells}{' '}
                   vendas, {report.duplicates.incomes} proventos
                 </Text>
@@ -640,14 +705,14 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
             </View>
 
             {/* Sugestão e CTA de Metas e Alocação */}
-            <View style={[styles.reportCard, { backgroundColor: isLight ? '#EAE5D9' : '#22252A', borderColor: colors.primary, borderWidth: 1.5 }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                <MaterialIcons name="tune" size={22} color={colors.primary} />
+            <View style={[styles.reportCard, styles.metasCard]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <MaterialIcons name="tune" size={22} color={isLight ? '#111315' : colors.primary} />
                 <Text style={[styles.reportTitle, { color: isLight ? '#111315' : colors.parchmentPale, fontSize: 16 }]}>
                   Defina suas metas e alocação (%)
                 </Text>
               </View>
-              <Text style={[styles.reportDetail, { color: isLight ? '#4A463F' : colors.parchmentMuted, marginBottom: 12 }]}>
+              <Text style={[styles.reportDetail, { color: isLight ? '#4A463F' : colors.parchmentMuted, marginBottom: 16, lineHeight: 20 }]}>
                 Seus ativos foram cadastrados. Configure os percentuais desejados de cada classe e sua meta de patrimônio para liberar as recomendações inteligentes.
               </Text>
               <TouchableOpacity
@@ -682,315 +747,449 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
 
 const makeStyles = (isLight: boolean) => {
   const c = {
-    bg: isLight ? '#F4F1EA' : '#111315',
+    bg: isLight ? '#FAF8F3' : '#111315',
     card: isLight ? '#FFFFFF' : '#1C1E20',
-    chip: isLight ? '#EAE4D7' : '#2A2C2E',
-    text: isLight ? '#191B1D' : '#FFF',
+    cardHighlight: isLight ? '#E6DECA' : '#25282B',
+    border: isLight ? '#EAE4D7' : '#2A2C2E',
+    chip: isLight ? '#F0ECE1' : '#2A2C2E',
+    text: isLight ? '#111315' : '#F4F1EA',
     muted: isLight ? '#6E6A63' : '#A0A4A8',
     detail: isLight ? '#3A3A3C' : '#E0E0E0',
-    ok: isLight ? '#2E7D32' : '#4CAF50',
+    ok: isLight ? '#2D6A4F' : '#4CAF50',
+    okBg: isLight ? '#EAF3EC' : '#192C20',
+    primaryBtnBg: isLight ? '#111315' : '#E6DECA',
+    primaryBtnText: isLight ? '#FAF8F3' : '#111315',
+    accent: isLight ? '#C85A17' : '#FF8A00',
   };
 
   return StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: c.bg,
-  },
-  content: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: c.card,
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 12,
-  },
-  cardTitle: {
-    color: c.text,
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  instructionText: {
-    color: c.muted,
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: 16,
-  },
-  privacyNote: {
-    color: '#FF8A00',
-    fontSize: 13,
-    marginBottom: 20,
-    lineHeight: 18,
-  },
-  primaryButton: {
-    backgroundColor: '#FF8A00',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  primaryButtonText: {
-    color: '#111315',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  secondaryButton: {
-    backgroundColor: c.chip,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  secondaryButtonText: {
-    color: c.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  textButton: {
-    paddingVertical: 12,
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  textButtonText: {
-    color: c.muted,
-    fontSize: 14,
-  },
-  buttonDisabled: {
-    opacity: 0.4,
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  loadingText: {
-    color: c.text,
-    fontSize: 16,
-    marginTop: 16,
-  },
-  subLoadingText: {
-    color: c.muted,
-    fontSize: 13,
-    marginTop: 6,
-  },
-  previewContainer: {
-    marginTop: 8,
-  },
-  sectionHeader: {
-    color: c.text,
-    fontSize: 16,
-    fontWeight: '700',
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryTile: {
-    backgroundColor: c.card,
-    borderRadius: 12,
-    padding: 12,
-    width: '48%',
-  },
-  summaryLabel: {
-    color: c.muted,
-    fontSize: 12,
-  },
-  summaryValue: {
-    color: c.text,
-    fontSize: 20,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  summarySub: {
-    color: '#FF8A00',
-    fontSize: 12,
-    marginTop: 2,
-  },
-  obSection: {
-    backgroundColor: c.card,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-  },
-  obTitle: {
-    color: '#FF8A00',
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  obCard: {
-    marginTop: 6,
-  },
-  obTicker: {
-    color: c.text,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  obDesc: {
-    color: c.muted,
-    fontSize: 12,
-    marginVertical: 6,
-    lineHeight: 16,
-  },
-  choiceRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 6,
-  },
-  chip: {
-    backgroundColor: c.chip,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  chipActive: {
-    backgroundColor: '#FF8A00',
-  },
-  chipText: {
-    color: c.text,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  assetRow: {
-    backgroundColor: c.card,
-    padding: 12,
-    borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  assetTicker: {
-    color: c.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  assetName: {
-    color: c.muted,
-    fontSize: 12,
-    maxWidth: 220,
-  },
-  classBadge: {
-    backgroundColor: c.chip,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  classBadgeText: {
-    color: '#FF8A00',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  errorText: {
-    color: '#FF5252',
-    fontSize: 13,
-    marginTop: 10,
-  },
-  reportContainer: {
-    paddingTop: 10,
-  },
-  reportTitle: {
-    color: c.text,
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  reportSubtitle: {
-    color: c.muted,
-    fontSize: 14,
-    marginTop: 6,
-    lineHeight: 20,
-  },
-  reportCard: {
-    backgroundColor: c.card,
-    padding: 16,
-    borderRadius: 12,
-    marginTop: 16,
-  },
-  verificationText: {
-    color: c.ok,
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
-  reportDetail: {
-    color: c.detail,
-    fontSize: 13,
-    lineHeight: 20,
-  },
-  brokerSection: {
-    backgroundColor: c.card,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  subtext: {
-    color: c.muted,
-    fontSize: 13,
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  brokerChipsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-  },
-  brokerBadge: {
-    backgroundColor: c.chip,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: isLight ? '#E0DACB' : '#333',
-  },
-  brokerBadgeText: {
-    color: c.text,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  destinationToggleRow: {
-    flexDirection: 'column',
-    gap: 8,
-  },
-  destOptionBtn: {
-    backgroundColor: c.chip,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  destOptionBtnActive: {
-    backgroundColor: isLight ? '#FFF3E8' : '#2C2219',
-    borderColor: '#FF8A00',
-  },
-  destOptionText: {
-    color: c.muted,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  destOptionTextActive: {
-    color: '#FF8A00',
-    fontWeight: '700',
-  },
-  portChoiceRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 10,
-  },
-  textInput: {
-    backgroundColor: c.chip,
-    color: c.text,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 8,
-    fontSize: 14,
-    marginTop: 8,
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: c.bg,
+    },
+    content: {
+      padding: 16,
+    },
+    card: {
+      backgroundColor: c.card,
+      borderRadius: 24,
+      padding: 24,
+      marginTop: 12,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    cardTitle: {
+      color: c.text,
+      fontSize: 20,
+      fontWeight: '700',
+      marginBottom: 16,
+      letterSpacing: -0.3,
+    },
+    instructionList: {
+      marginBottom: 18,
+      gap: 12,
+    },
+    instructionStep: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    stepNumberBadge: {
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: isLight ? '#EAE5D9' : '#2A2C2E',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    stepNumberText: {
+      color: c.text,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    instructionStepText: {
+      color: c.muted,
+      fontSize: 14,
+      flex: 1,
+      lineHeight: 20,
+    },
+    privacyCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isLight ? '#FAF5EE' : '#1E1B18',
+      padding: 12,
+      borderRadius: 12,
+      gap: 10,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: isLight ? '#F0E5D3' : '#33271D',
+    },
+    privacyNote: {
+      color: c.accent,
+      fontSize: 12,
+      flex: 1,
+      lineHeight: 18,
+    },
+    primaryButton: {
+      backgroundColor: c.primaryBtnBg,
+      borderRadius: 9999,
+      paddingVertical: 15,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+    primaryButtonText: {
+      color: c.primaryBtnText,
+      fontSize: 16,
+      fontWeight: '700',
+    },
+    secondaryButton: {
+      backgroundColor: isLight ? '#FAF8F3' : '#1C1E20',
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: c.border,
+      paddingVertical: 14,
+      paddingHorizontal: 24,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 10,
+    },
+    secondaryButtonText: {
+      color: c.text,
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    textButton: {
+      paddingVertical: 14,
+      alignItems: 'center',
+      marginTop: 6,
+    },
+    textButtonText: {
+      color: c.muted,
+      fontSize: 14,
+      fontWeight: '500',
+    },
+    buttonDisabled: {
+      opacity: 0.4,
+    },
+    loadingContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: 40,
+    },
+    loadingText: {
+      color: c.text,
+      fontSize: 16,
+      fontWeight: '600',
+      marginTop: 16,
+    },
+    subLoadingText: {
+      color: c.muted,
+      fontSize: 13,
+      marginTop: 6,
+    },
+    previewContainer: {
+      marginTop: 8,
+    },
+    previewHeaderCard: {
+      marginBottom: 14,
+    },
+    sectionHeader: {
+      color: c.text,
+      fontSize: 17,
+      fontWeight: '700',
+      letterSpacing: -0.2,
+      marginBottom: 10,
+    },
+    fileChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginTop: 6,
+    },
+    fileChip: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: isLight ? '#FFFFFF' : '#1C1E20',
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: c.border,
+      gap: 6,
+      maxWidth: '100%',
+    },
+    fileChipText: {
+      color: c.text,
+      fontSize: 12,
+      fontWeight: '500',
+    },
+    summaryGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 10,
+      marginBottom: 16,
+    },
+    summaryTile: {
+      backgroundColor: c.card,
+      borderRadius: 20,
+      padding: 14,
+      width: '48.5%',
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    summaryLabel: {
+      color: c.muted,
+      fontSize: 11,
+      fontWeight: '700',
+      letterSpacing: 0.8,
+      textTransform: 'uppercase',
+    },
+    summaryValue: {
+      color: c.text,
+      fontSize: 22,
+      fontWeight: '700',
+      marginTop: 4,
+    },
+    summarySub: {
+      color: c.accent,
+      fontSize: 13,
+      fontWeight: '600',
+      marginTop: 2,
+    },
+    obSection: {
+      backgroundColor: c.card,
+      borderRadius: 20,
+      padding: 16,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    obTitle: {
+      color: c.accent,
+      fontSize: 15,
+      fontWeight: '700',
+      marginBottom: 8,
+    },
+    obCard: {
+      marginTop: 6,
+    },
+    obTicker: {
+      color: c.text,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    obDesc: {
+      color: c.muted,
+      fontSize: 12,
+      marginVertical: 6,
+      lineHeight: 16,
+    },
+    choiceRow: {
+      flexDirection: 'row',
+      gap: 8,
+      marginTop: 6,
+    },
+    chip: {
+      backgroundColor: c.chip,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 9999,
+    },
+    chipActive: {
+      backgroundColor: isLight ? '#111315' : c.cardHighlight,
+    },
+    chipText: {
+      color: c.text,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    assetRow: {
+      backgroundColor: c.card,
+      padding: 14,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 8,
+    },
+    assetTicker: {
+      color: c.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    assetName: {
+      color: c.muted,
+      fontSize: 12,
+      maxWidth: 220,
+    },
+    classBadge: {
+      backgroundColor: isLight ? '#F0ECE1' : '#2A2C2E',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 9999,
+    },
+    classBadgeText: {
+      color: isLight ? '#111315' : c.accent,
+      fontSize: 11,
+      fontWeight: '700',
+    },
+    errorText: {
+      color: '#E53935',
+      fontSize: 13,
+      marginTop: 10,
+    },
+    reportContainer: {
+      paddingTop: 10,
+    },
+    reportHeader: {
+      marginBottom: 16,
+    },
+    successBadge: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: c.okBg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 12,
+    },
+    reportTitle: {
+      color: c.text,
+      fontSize: 22,
+      fontWeight: '700',
+      letterSpacing: -0.3,
+    },
+    reportSubtitle: {
+      color: c.muted,
+      fontSize: 14,
+      marginTop: 6,
+      lineHeight: 20,
+    },
+    reportCard: {
+      backgroundColor: c.card,
+      padding: 18,
+      borderRadius: 24,
+      marginTop: 16,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    verificationBadge: {
+      alignSelf: 'flex-start',
+      backgroundColor: c.okBg,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 9999,
+      marginBottom: 12,
+    },
+    verificationText: {
+      color: c.ok,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    verificationGrid: {
+      gap: 8,
+    },
+    verificationRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingVertical: 3,
+    },
+    verificationLabel: {
+      color: c.muted,
+      fontSize: 14,
+    },
+    verificationValue: {
+      color: c.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    reportDetail: {
+      color: c.detail,
+      fontSize: 13,
+      lineHeight: 20,
+    },
+    metasCard: {
+      backgroundColor: c.cardHighlight,
+      borderColor: isLight ? '#D5CAA8' : '#33373B',
+      borderWidth: 1,
+    },
+    brokerSection: {
+      backgroundColor: c.card,
+      padding: 18,
+      borderRadius: 24,
+      borderWidth: 1,
+      borderColor: c.border,
+      marginBottom: 16,
+    },
+    subtext: {
+      color: c.muted,
+      fontSize: 13,
+      marginTop: 4,
+      marginBottom: 12,
+    },
+    brokerChipsRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 16,
+    },
+    brokerBadge: {
+      backgroundColor: c.chip,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: c.border,
+    },
+    brokerBadgeText: {
+      color: c.text,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    destinationToggleRow: {
+      flexDirection: 'column',
+      gap: 8,
+    },
+    destOptionBtn: {
+      backgroundColor: c.chip,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderRadius: 9999,
+      borderWidth: 1,
+      borderColor: 'transparent',
+    },
+    destOptionBtnActive: {
+      backgroundColor: isLight ? '#E6DECA' : '#2C2219',
+      borderColor: c.accent,
+    },
+    destOptionText: {
+      color: c.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    destOptionTextActive: {
+      color: isLight ? '#111315' : c.accent,
+      fontWeight: '700',
+    },
+    portChoiceRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+      marginBottom: 10,
+    },
+    textInput: {
+      backgroundColor: c.chip,
+      color: c.text,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      borderRadius: 12,
+      fontSize: 14,
+      marginTop: 8,
+    },
+  });
 };

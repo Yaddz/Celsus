@@ -53,7 +53,7 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
       ? userInitials
       : userName && userName !== 'Usuário'
       ? deriveInitials(userName)
-      : userInitials || '';
+      : '';
   const theme = THEME_COLORS[themeMode] || THEME_COLORS.dark;
 
   const textColor = isLight ? '#111315' : '#E6DECA';

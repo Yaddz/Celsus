@@ -39,6 +39,7 @@ import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import { AppGate } from './src/components/AppGate';
 import { sessionStore } from './src/stores/sessionStore';
 import { useProfile, profileStore } from './src/stores/profileStore';
+import { deriveInitials } from './src/domain/profile';
 import {
   PortfolioManagementScreen,
   TransactionScreen,
@@ -225,14 +226,14 @@ function AppContent(props: {
   const isLight = themeMode === 'light';
 
   // Modais de Navegação
-  const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(false);
-  const [openCreatePortfolioModal, setOpenCreatePortfolioModal] = useState(false);
+  const [isPortfolioManagerModalOpen, setIsPortfolioManagerModalOpen] = useState(() => props.initialAction === 'create_wallet');
+  const [openCreatePortfolioModal, setOpenCreatePortfolioModal] = useState(() => props.initialAction === 'create_wallet');
   const [openAddAssetModal, setOpenAddAssetModal] = useState(false);
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
-  const [isB3ImportOpen, setIsB3ImportOpen] = useState(false);
+  const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
@@ -1019,7 +1020,7 @@ function AppContent(props: {
   const renderB3ImportModal = () => (
     <Modal
       visible={isB3ImportOpen}
-      animationType="slide"
+      animationType={props.initialAction === 'import_b3' ? 'none' : 'slide'}
       presentationStyle="fullScreen"
       onRequestClose={() => setIsB3ImportOpen(false)}
     >
@@ -1712,7 +1713,7 @@ function AppContent(props: {
         <XpMinimalHeader
           testID="xp-minimal-header"
           userName={profileName || 'Usuário'}
-          userInitials={profileInitials || 'U'}
+          userInitials={profileInitials || (profileName ? deriveInitials(profileName) : '')}
           isPrivacyModeEnabled={isPrivacyMode}
           onAvatarPress={homeOpenSettings}
           onGlobePress={homeGlobePress}

@@ -87,10 +87,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   const [biometricFailed, setBiometricFailed] = useState<boolean>(false);
 
   const isLight = themeMode === 'light';
-  const bg = isLight ? '#F4F1EA' : '#111315';
+  const bg = isLight ? '#FAF8F3' : '#111315';
   const fg = isLight ? '#111315' : '#F4F1EA';
-  const muted = isLight ? '#7C786E' : '#9E9AA0';
-  const cardBg = isLight ? '#EAE4D7' : '#1C1E20';
+  const muted = isLight ? '#6E6A63' : '#A0A4A8';
+  const cardBg = isLight ? '#FFFFFF' : '#1C1E20';
+  const cardBorder = isLight ? '#EAE4D7' : '#2A2C2E';
+  const highlightCard = isLight ? '#E6DECA' : '#25282B';
+  const buttonPrimaryBg = isLight ? '#111315' : '#E6DECA';
+  const buttonPrimaryFg = isLight ? '#FAF8F3' : '#111315';
   const accent = colors.primary;
 
   const trimmedName = name.trim();
@@ -121,9 +125,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
   // Atomic completion & unlock
   const handleFinish = useCallback(
     (action?: 'import_b3' | 'create_wallet' | 'explore') => {
-      profileRepository.setProfileName(trimmedName);
+      if (trimmedName) {
+        profileRepository.setProfileName(trimmedName);
+        profileStore.setName(trimmedName);
+      }
       profileRepository.setOnboarded(true);
-      profileStore.setName(trimmedName);
       profileStore.setOnboarded(true);
 
       if (pin) {
@@ -165,9 +171,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 // Skip Biometrics automatically
                 if (isMigration) {
                   // Migration ends after PIN/Bio without Done step
-                  await profileStore.setName(trimmedName);
+                  if (trimmedName) {
+                    await profileStore.setName(trimmedName);
+                    await profileRepository.setProfileName(trimmedName);
+                  }
                   await profileStore.setOnboarded(true);
-                  await profileRepository.setProfileName(trimmedName);
                   await profileRepository.setOnboarded(true);
                   await authService.setPin(next);
                   sessionStore.unlock();
@@ -282,8 +290,14 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 styles.dot,
                 {
                   backgroundColor:
-                    idx <= currentStepIndex ? accent : isLight ? '#D5CAA8' : '#33363A',
-                  width: idx === currentStepIndex ? 16 : 8,
+                    idx <= currentStepIndex
+                      ? isLight
+                        ? '#111315'
+                        : accent
+                      : isLight
+                      ? '#EAE4D7'
+                      : '#33363A',
+                  width: idx === currentStepIndex ? 24 : 10,
                 },
               ]}
             />
@@ -305,8 +319,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           {currentStep === 'welcome' && (
             <View style={styles.stepContainer}>
               <View style={styles.welcomeHero}>
-                <View style={[styles.logoBadge, { backgroundColor: cardBg, borderColor: accent }]}>
-                  <MaterialIcons name="account-balance-wallet" size={40} color={accent} />
+                <View style={[styles.logoBadge, { backgroundColor: isLight ? '#EAE5D9' : '#2A2C2E', borderColor: isLight ? '#111315' : accent }]}>
+                  <MaterialIcons name="account-balance-wallet" size={36} color={isLight ? '#111315' : accent} />
                 </View>
                 <Text style={[styles.title, { color: fg }]}>Celsus</Text>
                 <Text style={[styles.subtitle, { color: muted }]}>
@@ -315,8 +329,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </View>
 
               <View style={styles.benefitsList}>
-                <View style={[styles.benefitCard, { backgroundColor: cardBg }]}>
-                  <MaterialIcons name="security" size={24} color={accent} />
+                <View style={[styles.benefitCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                  <MaterialIcons name="security" size={24} color={isLight ? '#111315' : accent} />
                   <View style={styles.benefitTextCol}>
                     <Text style={[styles.benefitTitle, { color: fg }]}>100% local e privado</Text>
                     <Text style={[styles.benefitDesc, { color: muted }]}>
@@ -325,8 +339,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   </View>
                 </View>
 
-                <View style={[styles.benefitCard, { backgroundColor: cardBg }]}>
-                  <MaterialIcons name="pie-chart" size={24} color={accent} />
+                <View style={[styles.benefitCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                  <MaterialIcons name="pie-chart" size={24} color={isLight ? '#111315' : accent} />
                   <View style={styles.benefitTextCol}>
                     <Text style={[styles.benefitTitle, { color: fg }]}>Metas em dois níveis</Text>
                     <Text style={[styles.benefitDesc, { color: muted }]}>
@@ -335,8 +349,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   </View>
                 </View>
 
-                <View style={[styles.benefitCard, { backgroundColor: cardBg }]}>
-                  <MaterialIcons name="trending-up" size={24} color={accent} />
+                <View style={[styles.benefitCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                  <MaterialIcons name="trending-up" size={24} color={isLight ? '#111315' : accent} />
                   <View style={styles.benefitTextCol}>
                     <Text style={[styles.benefitTitle, { color: fg }]}>Aportes inteligentes</Text>
                     <Text style={[styles.benefitDesc, { color: muted }]}>
@@ -350,10 +364,10 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 testID="onboarding-next"
                 accessibilityRole="button"
                 onPress={handleNext}
-                style={[styles.primaryButton, { backgroundColor: accent }]}
+                style={[styles.primaryButton, { backgroundColor: buttonPrimaryBg }]}
               >
-                <Text style={styles.primaryButtonText}>Começar</Text>
-                <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+                <Text style={[styles.primaryButtonText, { color: buttonPrimaryFg }]}>Começar</Text>
+                <MaterialIcons name="arrow-forward" size={20} color={buttonPrimaryFg} />
               </TouchableOpacity>
             </View>
           )}
@@ -371,8 +385,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
               </View>
 
               {/* Live Avatar Preview */}
-              <View testID="onboarding-avatar-preview" style={[styles.avatarPreview, { borderColor: accent, backgroundColor: cardBg }]}>
-                <Text testID="onboarding-avatar-initials" style={[styles.avatarInitials, { color: accent }]}>
+              <View testID="onboarding-avatar-preview" style={[styles.avatarPreview, { borderColor: isLight ? '#111315' : accent, backgroundColor: isLight ? '#EAE5D9' : '#2A2C2E' }]}>
+                <Text testID="onboarding-avatar-initials" style={[styles.avatarInitials, { color: isLight ? '#111315' : accent }]}>
                   {liveInitials || '•'}
                 </Text>
               </View>
@@ -384,7 +398,7 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   {
                     color: fg,
                     backgroundColor: cardBg,
-                    borderColor: isNameValid ? accent : isLight ? '#D5CAA8' : '#33363A',
+                    borderColor: isNameValid ? (isLight ? '#111315' : accent) : cardBorder,
                   },
                 ]}
                 placeholder="Seu nome ou apelido"
@@ -403,13 +417,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 style={[
                   styles.primaryButton,
                   {
-                    backgroundColor: accent,
+                    backgroundColor: buttonPrimaryBg,
                     opacity: isNameValid ? 1 : 0.4,
                   },
                 ]}
               >
-                <Text style={styles.primaryButtonText}>Continuar</Text>
-                <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" />
+                <Text style={[styles.primaryButtonText, { color: buttonPrimaryFg }]}>Continuar</Text>
+                <MaterialIcons name="arrow-forward" size={20} color={buttonPrimaryFg} />
               </TouchableOpacity>
             </View>
           )}
@@ -452,9 +466,9 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 testID="onboarding-pin-skip"
                 accessibilityRole="button"
                 onPress={handleSkipPin}
-                style={styles.skipButton}
+                style={[styles.skipButton, { backgroundColor: isLight ? '#F0ECE1' : '#1C1E20' }]}
               >
-                <Text style={[styles.skipButtonText, { color: muted }]}>Agora não (sem PIN)</Text>
+                <Text style={[styles.skipButtonText, { color: fg }]}>Agora não (sem PIN)</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -469,8 +483,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 </Text>
               </View>
 
-              <View style={[styles.bioCard, { backgroundColor: cardBg }]}>
-                <MaterialIcons name="fingerprint" size={64} color={accent} />
+              <View style={[styles.bioCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
+                <MaterialIcons name="fingerprint" size={56} color={isLight ? '#111315' : accent} />
                 <Text style={[styles.bioCardTitle, { color: fg }]}>Autenticação Biométrica</Text>
                 <Text style={[styles.bioCardBody, { color: muted }]}>
                   Seu PIN continua funcionando como alternativa segura se a biometria falhar.
@@ -486,19 +500,19 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 testID="onboarding-biometric-enable"
                 accessibilityRole="button"
                 onPress={handleEnableBiometrics}
-                style={[styles.primaryButton, { backgroundColor: accent, marginBottom: 12 }]}
+                style={[styles.primaryButton, { backgroundColor: buttonPrimaryBg, marginBottom: 12 }]}
               >
-                <Text style={styles.primaryButtonText}>Ativar biometria</Text>
-                <MaterialIcons name="fingerprint" size={20} color="#FFFFFF" />
+                <Text style={[styles.primaryButtonText, { color: buttonPrimaryFg }]}>Ativar biometria</Text>
+                <MaterialIcons name="fingerprint" size={20} color={buttonPrimaryFg} />
               </TouchableOpacity>
 
               <TouchableOpacity
                 testID="onboarding-biometric-skip"
                 accessibilityRole="button"
                 onPress={handleSkipBiometrics}
-                style={styles.skipButton}
+                style={[styles.skipButton, { backgroundColor: isLight ? '#F0ECE1' : '#1C1E20' }]}
               >
-                <Text style={[styles.skipButtonText, { color: muted }]}>Agora não</Text>
+                <Text style={[styles.skipButtonText, { color: fg }]}>Agora não</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -507,13 +521,13 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
           {currentStep === 'done' && (
             <View style={styles.stepContainer}>
               <View style={styles.stepHeader}>
-                <View style={[styles.doneBadge, { backgroundColor: cardBg }]}>
-                  <MaterialIcons name="check-circle" size={54} color={accent} />
+                <View style={[styles.doneBadge, { backgroundColor: isLight ? '#EAF3EC' : '#1C2E24' }]}>
+                  <MaterialIcons name="check" size={30} color={isLight ? '#2D6A4F' : '#4CAF50'} />
                 </View>
-                <Text style={[styles.title, { color: fg }]}>
+                <Text style={[styles.title, { color: fg, textAlign: 'center' }]}>
                   Tudo certo, {trimmedName}!
                 </Text>
-                <Text style={[styles.subtitle, { color: muted }]}>
+                <Text style={[styles.subtitle, { color: muted, textAlign: 'center' }]}>
                   Como você gostaria de começar no Celsus?
                 </Text>
               </View>
@@ -523,11 +537,25 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   testID="onboarding-done-import"
                   accessibilityRole="button"
                   onPress={() => handleFinish('import_b3')}
-                  style={[styles.actionCard, { backgroundColor: cardBg, borderColor: accent }]}
+                  style={[
+                    styles.actionCard,
+                    {
+                      backgroundColor: highlightCard,
+                      borderColor: isLight ? '#D5CAA8' : accent,
+                      borderWidth: 1.5,
+                    },
+                  ]}
                 >
-                  <MaterialIcons name="file-upload" size={28} color={accent} />
+                  <View style={[styles.actionIconBadge, { backgroundColor: isLight ? '#FFFFFF' : '#1C1E20' }]}>
+                    <MaterialIcons name="file-upload" size={24} color={isLight ? '#111315' : accent} />
+                  </View>
                   <View style={styles.actionTextCol}>
-                    <Text style={[styles.actionTitle, { color: fg }]}>Importar extrato da B3</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.actionTitle, { color: fg }]}>Importar extrato da B3</Text>
+                      <View style={[styles.recommendedTag, { backgroundColor: isLight ? '#111315' : accent }]}>
+                        <Text style={[styles.recommendedTagText, { color: isLight ? '#FAF8F3' : '#111315' }]}>Recomendado</Text>
+                      </View>
+                    </View>
                     <Text style={[styles.actionDesc, { color: muted }]}>
                       Carregue seus ativos e histórico diretamente da B3.
                     </Text>
@@ -539,9 +567,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   testID="onboarding-done-create-wallet"
                   accessibilityRole="button"
                   onPress={() => handleFinish('create_wallet')}
-                  style={[styles.actionCard, { backgroundColor: cardBg }]}
+                  style={[styles.actionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
                 >
-                  <MaterialIcons name="account-balance-wallet" size={28} color={accent} />
+                  <View style={[styles.actionIconBadge, { backgroundColor: isLight ? '#F0ECE1' : '#2A2C2E' }]}>
+                    <MaterialIcons name="account-balance-wallet" size={24} color={isLight ? '#111315' : accent} />
+                  </View>
                   <View style={styles.actionTextCol}>
                     <Text style={[styles.actionTitle, { color: fg }]}>Criar minha primeira carteira</Text>
                     <Text style={[styles.actionDesc, { color: muted }]}>
@@ -555,9 +585,11 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                   testID="onboarding-done-explore"
                   accessibilityRole="button"
                   onPress={() => handleFinish('explore')}
-                  style={[styles.actionCard, { backgroundColor: cardBg }]}
+                  style={[styles.actionCard, { backgroundColor: cardBg, borderColor: cardBorder }]}
                 >
-                  <MaterialIcons name="explore" size={28} color={accent} />
+                  <View style={[styles.actionIconBadge, { backgroundColor: isLight ? '#F0ECE1' : '#2A2C2E' }]}>
+                    <MaterialIcons name="explore" size={24} color={isLight ? '#111315' : accent} />
+                  </View>
                   <View style={styles.actionTextCol}>
                     <Text style={[styles.actionTitle, { color: fg }]}>Explorar o app</Text>
                     <Text style={[styles.actionDesc, { color: muted }]}>
@@ -601,8 +633,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dot: {
-    height: 6,
-    borderRadius: 3,
+    height: 4,
+    borderRadius: 2,
   },
   content: {
     flexGrow: 1,
@@ -619,17 +651,18 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   logoBadge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 1.5,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
+    letterSpacing: -0.4,
     fontFamily: typography.fontFamily,
     marginBottom: 8,
   },
@@ -646,7 +679,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 20,
+    borderWidth: 1,
     gap: 14,
   },
   benefitTextCol: {
@@ -654,7 +688,7 @@ const styles = StyleSheet.create({
   },
   benefitTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: typography.fontFamily,
     marginBottom: 2,
   },
@@ -667,9 +701,9 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   avatarPreview: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 2,
     alignSelf: 'center',
     justifyContent: 'center',
@@ -677,15 +711,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   avatarInitials: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     fontFamily: typography.fontFamily,
   },
   nameInput: {
-    height: 52,
-    borderRadius: 10,
+    height: 54,
+    borderRadius: 9999,
     borderWidth: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     fontSize: 16,
     fontFamily: typography.fontFamily,
     marginBottom: 24,
@@ -699,30 +733,33 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     height: 52,
-    borderRadius: 12,
+    borderRadius: 9999,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    paddingHorizontal: 24,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: typography.fontFamily,
   },
   skipButton: {
     marginTop: 16,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 22,
+    borderRadius: 9999,
     alignSelf: 'center',
   },
   skipButtonText: {
     fontSize: 14,
+    fontWeight: '600',
     fontFamily: typography.fontFamily,
   },
   bioCard: {
-    borderRadius: 16,
+    borderRadius: 24,
+    borderWidth: 1,
     padding: 24,
     alignItems: 'center',
     textAlign: 'center',
@@ -731,7 +768,7 @@ const styles = StyleSheet.create({
   },
   bioCardTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: typography.fontFamily,
   },
   bioCardBody: {
@@ -741,9 +778,9 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
   },
   doneBadge: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     alignSelf: 'center',
     justifyContent: 'center',
     alignItems: 'center',
@@ -756,19 +793,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'transparent',
     gap: 14,
+  },
+  actionIconBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionTextCol: {
     flex: 1,
   },
   actionTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     fontFamily: typography.fontFamily,
     marginBottom: 2,
+  },
+  recommendedTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 9999,
+  },
+  recommendedTagText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   actionDesc: {
     fontSize: 13,
