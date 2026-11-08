@@ -53,6 +53,10 @@ export class IncomeRepository {
     return this.db.select().from(incomeEvents);
   }
 
+  async listAllIncomes(): Promise<IncomeEvent[]> {
+    return this.listAll();
+  }
+
   async getByExternalId(externalId: string): Promise<IncomeEvent | null> {
     const rows = await this.db.select().from(incomeEvents).where(eq(incomeEvents.external_id, externalId));
     return rows[0] || null;

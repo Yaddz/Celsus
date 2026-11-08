@@ -319,8 +319,8 @@ export function onDatabaseReset(listener: () => void) {
   resetListeners.push(listener);
 }
 
-/** Marcas que sobrevivem a "Apagar todos os dados" (ex.: a semente AUVP não deve voltar sozinha). */
-const META_KEYS_KEPT_ON_WIPE = ['seed:auvp:v1'];
+/** Marcas que sobrevivem a "Apagar todos os dados" (nenhuma chave mantida; banco 100% limpo). */
+const META_KEYS_KEPT_ON_WIPE: string[] = [];
 
 /**
  * Apaga todos os dados do usuário. No Jest/web em memória limpa as tabelas em memória; no aparelho
@@ -338,8 +338,12 @@ export function resetDatabase() {
     _rawSqliteDb.withTransactionSync(() => {
       for (const { name } of tables) {
         if (name === 'app_meta') {
-          const kept = META_KEYS_KEPT_ON_WIPE.map((k) => `'${k}'`).join(', ');
-          _rawSqliteDb!.execSync(`DELETE FROM app_meta WHERE key NOT IN (${kept})`);
+          if (META_KEYS_KEPT_ON_WIPE.length > 0) {
+            const kept = META_KEYS_KEPT_ON_WIPE.map((k) => `'${k}'`).join(', ');
+            _rawSqliteDb!.execSync(`DELETE FROM app_meta WHERE key NOT IN (${kept})`);
+          } else {
+            _rawSqliteDb!.execSync(`DELETE FROM app_meta`);
+          }
         } else {
           _rawSqliteDb!.execSync(`DELETE FROM "${name}"`);
         }

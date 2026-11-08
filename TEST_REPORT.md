@@ -7,7 +7,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | 100 suítes, **648 testes** (Sprint 52 Fase A) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | 100 suítes, **648 testes**, **0 falhas** (100% aprovado) |
 | Motor de mercado (Go) | `npm run test:market` | **44 testes**, 0 falhas, 2 "live" pulados por padrão |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | sem erros nos arquivos de produção |
 | Integridade dos testes (TDD Lock) | `npm run test:verify` | 116 arquivos protegidos, SHA-256 íntegros |
@@ -45,7 +45,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 - **Animações Fluidas no Onboarding e Detalhamento de Movimentações Sem Efeito (Sprint 51 — Completo / Fase B)**: Testes de especificação (IDs S51-T01 a S51-T02 em `apps/mobile/src/screens/__tests__/Sprint51OnboardingAnimationsAndIgnoredDetails.test.tsx`) cobrindo:
   - S51-T01: Transições animadas suaves entre as etapas do `OnboardingFlow` (fade e slide com wrapper `onboarding-animated-step` operando a 240ms com driver nativo).
   - S51-T02: Detalhamento interativo das movimentações ignoradas ("Sem efeito") na `B3ImportScreen` através do `b3-ignored-tile`, acionando modal explicativo `b3-ignored-modal` com esclarecimento pedagógico sobre movimentações escriturais (direitos de subscrição, atualizações cadastrais) e listagem scrollável dos lançamentos com ticker, data e tipo.
-- **Início Limpo sem Dados Pré-Preenchidos ou Carteiras Base (Sprint 52 — Fase A)**: Testes de especificação (IDs S52-T1 a S52-T4 em `apps/mobile/src/screens/__tests__/Sprint52CleanAppZeroSeed.test.tsx`) cobrindo:
+- **Início Limpo sem Dados Pré-Preenchidos ou Carteiras Base (Sprint 52 — Completo / Fase B)**: Testes de especificação (IDs S52-T1 a S52-T4 em `apps/mobile/src/screens/__tests__/Sprint52CleanAppZeroSeed.test.tsx`) cobrindo:
   - S52-T1: Inicialização do banco de dados 100% limpo com zero carteiras, zero ativos, zero transações e zero proventos.
   - S52-T2: Estado inicial vazio na tela Home sem criação automática da carteira AUVP ou qualquer outra carteira fictícia.
   - S52-T3: `resetDatabase()` limpando integralmente metadados sem manter chaves residuais de seed.
