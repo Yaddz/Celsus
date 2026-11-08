@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
 import { typography } from '../../theme/tokens';
+import { deriveInitials } from '../../domain/profile';
 
 export interface XpMinimalHeaderProps {
   userName?: string;
@@ -47,6 +48,12 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
   backTestID = 'header-back-button',
 }) => {
   const isLight = themeMode === 'light';
+  const effectiveInitials =
+    userInitials && userInitials !== 'U'
+      ? userInitials
+      : userName && userName !== 'Usuário'
+      ? deriveInitials(userName)
+      : userInitials || '';
   const theme = THEME_COLORS[themeMode] || THEME_COLORS.dark;
 
   const textColor = isLight ? '#111315' : '#E6DECA';
@@ -135,14 +142,14 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
               },
             ]}
           >
-            {userInitials ? (
+            {effectiveInitials ? (
               <Text
                 style={[
                   styles.avatarText,
                   { color: isLight ? '#111315' : palette.accent },
                 ]}
               >
-                {userInitials}
+                {effectiveInitials}
               </Text>
             ) : (
               <MaterialIcons name="person" size={20} color={isLight ? '#111315' : palette.accent} />

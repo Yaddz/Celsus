@@ -12,7 +12,15 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
 import { b3ImportService, B3ImportReport, B3ImportProgress } from '../services/b3ImportService';
-import { ImportPlan } from '../domain/b3';
+import {
+  ImportPlan,
+  mergeAndSortStatementRows,
+  getDistinctBrokers,
+  buildImportPlan,
+} from '../domain/b3';
+import { readStatementFile } from '../services/b3/readStatementFile';
+import { transactionRepository } from '../repositories/transactionRepository';
+import { incomeRepository } from '../repositories/incomeRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { Portfolio } from '../db/schema';
 import { colors, typography } from '../theme/tokens';
@@ -39,7 +47,7 @@ function base64ToUint8Array(base64: string): Uint8Array {
       return bytes;
     } catch {}
   }
-  const gBuffer = typeof global !== 'undefined' ? (global as any).Buffer : null;
+  const gBuffer = typeof globalThis !== 'undefined' ? (globalThis as any).Buffer : null;
   if (gBuffer) {
     try {
       const buf = gBuffer.from(clean, 'base64');
@@ -69,6 +77,89 @@ function base64ToUint8Array(base64: string): Uint8Array {
   return bytes;
 }
 
+async function readFileAssetBytes(fileAsset: DocumentPicker.DocumentPickerAsset): Promise<Uint8Array> {
+  let fileBytes: Uint8Array | null = null;
+
+  // In Node / Jest testing environment with fixtures
+  try {
+    const fs = typeof require !== 'undefined' ? require('fs') : null;
+    const path = typeof require !== 'undefined' ? require('path') : null;
+    const cwd = typeof process !== 'undefined' && process.cwd ? process.cwd() : '';
+    if (fs && path && cwd) {
+      const candidates = [
+        path.resolve(cwd, 'docs/exemplos/' + fileAsset.name),
+        path.resolve(cwd, '../../docs/exemplos/' + fileAsset.name),
+        path.resolve(cwd, '../docs/exemplos/' + fileAsset.name),
+      ];
+      for (const c of candidates) {
+        if (fs.existsSync(c)) {
+          fileBytes = new Uint8Array(fs.readFileSync(c));
+          break;
+        }
+      }
+    }
+  } catch {}
+
+  if (fileBytes) return fileBytes;
+
+  let lastError: any = null;
+
+  // Strategy 1: Parity with File API if file is provided
+  if ((fileAsset as any).file && typeof (fileAsset as any).file.arrayBuffer === 'function') {
+    try {
+      const ab = await (fileAsset as any).file.arrayBuffer();
+      return new Uint8Array(ab);
+    } catch (e) {
+      lastError = e;
+    }
+  }
+
+  // Strategy 2: React Native fetch blob (native content:// and file:// stream)
+  try {
+    const blobRes = await fetch(fileAsset.uri);
+    const blob = await blobRes.blob();
+    return await new Promise<Uint8Array>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(new Uint8Array(reader.result));
+        } else if (typeof reader.result === 'string') {
+          const parts = reader.result.split(',');
+          resolve(base64ToUint8Array(parts.length > 1 ? parts[1] : parts[0]));
+        } else {
+          reject(new Error('Leitura retornou formato não suportado'));
+        }
+      };
+      reader.onerror = () => reject(reader.error || new Error('Falha no FileReader'));
+      reader.readAsArrayBuffer(blob);
+    });
+  } catch (e) {
+    lastError = e;
+  }
+
+  // Strategy 3: Expo FileSystem readAsStringAsync (Base64 for binary / XLSX)
+  try {
+    const base64 = await FileSystem.readAsStringAsync(fileAsset.uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    return base64ToUint8Array(base64);
+  } catch (e) {
+    lastError = e;
+  }
+
+  // Strategy 4: Expo FileSystem readAsStringAsync (UTF-8 for CSV / text)
+  try {
+    const text = await FileSystem.readAsStringAsync(fileAsset.uri, {
+      encoding: FileSystem.EncodingType.UTF8,
+    });
+    return new TextEncoder().encode(text);
+  } catch (e) {
+    lastError = e;
+  }
+
+  throw new Error(lastError?.message || `Não foi possível ler o arquivo ${fileAsset.name}`);
+}
+
 export function B3ImportScreen(props: B3ImportScreenProps) {
   const isLight = !!props.isLight;
   const styles = React.useMemo(() => makeStyles(isLight), [isLight]);
@@ -76,6 +167,8 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
   const [fileName, setFileName] = useState<string>('');
+  const [brokers, setBrokers] = useState<string[]>([]);
+  const [isSplitByBroker, setIsSplitByBroker] = useState<boolean>(true);
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(
     props.initialPortfolioId || ''
@@ -113,107 +206,55 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
           '*/*',
         ],
         copyToCacheDirectory: true,
+        multiple: true,
       });
 
       if (res.canceled || !res.assets || res.assets.length === 0) {
         return;
       }
 
-      const fileAsset = res.assets[0];
-      setFileName(fileAsset.name);
       setStep('loading');
 
-      let fileBytes: Uint8Array | null = null;
+      const allFilesRows: Array<Array<Record<string, string>>> = [];
+      const fileNames: string[] = [];
 
-      // In Node / Jest testing environment with fixtures
-      try {
-        const fs = typeof require !== 'undefined' ? require('fs') : null;
-        const path = typeof require !== 'undefined' ? require('path') : null;
-        const cwd = typeof process !== 'undefined' && process.cwd ? process.cwd() : '';
-        if (fs && path && cwd) {
-          const candidates = [
-            path.resolve(cwd, 'docs/exemplos/' + fileAsset.name),
-            path.resolve(cwd, '../../docs/exemplos/' + fileAsset.name),
-            path.resolve(cwd, '../docs/exemplos/' + fileAsset.name),
-          ];
-          for (const c of candidates) {
-            if (fs.existsSync(c)) {
-              fileBytes = new Uint8Array(fs.readFileSync(c));
-              break;
-            }
-          }
-        }
-      } catch {}
-
-      if (!fileBytes) {
-        let lastError: any = null;
-
-        // Strategy 1: Parity with File API if file is provided
-        if ((fileAsset as any).file && typeof (fileAsset as any).file.arrayBuffer === 'function') {
-          try {
-            const ab = await (fileAsset as any).file.arrayBuffer();
-            fileBytes = new Uint8Array(ab);
-          } catch (e) {
-            lastError = e;
-          }
-        }
-
-        // Strategy 2: React Native fetch blob (native content:// and file:// stream)
-        if (!fileBytes) {
-          try {
-            const blobRes = await fetch(fileAsset.uri);
-            const blob = await blobRes.blob();
-            fileBytes = await new Promise<Uint8Array>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                if (reader.result instanceof ArrayBuffer) {
-                  resolve(new Uint8Array(reader.result));
-                } else if (typeof reader.result === 'string') {
-                  const parts = reader.result.split(',');
-                  resolve(base64ToUint8Array(parts.length > 1 ? parts[1] : parts[0]));
-                } else {
-                  reject(new Error('Leitura retornou formato não suportado'));
-                }
-              };
-              reader.onerror = () => reject(reader.error || new Error('Falha no FileReader'));
-              reader.readAsArrayBuffer(blob);
-            });
-          } catch (e) {
-            lastError = e;
-          }
-        }
-
-        // Strategy 3: Expo FileSystem readAsStringAsync (Base64 for binary / XLSX)
-        if (!fileBytes) {
-          try {
-            const base64 = await FileSystem.readAsStringAsync(fileAsset.uri, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-            fileBytes = base64ToUint8Array(base64);
-          } catch (e) {
-            lastError = e;
-          }
-        }
-
-        // Strategy 4: Expo FileSystem readAsStringAsync (UTF-8 for CSV / text)
-        if (!fileBytes) {
-          try {
-            const text = await FileSystem.readAsStringAsync(fileAsset.uri, {
-              encoding: FileSystem.EncodingType.UTF8,
-            });
-            fileBytes = new TextEncoder().encode(text);
-          } catch (e) {
-            lastError = e;
-          }
-        }
-
-        if (!fileBytes || fileBytes.length === 0) {
-          throw new Error(lastError?.message || 'Arquivo inacessível ou vazio');
-        }
+      for (const asset of res.assets) {
+        fileNames.push(asset.name);
+        const bytes = await readFileAssetBytes(asset);
+        const rows = await readStatementFile(bytes, asset.name);
+        allFilesRows.push(rows);
       }
 
-      const parsedPlan = await b3ImportService.preview(fileBytes, fileAsset.name, {
-        portfolioId: selectedPortfolioId || undefined,
+      setFileName(
+        fileNames.length === 1
+          ? fileNames[0]
+          : `${fileNames.length} arquivos selecionados (${fileNames.join(', ')})`
+      );
+
+      const mergedRows = mergeAndSortStatementRows(allFilesRows);
+      const brokersFound = getDistinctBrokers(mergedRows);
+      setBrokers(brokersFound);
+      if (brokersFound.length > 1) {
+        setIsSplitByBroker(true);
+      }
+
+      const existingIds = new Set<string>();
+      if (selectedPortfolioId) {
+        try {
+          const allTxs = await transactionRepository.listByPortfolio(selectedPortfolioId);
+          for (const tx of allTxs) {
+            if (tx.external_id) existingIds.add(tx.external_id);
+          }
+          const allIncs = await incomeRepository.listByPortfolio(selectedPortfolioId);
+          for (const inc of allIncs) {
+            if (inc.external_id) existingIds.add(inc.external_id);
+          }
+        } catch {}
+      }
+
+      const parsedPlan = buildImportPlan({
+        rows: mergedRows,
+        existingExternalIds: existingIds,
       });
 
       setPlan(parsedPlan);
@@ -243,10 +284,11 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
       const rep = await b3ImportService.apply(
         plan,
         {
-          portfolioId: isCreatingNewPortfolio ? undefined : selectedPortfolioId,
-          newPortfolioName: isCreatingNewPortfolio ? newPortfolioName : undefined,
+          portfolioId: isSplitByBroker ? undefined : (isCreatingNewPortfolio ? undefined : selectedPortfolioId),
+          newPortfolioName: isSplitByBroker ? undefined : (isCreatingNewPortfolio ? newPortfolioName : undefined),
           classOverrides,
           openingBalance: openingBalanceChoices,
+          splitByBroker: brokers.length > 1 ? isSplitByBroker : false,
         },
         (p) => setProgress(p)
       );
@@ -325,6 +367,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
           <View testID="b3-preview-summary" style={styles.previewContainer}>
             <Text style={styles.sectionHeader}>Resumo do arquivo: {fileName}</Text>
 
+            {/* Summary grid */}
             <View style={styles.summaryGrid}>
               <View style={styles.summaryTile}>
                 <Text style={styles.summaryLabel}>Compras</Text>
@@ -347,6 +390,102 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
                 <Text style={styles.summarySub}>Sem efeito</Text>
               </View>
             </View>
+
+            {/* Broker separation choice */}
+            {brokers.length > 1 && (
+              <View style={styles.brokerSection}>
+                <Text style={styles.sectionHeader}>Destino das Carteiras</Text>
+                <Text style={styles.subtext}>
+                  Detectamos {brokers.length} corretoras distintas nos extratos importados:
+                </Text>
+                <View style={styles.brokerChipsRow}>
+                  {brokers.map((b) => (
+                    <View key={b} style={styles.brokerBadge}>
+                      <Text style={styles.brokerBadgeText}>🏦 {b}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                <View style={styles.destinationToggleRow}>
+                  <TouchableOpacity
+                    style={[
+                      styles.destOptionBtn,
+                      isSplitByBroker && styles.destOptionBtnActive,
+                    ]}
+                    onPress={() => setIsSplitByBroker(true)}
+                  >
+                    <Text
+                      style={[
+                        styles.destOptionText,
+                        isSplitByBroker && styles.destOptionTextActive,
+                      ]}
+                    >
+                      ✓ Separar por Corretora (Recomendado)
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.destOptionBtn,
+                      !isSplitByBroker && styles.destOptionBtnActive,
+                    ]}
+                    onPress={() => setIsSplitByBroker(false)}
+                  >
+                    <Text
+                      style={[
+                        styles.destOptionText,
+                        !isSplitByBroker && styles.destOptionTextActive,
+                      ]}
+                    >
+                      Importar em carteira única
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* Portfolio single destination choice if not split by broker or single broker */}
+            {(!isSplitByBroker || brokers.length <= 1) && (
+              <View style={styles.brokerSection}>
+                <Text style={styles.sectionHeader}>Carteira de Destino</Text>
+                <View style={styles.portChoiceRow}>
+                  {portfolios.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[
+                        styles.chip,
+                        selectedPortfolioId === p.id && !isCreatingNewPortfolio && styles.chipActive,
+                      ]}
+                      onPress={() => {
+                        setSelectedPortfolioId(p.id);
+                        setIsCreatingNewPortfolio(false);
+                      }}
+                    >
+                      <Text style={styles.chipText}>{p.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                  <TouchableOpacity
+                    style={[
+                      styles.chip,
+                      isCreatingNewPortfolio && styles.chipActive,
+                    ]}
+                    onPress={() => setIsCreatingNewPortfolio(true)}
+                  >
+                    <Text style={styles.chipText}>+ Nova carteira</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {isCreatingNewPortfolio && (
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Nome da nova carteira (ex: Carteira B3)"
+                    placeholderTextColor={isLight ? '#999' : '#666'}
+                    value={newPortfolioName}
+                    onChangeText={setNewPortfolioName}
+                  />
+                )}
+              </View>
+            )}
 
             {/* Opening balance section */}
             {plan.openingBalances.length > 0 && (
@@ -760,6 +899,77 @@ const makeStyles = (isLight: boolean) => {
     color: c.detail,
     fontSize: 13,
     lineHeight: 20,
+  },
+  brokerSection: {
+    backgroundColor: c.card,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  subtext: {
+    color: c.muted,
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  brokerChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+  },
+  brokerBadge: {
+    backgroundColor: c.chip,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: isLight ? '#E0DACB' : '#333',
+  },
+  brokerBadgeText: {
+    color: c.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  destinationToggleRow: {
+    flexDirection: 'column',
+    gap: 8,
+  },
+  destOptionBtn: {
+    backgroundColor: c.chip,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  destOptionBtnActive: {
+    backgroundColor: isLight ? '#FFF3E8' : '#2C2219',
+    borderColor: '#FF8A00',
+  },
+  destOptionText: {
+    color: c.muted,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  destOptionTextActive: {
+    color: '#FF8A00',
+    fontWeight: '700',
+  },
+  portChoiceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 10,
+  },
+  textInput: {
+    backgroundColor: c.chip,
+    color: c.text,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    fontSize: 14,
+    marginTop: 8,
   },
 });
 };

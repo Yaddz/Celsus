@@ -50,13 +50,13 @@ class ProfileStore {
    * (portão, semente, migrações) e uma falha silenciosa deixava os headers com "U".
    */
   ensureLoaded(): Promise<void> {
-    if (this.state.loaded) return Promise.resolve();
+    if (this.state.loaded && this.state.name) return Promise.resolve();
     if (!this.loading) {
       this.loading = (async () => {
         for (let attempt = 0; attempt < 5; attempt++) {
           try {
             await this.load();
-            return;
+            if (this.state.name) return;
           } catch (e) {
             if (attempt === 4) console.warn('[perfil] não foi possível carregar o nome', e);
             await new Promise((r) => setTimeout(r, 300 * (attempt + 1)));
@@ -73,7 +73,7 @@ class ProfileStore {
     const profile = await this.repo.getProfile();
     this.state = {
       name: profile.name,
-      initials: profile.initials,
+      initials: profile.initials || deriveInitials(profile.name),
       onboarded: profile.onboarded,
       loaded: true,
     };
@@ -82,13 +82,14 @@ class ProfileStore {
 
   async setName(name: string): Promise<void> {
     const clean = name.trim();
-    await this.repo.setProfileName(clean);
+    // Atualização otimista imediata para que a interface reaja sem delay
     this.state = {
       ...this.state,
       name: clean,
       initials: deriveInitials(clean),
     };
     this.notify();
+    await this.repo.setProfileName(clean);
   }
 
   async setOnboarded(onboarded: boolean): Promise<void> {

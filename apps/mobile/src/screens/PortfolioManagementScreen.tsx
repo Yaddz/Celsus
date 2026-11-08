@@ -390,7 +390,31 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [isTxLoading, setIsTxLoading] = useState(false);
   const loadedPortfolioIdRef = useRef<string | null>(null);
   const [isExtratoModalOpen, setIsExtratoModalOpen] = useState(false);
-  const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>([]);
+  const [portfolioTransactions, setPortfolioTransactions] = useState<any[]>(() => {
+    if (activePortfolioId) {
+      const syncTxs = transactionRepository.getTransactionsByPortfolioSync?.(activePortfolioId) || [];
+      const syncAssets = assetRepository.getAssetsByPortfolioSync?.(activePortfolioId) || [];
+      const assetMap = new Map<string, any>();
+      (initialAssets || []).forEach((a) => assetMap.set(a.id, a));
+      syncAssets.forEach((a) => assetMap.set(a.id, a));
+      return syncTxs.map((t) => {
+        const a = assetMap.get(t.asset_id);
+        const qtyNum = parseFloat(t.quantity || '0') || 0;
+        const priceNum = parseFloat(t.unit_price || '0') || 0;
+        const totalVal = qtyNum * priceNum;
+        return {
+          id: t.id,
+          ticker: a?.ticker || (t as any).ticker || 'ATIVO',
+          name: a?.name || (t as any).name || '',
+          assetClass: (a?.assetClass || a?.asset_class || (t as any).assetClass || 'STOCK') as AssetClass,
+          type: t.type as 'BUY' | 'SELL',
+          dateText: t.trade_date,
+          amountText: `R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        };
+      });
+    }
+    return [];
+  });
   const [selectedGlobalWizardAsset, setSelectedGlobalWizardAsset] = useState<AssetItem | null>(null);
   const [selectedTxForDetail, setSelectedTxForDetail] = useState<any | null>(null);
 

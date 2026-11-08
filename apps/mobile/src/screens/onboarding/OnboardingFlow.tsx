@@ -165,6 +165,8 @@ export const OnboardingFlow: React.FC<OnboardingFlowProps> = ({
                 // Skip Biometrics automatically
                 if (isMigration) {
                   // Migration ends after PIN/Bio without Done step
+                  await profileStore.setName(trimmedName);
+                  await profileStore.setOnboarded(true);
                   await profileRepository.setProfileName(trimmedName);
                   await profileRepository.setOnboarded(true);
                   await authService.setPin(next);

@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { ImportPlan, ImportPlanItem } from '../domain/b3';
+import { ImportPlan, ImportPlanItem, normalizeInstitutionName } from '../domain/b3';
 import { readStatementFile } from './b3/readStatementFile';
 import { buildImportPlan } from '../domain/b3';
 import { getDatabase } from '../db/client';
@@ -45,6 +45,8 @@ export interface B3ImportReport {
     incomesCount: number;
     ignoredCount: number;
     reviewCount: number;
+    totalTransactionsImported?: number;
+    totalIncomesImported?: number;
   };
   imported: {
     buys: number;
@@ -116,6 +118,216 @@ export class B3ImportService {
     choices: B3ImportChoices,
     onProgress?: (progress: B3ImportProgress) => void
   ): Promise<B3ImportReport> {
+    if (choices.splitByBroker) {
+      const brokerGroups = new Map<string, ImportPlanItem[]>();
+      for (const item of plan.chronologicalItems) {
+        const broker = normalizeInstitutionName(item.institution);
+        if (!brokerGroups.has(broker)) {
+          brokerGroups.set(broker, []);
+        }
+        brokerGroups.get(broker)!.push(item);
+      }
+
+      const existingPorts = await portfolioRepository.listPortfolios(false);
+      const brokerPortfolioMap = new Map<string, string>();
+
+      for (const broker of brokerGroups.keys()) {
+        let port = existingPorts.find(
+          (p) =>
+            normalizeInstitutionName(p.name) === broker ||
+            p.name.trim().toLowerCase() === broker.toLowerCase()
+        );
+        if (!port) {
+          port = await portfolioRepository.createPortfolio({
+            name: broker,
+            docket_code: broker.slice(0, 4).toUpperCase(),
+          });
+        }
+        brokerPortfolioMap.set(broker, port.id);
+      }
+
+      const portfolioId = brokerPortfolioMap.values().next().value || '';
+      const batchId = `b3_${Date.now()}`;
+      await appMetaRepository.set(
+        'b3:last_batch',
+        JSON.stringify({
+          batchId,
+          portfolioId,
+          date: new Date().toISOString(),
+        })
+      );
+
+      let importedBuys = 0;
+      let importedSells = 0;
+      let importedIncomes = 0;
+      let dupBuys = 0;
+      let dupSells = 0;
+      let dupIncomes = 0;
+      let assetsCreatedCount = 0;
+      const failures: Array<{ item: any; reason: string }> = [];
+
+      let actualBuysSum = new Decimal(0);
+      let actualSellsSum = new Decimal(0);
+      let actualIncomesSum = new Decimal(0);
+
+      let processedCount = 0;
+      for (const [broker, items] of brokerGroups.entries()) {
+        const portId = brokerPortfolioMap.get(broker)!;
+        const currentAssets = await assetRepository.listByPortfolio(portId);
+        const assetMap = new Map<string, Asset>();
+        for (const a of currentAssets) {
+          assetMap.set(a.ticker, a);
+        }
+
+        // Garante criação dos ativos nessa carteira
+        for (const item of items) {
+          if (item.kind === 'BUY' || item.kind === 'SELL') {
+            if (!assetMap.has(item.ticker)) {
+              const targetClass =
+                choices.classOverrides?.[item.ticker] ||
+                (item.productName.toLowerCase().includes('fii') ? 'FII' : 'STOCK');
+              const newAsset = await assetRepository.addAsset({
+                portfolio_id: portId,
+                asset_class: targetClass,
+                ticker: item.ticker,
+                name: item.productName || item.ticker,
+                target_percentage_in_class: 0,
+              });
+              assetMap.set(item.ticker, newAsset);
+              assetsCreatedCount++;
+            }
+          }
+        }
+
+        const existingIds = new Set<string>();
+        const allTxs = await transactionRepository.listByPortfolio(portId);
+        for (const tx of allTxs) {
+          if (tx.external_id) existingIds.add(tx.external_id);
+        }
+        const allIncomes = await incomeRepository.listByPortfolio(portId);
+        for (const inc of allIncomes) {
+          if (inc.external_id) existingIds.add(inc.external_id);
+        }
+
+        for (const item of items) {
+          processedCount++;
+          if (existingIds.has(item.externalId)) {
+            if (item.kind === 'BUY') dupBuys++;
+            else if (item.kind === 'SELL') dupSells++;
+            else if (item.kind === 'INCOME') dupIncomes++;
+            continue;
+          }
+
+          if (item.kind === 'BUY' || item.kind === 'SELL') {
+            const asset = assetMap.get(item.ticker);
+            if (!asset) {
+              failures.push({ item, reason: `Ativo ${item.ticker} não encontrado` });
+              continue;
+            }
+
+            try {
+              const res = await transactionService.executeTransaction({
+                portfolioId: portId,
+                assetId: asset.id,
+                type: item.kind,
+                tradeDate: item.tradeDate,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice || '0.00',
+                source: 'B3_IMPORT',
+                externalId: item.externalId,
+                notes: `${item.notes ? item.notes + ' · ' : ''}lote:${batchId} · ${item.institution}`,
+              });
+
+              if (item.kind === 'BUY') {
+                importedBuys++;
+                actualBuysSum = actualBuysSum.plus(new Decimal(res.transaction.total_amount));
+              } else {
+                importedSells++;
+                actualSellsSum = actualSellsSum.plus(new Decimal(res.transaction.total_amount));
+              }
+              existingIds.add(item.externalId);
+            } catch (err) {
+              failures.push({
+                item,
+                reason: err instanceof Error ? err.message : String(err),
+              });
+            }
+          } else if (item.kind === 'INCOME') {
+            try {
+              let kind = 'OUTRO';
+              const lower = item.rawMovement.toLowerCase();
+              if (lower.includes('rendimento')) kind = 'RENDIMENTO';
+              else if (lower.includes('dividendo')) kind = 'DIVIDENDO';
+              else if (lower.includes('juros') || lower.includes('jcp')) kind = 'JCP';
+
+              const created = await incomeRepository.addIncome({
+                portfolioId: portId,
+                ticker: item.ticker,
+                payDate: item.tradeDate,
+                amount: item.operationValue || '0',
+                notes: `lote:${batchId} · ${item.rawMovement}`,
+                source: 'B3_IMPORT',
+                externalId: item.externalId,
+                kind,
+                quantity: item.quantity,
+                unitAmount: item.unitPrice || undefined,
+              });
+
+              importedIncomes++;
+              actualIncomesSum = actualIncomesSum.plus(new Decimal(created.amount));
+              existingIds.add(item.externalId);
+            } catch (err) {
+              failures.push({
+                item,
+                reason: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+
+          onProgress?.({
+            step: 'transactions',
+            current: processedCount,
+            total: plan.chronologicalItems.length,
+            message: `[${broker}] Lançando: ${item.ticker} ${item.kind}`,
+          });
+        }
+      }
+
+      walletsStore.requestRefresh();
+
+      return {
+        batchId,
+        portfolioId,
+        summary: {
+          ...plan.summary,
+          totalTransactionsImported: importedBuys + importedSells,
+          totalIncomesImported: importedIncomes,
+        },
+        imported: {
+          buys: importedBuys,
+          sells: importedSells,
+          incomes: importedIncomes,
+          openingBalances: 0,
+          assetsCreated: assetsCreatedCount,
+        },
+        duplicates: {
+          buys: dupBuys,
+          sells: dupSells,
+          incomes: dupIncomes,
+        },
+        failures,
+        verification: {
+          matches: failures.length === 0,
+          expectedBuys: plan.totals.buys.toFixed(2),
+          actualBuys: actualBuysSum.toFixed(2),
+          expectedSells: plan.totals.sells.toFixed(2),
+          actualSells: actualSellsSum.toFixed(2),
+          expectedIncomes: plan.totals.incomes.toFixed(2),
+          actualIncomes: actualIncomesSum.toFixed(2),
+        },
+      };
+    }
+
     let portfolioId = choices.portfolioId;
     if (!portfolioId && choices.newPortfolioName) {
       const created = await portfolioRepository.createPortfolio({
@@ -356,7 +568,11 @@ export class B3ImportService {
     return {
       batchId,
       portfolioId,
-      summary: plan.summary,
+      summary: {
+        ...plan.summary,
+        totalTransactionsImported: importedBuys + importedSells,
+        totalIncomesImported: importedIncomes,
+      },
       imported: {
         buys: importedBuys,
         sells: importedSells,

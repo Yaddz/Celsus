@@ -1,5 +1,5 @@
 import { eq, desc } from 'drizzle-orm';
-import { getDatabase } from '../db/client';
+import { getDatabase, onDatabaseReset } from '../db/client';
 import { transactions, Transaction, NewTransaction } from '../db/schema';
 
 function generateUUID(): string {
@@ -11,8 +11,22 @@ function generateUUID(): string {
 }
 
 export class TransactionRepository {
+  private inMemoryCache: Transaction[] = [];
+
+  constructor() {
+    onDatabaseReset(() => {
+      this.inMemoryCache = [];
+    });
+  }
+
   protected get db() {
     return getDatabase();
+  }
+
+  getTransactionsByPortfolioSync(portfolioId: string): Transaction[] {
+    return this.inMemoryCache
+      .filter((t) => t.portfolio_id === portfolioId)
+      .sort((a, b) => b.trade_date.localeCompare(a.trade_date));
   }
 
   async createTransaction(
@@ -38,6 +52,8 @@ export class TransactionRepository {
     };
 
     await this.db.insert(transactions).values(newTx);
+    this.inMemoryCache = this.inMemoryCache.filter((t) => t.id !== id);
+    this.inMemoryCache.push(newTx);
     return newTx;
   }
 
@@ -47,14 +63,21 @@ export class TransactionRepository {
 
   async deleteTransaction(id: string): Promise<void> {
     await this.db.delete(transactions).where(eq(transactions.id, id));
+    this.inMemoryCache = this.inMemoryCache.filter((t) => t.id !== id);
   }
 
   async getTransactionsByPortfolio(portfolioId: string): Promise<Transaction[]> {
-    return this.db
+    const list = await this.db
       .select()
       .from(transactions)
       .where(eq(transactions.portfolio_id, portfolioId))
       .orderBy(desc(transactions.trade_date));
+    for (const item of list) {
+      if (!this.inMemoryCache.some((c) => c.id === item.id)) {
+        this.inMemoryCache.push(item);
+      }
+    }
+    return list;
   }
 
   async getTransactionsByAsset(assetId: string): Promise<Transaction[]> {
