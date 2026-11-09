@@ -1735,6 +1735,7 @@ function AppContent(props: {
             activeIndex={activeWalletIndex}
             onPortfolioChange={handleDeckPortfolioChange}
             onCreatePortfolioPress={homeOpenCreatePortfolio}
+            onImportB3Press={openB3Import}
             isPrivacyMode={isPrivacyMode}
             testID="home-wallet-deck"
           />

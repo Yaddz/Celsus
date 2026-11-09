@@ -176,7 +176,7 @@ export const AnimatedModalSheet: React.FC<AnimatedModalSheetProps> = ({
   // Com o teclado aberto o sheet sobe acima dele e encolhe para caber na tela.
   const available = windowHeight - keyboardHeight - 40;
   const targetHeight = Math.min(windowHeight * currentFraction, available);
-  const isFill = fill || (isSnap && isExpanded);
+  const isFill = fill || isSnap;
 
   const sheetHeightStyle: ViewStyle = isFill
     ? { height: targetHeight, marginBottom: keyboardHeight }

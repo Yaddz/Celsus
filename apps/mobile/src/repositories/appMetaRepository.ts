@@ -16,7 +16,11 @@ export class AppMetaRepository {
   async set(key: string, value: string): Promise<void> {
     const existing = await this.get(key);
     if (existing === null) {
-      await this.db.insert(appMeta).values({ key, value });
+      try {
+        await this.db.insert(appMeta).values({ key, value });
+      } catch {
+        await this.db.update(appMeta).set({ value }).where(eq(appMeta.key, key));
+      }
     } else {
       await this.db.update(appMeta).set({ value }).where(eq(appMeta.key, key));
     }

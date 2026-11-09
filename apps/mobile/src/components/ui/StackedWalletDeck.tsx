@@ -36,6 +36,7 @@ export interface StackedWalletDeckProps {
   onPortfolioChange?: (index: number, portfolio: StackedWalletItem) => void;
   /** Só usado no estado vazio (0 carteiras): com 1+ o app cria carteiras pelo botão "+" da barra. */
   onCreatePortfolioPress?: () => void;
+  onImportB3Press?: () => void;
   onCycleNext?: () => void;
   onCyclePrev?: () => void;
   testID?: string;
@@ -134,6 +135,7 @@ const StackedWalletDeckContent: React.FC<Omit<StackedWalletDeckProps, 'loading'>
   activeIndex = 0,
   onPortfolioChange,
   onCreatePortfolioPress,
+  onImportB3Press,
   onCycleNext,
   onCyclePrev,
   testID = 'stacked-wallet-deck',
@@ -248,14 +250,26 @@ const StackedWalletDeckContent: React.FC<Omit<StackedWalletDeckProps, 'loading'>
               <Text style={styles.emptyCardSubtitle}>
                 Crie sua primeira carteira para começar a acompanhar seu patrimônio
               </Text>
-              <TouchableOpacity
-                testID="empty-wallet-create-cta"
-                style={styles.emptyCardCta}
-                onPress={onCreatePortfolioPress}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.emptyCardCtaText}>Criar primeira carteira</Text>
-              </TouchableOpacity>
+              <View style={styles.emptyCardButtonsRow}>
+                <TouchableOpacity
+                  testID="empty-wallet-create-cta"
+                  style={styles.emptyCardCta}
+                  onPress={onCreatePortfolioPress}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.emptyCardCtaText}>Criar primeira carteira</Text>
+                </TouchableOpacity>
+                {onImportB3Press && (
+                  <TouchableOpacity
+                    testID="empty-wallet-import-b3-cta"
+                    style={[styles.emptyCardCta, styles.emptyCardSecondaryCta]}
+                    onPress={onImportB3Press}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.emptyCardSecondaryCtaText}>Importar B3</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -535,7 +549,7 @@ const styles = StyleSheet.create({
   },
   emptyCardCta: {
     backgroundColor: colors.primary,
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 14,
     alignItems: 'center',
@@ -546,6 +560,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#111315',
+  },
+  emptyCardButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    marginTop: 4,
+  },
+  emptyCardSecondaryCta: {
+    backgroundColor: '#26292C',
+    borderWidth: 1,
+    borderColor: '#3A3D42',
+  },
+  emptyCardSecondaryCtaText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#F4F1EA',
   },
 });
 

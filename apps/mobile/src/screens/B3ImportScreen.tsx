@@ -371,6 +371,7 @@ export function B3ImportScreen(props: B3ImportScreenProps) {
       )}
 
       <ScrollView
+        style={embedded ? { flex: 1 } : undefined}
         contentContainerStyle={[
           styles.content,
           props.bottomOffset ? { paddingBottom: props.bottomOffset + 20 } : null,
