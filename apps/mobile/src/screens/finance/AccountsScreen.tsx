@@ -1,30 +1,39 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
+  BentoGrid,
+  BentoSection,
+  BentoSheetHeader,
+  BentoTile,
+  FinListCard,
+  FinListRow,
   LedgerInput,
   TextField,
   XpMinimalHeader,
 } from '../../components/ui';
+import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinEntry } from '../../db/schema';
 import {
   calculateAccountBalance,
   formatCentsBRL,
+  getTodayIsoLocal,
   parseBRLToCents,
   type FinAccountType,
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
-import { space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
+import { layout, typography } from '../../theme/tokens';
 import {
   FIN_COLOR_SWATCHES,
   FinEmptyState,
   FinErrorView,
+  FinFloatingAddButton,
   FinLoadingView,
+  formatSignedCentsBRL,
   getFinUiColors,
-  sharedStyles,
+  resolveApprovedColor,
 } from './finTheme';
 
 export interface AccountsScreenProps {
@@ -36,10 +45,20 @@ export interface AccountsScreenProps {
 }
 
 const ACCOUNT_TYPE_LABELS: Record<FinAccountType, string> = {
+  checking: 'Conta corrente',
   cash: 'Carteira',
-  checking: 'Conta Corrente',
   card: 'Cartão',
 };
+
+function getAccountIcon(type: string): 'account-balance' | 'account-balance-wallet' | 'credit-card' {
+  if (type === 'cash') return 'account-balance-wallet';
+  if (type === 'card') return 'credit-card';
+  return 'account-balance';
+}
+
+function getCurrentYearMonth(): string {
+  return getTodayIsoLocal().slice(0, 7);
+}
 
 export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   onBack,
@@ -48,32 +67,33 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   themeMode = 'dark',
   testID = 'accounts-screen',
 }) => {
-  const c = getFinUiColors(themeMode);
-  const [accounts, setAccounts] = useState<FinAccount[]>([]);
-  const [entries, setEntries] = useState<FinEntry[]>([]);
+  const ui = getFinUiColors(themeMode);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<FinAccount[]>([]);
+  const [entries, setEntries] = useState<FinEntry[]>([]);
 
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<FinAccount | null>(null);
   const [name, setName] = useState('');
-  const [type, setType] = useState<FinAccountType>('checking');
+  const [accountType, setAccountType] = useState<FinAccountType>('checking');
   const [balanceText, setBalanceText] = useState('0,00');
-  const [color, setColor] = useState<string>(FIN_COLOR_SWATCHES[0]);
-  const [formError, setFormError] = useState<string | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>(FIN_COLOR_SWATCHES[0]);
+  const [saving, setSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const [accs, allEntries] = await Promise.all([
-        finRepository.listAccounts(false),
+        finRepository.listAccounts(true),
         finRepository.listAllEntries(),
       ]);
       setAccounts(accs);
       setEntries(allEntries);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar contas.');
+      setError(err instanceof Error ? err.message : 'Erro ao carregar contas');
     } finally {
       setLoading(false);
     }
@@ -83,220 +103,329 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     void loadData();
   }, [loadData]);
 
+  const currentYm = useMemo(() => getCurrentYearMonth(), []);
+
+  const balanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const acc of accounts) {
+      map.set(acc.id, calculateAccountBalance(acc.initial_balance_cents, entries, acc.id));
+    }
+    return map;
+  }, [accounts, entries]);
+
+  const monthDeltaMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const acc of accounts) {
+      map.set(acc.id, 0);
+    }
+    for (const entry of entries) {
+      if (entry.status !== 'paid') continue;
+      const dateStr = entry.paid_date ?? entry.due_date;
+      if (!dateStr || !dateStr.startsWith(currentYm)) continue;
+      const cents = entry.paid_amount_cents ?? entry.amount_cents;
+      const signed = entry.kind === 'income' ? cents : -cents;
+      map.set(entry.account_id, (map.get(entry.account_id) ?? 0) + signed);
+    }
+    return map;
+  }, [accounts, entries, currentYm]);
+
+  const activeNonCardAccounts = useMemo(
+    () => accounts.filter((a) => a.archived === 0 && a.type !== 'card'),
+    [accounts]
+  );
+  const activeCardAccounts = useMemo(
+    () => accounts.filter((a) => a.archived === 0 && a.type === 'card'),
+    [accounts]
+  );
+  const archivedAccounts = useMemo(
+    () => accounts.filter((a) => a.archived === 1),
+    [accounts]
+  );
+
+  const totalBalanceCents = useMemo(
+    () => activeNonCardAccounts.reduce((sum, a) => sum + (balanceMap.get(a.id) ?? 0), 0),
+    [activeNonCardAccounts, balanceMap]
+  );
+
   const openCreateModal = () => {
     setEditingAccount(null);
     setName('');
-    setType('checking');
+    setAccountType('checking');
     setBalanceText('0,00');
-    setColor(FIN_COLOR_SWATCHES[0]);
-    setFormError(null);
-    setIsSheetOpen(true);
+    setSelectedColor(FIN_COLOR_SWATCHES[0]);
+    setFormOpen(true);
   };
 
   const openEditModal = (acc: FinAccount) => {
     setEditingAccount(acc);
     setName(acc.name);
-    setType((acc.type as FinAccountType) || 'checking');
-    setBalanceText((acc.initial_balance_cents / 100).toFixed(2).replace('.', ','));
-    setColor(acc.color || FIN_COLOR_SWATCHES[0]);
-    setFormError(null);
-    setIsSheetOpen(true);
+    setAccountType((acc.type as FinAccountType) || 'checking');
+    const abs = Math.abs(acc.initial_balance_cents);
+    setBalanceText((abs / 100).toFixed(2).replace('.', ','));
+    setSelectedColor(resolveApprovedColor(acc.color, FIN_COLOR_SWATCHES[0]));
+    setFormOpen(true);
   };
 
   const handleSave = async () => {
-    if (!name.trim()) {
-      setFormError('Informe o nome da conta.');
-      return;
+    const trimmed = name.trim();
+    if (!trimmed || saving) return;
+    setSaving(true);
+    try {
+      const initialCents = parseBRLToCents(balanceText);
+      if (editingAccount) {
+        await finRepository.updateAccount(editingAccount.id, {
+          name: trimmed,
+          type: accountType,
+          initial_balance_cents: initialCents,
+          color: selectedColor,
+        });
+      } else {
+        await finRepository.createAccount({
+          name: trimmed,
+          type: accountType,
+          initialBalanceCents: initialCents,
+          color: selectedColor,
+        });
+      }
+      setFormOpen(false);
+      await loadData();
+    } finally {
+      setSaving(false);
     }
-    const cents = parseBRLToCents(balanceText);
-    if (editingAccount) {
-      await finRepository.updateAccount(editingAccount.id, {
-        name: name.trim(),
-        type,
-        initial_balance_cents: cents,
-        color,
-      });
-    } else {
-      await finRepository.createAccount({
-        name: name.trim(),
-        type,
-        initialBalanceCents: cents,
-        color,
-      });
-    }
-    setIsSheetOpen(false);
+  };
+
+  const handleArchive = async (acc: FinAccount) => {
+    await finRepository.archiveAccount(acc.id);
     await loadData();
   };
 
-  const handleArchive = async (accId: string) => {
-    await finRepository.archiveAccount(accId);
+  const handleRestore = async (acc: FinAccount) => {
+    await finRepository.updateAccount(acc.id, { archived: 0 });
     await loadData();
   };
+
+  const renderAccountRow = (acc: FinAccount, isLast: boolean, isArchived: boolean) => {
+    const balance = balanceMap.get(acc.id) ?? 0;
+    const monthDelta = monthDeltaMap.get(acc.id) ?? 0;
+    const avatarColor = resolveApprovedColor(acc.color, '#D5CAA8');
+    const iconColor = avatarColor === '#2E4A44' ? '#E6DECA' : '#111315';
+    const typeLabel = ACCOUNT_TYPE_LABELS[(acc.type as FinAccountType) || 'checking'] ?? 'Conta';
+    const actionBorder = ui.isLight ? '#E2DACB' : '#34383C';
+
+    const deltaText = isPrivacyMode
+      ? '•••• no mês'
+      : `${formatSignedCentsBRL(Math.abs(monthDelta), monthDelta >= 0 ? 'income' : 'expense', false)} no mês`;
+
+    return (
+      <FinListRow
+        key={acc.id}
+        testID={`account-row-${acc.id}`}
+        icon={getAccountIcon(acc.type)}
+        avatarColor={avatarColor}
+        iconColor={iconColor}
+        title={acc.name}
+        subtitle={typeLabel}
+        amountText={formatCentsBRL(balance, isPrivacyMode)}
+        amountColor={balance < 0 ? ui.expense : ui.text}
+        rightSubtitle={deltaText}
+        rightSubtitleColor={monthDelta >= 0 ? ui.income : ui.expense}
+        isLast={isLast}
+        themeMode={themeMode}
+        onPress={() => openEditModal(acc)}
+        bottomContent={
+          <View style={styles.rowActions}>
+            {isArchived ? (
+              <TouchableOpacity
+                testID={`account-restore-btn-${acc.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Restaurar ${acc.name}`}
+                onPress={() => void handleRestore(acc)}
+                style={[styles.actionBtn, { borderColor: actionBorder }]}
+              >
+                <Text style={[styles.actionBtnText, { color: '#D5CAA8' }]}>Restaurar</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                testID={`account-archive-btn-${acc.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={`Arquivar ${acc.name}`}
+                onPress={() => void handleArchive(acc)}
+                style={[styles.actionBtn, { borderColor: actionBorder }]}
+              >
+                <Text style={[styles.actionBtnText, { color: ui.muted }]}>Arquivar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        }
+      />
+    );
+  };
+
+  const nonCardCount = activeNonCardAccounts.length;
+  const totalCaption = `${nonCardCount} ${nonCardCount === 1 ? 'conta ativa' : 'contas ativas'} • cartões ficam fora do saldo`;
 
   return (
-    <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
+    <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
         title="Contas"
+        subtitle="Onde está o seu dinheiro"
         onBack={onBack}
-        isPrivacyModeEnabled={isPrivacyMode}
+        isPrivacyMode={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
-        <View style={styles.toolbarRow}>
-          <Text style={[sharedStyles.sectionLabel, { color: c.muted }]}>Suas contas</Text>
-          <TouchableOpacity
-            testID="accounts-add-btn"
-            accessibilityRole="button"
-            onPress={openCreateModal}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
-          >
-            <MaterialIcons name="add" size={18} color="#1A0E08" />
-            <Text style={sharedStyles.primaryBtnText}>Nova conta</Text>
-          </TouchableOpacity>
-        </View>
+      {loading ? (
+        <FinLoadingView themeMode={themeMode} />
+      ) : error ? (
+        <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <BentoGrid>
+            <BentoTile
+              variant="primary"
+              title="SALDO TOTAL"
+              testID="accounts-total-balance-tile"
+              themeMode={themeMode}
+            >
+              <Text style={styles.totalValue} testID="accounts-total-balance-value">
+                {formatCentsBRL(totalBalanceCents, isPrivacyMode)}
+              </Text>
+              <Text style={styles.totalCaption}>{totalCaption}</Text>
+            </BentoTile>
+          </BentoGrid>
 
-        {loading ? (
-          <FinLoadingView themeMode={themeMode} />
-        ) : error ? (
-          <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-        ) : accounts.length === 0 ? (
-          <FinEmptyState
-            testID="accounts-empty-state"
-            icon="account-balance-wallet"
-            title="Nenhuma conta cadastrada"
-            subtitle="Crie sua carteira, conta corrente ou cartão para organizar seus lançamentos."
-            themeMode={themeMode}
-          />
-        ) : (
-          accounts.map((acc) => {
-            const currentBalance = calculateAccountBalance(
-              acc.initial_balance_cents,
-              entries,
-              acc.id
-            );
-            const typeLabel =
-              ACCOUNT_TYPE_LABELS[acc.type as FinAccountType] ?? 'Conta';
-            return (
-              <View
-                key={acc.id}
-                testID={`account-row-${acc.id}`}
-                style={[sharedStyles.rowCard, { backgroundColor: c.surface, borderColor: c.border }]}
-              >
-                <View style={styles.rowHeader}>
-                  <View style={styles.rowIdentity}>
-                    <View style={[styles.colorDot, { backgroundColor: acc.color || c.primary }]} />
-                    <View style={styles.rowTitleWrap}>
-                      <Text style={[styles.rowTitle, { color: c.text }]}>{acc.name}</Text>
-                      <Text style={[styles.rowMeta, { color: c.muted }]}>{typeLabel}</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.rowBalance, { color: currentBalance < 0 ? c.expense : c.text }]}>
-                    {formatCentsBRL(currentBalance, isPrivacyMode)}
-                  </Text>
-                </View>
+          {accounts.length === 0 ? (
+            <FinEmptyState
+              testID="accounts-empty-state"
+              icon="account-balance-wallet"
+              title="Nenhuma conta cadastrada"
+              subtitle="Adicione sua conta corrente, carteira ou cartão para acompanhar os saldos."
+              actionLabel="Nova conta"
+              onAction={openCreateModal}
+              themeMode={themeMode}
+            />
+          ) : (
+            <>
+              {activeNonCardAccounts.length > 0 && (
+                <FinListCard
+                  title="CONTAS"
+                  testID="accounts-section-checking"
+                  themeMode={themeMode}
+                >
+                  {activeNonCardAccounts.map((acc, idx) =>
+                    renderAccountRow(acc, idx === activeNonCardAccounts.length - 1, false)
+                  )}
+                </FinListCard>
+              )}
 
-                <View style={styles.rowActions}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => openEditModal(acc)}
-                    style={[sharedStyles.iconBtn, { backgroundColor: c.surfaceContainer }]}
-                  >
-                    <MaterialIcons name="edit" size={18} color={c.text} />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    testID={`account-archive-btn-${acc.id}`}
-                    accessibilityRole="button"
-                    onPress={() => void handleArchive(acc.id)}
-                    style={[sharedStyles.iconBtn, { backgroundColor: c.surfaceContainer }]}
-                  >
-                    <MaterialIcons name="archive" size={18} color={c.muted} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            );
-          })
-        )}
-      </ScrollView>
+              {activeCardAccounts.length > 0 && (
+                <FinListCard
+                  title="CARTÕES"
+                  testID="accounts-section-cards"
+                  themeMode={themeMode}
+                >
+                  {activeCardAccounts.map((acc, idx) =>
+                    renderAccountRow(acc, idx === activeCardAccounts.length - 1, false)
+                  )}
+                </FinListCard>
+              )}
+
+              {archivedAccounts.length > 0 && (
+                <FinListCard
+                  title={`ARQUIVADAS · ${archivedAccounts.length}`}
+                  testID="accounts-section-archived"
+                  cardStyle={styles.archivedCard}
+                  themeMode={themeMode}
+                >
+                  {archivedAccounts.map((acc, idx) =>
+                    renderAccountRow(acc, idx === archivedAccounts.length - 1, true)
+                  )}
+                </FinListCard>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
+
+      <FinFloatingAddButton
+        testID="accounts-add-btn"
+        accessibilityLabel="Nova conta"
+        onPress={openCreateModal}
+      />
 
       <AnimatedModalSheet
-        visible={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
+        visible={formOpen}
+        onClose={() => setFormOpen(false)}
         themeMode={themeMode}
-        testID="account-form-sheet"
       >
-        <Text style={[sharedStyles.modalTitle, { color: c.text }]}>
-          {editingAccount ? 'Editar conta' : 'Nova conta'}
-        </Text>
-
-        <TextField
-          label="Nome da conta"
-          value={name}
-          onChangeText={(txt) => {
-            setName(txt);
-            setFormError(null);
-          }}
-          placeholder="Ex.: Conta Corrente, Nubank"
-          error={formError}
+        <BentoSheetHeader
+          title={editingAccount ? 'Editar conta' : 'Nova conta'}
+          onClose={() => setFormOpen(false)}
           themeMode={themeMode}
         />
 
-        <Text style={[sharedStyles.sectionLabel, { color: c.muted, marginBottom: space.xs }]}>
-          Tipo
-        </Text>
-        <SegmentedControl<FinAccountType>
-          value={type}
-          onChange={setType}
-          options={[
-            { id: 'checking', label: 'Conta' },
-            { id: 'cash', label: 'Carteira' },
-            { id: 'card', label: 'Cartão' },
-          ]}
-          themeMode={themeMode}
-        />
-
-        <View style={{ marginTop: space.md }}>
-          <LedgerInput
-            label="Saldo inicial (R$)"
-            value={balanceText}
-            onChangeText={setBalanceText}
+        <View style={styles.sheetBody}>
+          <SegmentedControl
             themeMode={themeMode}
+            options={[
+              { key: 'checking', label: 'Conta' },
+              { key: 'cash', label: 'Carteira' },
+              { key: 'card', label: 'Cartão' },
+            ]}
+            value={accountType}
+            onChange={(v) => setAccountType(v as FinAccountType)}
           />
-        </View>
 
-        <Text style={[sharedStyles.sectionLabel, { color: c.muted, marginTop: space.md, marginBottom: space.xs }]}>
-          Cor
-        </Text>
-        <View style={sharedStyles.chipRow}>
-          {FIN_COLOR_SWATCHES.map((swatch) => (
-            <TouchableOpacity
-              key={swatch}
-              accessibilityRole="button"
-              onPress={() => setColor(swatch)}
-              style={[
-                styles.swatchBtn,
-                { backgroundColor: swatch, borderColor: color === swatch ? c.text : 'transparent' },
-              ]}
+          <BentoSection title="NOME DA CONTA" themeMode={themeMode}>
+            <TextField
+              value={name}
+              onChangeText={setName}
+              placeholder="Ex: Nubank, Carteira"
+              themeMode={themeMode}
+              testID="account-form-name-input"
             />
-          ))}
-        </View>
+          </BentoSection>
 
-        <View style={sharedStyles.modalActions}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => setIsSheetOpen(false)}
-            style={[sharedStyles.secondaryBtn, { borderColor: c.border }]}
-          >
-            <Text style={[sharedStyles.secondaryBtnText, { color: c.muted }]}>Cancelar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityRole="button"
+          <BentoSection title="SALDO INICIAL" themeMode={themeMode}>
+            <LedgerInput
+              value={balanceText}
+              onChangeText={setBalanceText}
+              prefix="R$"
+              themeMode={themeMode}
+              testID="account-form-balance-input"
+            />
+          </BentoSection>
+
+          <BentoSection title="COR" themeMode={themeMode}>
+            <View style={styles.swatchRow}>
+              {FIN_COLOR_SWATCHES.map((swatch) => {
+                const selected = selectedColor === swatch;
+                return (
+                  <TouchableOpacity
+                    key={swatch}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Selecionar cor ${swatch}`}
+                    onPress={() => setSelectedColor(swatch)}
+                    style={[
+                      styles.swatch,
+                      { backgroundColor: swatch },
+                      selected && { borderWidth: 2, borderColor: ui.isLight ? '#111315' : '#E6DECA' },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </BentoSection>
+
+          <JellyPressable
+            testID="account-form-save-btn"
             onPress={() => void handleSave()}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
+            containerStyle={styles.saveBtn}
+            accessibilityLabel="Salvar conta"
           >
-            <Text style={sharedStyles.primaryBtnText}>Salvar</Text>
-          </TouchableOpacity>
+            <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : 'Salvar conta'}</Text>
+          </JellyPressable>
         </View>
       </AnimatedModalSheet>
     </View>
@@ -304,56 +433,74 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  toolbarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: space.xs,
+  container: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: 8,
+    paddingBottom: 110,
+    gap: 14,
   },
-  rowHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-  },
-  rowIdentity: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    flex: 1,
-  },
-  colorDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
-  rowTitleWrap: {
-    flex: 1,
-  },
-  rowTitle: {
+  totalValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  rowMeta: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  rowBalance: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 15,
+    fontSize: 32,
     fontWeight: '700',
+    color: '#1A0E08',
+    fontVariant: ['tabular-nums'],
+    marginTop: 4,
+  },
+  totalCaption: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#1A0E08',
+    opacity: 0.78,
+    marginTop: 4,
   },
   rowActions: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: space.sm,
+    gap: 8,
   },
-  swatchBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
+  actionBtn: {
+    height: 32,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  archivedCard: {
+    opacity: 0.7,
+  },
+  sheetBody: {
+    gap: 14,
+    paddingBottom: 16,
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
+  swatch: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  saveBtn: {
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#D96628',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  saveBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1A0E08',
   },
 });
