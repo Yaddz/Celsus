@@ -1,12 +1,18 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
+  BentoRow,
+  BentoSheetHeader,
+  BentoTile,
+  FinListCard,
+  FinListRow,
   LedgerInput,
   TextField,
   XpMinimalHeader,
 } from '../../components/ui';
+import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinCategory, FinRecurrence } from '../../db/schema';
 import {
@@ -20,13 +26,16 @@ import {
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
-import { borders, space, typography } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import {
   FinEmptyState,
   FinErrorView,
+  FinFloatingAddButton,
   FinLoadingView,
+  formatSignedCentsBRL,
   getFinUiColors,
+  resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
 
@@ -35,6 +44,11 @@ export const FREQUENCY_LABELS: Record<FinFrequency, string> = {
   monthly: 'Mensal',
   yearly: 'Anual',
 };
+
+function formatMonthYearShort(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(isoDate || '');
+  return m ? `${m[2]}/${m[1]}` : isoDate;
+}
 
 export interface RecurrenceFormSheetProps {
   visible: boolean;
@@ -158,13 +172,17 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
 
   return (
     <AnimatedModalSheet visible={visible} onClose={onClose} themeMode={themeMode} testID={testID}>
-      <Text style={[sharedStyles.modalTitle, { color: c.text }]}>
-        {editingRecurrence
-          ? 'Editar recorrência'
-          : defaultIsSubscription
-          ? 'Nova assinatura'
-          : 'Nova recorrência'}
-      </Text>
+      <BentoSheetHeader
+        title={
+          editingRecurrence
+            ? 'Editar recorrência'
+            : defaultIsSubscription
+            ? 'Nova assinatura'
+            : 'Nova recorrência'
+        }
+        onClose={onClose}
+        themeMode={themeMode}
+      />
 
       <View style={{ gap: space.md }}>
         <SegmentedControl<FinKind>
@@ -232,20 +250,20 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
       </View>
 
       <View style={sharedStyles.modalActions}>
-        <TouchableOpacity
+        <JellyPressable
           accessibilityRole="button"
           onPress={onClose}
           style={[sharedStyles.secondaryBtn, { borderColor: c.border }]}
         >
           <Text style={[sharedStyles.secondaryBtnText, { color: c.muted }]}>Cancelar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+        </JellyPressable>
+        <JellyPressable
           accessibilityRole="button"
           onPress={() => void handleSave()}
-          style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
+          style={[sharedStyles.primaryBtn, { backgroundColor: c.primary, paddingHorizontal: 28 }]}
         >
           <Text style={sharedStyles.primaryBtnText}>Salvar</Text>
-        </TouchableOpacity>
+        </JellyPressable>
       </View>
     </AnimatedModalSheet>
   );
@@ -267,7 +285,9 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
   testID = 'recurrences-screen',
 }) => {
   const c = getFinUiColors(themeMode);
+  const tileVariant = themeMode === 'light' ? 'light' : 'dark';
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
+  const [categories, setCategories] = useState<FinCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -277,8 +297,12 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const list = await finRepository.listRecurrences();
+      const [list, cats] = await Promise.all([
+        finRepository.listRecurrences(),
+        finRepository.listCategories(true),
+      ]);
       setRecurrences(list);
+      setCategories(cats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar recorrências.');
     } finally {
@@ -290,6 +314,36 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
     void loadData();
   }, [loadData]);
 
+  const categoryById = useMemo(() => {
+    const map = new Map<string, FinCategory>();
+    for (const cat of categories) map.set(cat.id, cat);
+    return map;
+  }, [categories]);
+
+  const activeList = useMemo(
+    () => recurrences.filter((r) => r.active === 1),
+    [recurrences]
+  );
+  const endedList = useMemo(
+    () => recurrences.filter((r) => r.active === 0),
+    [recurrences]
+  );
+
+  const fixedExpenseCents = useMemo(
+    () =>
+      activeList
+        .filter((r) => r.kind === 'expense')
+        .reduce((acc, r) => acc + r.amount_cents, 0),
+    [activeList]
+  );
+  const fixedIncomeCents = useMemo(
+    () =>
+      activeList
+        .filter((r) => r.kind === 'income')
+        .reduce((acc, r) => acc + r.amount_cents, 0),
+    [activeList]
+  );
+
   const handleToggleActive = async (rec: FinRecurrence) => {
     if (rec.active === 1) {
       await finService.pauseSubscription(rec.id);
@@ -299,10 +353,54 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
     await loadData();
   };
 
+  const renderRecurrenceRow = (rec: FinRecurrence, index: number, total: number) => {
+    const cat = categoryById.get(rec.category_id);
+    const visual = resolveCategoryVisual(cat);
+    const freqLabel = FREQUENCY_LABELS[(rec.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
+    const endLabel = rec.end_date ? ` • até ${formatMonthYearShort(rec.end_date)}` : '';
+    const subtitle = `${freqLabel} • dia ${rec.day_of_month}${endLabel}`;
+    const kind: FinKind = rec.kind === 'income' ? 'income' : 'expense';
+
+    return (
+      <FinListRow
+        key={rec.id}
+        testID={`recurrence-row-${rec.id}`}
+        icon={visual.icon}
+        avatarColor={visual.color}
+        iconColor={visual.iconColor}
+        title={rec.description}
+        subtitle={subtitle}
+        amountText={formatSignedCentsBRL(rec.amount_cents, kind, isPrivacyMode)}
+        amountColor={kind === 'income' ? c.income : c.expense}
+        isLast={index === total - 1}
+        themeMode={themeMode}
+        onPress={() => {
+          setEditingRec(rec);
+          setIsFormOpen(true);
+        }}
+        bottomContent={
+          <View style={styles.actionsRow}>
+            <TouchableOpacity
+              accessibilityRole="button"
+              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              onPress={() => void handleToggleActive(rec)}
+              style={[styles.miniBtn, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
+            >
+              <Text style={[styles.miniBtnText, { color: c.text }]}>
+                {rec.active === 1 ? 'Pausar' : 'Retomar'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        }
+      />
+    );
+  };
+
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
         title="Recorrências"
+        subtitle="Lançamentos que se repetem"
         onBack={onBack}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
@@ -310,100 +408,84 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
       />
 
       <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
-        <View style={styles.toolbarRow}>
-          <Text style={[sharedStyles.sectionLabel, { color: c.muted }]}>
-            Receitas e despesas fixas
-          </Text>
-          <TouchableOpacity
-            testID="recurrences-add-btn"
-            accessibilityRole="button"
-            onPress={() => {
-              setEditingRec(null);
-              setIsFormOpen(true);
-            }}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
-          >
-            <MaterialIcons name="add" size={18} color="#1A0E08" />
-            <Text style={sharedStyles.primaryBtnText}>Nova recorrência</Text>
-          </TouchableOpacity>
-        </View>
-
         {loading ? (
           <FinLoadingView themeMode={themeMode} />
         ) : error ? (
           <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-        ) : recurrences.length === 0 ? (
-          <FinEmptyState
-            testID="recurrences-empty-state"
-            icon="repeat"
-            title="Nenhuma recorrência cadastrada"
-            subtitle="Cadastre aluguel, salário, internet e outras contas fixas para geração automática por janela."
-            themeMode={themeMode}
-          />
         ) : (
-          recurrences.map((rec) => (
-            <View
-              key={rec.id}
-              testID={`recurrence-row-${rec.id}`}
-              style={[sharedStyles.rowCard, { backgroundColor: c.surface, borderColor: c.border }]}
-            >
-              <View style={styles.rowHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.rowTitle, { color: c.text }]}>{rec.description}</Text>
-                  <Text style={[styles.rowMeta, { color: c.muted }]}>
-                    {FREQUENCY_LABELS[(rec.frequency as FinFrequency) || 'monthly'] ?? 'Mensal'} • Dia{' '}
-                    {rec.day_of_month} • Início {rec.start_date}
-                    {rec.end_date ? ` • Fim ${rec.end_date}` : ''}
-                  </Text>
-                </View>
-                <Text style={[styles.rowAmount, { color: rec.kind === 'income' ? c.income : c.text }]}>
-                  {formatCentsBRL(rec.amount_cents, isPrivacyMode)}
+          <>
+            <BentoRow>
+              <BentoTile
+                variant={tileVariant}
+                title="FIXO · SAÍDAS"
+                testID="recurrences-fixed-expense-tile"
+              >
+                <Text style={[styles.summaryValue, { color: c.expense }]}>
+                  {isPrivacyMode
+                    ? 'R$ ••••••'
+                    : formatCentsBRL(fixedExpenseCents, false)}
                 </Text>
-              </View>
+                <Text style={[styles.summarySub, { color: c.muted }]}>por mês</Text>
+              </BentoTile>
 
-              <View style={styles.rowFooter}>
-                <View
-                  style={[
-                    styles.statusPill,
-                    { backgroundColor: rec.active === 1 ? 'rgba(42,144,76,0.16)' : c.surfaceContainer },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.statusText,
-                      { color: rec.active === 1 ? c.income : c.muted },
-                    ]}
-                  >
-                    {rec.active === 1 ? 'Ativa' : 'Pausada'}
-                  </Text>
-                </View>
+              <BentoTile
+                variant={tileVariant}
+                title="FIXO · ENTRADAS"
+                testID="recurrences-fixed-income-tile"
+              >
+                <Text style={[styles.summaryValue, { color: c.income }]}>
+                  {isPrivacyMode
+                    ? 'R$ ••••••'
+                    : formatCentsBRL(fixedIncomeCents, false)}
+                </Text>
+                <Text style={[styles.summarySub, { color: c.muted }]}>por mês</Text>
+              </BentoTile>
+            </BentoRow>
 
-                <View style={styles.actionsRow}>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => void handleToggleActive(rec)}
-                    style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
+            {recurrences.length === 0 ? (
+              <FinEmptyState
+                testID="recurrences-empty-state"
+                icon="repeat"
+                title="Nenhuma recorrência cadastrada"
+                subtitle="Cadastre aluguel, salário, internet e outras contas fixas para geração automática por janela."
+                themeMode={themeMode}
+              />
+            ) : (
+              <View style={{ gap: 16 }}>
+                {activeList.length > 0 ? (
+                  <FinListCard
+                    testID="recurrences-active-list"
+                    title={`ATIVAS · ${activeList.length}`}
+                    themeMode={themeMode}
                   >
-                    <Text style={[styles.chipText, { color: c.text }]}>
-                      {rec.active === 1 ? 'Pausar' : 'Retomar'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    accessibilityRole="button"
-                    onPress={() => {
-                      setEditingRec(rec);
-                      setIsFormOpen(true);
-                    }}
-                    style={[sharedStyles.iconBtn, { backgroundColor: c.surfaceContainer }]}
+                    {activeList.map((rec, idx) => renderRecurrenceRow(rec, idx, activeList.length))}
+                  </FinListCard>
+                ) : null}
+
+                {endedList.length > 0 ? (
+                  <FinListCard
+                    testID="recurrences-ended-list"
+                    title={`ENCERRADAS · ${endedList.length}`}
+                    cardStyle={{ opacity: 0.7 }}
+                    themeMode={themeMode}
                   >
-                    <MaterialIcons name="edit" size={18} color={c.text} />
-                  </TouchableOpacity>
-                </View>
+                    {endedList.map((rec, idx) => renderRecurrenceRow(rec, idx, endedList.length))}
+                  </FinListCard>
+                ) : null}
               </View>
-            </View>
-          ))
+            )}
+          </>
         )}
       </ScrollView>
+
+      <FinFloatingAddButton
+        testID="recurrences-add-btn"
+        accessibilityLabel="Nova recorrência"
+        onPress={() => {
+          setEditingRec(null);
+          setIsFormOpen(true);
+        }}
+      />
 
       <RecurrenceFormSheet
         visible={isFormOpen}
@@ -417,56 +499,32 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  toolbarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: space.xs,
-  },
-  rowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: space.md,
-  },
-  rowTitle: {
+  summaryValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  rowMeta: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  rowAmount: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
-  rowFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: space.xs,
-  },
-  statusPill: {
-    paddingHorizontal: space.sm,
-    paddingVertical: 4,
-    borderRadius: borders.radiusPill,
-  },
-  statusText: {
-    fontFamily: typography.fontFamilyMono,
+  summarySub: {
+    fontFamily: typography.fontFamily,
     fontSize: 11,
-    fontWeight: '700',
+    marginTop: 4,
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: space.xs,
+    justifyContent: 'flex-end',
+    gap: 8,
   },
-  chipText: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 12,
+  miniBtn: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
     fontWeight: '600',
   },
 });

@@ -1,25 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { ConfirmDialog, XpMinimalHeader } from '../../components/ui';
-import type { FinRecurrence } from '../../db/schema';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
-  calculateSubscriptionsSummary,
-  formatCentsBRL,
-  type FinFrequency,
-} from '../../domain/financeFlow';
+  BentoGrid,
+  BentoTile,
+  ConfirmDialog,
+  FinListCard,
+  FinListRow,
+  XpMinimalHeader,
+} from '../../components/ui';
+import { JellyPressable } from '../../components/ui/JellyPressable';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
+import { calculateSubscriptionsSummary, formatCentsBRL, type FinFrequency } from '../../domain/financeFlow';
+import type { FinCategory, FinRecurrence } from '../../db/schema';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
-import { bento, borders, space, typography } from '../../theme/tokens';
+import { finStore, useFinStore } from '../../stores/finStore';
 import type { ThemeMode } from '../../theme/palettes';
-import { FREQUENCY_LABELS, RecurrenceFormSheet } from './RecurrencesScreen';
+import { layout, typography } from '../../theme/tokens';
 import {
   FinEmptyState,
   FinErrorView,
+  FinFloatingAddButton,
   FinLoadingView,
+  formatSignedCentsBRL,
   getFinUiColors,
-  sharedStyles,
+  resolveCategoryVisual,
 } from './finTheme';
+import { FREQUENCY_LABELS, RecurrenceFormSheet } from './RecurrencesScreen';
 
 export interface SubscriptionsScreenProps {
   onBack: () => void;
@@ -29,6 +36,47 @@ export interface SubscriptionsScreenProps {
   testID?: string;
 }
 
+type SubscriptionFilter = 'active' | 'paused' | 'canceled';
+
+function formatDateBR(iso: string): string {
+  const parts = iso.split('-');
+  if (parts.length !== 3) return iso;
+  return `${parts[2]}/${parts[1]}`;
+}
+
+function computeNextBillingIso(sub: FinRecurrence): string | null {
+  if (sub.end_date) return null;
+  const base = sub.generated_until ?? sub.start_date;
+  if (!base) return null;
+  const parts = base.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const [y, m, d] = parts;
+  const date = new Date(y, m - 1, d);
+  if (sub.frequency === 'weekly') {
+    date.setDate(date.getDate() + 7);
+  } else if (sub.frequency === 'yearly') {
+    date.setFullYear(date.getFullYear() + 1);
+  } else {
+    const nextMonth = new Date(y, m, 1);
+    const maxDay = new Date(nextMonth.getFullYear(), nextMonth.getMonth() + 1, 0).getDate();
+    date.setFullYear(nextMonth.getFullYear(), nextMonth.getMonth(), Math.min(sub.day_of_month || d, maxDay));
+  }
+  const yy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function daysUntilIso(iso: string | null): number | null {
+  if (!iso) return null;
+  const parts = iso.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  const target = new Date(parts[0], parts[1] - 1, parts[2]);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
 export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   onBack,
   isPrivacyMode = false,
@@ -36,21 +84,32 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   themeMode = 'dark',
   testID = 'subscriptions-screen',
 }) => {
-  const c = getFinUiColors(themeMode);
-  const [subscriptions, setSubscriptions] = useState<FinRecurrence[]>([]);
+  const { refreshCounter } = useFinStore();
+
+  const ui = getFinUiColors(themeMode);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [cancelingId, setCancelingId] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<FinRecurrence[]>([]);
+  const [categories, setCategories] = useState<FinCategory[]>([]);
+  const [filter, setFilter] = useState<SubscriptionFilter>('active');
+
+  const [formVisible, setFormVisible] = useState(false);
+  const [editingSub, setEditingSub] = useState<FinRecurrence | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<FinRecurrence | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const list = await finRepository.listRecurrences({ onlySubscriptions: true });
-      setSubscriptions(list);
+      const [recs, cats] = await Promise.all([
+        finRepository.listRecurrences({ onlySubscriptions: true }),
+        finRepository.listCategories(true),
+      ]);
+      setSubscriptions(recs.filter((r) => r.is_subscription === 1));
+      setCategories(cats);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar assinaturas.');
+      setError(err instanceof Error ? err.message : 'Erro ao carregar assinaturas');
     } finally {
       setLoading(false);
     }
@@ -58,224 +117,344 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
 
   useEffect(() => {
     void loadData();
-  }, [loadData]);
+  }, [loadData, refreshCounter]);
+
+  const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+
+  const activeSubs = useMemo(
+    () => subscriptions.filter((s) => s.active === 1 && !s.end_date),
+    [subscriptions]
+  );
+  const pausedSubs = useMemo(
+    () => subscriptions.filter((s) => s.active !== 1 && !s.end_date),
+    [subscriptions]
+  );
+  const canceledSubs = useMemo(
+    () => subscriptions.filter((s) => Boolean(s.end_date)),
+    [subscriptions]
+  );
 
   const summary = useMemo(() => calculateSubscriptionsSummary(subscriptions), [subscriptions]);
 
-  const handlePause = async (id: string) => {
-    await finService.pauseSubscription(id);
-    await loadData();
-  };
-
-  const handleResume = async (id: string) => {
-    await finService.resumeSubscription(id);
+  const handleTogglePause = async (sub: FinRecurrence) => {
+    if (sub.active === 1) {
+      await finService.pauseSubscription(sub.id);
+    } else {
+      await finService.resumeSubscription(sub.id);
+    }
     await loadData();
   };
 
   const handleConfirmCancel = async () => {
-    if (!cancelingId) return;
-    await finService.cancelSubscription(cancelingId);
-    setCancelingId(null);
+    if (!cancelTarget) return;
+    await finService.cancelSubscription(cancelTarget.id);
+    setCancelTarget(null);
     await loadData();
   };
 
+  const renderSubscriptionRow = (sub: FinRecurrence, isLast: boolean, mode: SubscriptionFilter) => {
+    const cat = catMap.get(sub.category_id);
+    const visual = resolveCategoryVisual(cat);
+    const freqLabel = FREQUENCY_LABELS[(sub.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
+    const nextIso = mode === 'active' ? computeNextBillingIso(sub) : null;
+    const daysAway = daysUntilIso(nextIso);
+    const isSoon = daysAway !== null && daysAway <= 3 && daysAway >= 0;
+
+    let subtitle = freqLabel;
+    if (mode === 'active') {
+      subtitle = nextIso ? `${freqLabel} • Próxima: ${formatDateBR(nextIso)}` : freqLabel;
+    } else if (mode === 'paused') {
+      subtitle = `Pausada • ${freqLabel}`;
+    } else {
+      subtitle = sub.end_date ? `Cancelada em ${formatDateBR(sub.end_date)}` : `Cancelada • ${freqLabel}`;
+    }
+
+    const actionBorder = ui.isLight ? '#E2DACB' : '#34383C';
+
+    let bottomContent: React.ReactNode = null;
+    if (mode === 'active') {
+      bottomContent = (
+        <View style={styles.actionsRow}>
+          <JellyPressable
+            testID={`subscription-pause-btn-${sub.id}`}
+            onPress={() => void handleTogglePause(sub)}
+            containerStyle={[styles.actionBtn, { borderColor: actionBorder }]}
+            accessibilityLabel={`Pausar ${sub.description}`}
+          >
+            <Text style={[styles.actionBtnText, { color: ui.text }]}>Pausar</Text>
+          </JellyPressable>
+          <JellyPressable
+            testID={`subscription-cancel-btn-${sub.id}`}
+            onPress={() => setCancelTarget(sub)}
+            containerStyle={[styles.actionBtn, { borderColor: actionBorder }]}
+            accessibilityLabel={`Cancelar ${sub.description}`}
+          >
+            <Text style={[styles.actionBtnText, { color: ui.expense }]}>Cancelar</Text>
+          </JellyPressable>
+        </View>
+      );
+    } else if (mode === 'paused') {
+      bottomContent = (
+        <View style={styles.actionsRow}>
+          <JellyPressable
+            testID={`subscription-resume-btn-${sub.id}`}
+            onPress={() => void handleTogglePause(sub)}
+            containerStyle={styles.resumeBtn}
+            accessibilityLabel={`Retomar ${sub.description}`}
+          >
+            <Text style={styles.resumeBtnText}>Retomar</Text>
+          </JellyPressable>
+        </View>
+      );
+    }
+
+    return (
+      <FinListRow
+        key={sub.id}
+        testID={`subscription-row-${sub.id}`}
+        icon={visual.icon}
+        avatarColor={visual.color}
+        iconColor={visual.iconColor}
+        title={sub.description}
+        subtitle={subtitle}
+        subtitleColor={isSoon ? ui.warning : ui.muted}
+        amountText={formatSignedCentsBRL(
+          sub.amount_cents,
+          sub.kind === 'income' ? 'income' : 'expense',
+          isPrivacyMode
+        )}
+        amountColor={sub.kind === 'income' ? ui.income : ui.expense}
+        bottomContent={bottomContent}
+        isLast={isLast}
+        themeMode={themeMode}
+        onPress={() => {
+          setEditingSub(sub);
+          setFormVisible(true);
+        }}
+      />
+    );
+  };
+
+  const showEmpty =
+    (filter === 'active' && activeSubs.length === 0 && pausedSubs.length === 0) ||
+    (filter === 'paused' && pausedSubs.length === 0) ||
+    (filter === 'canceled' && canceledSubs.length === 0);
+
   return (
-    <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
+    <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
         title="Assinaturas"
+        subtitle="Cobranças recorrentes"
         onBack={onBack}
-        isPrivacyModeEnabled={isPrivacyMode}
+        isPrivacyMode={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
-        {/* Totais Mensal e Anual */}
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.summaryLabel, { color: c.muted }]}>TOTAL MENSAL</Text>
-            <Text testID="subscriptions-monthly-total" style={[styles.summaryValue, { color: c.text }]}>
-              {formatCentsBRL(summary.monthlyTotalCents, isPrivacyMode)}
-            </Text>
-          </View>
-          <View style={[styles.summaryCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-            <Text style={[styles.summaryLabel, { color: c.muted }]}>TOTAL ANUAL</Text>
-            <Text testID="subscriptions-annual-total" style={[styles.summaryValue, { color: c.text }]}>
-              {formatCentsBRL(summary.annualTotalCents, isPrivacyMode)}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.toolbarRow}>
-          <Text style={[sharedStyles.sectionLabel, { color: c.muted }]}>
-            {summary.activeCount} ativa(s) • {summary.pausedCount} pausada(s)
-          </Text>
-          <TouchableOpacity
-            testID="subscriptions-add-btn"
-            accessibilityRole="button"
-            onPress={() => setIsFormOpen(true)}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
-          >
-            <MaterialIcons name="add" size={18} color="#1A0E08" />
-            <Text style={sharedStyles.primaryBtnText}>Nova assinatura</Text>
-          </TouchableOpacity>
-        </View>
-
-        {loading ? (
-          <FinLoadingView themeMode={themeMode} />
-        ) : error ? (
-          <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-        ) : subscriptions.length === 0 ? (
-          <FinEmptyState
-            testID="subscriptions-empty-state"
-            icon="autorenew"
-            title="Nenhuma assinatura cadastrada"
-            subtitle="Acompanhe seus serviços recorrentes, pausando ou cancelando sem perder o histórico pago."
-            themeMode={themeMode}
-          />
-        ) : (
-          subscriptions.map((sub) => {
-            const freqLabel = FREQUENCY_LABELS[(sub.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
-            const isCanceled = sub.active === 0 && Boolean(sub.end_date);
-            const statusLabel = isCanceled ? 'Cancelada' : sub.active === 1 ? 'Ativa' : 'Pausada';
-
-            return (
-              <View
-                key={sub.id}
-                testID={`subscription-row-${sub.id}`}
-                style={[sharedStyles.rowCard, { backgroundColor: c.surface, borderColor: c.border }]}
-              >
-                <View style={styles.rowHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.rowTitle, { color: c.text }]}>{sub.description}</Text>
-                    <Text style={[styles.rowMeta, { color: c.muted }]}>
-                      {freqLabel} • Cobrança dia {sub.day_of_month} • {statusLabel}
-                    </Text>
-                  </View>
-                  <Text style={[styles.rowAmount, { color: c.text }]}>
-                    {formatCentsBRL(sub.amount_cents, isPrivacyMode)}
+      {loading ? (
+        <FinLoadingView themeMode={themeMode} />
+      ) : error ? (
+        <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+      ) : (
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          <BentoGrid>
+            <BentoTile
+              variant="forest"
+              title="GASTO COM ASSINATURAS"
+              testID="subscriptions-summary-tile"
+              themeMode={themeMode}
+            >
+              <View style={styles.summaryRow}>
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryValue} testID="subscriptions-monthly-total">
+                    {formatCentsBRL(summary.monthlyTotalCents, isPrivacyMode)}
                   </Text>
+                  <Text style={styles.summaryLabel}>por mês</Text>
                 </View>
-
-                <View style={styles.actionsRow}>
-                  {sub.active === 1 ? (
-                    <TouchableOpacity
-                      testID={`subscription-pause-btn-${sub.id}`}
-                      accessibilityRole="button"
-                      onPress={() => void handlePause(sub.id)}
-                      style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
-                    >
-                      <Text style={[styles.actionText, { color: c.warning }]}>Pausar</Text>
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity
-                      testID={`subscription-resume-btn-${sub.id}`}
-                      accessibilityRole="button"
-                      onPress={() => void handleResume(sub.id)}
-                      style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
-                    >
-                      <Text style={[styles.actionText, { color: c.income }]}>Retomar</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <TouchableOpacity
-                    testID={`subscription-cancel-btn-${sub.id}`}
-                    accessibilityRole="button"
-                    onPress={() => setCancelingId(sub.id)}
-                    style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
-                  >
-                    <Text style={[styles.actionText, { color: c.expense }]}>Cancelar</Text>
-                  </TouchableOpacity>
+                <View style={styles.summaryCol}>
+                  <Text style={styles.summaryValue} testID="subscriptions-annual-total">
+                    {formatCentsBRL(summary.annualTotalCents, isPrivacyMode)}
+                  </Text>
+                  <Text style={styles.summaryLabel}>por ano</Text>
                 </View>
               </View>
-            );
-          })
-        )}
-      </ScrollView>
+            </BentoTile>
+          </BentoGrid>
+
+          <SegmentedControl
+            testID="subscriptions-status-segmented"
+            themeMode={themeMode}
+            options={[
+              { key: 'active', label: `Ativas · ${activeSubs.length}` },
+              { key: 'paused', label: `Pausadas · ${pausedSubs.length}` },
+              { key: 'canceled', label: 'Canceladas' },
+            ]}
+            value={filter}
+            onChange={(val) => setFilter(val as SubscriptionFilter)}
+          />
+
+          {showEmpty ? (
+            <FinEmptyState
+              testID="subscriptions-empty-state"
+              icon="autorenew"
+              title="Nenhuma assinatura"
+              subtitle="Adicione streaming, academia ou serviços recorrentes para acompanhar o custo mensal."
+              actionLabel="Nova assinatura"
+              onAction={() => {
+                setEditingSub(null);
+                setFormVisible(true);
+              }}
+              themeMode={themeMode}
+            />
+          ) : (
+            <>
+              {filter === 'active' && activeSubs.length > 0 && (
+                <FinListCard
+                  title={`ATIVAS · ${activeSubs.length}`}
+                  testID="subscriptions-active-list"
+                  themeMode={themeMode}
+                >
+                  {activeSubs.map((sub, idx) =>
+                    renderSubscriptionRow(sub, idx === activeSubs.length - 1, 'active')
+                  )}
+                </FinListCard>
+              )}
+
+              {(filter === 'paused' || (filter === 'active' && pausedSubs.length > 0)) &&
+                pausedSubs.length > 0 && (
+                  <FinListCard
+                    title="PAUSADAS"
+                    testID="subscriptions-paused-list"
+                    themeMode={themeMode}
+                  >
+                    {pausedSubs.map((sub, idx) =>
+                      renderSubscriptionRow(sub, idx === pausedSubs.length - 1, 'paused')
+                    )}
+                  </FinListCard>
+                )}
+
+              {filter === 'canceled' && canceledSubs.length > 0 && (
+                <FinListCard
+                  title={`CANCELADAS · ${canceledSubs.length}`}
+                  testID="subscriptions-canceled-list"
+                  themeMode={themeMode}
+                  cardStyle={styles.canceledCard}
+                >
+                  {canceledSubs.map((sub, idx) =>
+                    renderSubscriptionRow(sub, idx === canceledSubs.length - 1, 'canceled')
+                  )}
+                </FinListCard>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
+
+      <FinFloatingAddButton
+        testID="subscriptions-add-btn"
+        accessibilityLabel="Nova assinatura"
+        onPress={() => {
+          setEditingSub(null);
+          setFormVisible(true);
+        }}
+      />
 
       <RecurrenceFormSheet
-        visible={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
+        visible={formVisible}
+        onClose={() => {
+          setFormVisible(false);
+          setEditingSub(null);
+        }}
         onSaved={() => void loadData()}
-        defaultIsSubscription={true}
+        editingRecurrence={editingSub}
+        defaultIsSubscription
         themeMode={themeMode}
       />
 
       <ConfirmDialog
-        visible={Boolean(cancelingId)}
-        testID="confirm-dialog"
-        confirmTestID="confirm-dialog-confirm"
+        visible={cancelTarget !== null}
         title="Cancelar assinatura"
-        message="Deseja encerrar esta assinatura? O histórico de pagamentos efetuados será preservado."
+        message={
+          cancelTarget
+            ? `Deseja encerrar "${cancelTarget.description}"? O histórico já pago será mantido.`
+            : ''
+        }
         confirmLabel="Cancelar assinatura"
+        cancelLabel="Manter"
         destructive
         onConfirm={() => void handleConfirmCancel()}
-        onCancel={() => setCancelingId(null)}
+        onCancel={() => setCancelTarget(null)}
         themeMode={themeMode}
+        testID="confirm-dialog"
+        confirmTestID="confirm-dialog-confirm"
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scrollContent: {
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: 8,
+    paddingBottom: 110,
+    gap: 14,
+  },
   summaryRow: {
     flexDirection: 'row',
-    gap: bento.gap,
+    gap: 16,
+    marginTop: 6,
   },
-  summaryCard: {
+  summaryCol: {
     flex: 1,
-    borderRadius: bento.innerRadius,
-    borderWidth: 1,
-    padding: bento.tilePadding,
-    gap: space.xs,
-  },
-  summaryLabel: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.8,
+    gap: 4,
   },
   summaryValue: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  toolbarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: space.xs,
-  },
-  rowHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: space.md,
-  },
-  rowTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  rowMeta: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  rowAmount: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 15,
+    fontSize: 24,
     fontWeight: '700',
+    color: '#E6DECA',
+    fontVariant: ['tabular-nums'],
+  },
+  summaryLabel: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#AECDC5',
   },
   actionsRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: space.sm,
-    marginTop: space.xs,
+    gap: 8,
+    marginTop: 2,
   },
-  actionText: {
-    fontFamily: typography.fontFamilyMono,
+  actionBtn: {
+    flex: 1,
+    height: 36,
+    borderRadius: 11,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  actionBtnText: {
+    fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  resumeBtn: {
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: '#D96628',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  resumeBtnText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1A0E08',
+  },
+  canceledCard: {
+    opacity: 0.7,
   },
 });
