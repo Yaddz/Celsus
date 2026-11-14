@@ -104,8 +104,41 @@ function useGlobalThemeMode(): ThemeMode {
   return mode;
 }
 
+/**
+ * Carrega as fontes do app (Space Mono + ícones) ANTES de montar as telas. Sem isso o Android mede os
+ * textos com a fonte reserva e depois desenha com a Space Mono (mais larga): os textos saem cortados
+ * ("Aport", "Rebalance", "In…"). No Jest não há espera (as suítes montam o App direto).
+ */
+function useAppFontsReady(): boolean {
+  const [ready, setReady] = useState(process.env.NODE_ENV === 'test');
+  useEffect(() => {
+    const tasks: Promise<unknown>[] = [];
+    if (typeof Font?.loadAsync === 'function') {
+      if (MaterialIcons?.font) tasks.push(Font.loadAsync(MaterialIcons.font).catch(() => {}));
+      // Registrada como "Space Mono", o mesmo nome dos tokens; o negrito é sintetizado do peso regular.
+      tasks.push(
+        Font.loadAsync({
+          'Space Mono': require('@expo-google-fonts/space-mono/400Regular/SpaceMono_400Regular.ttf'),
+        }).catch(() => {})
+      );
+    }
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        setReady(true);
+      }
+    };
+    Promise.all(tasks).then(finish, finish);
+    const timer = setTimeout(finish, 2500); // não prende o app se o carregamento travar
+    return () => clearTimeout(timer);
+  }, []);
+  return ready;
+}
+
 export default function App() {
   const themeMode = useGlobalThemeMode();
+  const fontsReady = useAppFontsReady();
   const [initialAction, setInitialAction] = useState<'import_b3' | 'create_wallet' | 'explore' | null>(null);
 
   // Nome e iniciais do perfil para a tela de bloqueio, os headers e o Perfil (antes ninguém carregava
@@ -114,6 +147,14 @@ export default function App() {
   useEffect(() => {
     if (process.env.NODE_ENV !== 'test') profileStore.ensureLoaded().catch(() => {});
   }, []);
+  if (!fontsReady) {
+    return (
+      <View
+        testID="app-fonts-loading"
+        style={{ flex: 1, backgroundColor: themeMode === 'light' ? LIGHT_THEME_TOKENS.backgroundPrimary : colors.voidFloor }}
+      />
+    );
+  }
   return (
     <SafeAreaProvider>
       {/* No app real o onboarding roda (nome, PIN opcional, digital). As suítes antigas de telas montam
@@ -492,18 +533,6 @@ function AppContent(props: {
   useEffect(() => walletsStore.registerRefresher(() => refreshAppDataRef.current()), []);
 
   useEffect(() => {
-    // Pré-carregamento de fontes MaterialIcons para evitar layout shift
-    if (MaterialIcons?.font && typeof Font?.loadAsync === 'function') {
-      Font.loadAsync(MaterialIcons.font).catch(() => {});
-    }
-    // Space Mono (tipografia do design system): registrada como "Space Mono", o mesmo nome usado nos tokens.
-    // O negrito é sintetizado a partir do peso regular.
-    if (typeof Font?.loadAsync === 'function') {
-      Font.loadAsync({
-        'Space Mono': require('@expo-google-fonts/space-mono/400Regular/SpaceMono_400Regular.ttf'),
-      }).catch(() => {});
-    }
-
     const unsub = privacyAndAuthService.subscribe((state) => {
       setIsPrivacyMode(state.isPrivacyModeEnabled);
     });
