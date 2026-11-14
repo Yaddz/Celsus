@@ -1,24 +1,27 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Skeleton, SkeletonTile } from '../../components/ui';
-import { bento, borders, colors, space, typography } from '../../theme/tokens';
-import { getThemeColors, type ThemeMode } from '../../theme/palettes';
+import { JellyPressable } from '../../components/ui/JellyPressable';
+import { formatCentsBRL } from '../../domain/financeFlow';
+import { bento, borders, colors, layout, space, typography } from '../../theme/tokens';
+import type { ThemeMode } from '../../theme/palettes';
 
 export function getFinUiColors(themeMode: ThemeMode = 'dark') {
   const isLight = themeMode === 'light';
-  const modeColors = getThemeColors(themeMode);
   return {
     isLight,
-    background: modeColors.background,
-    surface: modeColors.surface,
-    surfaceContainer: modeColors.surfaceContainer,
-    text: modeColors.onSurface,
-    muted: modeColors.muted,
-    border: isLight ? 'rgba(17,19,21,0.1)' : 'rgba(255,255,255,0.08)',
+    background: isLight ? '#F4F1EA' : '#111315',
+    surface: isLight ? '#FFFFFF' : '#1C1E20',
+    surfaceContainer: isLight ? '#F1ECE2' : '#141618',
+    text: isLight ? '#111315' : '#E6DECA',
+    muted: isLight ? '#6E6A63' : '#8A8A8E',
+    border: isLight ? '#EAE4D7' : '#26292C',
+    hairline: isLight ? '#F0EBE1' : '#26292C',
     primary: colors.primary,
-    income: '#2A904C',
-    expense: colors.deficit,
+    income: isLight ? '#1D6F5B' : '#AECDC5',
+    expense: isLight ? '#C24D18' : '#D96628',
+    overdue: '#D96628',
     warning: '#D4A83B',
   };
 }
@@ -33,51 +36,7 @@ export const APPROVED_FIN_PALETTE = [
   '#E6DECA',
 ] as const;
 
-export const FIN_COLOR_SWATCHES = [
-  '#D96628',
-  '#2E4A44',
-  '#3386B0',
-  '#2A904C',
-  '#A958E4',
-  '#D4A83B',
-  '#CD528F',
-  '#8A8A8E',
-] as const;
-
-export function resolveCategoryVisual(
-  _cat?: { id?: string; name?: string; icon?: string; color?: string } | null
-): {
-  icon: keyof typeof MaterialIcons.glyphMap;
-  color: string;
-  iconColor: string;
-} {
-  return {
-    icon: 'category',
-    color: '#8A8A8E',
-    iconColor: '#111315',
-  };
-}
-
-export function formatSignedCentsBRL(
-  _cents: number,
-  _kind: 'income' | 'expense',
-  _isPrivacyMode = false
-): string {
-  return '';
-}
-
-export const FinFloatingAddButton: React.FC<{
-  testID: string;
-  onPress: () => void;
-  accessibilityLabel?: string;
-}> = ({ testID, onPress, accessibilityLabel }) => (
-  <TouchableOpacity
-    testID={testID}
-    accessibilityRole="button"
-    accessibilityLabel={accessibilityLabel}
-    onPress={onPress}
-  />
-);
+export const FIN_COLOR_SWATCHES = APPROVED_FIN_PALETTE;
 
 export const FIN_CATEGORY_ICONS = [
   'home',
@@ -90,16 +49,112 @@ export const FIN_CATEGORY_ICONS = [
   'category',
 ] as const;
 
+const APPROVED_SET = new Set<string>([...APPROVED_FIN_PALETTE, '#8A8A8E']);
+
+const DEFAULT_CATEGORY_VISUAL_BY_KEY: Record<
+  string,
+  { icon: keyof typeof MaterialIcons.glyphMap; color: string }
+> = {
+  'cat-moradia': { icon: 'home', color: '#D96628' },
+  moradia: { icon: 'home', color: '#D96628' },
+  'cat-mercado': { icon: 'shopping-cart', color: '#D5CAA8' },
+  mercado: { icon: 'shopping-cart', color: '#D5CAA8' },
+  'cat-transporte': { icon: 'directions-car', color: '#C49A45' },
+  transporte: { icon: 'directions-car', color: '#C49A45' },
+  'cat-saude': { icon: 'local-hospital', color: '#AECDC5' },
+  saúde: { icon: 'local-hospital', color: '#AECDC5' },
+  saude: { icon: 'local-hospital', color: '#AECDC5' },
+  'cat-lazer': { icon: 'movie', color: '#B8B2A6' },
+  lazer: { icon: 'movie', color: '#B8B2A6' },
+  'cat-assinaturas': { icon: 'autorenew', color: '#E6DECA' },
+  assinaturas: { icon: 'autorenew', color: '#E6DECA' },
+  'cat-salario': { icon: 'payments', color: '#AECDC5' },
+  salário: { icon: 'payments', color: '#AECDC5' },
+  salario: { icon: 'payments', color: '#AECDC5' },
+  'cat-outros-despesa': { icon: 'category', color: '#8A8A8E' },
+  'cat-outros-receita': { icon: 'category', color: '#8A8A8E' },
+  outros: { icon: 'category', color: '#8A8A8E' },
+  'outros recebimentos': { icon: 'category', color: '#8A8A8E' },
+};
+
+export function resolveApprovedColor(color?: string | null, fallback = '#D96628'): string {
+  const upper = (color ?? '').trim().toUpperCase();
+  return APPROVED_SET.has(upper) ? upper : fallback;
+}
+
+export function resolveCategoryVisual(
+  cat?: { id?: string; name?: string; icon?: string; color?: string } | null
+): {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+  iconColor: string;
+} {
+  const byId = cat?.id ? DEFAULT_CATEGORY_VISUAL_BY_KEY[cat.id.toLowerCase()] : undefined;
+  const byName = cat?.name ? DEFAULT_CATEGORY_VISUAL_BY_KEY[cat.name.trim().toLowerCase()] : undefined;
+  const preset = byId ?? byName;
+
+  const icon = (preset?.icon ?? cat?.icon ?? 'category') as keyof typeof MaterialIcons.glyphMap;
+  const rawUpper = (cat?.color ?? '').trim().toUpperCase();
+  const color = APPROVED_SET.has(rawUpper)
+    ? rawUpper
+    : preset?.color ?? '#8A8A8E';
+  const iconColor = color === '#2E4A44' ? '#E6DECA' : '#111315';
+
+  return { icon, color, iconColor };
+}
+
+export function formatSignedCentsBRL(
+  cents: number,
+  kind: 'income' | 'expense',
+  isPrivacyMode = false
+): string {
+  if (isPrivacyMode) return 'R$ ••••••';
+  const prefix = kind === 'income' ? '+' : '-';
+  return `${prefix}${formatCentsBRL(Math.abs(cents), false)}`;
+}
+
+export const FinFloatingAddButton: React.FC<{
+  testID: string;
+  onPress: () => void;
+  accessibilityLabel?: string;
+}> = ({ testID, onPress, accessibilityLabel = 'Adicionar' }) => (
+  <JellyPressable
+    testID={testID}
+    intensity="medium"
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+    onPress={onPress}
+    containerStyle={sharedStyles.fabContainer}
+    style={sharedStyles.fabInner}
+  >
+    <MaterialIcons name="add" size={28} color="#FFFFFF" />
+  </JellyPressable>
+);
+
 export const FinLoadingView: React.FC<{ themeMode?: ThemeMode; testID?: string }> = ({
   themeMode = 'dark',
   testID = 'fin-loading-state',
-}) => (
-  <View testID={testID} style={sharedStyles.stateContainer}>
-    <SkeletonTile height={100} themeMode={themeMode} style={sharedStyles.skeletonItem} />
-    <Skeleton height={56} radius={16} themeMode={themeMode} style={sharedStyles.skeletonItem} />
-    <Skeleton height={56} radius={16} themeMode={themeMode} style={sharedStyles.skeletonItem} />
-  </View>
-);
+}) => {
+  const isLight = themeMode === 'light';
+  const cardBg = isLight ? '#FFFFFF' : '#1C1E20';
+  return (
+    <View testID={testID} style={sharedStyles.stateContainer}>
+      <SkeletonTile height={108} themeMode={themeMode} lines={2} />
+      <View style={[sharedStyles.skeletonListCard, { backgroundColor: cardBg }]}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={sharedStyles.skeletonRow}>
+            <Skeleton width={44} height={44} radius={22} themeMode={themeMode} />
+            <View style={{ flex: 1, gap: 6 }}>
+              <Skeleton width="48%" height={13} themeMode={themeMode} />
+              <Skeleton width="32%" height={10} themeMode={themeMode} />
+            </View>
+            <Skeleton width={76} height={13} themeMode={themeMode} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
 
 export const FinErrorView: React.FC<{
   message: string;
@@ -111,18 +166,19 @@ export const FinErrorView: React.FC<{
   return (
     <View
       testID={testID}
-      style={[sharedStyles.emptyBox, { backgroundColor: c.surface, borderColor: c.border }]}
+      style={[sharedStyles.emptyBox, { backgroundColor: c.surface }]}
     >
-      <MaterialIcons name="error-outline" size={28} color={c.expense} />
+      <MaterialIcons name="error-outline" size={28} color={c.overdue} />
       <Text style={[sharedStyles.emptyTitle, { color: c.text }]}>Não foi possível carregar</Text>
       <Text style={[sharedStyles.emptySubtitle, { color: c.muted }]}>{message}</Text>
-      <TouchableOpacity
+      <JellyPressable
         accessibilityRole="button"
+        accessibilityLabel="Tentar novamente"
         onPress={onRetry}
         style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
       >
         <Text style={sharedStyles.primaryBtnText}>Tentar novamente</Text>
-      </TouchableOpacity>
+      </JellyPressable>
     </View>
   );
 };
@@ -150,20 +206,20 @@ export const FinEmptyState: React.FC<{
   return (
     <View
       testID={testID}
-      style={[sharedStyles.emptyBox, { backgroundColor: c.surface, borderColor: c.border }]}
+      style={[sharedStyles.emptyBox, { backgroundColor: c.surface }]}
     >
       <MaterialIcons name={icon} size={32} color={c.muted} />
       <Text style={[sharedStyles.emptyTitle, { color: c.text }]}>{title}</Text>
       <Text style={[sharedStyles.emptySubtitle, { color: c.muted }]}>{subtitle}</Text>
       {actionLabel && onAction ? (
-        <TouchableOpacity
+        <JellyPressable
           testID={actionTestID}
           accessibilityRole="button"
           onPress={onAction}
           style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
         >
           <Text style={sharedStyles.primaryBtnText}>{actionLabel}</Text>
-        </TouchableOpacity>
+        </JellyPressable>
       ) : null}
     </View>
   );
@@ -174,55 +230,55 @@ export const sharedStyles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: space.lg,
-    paddingBottom: space.xxl * 2,
+    paddingHorizontal: layout.tabScreenPaddingX,
+    paddingTop: layout.tabScreenPaddingTop,
+    paddingBottom: 96,
     gap: bento.gap,
   },
   stateContainer: {
-    padding: space.lg,
-    gap: space.md,
+    gap: bento.gap,
   },
-  skeletonItem: {
-    marginBottom: space.sm,
+  skeletonListCard: {
+    borderRadius: bento.tileRadius,
+    paddingHorizontal: bento.tilePadding,
+    paddingVertical: 6,
+  },
+  skeletonRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   emptyBox: {
     borderRadius: bento.tileRadius,
-    borderWidth: 1,
-    padding: space.xl,
+    padding: bento.tilePadding + 6,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
-    marginTop: space.md,
   },
   emptyTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     textAlign: 'center',
   },
   emptySubtitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: 11,
     textAlign: 'center',
-    lineHeight: 18,
-  },
-  rowCard: {
-    borderRadius: bento.innerRadius,
-    borderWidth: 1,
-    padding: space.lg,
-    gap: space.sm,
+    lineHeight: 16,
   },
   primaryBtn: {
-    minHeight: 44,
+    height: 56,
     paddingHorizontal: space.lg,
-    borderRadius: borders.radiusPill,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: space.xs,
   },
   primaryBtnText: {
-    fontFamily: typography.fontFamilyMono,
+    fontFamily: typography.fontFamily,
     fontSize: 13,
     fontWeight: '700',
     color: '#1A0E08',
@@ -238,17 +294,17 @@ export const sharedStyles = StyleSheet.create({
     gap: space.xs,
   },
   secondaryBtnText: {
-    fontFamily: typography.fontFamilyMono,
+    fontFamily: typography.fontFamily,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   iconBtn: {
-    minWidth: 44,
-    minHeight: 44,
-    borderRadius: borders.radiusPill,
+    minWidth: 40,
+    minHeight: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: space.sm,
+    paddingHorizontal: space.xs,
   },
   chipRow: {
     flexDirection: 'row',
@@ -256,27 +312,24 @@ export const sharedStyles = StyleSheet.create({
     gap: space.sm,
   },
   chip: {
-    minHeight: 40,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs,
-    borderRadius: borders.radiusPill,
-    borderWidth: 1,
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: space.xs,
+    gap: 6,
   },
   sectionLabel: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 11,
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 0.8,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginTop: space.sm,
   },
   modalTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     marginBottom: space.md,
   },
@@ -285,5 +338,28 @@ export const sharedStyles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.lg,
     justifyContent: 'flex-end',
+  },
+  fabContainer: {
+    position: 'absolute',
+    right: 20,
+    bottom: 24,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#D96628',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  fabInner: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

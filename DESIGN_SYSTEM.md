@@ -48,6 +48,7 @@ Variantes de tile: `primary` (laranja), `forest`, `cream`, `gold`, `dark`, `ligh
 | `TextField` (`LedgerInput`) | Campo único para todo o app (foco, erro, prefixo/sufixo, adornos) |
 | `Skeleton` / `SkeletonSwap` | Carregamento com pulso compartilhado e troca suave |
 | `AnimatedModalSheet`, `ConfirmDialog` | Folhas e confirmações |
+| `FinListCard`, `FinListRow` | Lista única em tile Bento (`#1C1E20` / `#FFFFFF`, raio 28) com linhas de `minHeight` 72, avatar circular de 44 px (ícone Material 21 px), filetes (`#26292C` / `#F0EBE1`) removidos na última linha e ação "Ver tudo ›" |
 | `AssetSearchRow`, `RankingTable`, `IndicatorGrid`, `PriceAreaChart`, `DividendsCard`, `StickyAddBar` | Busca e ficha do ativo |
 
 ## Movimento

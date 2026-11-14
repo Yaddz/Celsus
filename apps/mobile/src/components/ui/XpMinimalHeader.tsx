@@ -21,6 +21,10 @@ export interface XpMinimalHeaderProps {
   scrollY?: Animated.Value;
   /** Botão extra à esquerda do olho (ex.: favoritar na ficha do ativo). */
   rightAccessory?: React.ReactNode;
+  /** Destaca o ícone do globo em laranja quando o módulo Finanças está ativo. */
+  isGlobeActive?: boolean;
+  /** testID opcional para o subtítulo do header. */
+  subtitleTestID?: string;
   testID?: string;
   backTestID?: string;
 }
@@ -44,6 +48,8 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
   themeMode = 'dark',
   scrollY,
   rightAccessory,
+  isGlobeActive = false,
+  subtitleTestID,
   testID = 'xp-minimal-header',
   backTestID = 'header-back-button',
 }) => {
@@ -99,6 +105,8 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
       {onBack ? (
         <TouchableOpacity
           testID={backTestID}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
           onPress={onBack}
           activeOpacity={0.7}
           style={styles.backButtonContainer}
@@ -117,7 +125,10 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
                 {title}
               </Text>
               {subtitle ? (
-                <Text style={[styles.subtitleText, { color: isLight ? '#6E6A63' : '#A09D96' }]}>
+                <Text
+                  testID={subtitleTestID}
+                  style={[styles.subtitleText, { color: isLight ? '#6E6A63' : '#A09D96' }]}
+                >
                   {subtitle}
                 </Text>
               ) : null}
@@ -165,6 +176,8 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
         {/* Botão de Olho (Privacidade) */}
         <TouchableOpacity
           testID="header-privacy-button"
+          accessibilityRole="button"
+          accessibilityLabel={isPrivacyModeEnabled ? 'Mostrar valores' : 'Ocultar valores'}
           onPress={onTogglePrivacy}
           activeOpacity={0.7}
           style={[
@@ -189,9 +202,11 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* Botão Globo Placeholder */}
+        {/* Botão Globo (Módulo Finanças) */}
         <TouchableOpacity
           testID="header-globe-button"
+          accessibilityRole="button"
+          accessibilityLabel="Finanças"
           onPress={handleGlobePress}
           activeOpacity={0.7}
           style={[
@@ -199,7 +214,12 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
             { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
           ]}
         >
-          <MaterialIcons name="language" size={20} color={iconColor} />
+          <MaterialIcons
+            testID="header-globe-icon"
+            name="language"
+            size={20}
+            color={isGlobeActive ? '#D96628' : iconColor}
+          />
         </TouchableOpacity>
       </View>
     </View>
