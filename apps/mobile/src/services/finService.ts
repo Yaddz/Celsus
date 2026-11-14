@@ -1,6 +1,7 @@
 import type { FinEntry, FinRecurrence } from '../db/schema';
 import {
   addMonthsYearMonth,
+  generateRecurrenceOccurrences,
   getMonthDateRange,
   getTodayIsoLocal,
   type FinKind,
@@ -53,20 +54,69 @@ export class FinService {
     });
   }
 
-  async generateRecurrenceWindow(_windowStart: string, _windowEnd: string): Promise<FinEntry[]> {
-    return [];
+  async generateRecurrenceWindow(windowStart: string, windowEnd: string): Promise<FinEntry[]> {
+    const recurrences = await finRepository.listRecurrences({ onlyActive: true });
+    const createdAll: FinEntry[] = [];
+
+    for (const rec of recurrences) {
+      const existing = await finRepository.listEntriesByRecurrence(rec.id);
+      const { occurrences, generatedUntil } = generateRecurrenceOccurrences(
+        rec,
+        windowStart,
+        windowEnd,
+        existing
+      );
+
+      if (occurrences.length > 0) {
+        const inserted = await finRepository.createEntriesBatch(
+          occurrences.map((occ) => ({
+            kind: occ.kind,
+            amount_cents: occ.amountCents,
+            due_date: occ.dueDate,
+            paid_date: null,
+            paid_amount_cents: null,
+            status: 'pending',
+            account_id: occ.accountId,
+            category_id: occ.categoryId,
+            description: occ.description,
+            recurrence_id: rec.id,
+            installment_group_id: null,
+            installment_number: null,
+            installment_total: null,
+          }))
+        );
+        createdAll.push(...inserted);
+      }
+
+      if (generatedUntil && generatedUntil !== rec.generated_until) {
+        await finRepository.updateRecurrence(rec.id, { generated_until: generatedUntil });
+      }
+    }
+
+    return createdAll;
   }
 
-  async pauseSubscription(_recurrenceId: string): Promise<FinRecurrence> {
-    throw new Error('Not implemented: pauseSubscription');
+  async pauseSubscription(recurrenceId: string): Promise<FinRecurrence> {
+    return finRepository.updateRecurrence(recurrenceId, { active: 0 });
   }
 
-  async resumeSubscription(_recurrenceId: string): Promise<FinRecurrence> {
-    throw new Error('Not implemented: resumeSubscription');
+  async resumeSubscription(recurrenceId: string): Promise<FinRecurrence> {
+    return finRepository.updateRecurrence(recurrenceId, { active: 1 });
   }
 
-  async cancelSubscription(_recurrenceId: string, _cancelDateIso?: string): Promise<FinRecurrence> {
-    throw new Error('Not implemented: cancelSubscription');
+  async cancelSubscription(recurrenceId: string, cancelDateIso?: string): Promise<FinRecurrence> {
+    const effectiveCancelDate = cancelDateIso ?? getTodayIsoLocal();
+    const updated = await finRepository.updateRecurrence(recurrenceId, {
+      active: 0,
+      end_date: effectiveCancelDate,
+    });
+    const entries = await finRepository.listEntriesByRecurrence(recurrenceId);
+    for (const entry of entries) {
+      if (entry.status === 'pending' && entry.due_date >= effectiveCancelDate) {
+        await finRepository.deleteEntry(entry.id);
+      }
+    }
+    return updated;
   }
 
   async createInstallmentPurchase(_params: {
