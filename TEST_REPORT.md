@@ -7,10 +7,10 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | 103 suítes, **658 testes**, **0 falhas** (baseline anterior) + **3 suítes / 33 testes** da Sprint 54 Fase A (Red Phase) |
-| Motor de mercado (Go) | `npm run test:market` | **44 testes**, 0 falhas, 2 "live" pulados por padrão |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | 0 erros nos novos arquivos de teste e stubs da Sprint 54 |
-| Integridade dos testes (TDD Lock) | `npm run test:verify` | 122 arquivos protegidos, SHA-256 íntegros |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **106 suítes**, **691 testes**, **0 falhas** (inclui 3 suítes / 33 testes da Sprint 54 — Módulo Finanças) |
+| Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
+| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** no código de produção e nos arquivos da Sprint 54 (restam erros preexistentes em 19 arquivos de teste antigos) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **122 arquivos protegidos**, SHA-256 íntegros |
 
 ## Cobertura por área
 
@@ -61,11 +61,12 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
   - S53-T08: `PortfolioManagementScreen` lista de ativos rolável com `testID="portfolio-assets-list"`, `nestedScrollEnabled={true}` e `maxHeight`.
   - S53-T09: `PortfolioManagementScreen` monta todos os 30 ativos no contêiner com rolagem interna.
   - S53-T10: `PortfolioManagementScreen` com 0 ativos mantém `portfolio-assets-empty` e não renderiza a lista.
-- **Módulo Finanças Pessoais (Sprint 54 — Fase A / Red Phase & Lock em `feat/modulo-financas`)**: 3 novas suítes com **33 testes** especificados e bloqueados antes da implementação:
-  - `apps/mobile/src/domain/financeFlow/__tests__/financeFlow.test.ts` (14 testes): formatação BRL/privacidade, `clampDayOfMonth` e anos bissextos, recorrências (mensal dia 31, anual 29/02, semanal, `end_date`, inativas, idempotência), divisão de parcelas sem perda de centavos (`first`/`last`, dia-âncora 31), saldo da conta e totais mensais, atrasados e a vencer em 7 dias, totais mensal e anual de assinaturas.
-  - `apps/mobile/src/services/__tests__/finServiceAndMigration.test.ts` (9 testes): esquema SQL e índices `fin_*`, compatibilidade com seed zero (Sprint 52), semeadura idempotente de categorias padrão pt-BR, CRUD/arquivamento de contas e categorias, baixa de lançamento com data e valor reais, geração preguiçosa e idempotente de recorrências, pausar/retomar/cancelar assinatura preservando histórico pago, criação e edição/exclusão por escopo de parcelamentos (`only_this`, `this_and_next`, `all`), backup e restauração `.celsus.zip`.
-  - `apps/mobile/src/screens/__tests__/FinanceModuleScreens.test.tsx` (10 testes): globo abrindo o módulo Finanças com `XpMinimalHeader` (voltar + título `"Finanças"`) e `onMais` isolado mantendo o alerta de desenvolvimento, estados vazios e fluxos de `FinanceHomeScreen`, `EntriesListScreen`, `EntryFormSheet`, `SubscriptionsScreen`, `RecurrencesScreen`, `AccountsScreen` e `CategoriesScreen`, e ocultação de valores no Modo Privacidade.
-  - Execução Fase A (Red Phase): 3 suítes falharam conforme esperado contra os stubs (31 falhas, 2 aprovações parciais; `tsc --noEmit` com 0 erros nos arquivos novos; `node scripts/test-lock.js verify` aprovado com 122 arquivos).
+- **Módulo Finanças Pessoais (Sprint 54 — Fase B Completo em `feat/modulo-financas`)**: Implementação concluída em 4 sub-fases sob bloqueio estrito TDD Lock (**3/3 suítes PASS, 33/33 testes PASS**; suíte mobile completa **106/106 suítes, 691/691 testes PASS** em 14,17 s):
+  - `apps/mobile/src/domain/financeFlow/__tests__/financeFlow.test.ts` (**15/15 PASS**, SHA-256 `eb1616dc6c5d6280120e1824dc027e0fb8a5eea326e5e1451daf7b2568086f0e`): formatação BRL/privacidade, `clampDayOfMonth` e anos bissextos, recorrências (mensal dia 31, anual 29/02, semanal, `end_date`, inativas, idempotência), divisão de parcelas sem perda de centavos (`first`/`last`, dia-âncora 31), saldo da conta e totais mensais, atrasados e a vencer em 7 dias, totais mensal e anual de assinaturas.
+  - `apps/mobile/src/services/__tests__/finServiceAndMigration.test.ts` (**9/9 PASS**, 5,468 s, SHA-256 `e9914b359604dfe2e360d8ea996a45d78283c13605e17e6ffd3de0bb7cff70d1`): esquema SQL e índices `fin_*`, compatibilidade com seed zero (Sprint 52), semeadura idempotente de categorias padrão pt-BR, CRUD/arquivamento de contas e categorias, baixa de lançamento com data e valor reais, geração preguiçosa e idempotente de recorrências, pausar/retomar/cancelar assinatura preservando histórico pago, criação e edição/exclusão por escopo de parcelamentos (`only_this`, `this_and_next`, `all`), backup e restauração `.celsus.zip`.
+  - `apps/mobile/src/screens/__tests__/FinanceModuleScreens.test.tsx` (**9/9 PASS**, 14,009 s, SHA-256 `ef2f5faef0a83500624c71df0735b344e5ec66ab1a369695d615548a532070d4`): globo abrindo o módulo Finanças com `XpMinimalHeader` (voltar + título `"Finanças"`) e `onMais` isolado mantendo o alerta de desenvolvimento, estados vazios e fluxos de `FinanceHomeScreen`, `EntriesListScreen`, `EntryFormSheet`, `SubscriptionsScreen`, `RecurrencesScreen`, `AccountsScreen` e `CategoriesScreen`, e ocultação de valores no Modo Privacidade.
+  - Ajuste autorizado em `apps/mobile/src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` (**PASS**, SHA-256 `89d9d2bd6e3762e8a2902aa7ea8d399d2b11d3ec370ee21e39983eac66b36d0f`) refletindo a abertura do módulo Finanças no globo do header.
+  - Fases implementadas: migração aditiva SQLite/in-memory em `db/client.ts` + backup CSV `.celsus.zip` retrocompatível, domínio puro `financeFlow`, repositório `finRepository`, store `finStore`, serviço `finService`, integração de rota/voltar Android em `App.tsx` e `backNavigation.ts`, e telas `FinanceHomeScreen` (donut por categoria, resumo mensal, alertas 7 dias/atrasadas, atalhos), `EntriesListScreen`, `EntryFormSheet`, `RecurrencesScreen`, `SubscriptionsScreen`, `AccountsScreen` e `CategoriesScreen`.
 - **Go** (`services/market-api`): parser COTAHIST, cliente Yahoo (failover, eventos), BCB, API REST, ponte `mobilebridge`, perfil/ranking de fundamentos com **páginas reais do Fundamentus** como fixtures (`internal/fundamentals/testdata`).
 
 ## Última execução — revisão de desempenho e bugs (08/11/2026)

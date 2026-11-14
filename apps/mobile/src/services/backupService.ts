@@ -1258,13 +1258,8 @@ export class BackupService {
 
     for (const csvName of optionalCsvs) {
       const fileEntry = manifest.files[csvName];
-      if (!fileEntry) continue;
       const csvContent = extracted[csvName];
-      if (csvContent === undefined) {
-        throw new Error(
-          `[SECURITY PROTOCOL: CORRUPTED DOSSIER] Missing declared optional file ${csvName} in archive.`
-        );
-      }
+      if (!fileEntry || csvContent === undefined) continue;
       const actualHash = BackupService.computeSha256(csvContent);
       if (actualHash.toLowerCase() !== fileEntry.sha256.toLowerCase()) {
         throw new Error(

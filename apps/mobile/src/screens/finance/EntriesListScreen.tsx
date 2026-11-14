@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -72,8 +72,18 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const [payDateText, setPayDateText] = useState(effectiveToday);
 
   const [scopePrompt, setScopePrompt] = useState<ScopePromptState | null>(null);
+  const mountedRef = useRef(true);
+  const loadSeqRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const loadData = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
@@ -82,13 +92,17 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         finRepository.listAccounts(true),
         finRepository.listCategories(true),
       ]);
+      if (!mountedRef.current || seq !== loadSeqRef.current) return;
       setEntries(monthEntries);
       setAccounts(accs);
       setCategories(cats);
     } catch (err) {
+      if (!mountedRef.current || seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : 'Erro ao carregar lançamentos.');
     } finally {
-      setLoading(false);
+      if (mountedRef.current && seq === loadSeqRef.current) {
+        setLoading(false);
+      }
     }
   }, [selectedMonth]);
 

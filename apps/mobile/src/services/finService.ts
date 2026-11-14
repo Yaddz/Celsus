@@ -1,6 +1,7 @@
 import type { FinEntry, FinRecurrence } from '../db/schema';
 import {
   addMonthsYearMonth,
+  buildInstallmentSchedule,
   generateRecurrenceOccurrences,
   getMonthDateRange,
   getTodayIsoLocal,
@@ -119,7 +120,7 @@ export class FinService {
     return updated;
   }
 
-  async createInstallmentPurchase(_params: {
+  async createInstallmentPurchase(params: {
     kind?: FinKind;
     totalAmountCents: number;
     installmentTotal: number;
@@ -129,19 +130,78 @@ export class FinService {
     description: string;
     remainderOn?: 'first' | 'last';
   }): Promise<FinEntry[]> {
-    return [];
+    const groupId = `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const schedule = buildInstallmentSchedule({
+      totalCents: params.totalAmountCents,
+      installmentTotal: params.installmentTotal,
+      firstDueDate: params.firstDueDate,
+      remainderOn: params.remainderOn ?? 'first',
+    });
+
+    return finRepository.createEntriesBatch(
+      schedule.map((part) => ({
+        kind: params.kind ?? 'expense',
+        amount_cents: part.amountCents,
+        due_date: part.dueDate,
+        paid_date: null,
+        paid_amount_cents: null,
+        status: 'pending',
+        account_id: params.accountId,
+        category_id: params.categoryId,
+        description: params.description,
+        recurrence_id: null,
+        installment_group_id: groupId,
+        installment_number: part.installmentNumber,
+        installment_total: part.installmentTotal,
+      }))
+    );
   }
 
   async updateInstallmentEntries(
-    _entryId: string,
-    _scope: InstallmentScope,
-    _patch: Partial<Pick<FinEntry, 'amount_cents' | 'description' | 'category_id' | 'account_id' | 'due_date'>>
+    entryId: string,
+    scope: InstallmentScope,
+    patch: Partial<Pick<FinEntry, 'amount_cents' | 'description' | 'category_id' | 'account_id' | 'due_date'>>
   ): Promise<void> {
-    throw new Error('Not implemented: updateInstallmentEntries');
+    const target = await finRepository.getEntryById(entryId);
+    if (!target) {
+      throw new Error(`Parcela não encontrada: ${entryId}`);
+    }
+    if (!target.installment_group_id || scope === 'only_this') {
+      await finRepository.updateEntry(entryId, patch);
+      return;
+    }
+
+    const group = await finRepository.listEntriesByInstallmentGroup(target.installment_group_id);
+    const anchorNum = target.installment_number ?? 0;
+    const targets =
+      scope === 'this_and_next'
+        ? group.filter((item) => (item.installment_number ?? 0) >= anchorNum)
+        : group;
+
+    for (const item of targets) {
+      await finRepository.updateEntry(item.id, patch);
+    }
   }
 
-  async deleteInstallmentEntries(_entryId: string, _scope: InstallmentScope): Promise<void> {
-    throw new Error('Not implemented: deleteInstallmentEntries');
+  async deleteInstallmentEntries(entryId: string, scope: InstallmentScope): Promise<void> {
+    const target = await finRepository.getEntryById(entryId);
+    if (!target) return;
+
+    if (!target.installment_group_id || scope === 'only_this') {
+      await finRepository.deleteEntry(entryId);
+      return;
+    }
+
+    const group = await finRepository.listEntriesByInstallmentGroup(target.installment_group_id);
+    const anchorNum = target.installment_number ?? 0;
+    const targets =
+      scope === 'this_and_next'
+        ? group.filter((item) => (item.installment_number ?? 0) >= anchorNum)
+        : group;
+
+    for (const item of targets) {
+      await finRepository.deleteEntry(item.id);
+    }
   }
 }
 
