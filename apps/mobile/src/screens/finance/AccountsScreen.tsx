@@ -270,7 +270,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         title="Contas"
         subtitle="Onde está o seu dinheiro"
         onBack={onBack}
-        isPrivacyMode={isPrivacyMode}
+        isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
@@ -286,7 +286,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               variant="primary"
               title="SALDO TOTAL"
               testID="accounts-total-balance-tile"
-              themeMode={themeMode}
             >
               <Text style={styles.totalValue} testID="accounts-total-balance-value">
                 {formatCentsBRL(totalBalanceCents, isPrivacyMode)}
@@ -369,9 +368,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           <SegmentedControl
             themeMode={themeMode}
             options={[
-              { key: 'checking', label: 'Conta' },
-              { key: 'cash', label: 'Carteira' },
-              { key: 'card', label: 'Cartão' },
+              { id: 'checking', label: 'Conta' },
+              { id: 'cash', label: 'Carteira' },
+              { id: 'card', label: 'Cartão' },
             ]}
             value={accountType}
             onChange={(v) => setAccountType(v as FinAccountType)}

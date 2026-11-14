@@ -14,7 +14,6 @@ import { calculateSubscriptionsSummary, formatCentsBRL, type FinFrequency } from
 import type { FinCategory, FinRecurrence } from '../../db/schema';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
-import { finStore, useFinStore } from '../../stores/finStore';
 import type { ThemeMode } from '../../theme/palettes';
 import { layout, typography } from '../../theme/tokens';
 import {
@@ -84,8 +83,6 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   themeMode = 'dark',
   testID = 'subscriptions-screen',
 }) => {
-  const { refreshCounter } = useFinStore();
-
   const ui = getFinUiColors(themeMode);
 
   const [loading, setLoading] = useState(true);
@@ -117,7 +114,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
 
   useEffect(() => {
     void loadData();
-  }, [loadData, refreshCounter]);
+  }, [loadData]);
 
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
@@ -246,7 +243,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
         title="Assinaturas"
         subtitle="Cobranças recorrentes"
         onBack={onBack}
-        isPrivacyMode={isPrivacyMode}
+        isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
@@ -262,7 +259,6 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
               variant="forest"
               title="GASTO COM ASSINATURAS"
               testID="subscriptions-summary-tile"
-              themeMode={themeMode}
             >
               <View style={styles.summaryRow}>
                 <View style={styles.summaryCol}>
@@ -285,9 +281,9 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
             testID="subscriptions-status-segmented"
             themeMode={themeMode}
             options={[
-              { key: 'active', label: `Ativas · ${activeSubs.length}` },
-              { key: 'paused', label: `Pausadas · ${pausedSubs.length}` },
-              { key: 'canceled', label: 'Canceladas' },
+              { id: 'active', label: `Ativas · ${activeSubs.length}` },
+              { id: 'paused', label: `Pausadas · ${pausedSubs.length}` },
+              { id: 'canceled', label: 'Canceladas' },
             ]}
             value={filter}
             onChange={(val) => setFilter(val as SubscriptionFilter)}

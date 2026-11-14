@@ -170,7 +170,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
         title="Categorias"
         subtitle="Organize seus lançamentos"
         onBack={onBack}
-        isPrivacyMode={isPrivacyMode}
+        isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
@@ -185,8 +185,8 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
             testID="categories-kind-segmented"
             themeMode={themeMode}
             options={[
-              { key: 'expense', label: 'Despesas' },
-              { key: 'income', label: 'Receitas' },
+              { id: 'expense', label: 'Despesas' },
+              { id: 'income', label: 'Receitas' },
             ]}
             value={kindFilter}
             onChange={(val) => {
@@ -260,7 +260,6 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                   variant="dark"
                   title={`EDITAR · ${selectedCategory.name.toUpperCase()}`}
                   testID="categories-edit-tile"
-                  themeMode={themeMode}
                 >
                   <View style={styles.editBody}>
                     <TextInput
@@ -352,8 +351,8 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
           <SegmentedControl
             themeMode={themeMode}
             options={[
-              { key: 'expense', label: 'Despesa' },
-              { key: 'income', label: 'Receita' },
+              { id: 'expense', label: 'Despesa' },
+              { id: 'income', label: 'Receita' },
             ]}
             value={newKind}
             onChange={(val) => setNewKind(val as FinKind)}
