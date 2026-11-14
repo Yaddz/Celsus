@@ -115,3 +115,9 @@ O de `pkg/mobilebridge` exercita o mesmo caminho do Android (banco novo, ranking
 
 Os testes são bloqueados (somente leitura + SHA-256 em `tests.lock.json`). Para alterar um teste: `node scripts/test-lock.js unlock`,
 editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/tdd-lock.md` e `docs/ARQUITETURA.md`.
+
+
+## Sprint 57 — Resumo Finanças: alinhamento e gasto por categoria navegável
+- Fase A: `Sprint57FinanceHomePolish.test.tsx` (7 testes, travado).
+- Fase B: linhas de categoria e "Ver tudo" abrem Lançamentos filtrados; "A vencer" e "Atrasadas" agora usam o mesmo contêiner (largura igual, cabeçalho de mesma altura); espaço inferior da rolagem 130.
+- Resultado: 109 suites / 729 testes passando; `test-lock verify` OK (125 arquivos).

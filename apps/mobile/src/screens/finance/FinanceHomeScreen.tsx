@@ -15,7 +15,7 @@ import {
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
-import { finStore, useFinStore } from '../../stores/finStore';
+import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
 import { bento, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
@@ -110,6 +110,12 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       void loadData();
     }
   }, [activeRoute, loadData]);
+
+  const openEntriesWith = (filters: Partial<FinFilters>) => {
+    finStore.resetFilters();
+    finStore.setFilters(filters);
+    navigateTo('entries');
+  };
 
   const navigateTo = (route: FinanceRoute) => {
     onNavigate?.(route);
@@ -252,7 +258,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
+      <ScrollView
+        testID="finance-home-scroll"
+        contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}
+      >
         {/* Seletor de mês */}
         <View
           testID="finance-home-month-rail"
@@ -337,7 +346,18 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
             {/* A vencer 7 dias e Atrasadas */}
             <BentoRow>
-              <BentoTile variant="gold" title="A VENCER · 7 DIAS">
+              <BentoTile
+                variant="gold"
+                testID="finance-upcoming-tile"
+                accessibilityLabel="A vencer em 7 dias"
+                onPress={() => openEntriesWith({ status: 'pending' })}
+              >
+                <View style={styles.overdueHeader}>
+                  <Text style={[styles.overdueTitle, { color: bento.variants.gold.muted }]}>
+                    A VENCER · 7 DIAS
+                  </Text>
+                  <MaterialIcons name="schedule" size={14} color={bento.variants.gold.muted} />
+                </View>
                 <Text
                   testID="finance-upcoming-7d"
                   style={[styles.pairValue, { color: bento.variants.gold.foreground }]}
@@ -352,10 +372,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
               <BentoTile
                 variant={tileVariant}
                 testID="finance-overdue-tile"
-                onPress={() => {
-                  finStore.setFilters({ status: 'pending' });
-                  navigateTo('entries');
-                }}
+                onPress={() => openEntriesWith({ status: 'pending' })}
               >
                 <View style={styles.overdueHeader}>
                   <Text style={[styles.overdueTitle, { color: c.muted }]}>ATRASADAS</Text>
@@ -377,13 +394,20 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                 testID="finance-category-chart"
                 title="GASTO POR CATEGORIA"
                 action="Ver tudo"
-                onActionPress={() => navigateTo('entries')}
+                onActionPress={() => openEntriesWith({ kind: 'expense' })}
               >
                 <View style={styles.dotList}>
                   {topCategories.map((cat) => (
-                    <View
+                    <TouchableOpacity
                       key={cat.categoryId}
                       testID={`finance-category-dot-row-${cat.categoryId}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${cat.name}, ${cat.percentage}% dos gastos. Ver lançamentos`}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+                      onPress={() =>
+                        openEntriesWith({ kind: 'expense', categoryId: cat.categoryId })
+                      }
                       style={styles.dotRow}
                     >
                       <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
@@ -413,7 +437,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       >
                         {cat.percentage}%
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
                 </View>
               </BentoTile>
@@ -587,6 +611,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    height: 14,
     marginBottom: 10,
   },
   overdueTitle: {

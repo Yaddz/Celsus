@@ -91,7 +91,7 @@ export const BentoTile: React.FC<BentoTileProps> = ({
             <Text
               accessibilityRole="button"
               onPress={onActionPress}
-              style={[titleStyle, { color: colors.primary }]}
+              style={[titleStyle, { color: colors.primary, paddingVertical: 10, paddingLeft: 14, marginVertical: -10 }]}
               testID={testID ? `${testID}-action` : undefined}
             >
               {action}
