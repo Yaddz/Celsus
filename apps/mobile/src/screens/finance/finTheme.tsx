@@ -23,6 +23,16 @@ export function getFinUiColors(themeMode: ThemeMode = 'dark') {
   };
 }
 
+export const APPROVED_FIN_PALETTE = [
+  '#D96628',
+  '#D5CAA8',
+  '#C49A45',
+  '#AECDC5',
+  '#2E4A44',
+  '#B8B2A6',
+  '#E6DECA',
+] as const;
+
 export const FIN_COLOR_SWATCHES = [
   '#D96628',
   '#2E4A44',
@@ -33,6 +43,41 @@ export const FIN_COLOR_SWATCHES = [
   '#CD528F',
   '#8A8A8E',
 ] as const;
+
+export function resolveCategoryVisual(
+  _cat?: { id?: string; name?: string; icon?: string; color?: string } | null
+): {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+  iconColor: string;
+} {
+  return {
+    icon: 'category',
+    color: '#8A8A8E',
+    iconColor: '#111315',
+  };
+}
+
+export function formatSignedCentsBRL(
+  _cents: number,
+  _kind: 'income' | 'expense',
+  _isPrivacyMode = false
+): string {
+  return '';
+}
+
+export const FinFloatingAddButton: React.FC<{
+  testID: string;
+  onPress: () => void;
+  accessibilityLabel?: string;
+}> = ({ testID, onPress, accessibilityLabel }) => (
+  <TouchableOpacity
+    testID={testID}
+    accessibilityRole="button"
+    accessibilityLabel={accessibilityLabel}
+    onPress={onPress}
+  />
+);
 
 export const FIN_CATEGORY_ICONS = [
   'home',

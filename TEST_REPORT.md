@@ -7,10 +7,10 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **106 suítes**, **691 testes**, **0 falhas** (inclui 3 suítes / 33 testes da Sprint 54 — Módulo Finanças) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **106 suítes**, **691 testes** passando (Sprint 54) + **1 suíte / 14 testes** da Sprint 55 Fase A (Red Phase) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** no código de produção e nos arquivos da Sprint 54 (restam erros preexistentes em 19 arquivos de teste antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **122 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos stubs/testes da Sprint 55 e código de produção (restam erros preexistentes em 19 arquivos de teste antigos) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **123 arquivos protegidos**, SHA-256 íntegros |
 
 ## Cobertura por área
 
@@ -67,6 +67,9 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
   - `apps/mobile/src/screens/__tests__/FinanceModuleScreens.test.tsx` (**9/9 PASS**, 14,009 s, SHA-256 `ef2f5faef0a83500624c71df0735b344e5ec66ab1a369695d615548a532070d4`): globo abrindo o módulo Finanças com `XpMinimalHeader` (voltar + título `"Finanças"`) e `onMais` isolado mantendo o alerta de desenvolvimento, estados vazios e fluxos de `FinanceHomeScreen`, `EntriesListScreen`, `EntryFormSheet`, `SubscriptionsScreen`, `RecurrencesScreen`, `AccountsScreen` e `CategoriesScreen`, e ocultação de valores no Modo Privacidade.
   - Ajuste autorizado em `apps/mobile/src/screens/__tests__/Sprint17HeaderDonutAndRoutes.test.tsx` (**PASS**, SHA-256 `89d9d2bd6e3762e8a2902aa7ea8d399d2b11d3ec370ee21e39983eac66b36d0f`) refletindo a abertura do módulo Finanças no globo do header.
   - Fases implementadas: migração aditiva SQLite/in-memory em `db/client.ts` + backup CSV `.celsus.zip` retrocompatível, domínio puro `financeFlow`, repositório `finRepository`, store `finStore`, serviço `finService`, integração de rota/voltar Android em `App.tsx` e `backNavigation.ts`, e telas `FinanceHomeScreen` (donut por categoria, resumo mensal, alertas 7 dias/atrasadas, atalhos), `EntriesListScreen`, `EntryFormSheet`, `RecurrencesScreen`, `SubscriptionsScreen`, `AccountsScreen` e `CategoriesScreen`.
+- **Reskin Visual Bento do Módulo Finanças (Sprint 55 — Fase A / Red Phase & Lock em `feat/modulo-financas`)**: 1 nova suíte com **14 testes** (IDs S55-T01 a S55-T08) especificada e bloqueada antes de alterar as 7 telas/folhas:
+  - `apps/mobile/src/screens/__tests__/Sprint55FinanceReskin.test.tsx` (SHA-256 `336afc920a181992691660d95118a31bfdb1734cb5ef068650692d7fa68f5754`, 31.841 bytes): paleta aprovada e tokens dark/light (`finTheme.tsx`), mapeamento de ícones Material e cores por categoria padrão + contraste sobre `#2E4A44`, formatação BRL com sinal e privacidade (`formatSignedCentsBRL`), `FinListCard` / `FinListRow` (tile único `#1C1E20` / `#FFFFFF` com raio 28, filetes `#26292C` / `#F0EBE1` e sem filete na última linha), `XpMinimalHeader` com título/subtítulo/olho nas 6 telas e globo laranja ativo (`#D96628`) no Resumo, `FinanceHomeScreen` (seletor de mês, Bento tiles, matriz de pontos top 5 categorias, atalhos 2×2, FAB 56 px), `EntriesListScreen` & `EntryFormSheet` (`SegmentedControl`, seções `EM ATRASO` / `PRÓXIMOS DIAS` / `LIQUIDADOS`, `BentoSection`s e botão `Salvar lançamento`), `RecurrencesScreen` & `SubscriptionsScreen`, `AccountsScreen` & `CategoriesScreen` (edição inline `EDITAR · <nome>` e swatches 30 px), e estados vazio/carregamento/erro nos temas escuro e claro.
+  - Execução Fase A (Red Phase): `npm --prefix apps/mobile test -- --watchAll=false src/screens/__tests__/Sprint55FinanceReskin.test.tsx` → `1 suite failed, 14 failed, 14 total` (5,912 s) contra os stubs e telas atuais; `FinanceModuleScreens.test.tsx` permaneceu **9/9 PASS** (2,521 s); `tsc --noEmit` sem erros nos arquivos novos; `node scripts/test-lock.js verify` aprovado com 123 arquivos.
 - **Go** (`services/market-api`): parser COTAHIST, cliente Yahoo (failover, eventos), BCB, API REST, ponte `mobilebridge`, perfil/ranking de fundamentos com **páginas reais do Fundamentus** como fixtures (`internal/fundamentals/testdata`).
 
 ## Última execução — revisão de desempenho e bugs (08/11/2026)
