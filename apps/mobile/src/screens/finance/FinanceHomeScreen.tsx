@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { XpMinimalHeader } from '../../components/ui';
-import type { FinCategory, FinEntry } from '../../db/schema';
-import { buildDonutSlices, DONUT_TOTAL_SEGMENTS } from '../../domain/finance/donut';
+import { BentoGrid, BentoRow, BentoTile, XpMinimalHeader } from '../../components/ui';
+import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
+import { calculateAllocationFill } from '../../domain/finance/allocationFill';
 import {
+  addMonthsYearMonth,
   calculateMonthlySummary,
+  calculateSubscriptionsSummary,
   detectOverdueAndDueSoon,
   formatCentsBRL,
   formatYearMonthPtBr,
@@ -13,8 +15,8 @@ import {
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
-import { useFinStore } from '../../stores/finStore';
-import { bento, borders, space, typography } from '../../theme/tokens';
+import { finStore, useFinStore } from '../../stores/finStore';
+import { bento, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
 import { CategoriesScreen } from './CategoriesScreen';
@@ -25,8 +27,11 @@ import { SubscriptionsScreen } from './SubscriptionsScreen';
 import {
   FinEmptyState,
   FinErrorView,
+  FinFloatingAddButton,
   FinLoadingView,
+  formatSignedCentsBRL,
   getFinUiColors,
+  resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
 
@@ -48,8 +53,7 @@ export interface FinanceHomeScreenProps {
   testID?: string;
 }
 
-const DONUT_DIAMETER = 128;
-const DONUT_RADIUS = 50;
+const DOT_MATRIX_COUNT = 22;
 
 export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onBack,
@@ -61,13 +65,20 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   testID = 'finance-home-screen',
 }) => {
   const c = getFinUiColors(themeMode);
+  const isLight = themeMode === 'light';
+  const tileVariant = isLight ? 'light' : 'dark';
   const { selectedMonth } = useFinStore();
   const effectiveToday = referenceDateIso ?? getTodayIsoLocal();
-  const effectiveMonth = referenceDateIso ? referenceDateIso.slice(0, 7) : selectedMonth;
+  const [localMonth, setLocalMonth] = useState<string | null>(
+    referenceDateIso ? referenceDateIso.slice(0, 7) : null
+  );
+  const effectiveMonth = localMonth ?? selectedMonth;
 
   const [activeRoute, setActiveRoute] = useState<FinanceRoute>('home');
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
+  const [accounts, setAccounts] = useState<FinAccount[]>([]);
+  const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
@@ -77,12 +88,16 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     setError(null);
     try {
       await finService.initializeFinanceModule(effectiveToday);
-      const [allEntries, allCategories] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences] = await Promise.all([
         finRepository.listAllEntries(),
-        finRepository.listCategories(true),
+        finRepository.listCategories(false),
+        finRepository.listAccounts(false),
+        finRepository.listRecurrences(),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
+      setAccounts(activeAccounts);
+      setRecurrences(allRecurrences);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar módulo.');
     } finally {
@@ -101,6 +116,12 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     setActiveRoute(route);
   };
 
+  const handleStepMonth = (delta: number) => {
+    const next = addMonthsYearMonth(effectiveMonth, delta);
+    setLocalMonth(next);
+    finStore.setSelectedMonth(next);
+  };
+
   const categoryById = useMemo(() => {
     const map = new Map<string, FinCategory>();
     for (const cat of categories) map.set(cat.id, cat);
@@ -112,26 +133,60 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     [entries, effectiveMonth]
   );
 
+  const prevMonth = useMemo(() => addMonthsYearMonth(effectiveMonth, -1), [effectiveMonth]);
+  const prevSummary = useMemo(
+    () => calculateMonthlySummary(entries, prevMonth),
+    [entries, prevMonth]
+  );
+
+  const balanceDelta = monthlySummary.balanceCents - prevSummary.balanceCents;
+  const prevMonthName = formatYearMonthPtBr(prevMonth).split(' ')[0].toLowerCase();
+
+  const monthEntries = useMemo(
+    () => entries.filter((e) => e.due_date.startsWith(effectiveMonth)),
+    [entries, effectiveMonth]
+  );
+  const pendingIncomeCount = useMemo(
+    () => monthEntries.filter((e) => e.kind === 'income' && e.status === 'pending').length,
+    [monthEntries]
+  );
+  const pendingExpenseCount = useMemo(
+    () => monthEntries.filter((e) => e.kind === 'expense' && e.status === 'pending').length,
+    [monthEntries]
+  );
+
   const dueAlerts = useMemo(
     () => detectOverdueAndDueSoon(entries, effectiveToday, 7),
     [entries, effectiveToday]
   );
 
-  const categoryChartItems = useMemo(() => {
-    const inputs = monthlySummary.expenseByCategory.map((item) => ({
-      ticker: categoryById.get(item.categoryId)?.name ?? item.categoryId,
-      weight: item.amountCents,
-      categoryId: item.categoryId,
-      percentage: item.percentage,
-    }));
-    const slices = buildDonutSlices(inputs);
-    return slices.map((slice, idx) => ({
-      ...slice,
-      categoryId: inputs[idx].categoryId,
-      amountCents: inputs[idx].weight,
-      color: categoryById.get(inputs[idx].categoryId)?.color || slice.color,
-    }));
-  }, [monthlySummary.expenseByCategory, categoryById]);
+  const topCategories = useMemo(
+    () =>
+      monthlySummary.expenseByCategory.slice(0, 5).map((item) => {
+        const cat = categoryById.get(item.categoryId);
+        const visual = resolveCategoryVisual(cat);
+        const roundedPct = Math.round(item.percentage);
+        const fillRatio = calculateAllocationFill(item.percentage) / 100;
+        return {
+          categoryId: item.categoryId,
+          name: cat?.name ?? 'Outros',
+          amountCents: item.amountCents,
+          percentage: roundedPct,
+          filledDots: Math.round(fillRatio * DOT_MATRIX_COUNT),
+          color: visual.color,
+        };
+      }),
+    [monthlySummary.expenseByCategory, categoryById]
+  );
+
+  const subsSummary = useMemo(
+    () => calculateSubscriptionsSummary(recurrences.filter((r) => r.is_subscription === 1)),
+    [recurrences]
+  );
+  const activeRecurrencesCount = useMemo(
+    () => recurrences.filter((r) => r.active === 1).length,
+    [recurrences]
+  );
 
   if (activeRoute === 'entries') {
     return (
@@ -189,6 +244,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
         title="Finanças"
+        subtitle="Controle pessoal"
+        isGlobeActive={true}
         onBack={onBack}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
@@ -196,18 +253,28 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       />
 
       <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
-        <View style={styles.topActionsRow}>
-          <Text style={[styles.monthSubheading, { color: c.muted }]}>
+        {/* Seletor de mês */}
+        <View style={[styles.monthRail, { backgroundColor: c.surfaceContainer }]}>
+          <TouchableOpacity
+            testID="finance-home-month-prev"
+            accessibilityRole="button"
+            accessibilityLabel="Mês anterior"
+            onPress={() => handleStepMonth(-1)}
+            style={styles.monthArrowBtn}
+          >
+            <MaterialIcons name="chevron-left" size={22} color={c.text} />
+          </TouchableOpacity>
+          <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
             {formatYearMonthPtBr(effectiveMonth)}
           </Text>
           <TouchableOpacity
-            testID="finance-add-entry-btn"
+            testID="finance-home-month-next"
             accessibilityRole="button"
-            onPress={() => setIsAddEntryOpen(true)}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
+            accessibilityLabel="Próximo mês"
+            onPress={() => handleStepMonth(1)}
+            style={styles.monthArrowBtn}
           >
-            <MaterialIcons name="add" size={18} color="#1A0E08" />
-            <Text style={sharedStyles.primaryBtnText}>Novo lançamento</Text>
+            <MaterialIcons name="chevron-right" size={22} color={c.text} />
           </TouchableOpacity>
         </View>
 
@@ -224,162 +291,248 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             themeMode={themeMode}
           />
         ) : (
-          <View style={{ gap: bento.gap }}>
+          <BentoGrid>
             {/* Saldo do mês */}
-            <View style={[styles.heroCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-              <Text style={[styles.cardLabel, { color: c.muted }]}>SALDO DO MÊS (REALIZADO)</Text>
-              <Text
-                testID="finance-month-balance"
-                style={[
-                  styles.heroValue,
-                  { color: monthlySummary.balanceCents < 0 ? c.expense : c.text },
-                ]}
-              >
+            <BentoTile variant="primary" title="SALDO DO MÊS">
+              <Text testID="finance-month-balance" style={styles.heroValue}>
                 {formatCentsBRL(monthlySummary.balanceCents, isPrivacyMode)}
               </Text>
-              <Text style={[styles.heroSub, { color: c.muted }]}>
-                Previsto no mês: {formatCentsBRL(monthlySummary.projectedBalanceCents, isPrivacyMode)}
+              <Text testID="finance-month-comparison" style={styles.heroSub}>
+                {isPrivacyMode
+                  ? 'R$ •••••• em relação a ' + prevMonthName
+                  : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
               </Text>
-            </View>
+            </BentoTile>
 
             {/* Receitas x Despesas */}
-            <View style={styles.bentoPair}>
-              <View style={[styles.pairCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[styles.cardLabel, { color: c.muted }]}>RECEITAS</Text>
-                <Text testID="finance-month-income" style={[styles.pairValue, { color: c.income }]}>
-                  {formatCentsBRL(monthlySummary.totalIncomeCents, isPrivacyMode)}
+            <BentoRow>
+              <BentoTile variant={tileVariant} title="RECEITAS">
+                <Text
+                  testID="finance-month-income"
+                  style={[styles.pairValue, { color: c.income }]}
+                  numberOfLines={1}
+                >
+                  {formatSignedCentsBRL(monthlySummary.totalIncomeCents, 'income', isPrivacyMode)}
                 </Text>
-              </View>
-              <View style={[styles.pairCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[styles.cardLabel, { color: c.muted }]}>DESPESAS</Text>
-                <Text testID="finance-month-expense" style={[styles.pairValue, { color: c.expense }]}>
-                  {formatCentsBRL(monthlySummary.totalExpenseCents, isPrivacyMode)}
+                <Text style={[styles.pairCaption, { color: c.muted }]}>
+                  {pendingIncomeCount} a receber
                 </Text>
-              </View>
-            </View>
+              </BentoTile>
+              <BentoTile variant={tileVariant} title="DESPESAS">
+                <Text
+                  testID="finance-month-expense"
+                  style={[styles.pairValue, { color: c.expense }]}
+                  numberOfLines={1}
+                >
+                  {formatSignedCentsBRL(monthlySummary.totalExpenseCents, 'expense', isPrivacyMode)}
+                </Text>
+                <Text style={[styles.pairCaption, { color: c.muted }]}>
+                  {pendingExpenseCount} pendentes
+                </Text>
+              </BentoTile>
+            </BentoRow>
 
-            {/* A vencer em 7 dias e atrasadas */}
-            <View style={styles.bentoPair}>
-              <View style={[styles.pairCard, { backgroundColor: c.surface, borderColor: c.border }]}>
-                <Text style={[styles.cardLabel, { color: c.muted }]}>A PAGAR (7 DIAS)</Text>
-                <Text testID="finance-upcoming-7d" style={[styles.pairValue, { color: c.warning }]}>
+            {/* A vencer 7 dias e Atrasadas */}
+            <BentoRow>
+              <BentoTile variant="gold" title="A VENCER · 7 DIAS">
+                <Text
+                  testID="finance-upcoming-7d"
+                  style={[styles.pairValue, { color: bento.variants.gold.foreground }]}
+                >
                   {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
                 </Text>
-              </View>
-              <View
+                <Text style={[styles.pairCaption, { color: bento.variants.gold.muted }]}>
+                  {dueAlerts.dueSoon.length} {dueAlerts.dueSoon.length === 1 ? 'conta' : 'contas'}
+                </Text>
+              </BentoTile>
+
+              <BentoTile
+                variant={tileVariant}
                 testID="finance-overdue-tile"
-                style={[
-                  styles.pairCard,
-                  {
-                    backgroundColor: c.surface,
-                    borderColor: dueAlerts.overdue.length > 0 ? c.expense : c.border,
-                  },
-                ]}
+                onPress={() => {
+                  finStore.setFilters({ status: 'pending' });
+                  navigateTo('entries');
+                }}
               >
-                <Text style={[styles.cardLabel, { color: c.muted }]}>ATRASADAS</Text>
-                <Text
-                  style={[
-                    styles.pairValue,
-                    { color: dueAlerts.overdue.length > 0 ? c.expense : c.muted },
-                  ]}
-                >
+                <View style={styles.overdueHeader}>
+                  <Text style={[styles.overdueTitle, { color: c.muted }]}>ATRASADAS</Text>
+                  <MaterialIcons name="warning" size={14} color={c.overdue} />
+                </View>
+                <Text style={[styles.pairValue, { color: c.overdue }]}>
                   {formatCentsBRL(dueAlerts.overduePayableCents, isPrivacyMode)}
                 </Text>
-              </View>
-            </View>
-
-            {/* Gasto por categoria (Rosca + Barras) */}
-            {categoryChartItems.length > 0 ? (
-              <View
-                testID="finance-category-chart"
-                style={[styles.chartCard, { backgroundColor: c.surface, borderColor: c.border }]}
-              >
-                <Text style={[styles.cardLabel, { color: c.muted, marginBottom: space.md }]}>
-                  GASTOS POR CATEGORIA
+                <Text style={[styles.pairCaption, { color: c.muted }]}>
+                  {dueAlerts.overdue.length} {dueAlerts.overdue.length === 1 ? 'conta' : 'contas'} · ver
                 </Text>
-                <View style={styles.chartBody}>
-                  <View style={styles.donutWrapper}>
-                    {categoryChartItems.map((slice) =>
-                      Array.from({ length: slice.segments }).map((_, offset) => {
-                        const segIndex = slice.startSegment + offset;
-                        const angleDeg = (segIndex / DONUT_TOTAL_SEGMENTS) * 360 - 90;
-                        const rad = (angleDeg * Math.PI) / 180;
-                        const cx = DONUT_DIAMETER / 2 + Math.cos(rad) * DONUT_RADIUS - 2;
-                        const cy = DONUT_DIAMETER / 2 + Math.sin(rad) * DONUT_RADIUS - 9;
-                        return (
+              </BentoTile>
+            </BentoRow>
+
+            {/* Gasto por categoria — Matriz de pontos (top 5) */}
+            {topCategories.length > 0 ? (
+              <BentoTile
+                variant={tileVariant}
+                testID="finance-category-chart"
+                title="GASTO POR CATEGORIA"
+                action="Ver tudo"
+                onActionPress={() => navigateTo('entries')}
+              >
+                <View style={styles.dotList}>
+                  {topCategories.map((cat) => (
+                    <View
+                      key={cat.categoryId}
+                      testID={`finance-category-dot-row-${cat.categoryId}`}
+                      style={styles.dotRow}
+                    >
+                      <View style={styles.dotRowTop}>
+                        <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
+                          {cat.name}
+                        </Text>
+                        <View style={styles.dotRightMeta}>
+                          <Text style={[styles.dotAmount, { color: c.muted }]}>
+                            {formatCentsBRL(cat.amountCents, isPrivacyMode)}
+                          </Text>
+                          <Text
+                            testID={`finance-category-pct-${cat.categoryId}`}
+                            style={[styles.dotPct, { color: c.text }]}
+                          >
+                            {cat.percentage}%
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.dotsTrack}>
+                        {Array.from({ length: DOT_MATRIX_COUNT }).map((_, idx) => (
                           <View
-                            key={`${slice.categoryId}-${segIndex}`}
+                            key={idx}
                             style={[
-                              styles.donutArc,
+                              styles.dot,
                               {
-                                left: cx,
-                                top: cy,
-                                backgroundColor: slice.color,
-                                transform: [{ rotate: `${angleDeg + 90}deg` }],
+                                backgroundColor:
+                                  idx < cat.filledDots
+                                    ? cat.color
+                                    : isLight
+                                    ? '#EAE4D7'
+                                    : '#2A2D30',
                               },
                             ]}
                           />
-                        );
-                      })
-                    )}
-                    <View style={[styles.donutCenter, { backgroundColor: c.surface }]}>
-                      <Text style={[styles.donutCenterLabel, { color: c.muted }]}>Total</Text>
-                      <Text style={[styles.donutCenterValue, { color: c.text }]}>
-                        {formatCentsBRL(monthlySummary.totalExpenseCents, isPrivacyMode)}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.legendList}>
-                    {categoryChartItems.map((item) => (
-                      <View key={item.categoryId} style={styles.legendRow}>
-                        <View style={[styles.legendDot, { backgroundColor: item.color }]} />
-                        <Text style={[styles.legendName, { color: c.text }]} numberOfLines={1}>
-                          {item.ticker}
-                        </Text>
-                        <Text style={[styles.legendVal, { color: c.muted }]}>
-                          {formatCentsBRL(item.amountCents, isPrivacyMode)} ({item.percent}%)
-                        </Text>
+                        ))}
                       </View>
-                    ))}
-                  </View>
+                    </View>
+                  ))}
                 </View>
-              </View>
+              </BentoTile>
             ) : null}
-          </View>
+          </BentoGrid>
         )}
 
-        {/* Atalhos do módulo */}
-        <Text style={[sharedStyles.sectionLabel, { color: c.muted, marginTop: space.md }]}>
-          Atalhos
-        </Text>
-        <View style={styles.shortcutsGrid}>
-          {(
-            [
-              { route: 'entries', testId: 'finance-shortcut-entries', label: 'Lançamentos', icon: 'receipt-long' },
-              { route: 'subscriptions', testId: 'finance-shortcut-subscriptions', label: 'Assinaturas', icon: 'autorenew' },
-              { route: 'recurrences', testId: 'finance-shortcut-recurrences', label: 'Recorrências', icon: 'repeat' },
-              { route: 'accounts', testId: 'finance-shortcut-accounts', label: 'Contas', icon: 'account-balance-wallet' },
-              { route: 'categories', testId: 'finance-shortcut-categories', label: 'Categorias', icon: 'category' },
-            ] as const
-          ).map((item) => (
-            <TouchableOpacity
-              key={item.route}
-              testID={item.testId}
-              accessibilityRole="button"
-              onPress={() => navigateTo(item.route)}
-              style={[styles.shortcutBtn, { backgroundColor: c.surface, borderColor: c.border }]}
+        {/* Atalhos 2x2 */}
+        <BentoGrid>
+          <BentoRow>
+            <BentoTile
+              variant="forest"
+              height={64}
+              testID="finance-shortcut-subscriptions"
+              onPress={() => navigateTo('subscriptions')}
+              style={styles.shortcutTile}
             >
-              <MaterialIcons
-                name={item.icon as keyof typeof MaterialIcons.glyphMap}
-                size={20}
-                color={c.primary}
-              />
-              <Text style={[styles.shortcutLabel, { color: c.text }]}>{item.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+              <View style={styles.shortcutContent}>
+                <MaterialIcons name="autorenew" size={22} color="#E6DECA" />
+                <View style={styles.shortcutTexts}>
+                  <Text style={[styles.shortcutTitle, { color: '#E6DECA' }]}>Assinaturas</Text>
+                  <Text style={[styles.shortcutSub, { color: bento.variants.forest.muted }]}>
+                    {isPrivacyMode
+                      ? 'R$ ••••••/mês'
+                      : `${formatCentsBRL(subsSummary.monthlyTotalCents, false)}/mês`}
+                  </Text>
+                </View>
+              </View>
+            </BentoTile>
+
+            <BentoTile
+              variant={tileVariant}
+              height={64}
+              testID="finance-shortcut-recurrences"
+              onPress={() => navigateTo('recurrences')}
+              style={styles.shortcutTile}
+            >
+              <View style={styles.shortcutContent}>
+                <MaterialIcons name="event-repeat" size={22} color={c.primary} />
+                <View style={styles.shortcutTexts}>
+                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Recorrências</Text>
+                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
+                    {activeRecurrencesCount} ativas
+                  </Text>
+                </View>
+              </View>
+            </BentoTile>
+          </BentoRow>
+
+          <BentoRow>
+            <BentoTile
+              variant={tileVariant}
+              height={64}
+              testID="finance-shortcut-accounts"
+              onPress={() => navigateTo('accounts')}
+              style={styles.shortcutTile}
+            >
+              <View style={styles.shortcutContent}>
+                <MaterialIcons name="account-balance-wallet" size={22} color={c.primary} />
+                <View style={styles.shortcutTexts}>
+                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Contas</Text>
+                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
+                    {accounts.length} ativas
+                  </Text>
+                </View>
+              </View>
+            </BentoTile>
+
+            <BentoTile
+              variant={tileVariant}
+              height={64}
+              testID="finance-shortcut-categories"
+              onPress={() => navigateTo('categories')}
+              style={styles.shortcutTile}
+            >
+              <View style={styles.shortcutContent}>
+                <MaterialIcons name="category" size={22} color={c.primary} />
+                <View style={styles.shortcutTexts}>
+                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Categorias</Text>
+                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
+                    {categories.length} criadas
+                  </Text>
+                </View>
+              </View>
+            </BentoTile>
+          </BentoRow>
+
+          <BentoTile
+            variant={tileVariant}
+            height={60}
+            testID="finance-shortcut-entries"
+            onPress={() => navigateTo('entries')}
+            style={styles.shortcutTile}
+          >
+            <View style={styles.entriesShortcutRow}>
+              <View style={styles.shortcutContent}>
+                <MaterialIcons name="receipt-long" size={22} color={c.primary} />
+                <View style={styles.shortcutTexts}>
+                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Lançamentos</Text>
+                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
+                    {monthEntries.length} neste mês
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color={c.muted} />
+            </View>
+          </BentoTile>
+        </BentoGrid>
       </ScrollView>
+
+      <FinFloatingAddButton
+        testID="finance-add-entry-btn"
+        accessibilityLabel="Novo lançamento"
+        onPress={() => setIsAddEntryOpen(true)}
+      />
 
       <EntryFormSheet
         visible={isAddEntryOpen}
@@ -393,141 +546,128 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  topActionsRow: {
+  monthRail: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: space.xs,
+    borderRadius: 14,
+    padding: 4,
   },
-  monthSubheading: {
-    fontFamily: typography.fontFamilyMono,
+  monthArrowBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthLabel: {
+    fontFamily: typography.fontFamily,
     fontSize: 13,
-    fontWeight: '600',
-  },
-  heroCard: {
-    borderRadius: bento.tileRadius,
-    borderWidth: 1,
-    padding: bento.tilePadding,
-    gap: space.xs,
-  },
-  cardLabel: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 0.8,
   },
   heroValue: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 26,
+    fontFamily: typography.fontFamily,
+    fontSize: 32,
     fontWeight: '700',
+    color: '#1A0E08',
   },
   heroSub: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 12,
-  },
-  bentoPair: {
-    flexDirection: 'row',
-    gap: bento.gap,
-  },
-  pairCard: {
-    flex: 1,
-    borderRadius: bento.innerRadius,
-    borderWidth: 1,
-    padding: bento.tilePadding,
-    gap: space.xs,
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    color: '#1A0E08',
+    marginTop: 4,
   },
   pairValue: {
-    fontFamily: typography.fontFamilyMono,
+    fontFamily: typography.fontFamily,
     fontSize: 16,
     fontWeight: '700',
   },
-  chartCard: {
-    borderRadius: bento.tileRadius,
-    borderWidth: 1,
-    padding: bento.tilePadding,
-  },
-  chartBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.lg,
-    flexWrap: 'wrap',
-  },
-  donutWrapper: {
-    width: DONUT_DIAMETER,
-    height: DONUT_DIAMETER,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  donutArc: {
-    position: 'absolute',
-    width: 4,
-    height: 18,
-    borderRadius: 1,
-  },
-  donutCenter: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 4,
-  },
-  donutCenterLabel: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 10,
-  },
-  donutCenterValue: {
-    fontFamily: typography.fontFamilyMono,
+  pairCaption: {
+    fontFamily: typography.fontFamily,
     fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'center',
+    marginTop: 4,
   },
-  legendList: {
-    flex: 1,
-    minWidth: 150,
-    gap: space.xs,
-  },
-  legendRow: {
+  overdueHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.xs,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
-  legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  overdueTitle: {
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
   },
-  legendName: {
+  dotList: {
+    gap: 12,
+  },
+  dotRow: {
+    gap: 6,
+  },
+  dotRowTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dotCatName: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+    paddingRight: 8,
+  },
+  dotRightMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dotAmount: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+  },
+  dotPct: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    fontWeight: '700',
+    minWidth: 34,
+    textAlign: 'right',
+  },
+  dotsTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  shortcutTile: {
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  shortcutContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shortcutTexts: {
+    flex: 1,
+  },
+  shortcutTitle: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    fontWeight: '600',
-    flex: 1,
+    fontWeight: '700',
   },
-  legendVal: {
-    fontFamily: typography.fontFamilyMono,
-    fontSize: 11,
+  shortcutSub: {
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    marginTop: 1,
   },
-  shortcutsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: bento.gap,
-  },
-  shortcutBtn: {
-    minWidth: '47%',
-    flexGrow: 1,
-    minHeight: 48,
-    borderRadius: borders.radiusMd,
-    borderWidth: 1,
-    paddingHorizontal: space.md,
-    paddingVertical: space.sm,
+  entriesShortcutRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: space.sm,
-  },
-  shortcutLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '600',
+    justifyContent: 'space-between',
   },
 });
