@@ -187,3 +187,89 @@ export const assetProfileCache = sqliteTable('asset_profile_cache', {
 export type AssetProfileCache = typeof assetProfileCache.$inferSelect;
 export type NewAssetProfileCache = typeof assetProfileCache.$inferInsert;
 
+/**
+ * FIN_ACCOUNTS
+ * Contas pessoais do módulo Finanças (carteira, conta corrente, cartão).
+ * Independentes das carteiras de investimento.
+ */
+export const finAccounts = sqliteTable('fin_accounts', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  type: text('type').notNull(), // 'cash' | 'checking' | 'card'
+  initial_balance_cents: integer('initial_balance_cents').notNull().default(0),
+  color: text('color').notNull(),
+  archived: integer('archived').notNull().default(0),
+  created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_CATEGORIES
+ * Categorias de receitas e despesas pessoais (com suporte a hierarquia e arquivamento).
+ */
+export const finCategories = sqliteTable('fin_categories', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  kind: text('kind').notNull(), // 'income' | 'expense'
+  icon: text('icon').notNull(),
+  color: text('color').notNull(),
+  parent_id: text('parent_id'),
+  archived: integer('archived').notNull().default(0),
+});
+
+/**
+ * FIN_ENTRIES
+ * Lançamentos financeiros pessoais (receitas, despesas, parcelas e ocorrências de recorrência).
+ * Valores sempre em centavos inteiros; datas em ISO YYYY-MM-DD.
+ */
+export const finEntries = sqliteTable('fin_entries', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(), // 'income' | 'expense'
+  amount_cents: integer('amount_cents').notNull(),
+  due_date: text('due_date').notNull(), // YYYY-MM-DD
+  paid_date: text('paid_date'), // YYYY-MM-DD
+  paid_amount_cents: integer('paid_amount_cents'),
+  status: text('status').notNull().default('pending'), // 'pending' | 'paid'
+  account_id: text('account_id').notNull(),
+  category_id: text('category_id').notNull(),
+  description: text('description').notNull(),
+  recurrence_id: text('recurrence_id'),
+  installment_group_id: text('installment_group_id'),
+  installment_number: integer('installment_number'),
+  installment_total: integer('installment_total'),
+  created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_RECURRENCES
+ * Despesas/receitas fixas e assinaturas geradas de forma preguiçosa por janela de meses.
+ */
+export const finRecurrences = sqliteTable('fin_recurrences', {
+  id: text('id').primaryKey(),
+  kind: text('kind').notNull(), // 'income' | 'expense'
+  amount_cents: integer('amount_cents').notNull(),
+  description: text('description').notNull(),
+  account_id: text('account_id').notNull(),
+  category_id: text('category_id').notNull(),
+  frequency: text('frequency').notNull(), // 'weekly' | 'monthly' | 'yearly'
+  day_of_month: integer('day_of_month').notNull(),
+  start_date: text('start_date').notNull(), // YYYY-MM-DD
+  end_date: text('end_date'), // YYYY-MM-DD
+  is_subscription: integer('is_subscription').notNull().default(0),
+  active: integer('active').notNull().default(1),
+  generated_until: text('generated_until'), // YYYY-MM-DD
+  created_at: text('created_at').notNull(),
+});
+
+export type FinAccount = typeof finAccounts.$inferSelect;
+export type NewFinAccount = typeof finAccounts.$inferInsert;
+
+export type FinCategory = typeof finCategories.$inferSelect;
+export type NewFinCategory = typeof finCategories.$inferInsert;
+
+export type FinEntry = typeof finEntries.$inferSelect;
+export type NewFinEntry = typeof finEntries.$inferInsert;
+
+export type FinRecurrence = typeof finRecurrences.$inferSelect;
+export type NewFinRecurrence = typeof finRecurrences.$inferInsert;
+
+

@@ -4,6 +4,10 @@ import {
   Asset,
   Transaction,
   IncomeEvent,
+  FinAccount,
+  FinCategory,
+  FinEntry,
+  FinRecurrence,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -46,6 +50,10 @@ export interface BackupDatabaseSnapshot {
   assets: Asset[];
   transactions: Transaction[];
   incomeEvents?: IncomeEvent[];
+  finAccounts?: FinAccount[];
+  finCategories?: FinCategory[];
+  finEntries?: FinEntry[];
+  finRecurrences?: FinRecurrence[];
 }
 
 export interface ExportArchiveResult {
