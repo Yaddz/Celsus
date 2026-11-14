@@ -254,7 +254,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
       <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
         {/* Seletor de mês */}
-        <View style={[styles.monthRail, { backgroundColor: c.surfaceContainer }]}>
+        <View
+          testID="finance-home-month-rail"
+          style={[styles.monthRail, { backgroundColor: isLight ? '#F1ECE2' : '#141618' }]}
+        >
           <TouchableOpacity
             testID="finance-home-month-prev"
             accessibilityRole="button"
@@ -262,7 +265,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             onPress={() => handleStepMonth(-1)}
             style={styles.monthArrowBtn}
           >
-            <MaterialIcons name="chevron-left" size={22} color={c.text} />
+            <MaterialIcons name="chevron-left" size={20} color={c.muted} />
           </TouchableOpacity>
           <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
             {formatYearMonthPtBr(effectiveMonth)}
@@ -274,7 +277,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             onPress={() => handleStepMonth(1)}
             style={styles.monthArrowBtn}
           >
-            <MaterialIcons name="chevron-right" size={22} color={c.text} />
+            <MaterialIcons name="chevron-right" size={20} color={c.muted} />
           </TouchableOpacity>
         </View>
 
@@ -383,22 +386,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       testID={`finance-category-dot-row-${cat.categoryId}`}
                       style={styles.dotRow}
                     >
-                      <View style={styles.dotRowTop}>
-                        <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
-                          {cat.name}
-                        </Text>
-                        <View style={styles.dotRightMeta}>
-                          <Text style={[styles.dotAmount, { color: c.muted }]}>
-                            {formatCentsBRL(cat.amountCents, isPrivacyMode)}
-                          </Text>
-                          <Text
-                            testID={`finance-category-pct-${cat.categoryId}`}
-                            style={[styles.dotPct, { color: c.text }]}
-                          >
-                            {cat.percentage}%
-                          </Text>
-                        </View>
-                      </View>
+                      <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
+                        {cat.name}
+                      </Text>
                       <View style={styles.dotsTrack}>
                         {Array.from({ length: DOT_MATRIX_COUNT }).map((_, idx) => (
                           <View
@@ -410,13 +400,19 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                                   idx < cat.filledDots
                                     ? cat.color
                                     : isLight
-                                    ? '#EAE4D7'
+                                    ? '#ECE6DA'
                                     : '#2A2D30',
                               },
                             ]}
                           />
                         ))}
                       </View>
+                      <Text
+                        testID={`finance-category-pct-${cat.categoryId}`}
+                        style={[styles.dotPct, { color: c.text }]}
+                      >
+                        {cat.percentage}%
+                      </Text>
                     </View>
                   ))}
                 </View>
@@ -554,8 +550,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   monthArrowBtn: {
-    width: 40,
-    height: 40,
+    width: 38,
+    height: 38,
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
@@ -603,37 +599,23 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   dotRow: {
-    gap: 6,
-  },
-  dotRowTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
   },
   dotCatName: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
-    flex: 1,
-    paddingRight: 8,
-  },
-  dotRightMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dotAmount: {
-    fontFamily: typography.fontFamily,
     fontSize: 11,
+    width: 82,
   },
   dotPct: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 34,
+    fontSize: 11,
+    width: 36,
     textAlign: 'right',
   },
   dotsTrack: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,

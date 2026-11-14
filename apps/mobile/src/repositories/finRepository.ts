@@ -29,7 +29,7 @@ export interface DefaultFinCategorySeed {
 
 export const DEFAULT_FIN_CATEGORIES: DefaultFinCategorySeed[] = [
   { id: 'cat-moradia', name: 'Moradia', kind: 'expense', icon: 'home', color: '#D96628' },
-  { id: 'cat-mercado', name: 'Mercado', kind: 'expense', icon: 'shopping-cart', color: '#2E4A44' },
+  { id: 'cat-mercado', name: 'Mercado', kind: 'expense', icon: 'shopping-cart', color: '#D5CAA8' },
   { id: 'cat-transporte', name: 'Transporte', kind: 'expense', icon: 'directions-car', color: '#3386B0' },
   { id: 'cat-saude', name: 'Saúde', kind: 'expense', icon: 'local-hospital', color: '#CD528F' },
   { id: 'cat-lazer', name: 'Lazer', kind: 'expense', icon: 'movie', color: '#A958E4' },

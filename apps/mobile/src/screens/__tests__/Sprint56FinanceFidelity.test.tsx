@@ -17,6 +17,11 @@ import {
 } from '../finance';
 import { resolveCategoryVisual } from '../finance/finTheme';
 
+jest.mock('expo-font', () => {
+  const actual = jest.requireActual('expo-font');
+  return { ...actual, loadAsync: jest.fn(() => Promise.resolve()) };
+});
+
 jest.mock('react-native-safe-area-context', () => {
   const insets = { top: 0, right: 0, bottom: 0, left: 0 };
   return {
@@ -131,7 +136,8 @@ describe('Sprint 56 — Fidelidade visual do módulo Finanças ao modelo aprovad
 
   describe('S56-T02: Fonte Space Mono carregada no app', () => {
     it('o App registra a fonte "Space Mono" no expo-font e o token de tipografia a referencia', async () => {
-      const loadSpy = jest.spyOn(Font, 'loadAsync').mockResolvedValue(undefined as never);
+      const loadSpy = Font.loadAsync as unknown as jest.Mock;
+      loadSpy.mockClear();
 
       await render(<App />);
 
@@ -140,7 +146,6 @@ describe('Sprint 56 — Fidelidade visual do módulo Finanças ao modelo aprovad
         (args) => args[0] && typeof args[0] === 'object' && 'Space Mono' in (args[0] as object)
       );
       expect(registered).toBe(true);
-      loadSpy.mockRestore();
     });
   });
 

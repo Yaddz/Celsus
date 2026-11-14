@@ -7,15 +7,17 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **106 suítes**, **691 testes** passando (Sprint 54) + **1 suíte / 14 testes** da Sprint 55 Fase A (Red Phase) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **108 suítes**, **722 testes** passando (Sprints 54, 55 e 56) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos stubs/testes da Sprint 55 e código de produção (restam erros preexistentes em 19 arquivos de teste antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **123 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 56 — Fidelidade visual do módulo Finanças (Fase A, Red Phase)
+## Sprint 56 — Fidelidade visual do módulo Finanças (Fase B concluída)
 
 - Novo arquivo `apps/mobile/src/screens/__tests__/Sprint56FinanceFidelity.test.tsx` (S56-T01 a S56-T07): mês atual ao abrir o módulo (`finStore.resetMonthToCurrent`), fonte Space Mono registrada no `expo-font`, trilho do mês e matriz de pontos de uma linha, linhas de lançamentos sem selos/botões e folha de ações, formulário (data dd/mm/aaaa, Vencimento e Conta na mesma linha, aviso sem contas, rodapé fixo), Categorias (tile de edição por tema, sem ícone de arquivar nas linhas, campo com linha laranja, botões 48 px) e cor creme da categoria Mercado.
 - **Teste da sprint 54 alterado com autorização explícita do usuário:** `FinanceModuleScreens.test.tsx` — o fluxo "pagar" e "excluir parcela" passa a usar a folha de ações (`entry-actions-sheet`, `entry-action-pay-*`, `entry-action-delete-*`), os asserts dos selos Atrasada/A vencer foram removidos (cobertos pela nova suíte) e o formulário usa a data `13/11/2026` e o seletor de conta `entry-form-account-select`.
+- **Fase B:** implementação concluída (mês atual ao abrir pelo globo, Space Mono via `@expo-google-fonts/space-mono`, resumo com trilho do mês e matriz de pontos de uma linha, lançamentos com folha de ações, formulário com data dd/mm/aaaa, Vencimento+Conta na mesma linha e rodapé fixo, categorias com tile de edição por tema e Mercado em creme). 722/722 testes passando.
+- **Correção de teste autorizada pelo usuário:** em `Sprint56FinanceFidelity.test.tsx` (S56-T02) o `jest.spyOn(Font, 'loadAsync')` falhava ("Cannot redefine property"); trocado por `jest.mock('expo-font')`, sem mudar a asserção.
 
 ## Cobertura por área
 

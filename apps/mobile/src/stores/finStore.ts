@@ -57,6 +57,11 @@ export const finStore = {
     state = { ...state, filters: { ...DEFAULT_FILTERS } };
     emit();
   },
+  /** Volta ao mês de hoje mantendo os filtros (usado ao abrir o módulo). */
+  resetMonthToCurrent(): void {
+    state = { ...state, selectedMonth: currentYearMonth() };
+    emit();
+  },
   reset(): void {
     state = {
       selectedMonth: currentYearMonth(),

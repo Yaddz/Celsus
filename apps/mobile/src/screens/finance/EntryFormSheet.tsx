@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
@@ -44,6 +44,37 @@ function extractDayLabel(isoDate: string): string {
   return m ? String(Number.parseInt(m[3], 10)) : '15';
 }
 
+/** "2026-11-14" → "14/11/2026"; textos que já não são ISO são mantidos. */
+function isoToBr(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso || '').trim());
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+}
+
+/** Máscara dd/mm/aaaa enquanto digita (só dígitos, no máximo 8). */
+function maskBrDate(text: string): string {
+  const digits = text.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/** Aceita "dd/mm/aaaa" ou ISO e devolve ISO válido, ou null. */
+function brToIso(text: string): string | null {
+  const t = (text || '').trim();
+  let y: number, mo: number, d: number;
+  let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (m) {
+    d = Number(m[1]); mo = Number(m[2]); y = Number(m[3]);
+  } else {
+    m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    if (!m) return null;
+    y = Number(m[1]); mo = Number(m[2]); d = Number(m[3]);
+  }
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
+  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+
 export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   visible,
   onClose,
@@ -63,7 +94,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   const [description, setDescription] = useState('');
   const [descFocused, setDescFocused] = useState(false);
   const [amountText, setAmountText] = useState('');
-  const [dueDate, setDueDate] = useState(defaultDueDate ?? getTodayIsoLocal());
+  const [dueDate, setDueDate] = useState(isoToBr(defaultDueDate ?? getTodayIsoLocal()));
+  const [accountPickerOpen, setAccountPickerOpen] = useState(false);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('single');
   const [installmentsText, setInstallmentsText] = useState('1');
   const [accountId, setAccountId] = useState('');
@@ -98,7 +130,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       setAmountText(
         editingEntry ? (editingEntry.amount_cents / 100).toFixed(2).replace('.', ',') : ''
       );
-      setDueDate(editingEntry?.due_date ?? defaultDueDate ?? getTodayIsoLocal());
+      setDueDate(isoToBr(editingEntry?.due_date ?? defaultDueDate ?? getTodayIsoLocal()));
+      setAccountPickerOpen(false);
       setRepeatMode(
         editingEntry?.installment_total && editingEntry.installment_total > 1
           ? 'installment'
@@ -156,7 +189,11 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
     const resolvedAccountId = accountId || accounts[0]?.id || 'default-account';
     const resolvedCategoryId =
       categoryId || categoriesForKind[0]?.id || categories[0]?.id || 'cat-outros-despesa';
-    const trimmedDate = dueDate.trim() || getTodayIsoLocal();
+    const trimmedDate = dueDate.trim() ? brToIso(dueDate) : getTodayIsoLocal();
+    if (!trimmedDate) {
+      setFormError('Informe uma data válida (dd/mm/aaaa).');
+      return;
+    }
     const installmentsCount = Math.max(
       1,
       Number.parseInt(installmentsText.trim() || '1', 10) || 1
@@ -232,206 +269,255 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       ? `${installmentsText || '2'} parcelas mensais a partir do dia ${dayNumber}`
       : 'Lançamento único neste vencimento';
 
+  const selectedAccount = accounts.find((acc) => acc.id === accountId);
+
   return (
     <AnimatedModalSheet
       visible={visible}
       onClose={onClose}
       themeMode={themeMode}
       showHandle={true}
+      fill={true}
       testID={testID}
     >
-      <BentoSheetHeader
-        title={editingEntry ? 'Editar lançamento' : 'Novo lançamento'}
-        subtitle={kind === 'income' ? 'Entrada financeira' : 'Saída financeira'}
-        onClose={onClose}
-        closeTestID="entry-form-cancel-btn"
-        themeMode={themeMode}
-      />
+      <View style={styles.sheetFill}>
+        <BentoSheetHeader
+          title={editingEntry ? 'Editar lançamento' : 'Novo lançamento'}
+          subtitle={kind === 'income' ? 'Entrada financeira' : 'Saída financeira'}
+          onClose={onClose}
+          closeTestID="entry-form-cancel-btn"
+          themeMode={themeMode}
+        />
 
-      {!optionsLoaded ? (
-        <FinLoadingView themeMode={themeMode} />
-      ) : (
-        <View style={styles.formBody}>
-          <SegmentedControl<FinKind>
-            testID="entry-form-kind-segmented"
-            value={kind}
-            onChange={handleKindChange}
-            options={[
-              { id: 'expense', label: 'Despesa', icon: 'south-west' },
-              { id: 'income', label: 'Receita', icon: 'north-east' },
-            ]}
-            themeMode={themeMode}
-          />
-
-          <BentoSection title="VALOR" themeMode={themeMode} testID="entry-form-section-valor">
-            <View style={styles.amountRow}>
-              <Text style={[styles.currencyPrefix, { color: c.muted }]}>R$</Text>
-              <TextInput
-                testID="entry-form-amount"
-                value={amountText}
-                onChangeText={(txt) => {
-                  setAmountText(txt);
-                  setFormError(null);
-                }}
-                placeholder="0,00"
-                placeholderTextColor={c.muted}
-                keyboardType="decimal-pad"
-                style={[styles.amountInput, { color: c.text }]}
+        {!optionsLoaded ? (
+          <FinLoadingView themeMode={themeMode} />
+        ) : (
+          <>
+            <ScrollView
+              style={styles.sheetScroll}
+              contentContainerStyle={styles.formBody}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <SegmentedControl<FinKind>
+                testID="entry-form-kind-segmented"
+                value={kind}
+                onChange={handleKindChange}
+                options={[
+                  { id: 'expense', label: 'Despesa', icon: 'south-west' },
+                  { id: 'income', label: 'Receita', icon: 'north-east' },
+                ]}
+                themeMode={themeMode}
               />
-            </View>
-            {formError ? <Text style={[styles.errorText, { color: c.overdue }]}>{formError}</Text> : null}
-          </BentoSection>
 
-          <BentoSection title="DESCRIÇÃO" themeMode={themeMode} testID="entry-form-section-descricao">
-            <TextInput
-              testID="entry-form-description"
-              value={description}
-              onChangeText={setDescription}
-              onFocus={() => setDescFocused(true)}
-              onBlur={() => setDescFocused(false)}
-              placeholder="Ex.: Almoço, Salário, Mercado"
-              placeholderTextColor={c.muted}
-              style={[
-                styles.descInput,
-                {
-                  color: c.text,
-                  borderBottomColor: descFocused ? '#D96628' : c.border,
-                },
-              ]}
-            />
-
-            <View style={styles.metaRow}>
-              <View style={styles.metaField}>
-                <View style={styles.metaLabelRow}>
-                  <MaterialIcons name="event" size={14} color={c.muted} />
-                  <Text style={[styles.metaLabel, { color: c.muted }]}>Vencimento</Text>
+              <BentoSection title="VALOR" themeMode={themeMode} testID="entry-form-section-valor">
+                <View style={styles.amountRow}>
+                  <Text style={[styles.currencyPrefix, { color: c.muted }]}>R$</Text>
+                  <TextInput
+                    testID="entry-form-amount"
+                    value={amountText}
+                    onChangeText={(txt) => {
+                      setAmountText(txt);
+                      setFormError(null);
+                    }}
+                    placeholder="0,00"
+                    placeholderTextColor={c.muted}
+                    keyboardType="decimal-pad"
+                    style={[styles.amountInput, { color: c.text }]}
+                  />
                 </View>
+                {formError ? <Text style={[styles.errorText, { color: c.overdue }]}>{formError}</Text> : null}
+              </BentoSection>
+
+              <BentoSection title="DESCRIÇÃO" themeMode={themeMode} testID="entry-form-section-descricao">
                 <TextInput
-                  testID="entry-form-due-date"
-                  value={dueDate}
-                  onChangeText={setDueDate}
-                  placeholder="2026-11-13"
+                  testID="entry-form-description"
+                  value={description}
+                  onChangeText={setDescription}
+                  onFocus={() => setDescFocused(true)}
+                  onBlur={() => setDescFocused(false)}
+                  placeholder="Ex.: Almoço, Salário, Mercado"
                   placeholderTextColor={c.muted}
-                  style={[styles.dateInput, { color: c.text, borderColor: c.border }]}
+                  style={[
+                    styles.descInput,
+                    {
+                      color: c.text,
+                      borderBottomColor: descFocused ? '#D96628' : c.border,
+                    },
+                  ]}
                 />
-              </View>
-            </View>
 
-            <View style={styles.metaLabelRow}>
-              <MaterialIcons name="account-balance-wallet" size={14} color={c.muted} />
-              <Text style={[styles.metaLabel, { color: c.muted }]}>Conta</Text>
-            </View>
-            <View style={sharedStyles.chipRow}>
-              {accounts.map((acc) => {
-                const selected = acc.id === accountId;
-                return (
-                  <TouchableOpacity
-                    key={acc.id}
-                    testID={`entry-form-account-${acc.id}`}
-                    accessibilityRole="button"
-                    hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-                    onPress={() => setAccountId(acc.id)}
-                    style={[
-                      sharedStyles.chip,
-                      {
-                        backgroundColor: selected ? '#2E4A44' : c.surfaceContainer,
-                        borderWidth: 1,
-                        borderColor: selected ? '#2E4A44' : c.border,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        { color: selected ? '#E6DECA' : c.text },
-                      ]}
-                    >
-                      {acc.name}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </BentoSection>
-
-          <BentoSection title="CATEGORIA" themeMode={themeMode} testID="entry-form-section-categoria">
-            <View style={sharedStyles.chipRow}>
-              {categoriesForKind.map((cat) => {
-                const selected = cat.id === categoryId;
-                const visual = resolveCategoryVisual(cat);
-                return (
-                  <TouchableOpacity
-                    key={cat.id}
-                    testID={`entry-form-category-${cat.id}`}
-                    accessibilityRole="button"
-                    hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-                    onPress={() => setCategoryId(cat.id)}
-                    style={[
-                      sharedStyles.chip,
-                      {
-                        backgroundColor: c.surfaceContainer,
-                        borderWidth: 1,
-                        borderColor: selected ? '#D96628' : c.border,
-                        paddingLeft: 8,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.miniAvatar, { backgroundColor: visual.color }]}>
-                      <MaterialIcons name={visual.icon} size={12} color={visual.iconColor} />
+                <View testID="entry-form-meta-row" style={styles.metaRow}>
+                  <View style={styles.metaField}>
+                    <View style={styles.metaLabelRow}>
+                      <MaterialIcons name="event" size={14} color={c.muted} />
+                      <Text style={[styles.metaLabel, { color: c.muted }]}>Vencimento</Text>
                     </View>
-                    <Text style={[styles.chipText, { color: c.text }]}>{cat.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-              <View style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderWidth: 1, borderColor: c.border }]}>
-                <Text style={[styles.chipText, { color: c.muted }]}>+ Nova</Text>
-              </View>
+                    <TextInput
+                      testID="entry-form-due-date"
+                      value={dueDate}
+                      onChangeText={(txt) => {
+                        setDueDate(maskBrDate(txt));
+                        setFormError(null);
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      placeholder="dd/mm/aaaa"
+                      placeholderTextColor={c.muted}
+                      style={[styles.metaValueInput, { color: c.text }]}
+                    />
+                  </View>
+
+                  <View style={styles.metaField}>
+                    <View style={styles.metaLabelRow}>
+                      <MaterialIcons name="account-balance-wallet" size={14} color={c.muted} />
+                      <Text style={[styles.metaLabel, { color: c.muted }]}>Conta</Text>
+                    </View>
+                    <TouchableOpacity
+                      testID="entry-form-account-select"
+                      accessibilityRole="button"
+                      accessibilityLabel="Escolher conta"
+                      disabled={accounts.length === 0}
+                      onPress={() => setAccountPickerOpen((open) => !open)}
+                      style={styles.metaValueTouch}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[
+                          styles.metaValueText,
+                          { color: selectedAccount ? c.text : c.muted },
+                        ]}
+                      >
+                        {selectedAccount ? selectedAccount.name : '—'}
+                      </Text>
+                      {accounts.length > 0 ? (
+                        <MaterialIcons name="arrow-drop-down" size={18} color={c.muted} />
+                      ) : null}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {accounts.length === 0 ? (
+                  <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
+                    Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
+                  </Text>
+                ) : null}
+
+                {accountPickerOpen ? (
+                  <View style={[sharedStyles.chipRow, { marginTop: 10 }]}>
+                    {accounts.map((acc) => {
+                      const selected = acc.id === accountId;
+                      return (
+                        <TouchableOpacity
+                          key={acc.id}
+                          testID={`entry-form-account-${acc.id}`}
+                          accessibilityRole="button"
+                          hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+                          onPress={() => {
+                            setAccountId(acc.id);
+                            setAccountPickerOpen(false);
+                          }}
+                          style={[
+                            sharedStyles.chip,
+                            {
+                              backgroundColor: selected ? '#2E4A44' : c.surfaceContainer,
+                              borderWidth: 1,
+                              borderColor: selected ? '#2E4A44' : c.border,
+                            },
+                          ]}
+                        >
+                          <Text style={[styles.chipText, { color: selected ? '#E6DECA' : c.text }]}>
+                            {acc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ) : null}
+              </BentoSection>
+
+              <BentoSection title="CATEGORIA" themeMode={themeMode} testID="entry-form-section-categoria">
+                <View style={sharedStyles.chipRow}>
+                  {categoriesForKind.map((cat) => {
+                    const selected = cat.id === categoryId;
+                    const visual = resolveCategoryVisual(cat);
+                    return (
+                      <TouchableOpacity
+                        key={cat.id}
+                        testID={`entry-form-category-${cat.id}`}
+                        accessibilityRole="button"
+                        hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+                        onPress={() => setCategoryId(cat.id)}
+                        style={[
+                          sharedStyles.chip,
+                          {
+                            backgroundColor: c.surfaceContainer,
+                            borderWidth: 1,
+                            borderColor: selected ? '#D96628' : c.border,
+                            paddingLeft: 8,
+                          },
+                        ]}
+                      >
+                        <View style={[styles.miniAvatar, { backgroundColor: visual.color }]}>
+                          <MaterialIcons name={visual.icon} size={12} color={visual.iconColor} />
+                        </View>
+                        <Text style={[styles.chipText, { color: c.text }]}>{cat.name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                  <View style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderWidth: 1, borderColor: c.border }]}>
+                    <Text style={[styles.chipText, { color: c.muted }]}>+ Nova</Text>
+                  </View>
+                </View>
+              </BentoSection>
+
+              <BentoSection title="REPETIÇÃO" themeMode={themeMode} testID="entry-form-section-repeticao">
+                <SegmentedControl<RepeatMode>
+                  testID="entry-form-repeat-segmented"
+                  value={repeatMode}
+                  onChange={handleRepeatChange}
+                  options={[
+                    { id: 'single', label: 'Única' },
+                    { id: 'monthly', label: 'Mensal' },
+                    { id: 'installment', label: 'Parcelada' },
+                  ]}
+                  themeMode={themeMode}
+                />
+                <Text testID="entry-form-repeat-helper" style={[styles.helperText, { color: c.muted }]}>
+                  {repeatHelper}
+                </Text>
+                {!editingEntry && repeatMode === 'installment' ? (
+                  <TextInput
+                    testID="entry-form-installments"
+                    value={installmentsText}
+                    onChangeText={setInstallmentsText}
+                    keyboardType="numeric"
+                    placeholder="Número de parcelas (ex.: 12)"
+                    placeholderTextColor={c.muted}
+                    style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: 6 }]}
+                  />
+                ) : null}
+              </BentoSection>
+            </ScrollView>
+
+            <View testID="entry-form-footer" style={styles.footer}>
+              <JellyPressable
+                testID="entry-form-save-btn"
+                accessibilityRole="button"
+                accessibilityLabel="Salvar lançamento"
+                disabled={saving}
+                onPress={() => void handleSave()}
+                containerStyle={styles.saveBtnContainer}
+                style={styles.saveBtnInner}
+              >
+                <Text style={sharedStyles.primaryBtnText}>
+                  {saving ? 'Salvando...' : 'Salvar lançamento'}
+                </Text>
+              </JellyPressable>
             </View>
-          </BentoSection>
-
-          <BentoSection title="REPETIÇÃO" themeMode={themeMode} testID="entry-form-section-repeticao">
-            <SegmentedControl<RepeatMode>
-              testID="entry-form-repeat-segmented"
-              value={repeatMode}
-              onChange={handleRepeatChange}
-              options={[
-                { id: 'single', label: 'Única' },
-                { id: 'monthly', label: 'Mensal' },
-                { id: 'installment', label: 'Parcelada' },
-              ]}
-              themeMode={themeMode}
-            />
-            <Text testID="entry-form-repeat-helper" style={[styles.helperText, { color: c.muted }]}>
-              {repeatHelper}
-            </Text>
-            {!editingEntry && repeatMode === 'installment' ? (
-              <TextInput
-                testID="entry-form-installments"
-                value={installmentsText}
-                onChangeText={setInstallmentsText}
-                keyboardType="numeric"
-                placeholder="Número de parcelas (ex.: 12)"
-                placeholderTextColor={c.muted}
-                style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: 6 }]}
-              />
-            ) : null}
-          </BentoSection>
-
-          <JellyPressable
-            testID="entry-form-save-btn"
-            accessibilityRole="button"
-            accessibilityLabel="Salvar lançamento"
-            disabled={saving}
-            onPress={() => void handleSave()}
-            containerStyle={styles.saveBtnContainer}
-            style={styles.saveBtnInner}
-          >
-            <Text style={sharedStyles.primaryBtnText}>
-              {saving ? 'Salvando...' : 'Salvar lançamento'}
-            </Text>
-          </JellyPressable>
-        </View>
-      )}
+          </>
+        )}
+      </View>
     </AnimatedModalSheet>
   );
 };
@@ -471,11 +557,42 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 12,
   },
+  sheetFill: {
+    flex: 1,
+    minHeight: 0,
+  },
+  sheetScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  footer: {
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   metaRow: {
-    marginBottom: 12,
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 4,
   },
   metaField: {
-    gap: 6,
+    flex: 1,
+    gap: 2,
+  },
+  metaValueInput: {
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
+    paddingVertical: 6,
+    paddingHorizontal: 0,
+  },
+  metaValueTouch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 36,
+  },
+  metaValueText: {
+    flex: 1,
+    fontFamily: typography.fontFamily,
+    fontSize: 13,
   },
   metaLabelRow: {
     flexDirection: 'row',

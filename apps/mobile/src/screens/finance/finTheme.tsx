@@ -95,7 +95,11 @@ export function resolveCategoryVisual(
 
   const icon = (preset?.icon ?? cat?.icon ?? 'category') as keyof typeof MaterialIcons.glyphMap;
   const rawUpper = (cat?.color ?? '').trim().toUpperCase();
-  const color = APPROVED_SET.has(rawUpper)
+  // Mercado: o verde-floresta era a cor antiga da semente; o modelo usa o creme.
+  const isLegacyMercado = rawUpper === '#2E4A44' && preset?.color === '#D5CAA8';
+  const color = isLegacyMercado
+    ? '#D5CAA8'
+    : APPROVED_SET.has(rawUpper)
     ? rawUpper
     : preset?.color ?? '#8A8A8E';
   const iconColor = color === '#2E4A44' ? '#E6DECA' : '#111315';

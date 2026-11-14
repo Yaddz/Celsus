@@ -81,6 +81,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const [editingEntry, setEditingEntry] = useState<FinEntry | null>(null);
   const [editingScope, setEditingScope] = useState<InstallmentScope | undefined>(undefined);
 
+  const [actionEntry, setActionEntry] = useState<FinEntry | null>(null);
   const [payingEntry, setPayingEntry] = useState<FinEntry | null>(null);
   const [payAmountText, setPayAmountText] = useState('');
   const [payDateText, setPayDateText] = useState(effectiveToday);
@@ -248,7 +249,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     if (dueStatus === 'overdue') {
       subtitle = `Venceu ${formatDayMonth(entry.due_date)} • ${category?.name ?? accountName}`;
     } else if (isInstallment) {
-      subtitle = `Parcela ${entry.installment_number}/${entry.installment_total} • ${formatTxDate(entry.due_date)}`;
+      subtitle = `${formatTxDate(entry.due_date)} • Parcela ${entry.installment_number}/${entry.installment_total}`;
     } else if (entry.status === 'paid') {
       subtitle = `${formatTxDate(entry.paid_date ?? entry.due_date)} • ${
         entry.kind === 'income' ? 'Recebido' : 'Pago'
@@ -275,64 +276,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         amountColor={amountColor}
         isLast={index === total - 1}
         themeMode={themeMode}
-        onPress={() => handleEditPress(entry)}
-        bottomContent={
-          <View style={styles.rowActionsLine}>
-            <View style={styles.badgesRow}>
-              {dueStatus === 'overdue' ? (
-                <View
-                  testID={`entry-overdue-badge-${entry.id}`}
-                  style={[styles.badge, { backgroundColor: 'rgba(217,102,40,0.16)' }]}
-                >
-                  <Text style={[styles.badgeText, { color: '#D96628' }]}>Atrasada</Text>
-                </View>
-              ) : dueStatus === 'due_soon' ? (
-                <View
-                  testID={`entry-duesoon-badge-${entry.id}`}
-                  style={[styles.badge, { backgroundColor: 'rgba(212,168,59,0.2)' }]}
-                >
-                  <Text style={[styles.badgeText, { color: c.warning }]}>A vencer</Text>
-                </View>
-              ) : null}
-            </View>
-
-            <View style={styles.actionsRow}>
-              {entry.status === 'pending' ? (
-                <TouchableOpacity
-                  testID={`entry-pay-btn-${entry.id}`}
-                  accessibilityRole="button"
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  onPress={() => handleOpenPayModal(entry)}
-                  style={[styles.miniChip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
-                >
-                  <Text style={[styles.miniChipText, { color: c.income }]}>
-                    {entry.kind === 'income' ? 'Receber' : 'Pagar'}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                  onPress={() => void handleReopenPending(entry.id)}
-                  style={[styles.miniChip, { backgroundColor: c.surfaceContainer, borderColor: c.border }]}
-                >
-                  <Text style={[styles.miniChipText, { color: c.muted }]}>Reabrir</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                testID={`entry-delete-btn-${entry.id}`}
-                accessibilityRole="button"
-                accessibilityLabel="Excluir lançamento"
-                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                onPress={() => void handleDeletePress(entry)}
-                style={[sharedStyles.iconBtn, { backgroundColor: c.surfaceContainer }]}
-              >
-                <MaterialIcons name="delete-outline" size={18} color={c.overdue} />
-              </TouchableOpacity>
-            </View>
-          </View>
-        }
+        onPress={() => setActionEntry(entry)}
       />
     );
   };
@@ -635,6 +579,78 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         defaultDueDate={effectiveToday}
         themeMode={themeMode}
       />
+
+      {/* Folha de ações da linha: Pagar/Receber (ou Reabrir), Editar e Excluir */}
+      <AnimatedModalSheet
+        visible={Boolean(actionEntry)}
+        onClose={() => setActionEntry(null)}
+        themeMode={themeMode}
+        testID="entry-actions-sheet"
+      >
+        <BentoSheetHeader
+          title={actionEntry?.description || 'Lançamento'}
+          subtitle={actionEntry ? formatTxDate(actionEntry.due_date) : undefined}
+          onClose={() => setActionEntry(null)}
+          themeMode={themeMode}
+        />
+        {actionEntry ? (
+          <View style={styles.scopeList}>
+            {actionEntry.status === 'pending' ? (
+              <JellyPressable
+                testID={`entry-action-pay-${actionEntry.id}`}
+                accessibilityRole="button"
+                onPress={() => {
+                  const target = actionEntry;
+                  setActionEntry(null);
+                  handleOpenPayModal(target);
+                }}
+                style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
+              >
+                <Text style={[sharedStyles.secondaryBtnText, { color: c.income }]}>
+                  {actionEntry.kind === 'income' ? 'Receber' : 'Pagar'}
+                </Text>
+              </JellyPressable>
+            ) : (
+              <JellyPressable
+                testID={`entry-action-reopen-${actionEntry.id}`}
+                accessibilityRole="button"
+                onPress={() => {
+                  const target = actionEntry;
+                  setActionEntry(null);
+                  void handleReopenPending(target.id);
+                }}
+                style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
+              >
+                <Text style={[sharedStyles.secondaryBtnText, { color: c.text }]}>Reabrir</Text>
+              </JellyPressable>
+            )}
+            <JellyPressable
+              testID={`entry-action-edit-${actionEntry.id}`}
+              accessibilityRole="button"
+              onPress={() => {
+                const target = actionEntry;
+                setActionEntry(null);
+                handleEditPress(target);
+              }}
+              style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
+            >
+              <Text style={[sharedStyles.secondaryBtnText, { color: c.text }]}>Editar</Text>
+            </JellyPressable>
+            <JellyPressable
+              testID={`entry-action-delete-${actionEntry.id}`}
+              accessibilityRole="button"
+              onPress={() => {
+                const target = actionEntry;
+                setActionEntry(null);
+                void handleDeletePress(target);
+              }}
+              style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
+            >
+              <Text style={[sharedStyles.secondaryBtnText, { color: c.overdue }]}>Excluir</Text>
+            </JellyPressable>
+          </View>
+        ) : null}
+      </AnimatedModalSheet>
 
       {/* Modal: Baixa (Pagar / Receber com data e valor reais) */}
       <AnimatedModalSheet

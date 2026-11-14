@@ -38,6 +38,7 @@ import { spreadsheetImportService } from './src/services/spreadsheetImportServic
 import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import { AppGate } from './src/components/AppGate';
 import { sessionStore } from './src/stores/sessionStore';
+import { finStore } from './src/stores/finStore';
 import { useProfile, profileStore } from './src/stores/profileStore';
 import { deriveInitials } from './src/domain/profile';
 import {
@@ -495,6 +496,13 @@ function AppContent(props: {
     if (MaterialIcons?.font && typeof Font?.loadAsync === 'function') {
       Font.loadAsync(MaterialIcons.font).catch(() => {});
     }
+    // Space Mono (tipografia do design system): registrada como "Space Mono", o mesmo nome usado nos tokens.
+    // O negrito é sintetizado a partir do peso regular.
+    if (typeof Font?.loadAsync === 'function') {
+      Font.loadAsync({
+        'Space Mono': require('@expo-google-fonts/space-mono/400Regular/SpaceMono_400Regular.ttf'),
+      }).catch(() => {});
+    }
 
     const unsub = privacyAndAuthService.subscribe((state) => {
       setIsPrivacyMode(state.isPrivacyModeEnabled);
@@ -818,7 +826,10 @@ function AppContent(props: {
   const activePortfolioIdRef = React.useRef<string | null>(null);
   activePortfolioIdRef.current = activePortfolioId;
   const homeOpenSettings = useCallback(() => setIsSettingsBackupModalOpen(true), []);
-  const homeGlobePress = useCallback(() => setIsFinanceOpen(true), []);
+  const homeGlobePress = useCallback(() => {
+    finStore.resetMonthToCurrent();
+    setIsFinanceOpen(true);
+  }, []);
   const homeMaisPress = useCallback(() => Alert.alert('Funcionalidade em desenvolvimento'), []);
   const homeTogglePrivacy = useCallback(() => {
     const next = privacyAndAuthService.togglePrivacyMode();
