@@ -113,6 +113,57 @@ CREATE TABLE IF NOT EXISTS asset_profile_cache (
   profile_json TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS fin_accounts (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,
+  initial_balance_cents INTEGER NOT NULL DEFAULT 0,
+  color TEXT NOT NULL DEFAULT '#D96628',
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_categories (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  icon TEXT NOT NULL DEFAULT 'category',
+  color TEXT NOT NULL DEFAULT '#8A8A8E',
+  parent_id TEXT,
+  archived INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS fin_entries (
+  id TEXT PRIMARY KEY NOT NULL,
+  kind TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  due_date TEXT NOT NULL,
+  paid_date TEXT,
+  paid_amount_cents INTEGER,
+  status TEXT NOT NULL DEFAULT 'pending',
+  account_id TEXT NOT NULL,
+  category_id TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  recurrence_id TEXT,
+  installment_group_id TEXT,
+  installment_number INTEGER,
+  installment_total INTEGER,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_recurrences (
+  id TEXT PRIMARY KEY NOT NULL,
+  kind TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  account_id TEXT NOT NULL,
+  category_id TEXT NOT NULL,
+  frequency TEXT NOT NULL,
+  day_of_month INTEGER NOT NULL DEFAULT 1,
+  start_date TEXT NOT NULL,
+  end_date TEXT,
+  is_subscription INTEGER NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  generated_until TEXT,
+  created_at TEXT NOT NULL
+);
 `;
 
 /**
@@ -127,6 +178,10 @@ CREATE INDEX IF NOT EXISTS idx_transactions_asset ON transactions(asset_id);
 CREATE INDEX IF NOT EXISTS idx_income_events_portfolio_date ON income_events(portfolio_id, pay_date);
 CREATE INDEX IF NOT EXISTS idx_income_events_external ON income_events(external_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_external ON transactions(external_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_due_date ON fin_entries(due_date);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_status ON fin_entries(status);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence ON fin_entries(recurrence_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_installment_group ON fin_entries(installment_group_id);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -139,6 +194,10 @@ const inMemoryStore: Record<string, any[]> = {
   market_price_cache: [],
   historical_prices_local: [],
   asset_profile_cache: [],
+  fin_accounts: [],
+  fin_categories: [],
+  fin_entries: [],
+  fin_recurrences: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {

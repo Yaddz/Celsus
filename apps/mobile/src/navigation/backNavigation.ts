@@ -17,6 +17,7 @@ export interface BackState {
   isSettingsOpen: boolean;
   isB3ImportOpen?: boolean;
   isIncomeHistoryOpen?: boolean;
+  isFinanceOpen?: boolean;
   isTransactionDetailOpen: boolean;
   isAllTransactionsOpen: boolean;
   isClassDetailOpen: boolean;
@@ -30,6 +31,7 @@ export type BackAction =
   | 'minimize'
   | 'close-b3-import'
   | 'close-income-history'
+  | 'close-finance'
   | 'close-settings'
   | 'close-transaction-detail'
   | 'close-all-transactions'
@@ -49,6 +51,7 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isB3ImportOpen) return 'close-b3-import';
   if (state.isSettingsOpen) return 'close-settings';
   if (state.isIncomeHistoryOpen) return 'close-income-history';
+  if (state.isFinanceOpen) return 'close-finance';
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';

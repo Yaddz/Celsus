@@ -13,12 +13,17 @@ import {
   assets as assetsTable,
   transactions as transactionsTable,
   incomeEvents as incomeEventsTable,
+  finAccounts as finAccountsTable,
+  finCategories as finCategoriesTable,
+  finEntries as finEntriesTable,
+  finRecurrences as finRecurrencesTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
 import { AssetRepository, assetRepository } from '../repositories/assetRepository';
 import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
 import { IncomeRepository, incomeRepository } from '../repositories/incomeRepository';
+import { finRepository } from '../repositories/finRepository';
 import { calculatePositionFromTransactions } from '../domain/finance/averagePrice';
 
 export type BackupImportMode = 'RESTORE' | 'MERGE';
@@ -528,6 +533,139 @@ function parseIncomeEventsFromCsv(csvText?: string): IncomeEvent[] {
   }));
 }
 
+const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
+  'id',
+  'name',
+  'type',
+  'initial_balance_cents',
+  'color',
+  'archived',
+  'created_at',
+];
+
+const FIN_CATEGORIES_COLUMNS: (keyof FinCategory)[] = [
+  'id',
+  'name',
+  'kind',
+  'icon',
+  'color',
+  'parent_id',
+  'archived',
+];
+
+const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
+  'id',
+  'kind',
+  'amount_cents',
+  'due_date',
+  'paid_date',
+  'paid_amount_cents',
+  'status',
+  'account_id',
+  'category_id',
+  'description',
+  'recurrence_id',
+  'installment_group_id',
+  'installment_number',
+  'installment_total',
+  'created_at',
+];
+
+const FIN_RECURRENCES_COLUMNS: (keyof FinRecurrence)[] = [
+  'id',
+  'kind',
+  'amount_cents',
+  'description',
+  'account_id',
+  'category_id',
+  'frequency',
+  'day_of_month',
+  'start_date',
+  'end_date',
+  'is_subscription',
+  'active',
+  'generated_until',
+  'created_at',
+];
+
+function parseOptionalInt(raw?: string): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseRequiredInt(raw?: string, fallback = 0): number {
+  const parsed = parseOptionalInt(raw);
+  return parsed === null ? fallback : parsed;
+}
+
+function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    name: r.name,
+    type: r.type,
+    initial_balance_cents: parseRequiredInt(r.initial_balance_cents, 0),
+    color: r.color || '#D96628',
+    archived: parseRequiredInt(r.archived, 0),
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinCategoriesFromCsv(csvText?: string): FinCategory[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    name: r.name,
+    kind: r.kind,
+    icon: r.icon || 'category',
+    color: r.color || '#8A8A8E',
+    parent_id: r.parent_id === '' ? null : r.parent_id ?? null,
+    archived: parseRequiredInt(r.archived, 0),
+  }));
+}
+
+function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    amount_cents: parseRequiredInt(r.amount_cents, 0),
+    due_date: r.due_date,
+    paid_date: r.paid_date === '' ? null : r.paid_date ?? null,
+    paid_amount_cents: parseOptionalInt(r.paid_amount_cents),
+    status: r.status || 'pending',
+    account_id: r.account_id,
+    category_id: r.category_id,
+    description: r.description ?? '',
+    recurrence_id: r.recurrence_id === '' ? null : r.recurrence_id ?? null,
+    installment_group_id: r.installment_group_id === '' ? null : r.installment_group_id ?? null,
+    installment_number: parseOptionalInt(r.installment_number),
+    installment_total: parseOptionalInt(r.installment_total),
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinRecurrencesFromCsv(csvText?: string): FinRecurrence[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    amount_cents: parseRequiredInt(r.amount_cents, 0),
+    description: r.description ?? '',
+    account_id: r.account_id,
+    category_id: r.category_id,
+    frequency: r.frequency,
+    day_of_month: parseRequiredInt(r.day_of_month, 1),
+    start_date: r.start_date,
+    end_date: r.end_date === '' ? null : r.end_date ?? null,
+    is_subscription: parseRequiredInt(r.is_subscription, 0),
+    active: parseRequiredInt(r.active, 1),
+    generated_until: r.generated_until === '' ? null : r.generated_until ?? null,
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
 function escapeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '';
   const str = String(val);
@@ -701,7 +839,21 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       }
 
       const incomeEvents = await incomeRepository.listAll();
-      return { portfolios, classTargets, assets, transactions, incomeEvents };
+      const finAccounts = await finRepository.listAccounts(true);
+      const finCategories = await finRepository.listCategories(true);
+      const finEntries = await finRepository.listAllEntries();
+      const finRecurrences = await finRepository.listRecurrences();
+      return {
+        portfolios,
+        classTargets,
+        assets,
+        transactions,
+        incomeEvents,
+        finAccounts,
+        finCategories,
+        finEntries,
+        finRecurrences,
+      };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
       throw new Error(
@@ -712,6 +864,18 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
 
   private async writeSnapshot(snapshot: BackupDatabaseSnapshot): Promise<void> {
     const db = getDatabase();
+    if (snapshot.finEntries) {
+      await db.delete(finEntriesTable);
+    }
+    if (snapshot.finRecurrences) {
+      await db.delete(finRecurrencesTable);
+    }
+    if (snapshot.finCategories) {
+      await db.delete(finCategoriesTable);
+    }
+    if (snapshot.finAccounts) {
+      await db.delete(finAccountsTable);
+    }
     if (snapshot.incomeEvents) {
       await db.delete(incomeEventsTable);
     }
@@ -735,6 +899,26 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.incomeEvents) {
       for (const ie of snapshot.incomeEvents) {
         await db.insert(incomeEventsTable).values(ie);
+      }
+    }
+    if (snapshot.finAccounts) {
+      for (const acc of snapshot.finAccounts) {
+        await db.insert(finAccountsTable).values(acc);
+      }
+    }
+    if (snapshot.finCategories) {
+      for (const cat of snapshot.finCategories) {
+        await db.insert(finCategoriesTable).values(cat);
+      }
+    }
+    if (snapshot.finRecurrences) {
+      for (const rec of snapshot.finRecurrences) {
+        await db.insert(finRecurrencesTable).values(rec);
+      }
+    }
+    if (snapshot.finEntries) {
+      for (const entry of snapshot.finEntries) {
+        await db.insert(finEntriesTable).values(entry);
       }
     }
   }
@@ -805,11 +989,34 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       }
     }
 
+    const mergeById = <T extends { id: string }>(cur: T[] = [], inc: T[] = []): T[] => {
+      const map = new Map<string, T>();
+      for (const item of cur) map.set(item.id, { ...item });
+      for (const item of inc) map.set(item.id, { ...item });
+      return Array.from(map.values());
+    };
+
     await this.replaceAll({
       portfolios: Array.from(portfolioMap.values()),
       classTargets: Array.from(targetMap.values()),
       assets: mergedAssets,
       transactions: mergedTxs,
+      finAccounts:
+        incoming.finAccounts || (current.finAccounts?.length ?? 0) > 0
+          ? mergeById(current.finAccounts, incoming.finAccounts)
+          : undefined,
+      finCategories:
+        incoming.finCategories || (current.finCategories?.length ?? 0) > 0
+          ? mergeById(current.finCategories, incoming.finCategories)
+          : undefined,
+      finEntries:
+        incoming.finEntries || (current.finEntries?.length ?? 0) > 0
+          ? mergeById(current.finEntries, incoming.finEntries)
+          : undefined,
+      finRecurrences:
+        incoming.finRecurrences || (current.finRecurrences?.length ?? 0) > 0
+          ? mergeById(current.finRecurrences, incoming.finRecurrences)
+          : undefined,
     });
   }
 }
@@ -877,6 +1084,14 @@ export class BackupService {
     const assetsCsv = serializeToCsv(snapshot.assets, ASSETS_COLUMNS);
     const transactionsCsv = serializeToCsv(snapshot.transactions, TRANSACTIONS_COLUMNS);
     const incomeEvents = snapshot.incomeEvents || (await incomeRepository.listAll());
+    const finAccounts =
+      snapshot.finAccounts ?? (snapshotOverride ? [] : await finRepository.listAccounts(true));
+    const finCategories =
+      snapshot.finCategories ?? (snapshotOverride ? [] : await finRepository.listCategories(true));
+    const finEntries =
+      snapshot.finEntries ?? (snapshotOverride ? [] : await finRepository.listAllEntries());
+    const finRecurrences =
+      snapshot.finRecurrences ?? (snapshotOverride ? [] : await finRepository.listRecurrences());
 
     const manifestFiles: Record<string, ManifestFileEntry> = {
       'portfolios.csv': {
@@ -911,6 +1126,39 @@ export class BackupService {
         sha256: BackupService.computeSha256(incomeEventsCsv),
       };
       files['income_events.csv'] = incomeEventsCsv;
+    }
+
+    if (finAccounts.length > 0) {
+      const csv = serializeToCsv(finAccounts, FIN_ACCOUNTS_COLUMNS);
+      manifestFiles['fin_accounts.csv'] = {
+        rows: finAccounts.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_accounts.csv'] = csv;
+    }
+    if (finCategories.length > 0) {
+      const csv = serializeToCsv(finCategories, FIN_CATEGORIES_COLUMNS);
+      manifestFiles['fin_categories.csv'] = {
+        rows: finCategories.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_categories.csv'] = csv;
+    }
+    if (finEntries.length > 0) {
+      const csv = serializeToCsv(finEntries, FIN_ENTRIES_COLUMNS);
+      manifestFiles['fin_entries.csv'] = {
+        rows: finEntries.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_entries.csv'] = csv;
+    }
+    if (finRecurrences.length > 0) {
+      const csv = serializeToCsv(finRecurrences, FIN_RECURRENCES_COLUMNS);
+      manifestFiles['fin_recurrences.csv'] = {
+        rows: finRecurrences.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_recurrences.csv'] = csv;
     }
 
     const manifest: BackupManifest = {
@@ -1000,6 +1248,31 @@ export class BackupService {
       }
     }
 
+    const optionalCsvs = [
+      'income_events.csv',
+      'fin_accounts.csv',
+      'fin_categories.csv',
+      'fin_entries.csv',
+      'fin_recurrences.csv',
+    ] as const;
+
+    for (const csvName of optionalCsvs) {
+      const fileEntry = manifest.files[csvName];
+      if (!fileEntry) continue;
+      const csvContent = extracted[csvName];
+      if (csvContent === undefined) {
+        throw new Error(
+          `[SECURITY PROTOCOL: CORRUPTED DOSSIER] Missing declared optional file ${csvName} in archive.`
+        );
+      }
+      const actualHash = BackupService.computeSha256(csvContent);
+      if (actualHash.toLowerCase() !== fileEntry.sha256.toLowerCase()) {
+        throw new Error(
+          `[SECURITY PROTOCOL: CORRUPTED DOSSIER] SHA-256 integrity mismatch on ${csvName}. Expected ${fileEntry.sha256}, got ${actualHash}.`
+        );
+      }
+    }
+
     // 4. Parse CSV records
     const parsedSnapshot: BackupDatabaseSnapshot = {
       portfolios: parsePortfoliosFromCsv(extracted['portfolios.csv']),
@@ -1008,6 +1281,18 @@ export class BackupService {
       transactions: parseTransactionsFromCsv(extracted['transactions.csv']),
       incomeEvents: extracted['income_events.csv']
         ? parseIncomeEventsFromCsv(extracted['income_events.csv'])
+        : undefined,
+      finAccounts: extracted['fin_accounts.csv']
+        ? parseFinAccountsFromCsv(extracted['fin_accounts.csv'])
+        : undefined,
+      finCategories: extracted['fin_categories.csv']
+        ? parseFinCategoriesFromCsv(extracted['fin_categories.csv'])
+        : undefined,
+      finEntries: extracted['fin_entries.csv']
+        ? parseFinEntriesFromCsv(extracted['fin_entries.csv'])
+        : undefined,
+      finRecurrences: extracted['fin_recurrences.csv']
+        ? parseFinRecurrencesFromCsv(extracted['fin_recurrences.csv'])
         : undefined,
     };
 

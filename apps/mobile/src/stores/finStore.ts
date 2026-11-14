@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { onDatabaseReset } from '../db/client';
-import type { FinEntryStatus, FinKind } from '../domain/financeFlow';
+import { addMonthsYearMonth, getTodayIsoLocal, type FinEntryStatus, type FinKind } from '../domain/financeFlow';
 
 export interface FinFilters {
   kind: 'all' | FinKind;
@@ -22,7 +22,7 @@ const DEFAULT_FILTERS: FinFilters = {
 };
 
 function currentYearMonth(): string {
-  return new Date().toISOString().slice(0, 7);
+  return getTodayIsoLocal().slice(0, 7);
 }
 
 let state: FinStoreState = {
@@ -42,11 +42,11 @@ export const finStore = {
     emit();
   },
   prevMonth(): void {
-    // stub
+    state = { ...state, selectedMonth: addMonthsYearMonth(state.selectedMonth, -1) };
     emit();
   },
   nextMonth(): void {
-    // stub
+    state = { ...state, selectedMonth: addMonthsYearMonth(state.selectedMonth, 1) };
     emit();
   },
   setFilters(patch: Partial<FinFilters>): void {

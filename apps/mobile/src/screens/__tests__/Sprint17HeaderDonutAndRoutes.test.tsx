@@ -290,14 +290,12 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
     it('deve exibir aviso "Funcionalidade em desenvolvimento" ao clicar no Globo, Bento Mais e 3º ícone da Navbar', async () => {
       await render(<App />);
 
-      // 1. Clicar no botão de Globo do Header
+      // 1. Clicar no botão de Globo do Header abre o módulo Finanças
       const globeBtn = screen.getByTestId('header-globe-button');
       fireEvent.press(globeBtn);
 
-      const hasGlobeNotice = alertSpy.mock.calls.some((args) =>
-        args.some((a: any) => typeof a === 'string' && /desenvolvimento/i.test(a))
-      ) || screen.queryByText(/desenvolvimento/i) !== null;
-      expect(hasGlobeNotice).toBe(true);
+      expect(screen.getByTestId('finance-home-screen')).toBeTruthy();
+      fireEvent.press(screen.getByTestId('header-back-button'));
       alertSpy.mockClear();
 
       // 2. O botão Bento "Mais" foi removido da Home

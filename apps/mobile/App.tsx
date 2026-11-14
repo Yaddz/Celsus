@@ -56,6 +56,7 @@ import {
 import { B3ImportScreen } from './src/screens/B3ImportScreen';
 import { B3ImportSheet } from './src/components/B3ImportSheet';
 import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
+import { FinanceHomeScreen } from './src/screens/finance';
 import {
   redactCurrencyValue,
   redactPercentageValue,
@@ -236,6 +237,7 @@ function AppContent(props: {
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
+  const [isFinanceOpen, setIsFinanceOpen] = useState(false);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
@@ -732,6 +734,7 @@ function AppContent(props: {
     isSettingsOpen: isSettingsBackupModalOpen,
     isB3ImportOpen,
     isIncomeHistoryOpen,
+    isFinanceOpen,
     isTransactionDetailOpen: selectedRecentTransaction !== null,
     isAllTransactionsOpen: isAllTransactionsModalOpen,
     isClassDetailOpen: selectedClassDetail !== null,
@@ -752,6 +755,9 @@ function AppContent(props: {
           return true;
         case 'close-income-history':
           setIsIncomeHistoryOpen(false);
+          return true;
+        case 'close-finance':
+          setIsFinanceOpen(false);
           return true;
         case 'close-transaction-modal':
           setIsTransactionModalOpen(false);
@@ -812,7 +818,8 @@ function AppContent(props: {
   const activePortfolioIdRef = React.useRef<string | null>(null);
   activePortfolioIdRef.current = activePortfolioId;
   const homeOpenSettings = useCallback(() => setIsSettingsBackupModalOpen(true), []);
-  const homeGlobePress = useCallback(() => Alert.alert('Funcionalidade em desenvolvimento'), []);
+  const homeGlobePress = useCallback(() => setIsFinanceOpen(true), []);
+  const homeMaisPress = useCallback(() => Alert.alert('Funcionalidade em desenvolvimento'), []);
   const homeTogglePrivacy = useCallback(() => {
     const next = privacyAndAuthService.togglePrivacyMode();
     setIsPrivacyMode(next.isPrivacyModeEnabled);
@@ -1099,6 +1106,31 @@ function AppContent(props: {
           themeMode={themeMode}
         />
         {renderB3ImportModal()}
+      </SafeAreaView>
+    );
+  }
+
+  // 3d. Tela: Módulo Finanças (pessoal)
+  if (isFinanceOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right', 'bottom']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        <FinanceHomeScreen
+          onBack={() => setIsFinanceOpen(false)}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={homeTogglePrivacy}
+          themeMode={themeMode}
+        />
       </SafeAreaView>
     );
   }
@@ -1781,7 +1813,7 @@ function AppContent(props: {
             showMais={false}
             onAportar={openTransactionModal}
             onRebalancear={homeOpenSimulator}
-            onMais={homeGlobePress}
+            onMais={homeMaisPress}
             onNovoAportePress={openTransactionModal}
             onNovaCarteiraPress={homeOpenCreatePortfolio}
             themeMode={themeMode}
