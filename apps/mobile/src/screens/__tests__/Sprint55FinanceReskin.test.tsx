@@ -231,7 +231,7 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
     });
   });
 
-  describe('S55-T04: FinanceHomeScreen — Bento tiles, matriz de pontos (top 5) e FAB 56px nos 2 temas', () => {
+  describe('S55-T04: FinanceHomeScreen — Bento tiles, matriz de pontos (top 3) e FAB 56px nos 2 temas', () => {
     async function seedHomeCategoriesData() {
       await finService.initializeFinanceModule('2026-11-13');
       const acc = await finRepository.createAccount({
@@ -286,7 +286,7 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
       return createdCatIds;
     }
 
-    it('renderiza tiles Bento, top 5 categorias em matriz de pontos, FAB 56px e funciona nos temas escuro e claro', async () => {
+    it('renderiza tiles Bento, top 3 categorias em matriz de pontos, FAB 56px e funciona nos temas escuro e claro', async () => {
       const catIds = await seedHomeCategoriesData();
 
       const dark = await render(
@@ -319,19 +319,15 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
       expect(screen.getByTestId('finance-upcoming-7d')).toBeTruthy();
       expect(screen.getByTestId('finance-overdue-tile')).toBeTruthy();
 
-      // Matriz de pontos com as 5 principais categorias e percentuais exatos (6ª fica de fora)
-      for (let i = 0; i < 5; i++) {
+      // Matriz de pontos com as 3 principais categorias e percentuais exatos (4ª fica de fora)
+      for (let i = 0; i < 3; i++) {
         expect(screen.getByTestId(`finance-category-dot-row-${catIds[i]}`)).toBeTruthy();
       }
-      expect(screen.queryByTestId(`finance-category-dot-row-${catIds[5]}`)).toBeNull();
+      expect(screen.queryByTestId(`finance-category-dot-row-${catIds[3]}`)).toBeNull();
       expect(screen.getByTestId(`finance-category-pct-${catIds[0]}`)).toHaveTextContent('50%');
       expect(screen.getByTestId(`finance-category-pct-${catIds[1]}`)).toHaveTextContent('20%');
 
-      expect(screen.getByTestId('finance-shortcut-subscriptions')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-recurrences')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-accounts')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-categories')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-entries')).toBeTruthy();
+      expect(screen.getByTestId('finance-dock')).toBeTruthy();
 
       expectFabStyle('finance-add-entry-btn');
       await dark.unmount();

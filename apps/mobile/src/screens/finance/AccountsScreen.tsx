@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: layout.tabScreenPaddingX,
     paddingTop: 8,
-    paddingBottom: 110,
+    paddingBottom: 170,
     gap: 14,
   },
   totalValue: {

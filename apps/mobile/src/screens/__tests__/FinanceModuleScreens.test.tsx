@@ -83,7 +83,7 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
   });
 
   describe('FinanceHomeScreen (Resumo e Estado Vazio)', () => {
-    it('renderiza estado vazio quando não há lançamentos e exibe atalhos do módulo', async () => {
+    it('renderiza estado vazio quando não há lançamentos e exibe a navbar do módulo', async () => {
       await render(
         <FinanceHomeScreen
           onBack={jest.fn()}
@@ -95,11 +95,9 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
         expect(screen.getByTestId('finance-empty-state')).toBeTruthy();
       });
 
-      expect(screen.getByTestId('finance-shortcut-entries')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-subscriptions')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-recurrences')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-accounts')).toBeTruthy();
-      expect(screen.getByTestId('finance-shortcut-categories')).toBeTruthy();
+      for (const id of ['home', 'entries', 'accounts', 'more']) {
+        expect(screen.getByTestId(`finance-dock-tab-${id}`)).toBeTruthy();
+      }
       expect(screen.getByTestId('finance-add-entry-btn')).toBeTruthy();
     });
 

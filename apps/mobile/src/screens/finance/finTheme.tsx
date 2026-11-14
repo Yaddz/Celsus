@@ -236,7 +236,7 @@ export const sharedStyles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: layout.tabScreenPaddingX,
     paddingTop: layout.tabScreenPaddingTop,
-    paddingBottom: 96,
+    paddingBottom: 170,
     gap: bento.gap,
   },
   stateContainer: {
@@ -346,7 +346,7 @@ export const sharedStyles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     right: 20,
-    bottom: 24,
+    bottom: 96,
     width: 56,
     height: 56,
     borderRadius: 28,

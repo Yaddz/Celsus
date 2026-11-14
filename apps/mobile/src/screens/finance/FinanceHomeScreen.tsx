@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, XpMinimalHeader } from '../../components/ui';
 import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
@@ -24,6 +24,8 @@ import { EntriesListScreen } from './EntriesListScreen';
 import { EntryFormSheet } from './EntryFormSheet';
 import { RecurrencesScreen } from './RecurrencesScreen';
 import { SubscriptionsScreen } from './SubscriptionsScreen';
+import { FinanceDock, type FinanceTab } from './FinanceDock';
+import { FinanceMoreScreen } from './FinanceMoreScreen';
 import {
   FinEmptyState,
   FinErrorView,
@@ -41,7 +43,8 @@ export type FinanceRoute =
   | 'recurrences'
   | 'subscriptions'
   | 'accounts'
-  | 'categories';
+  | 'categories'
+  | 'more';
 
 export interface FinanceHomeScreenProps {
   onBack: () => void;
@@ -54,6 +57,28 @@ export interface FinanceHomeScreenProps {
 }
 
 const DOT_MATRIX_COUNT = 22;
+
+/** Aba da navbar que representa cada rota (rotas de "Mais" acendem a aba Mais). */
+const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
+  home: 'home',
+  entries: 'entries',
+  accounts: 'accounts',
+  more: 'more',
+  subscriptions: 'more',
+  recurrences: 'more',
+  categories: 'more',
+};
+
+/** Para onde o voltar leva a partir de cada rota (home = sair do módulo). */
+const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
+  home: null,
+  entries: 'home',
+  accounts: 'home',
+  more: 'home',
+  subscriptions: 'more',
+  recurrences: 'more',
+  categories: 'more',
+};
 
 export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onBack,
@@ -122,6 +147,18 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     setActiveRoute(route);
   };
 
+  // Voltar do Android: sobe um nível dentro do módulo; só do Resumo o App fecha as Finanças.
+  // Registrado depois do handler do App, então roda primeiro.
+  useEffect(() => {
+    const parent = PARENT_OF_ROUTE[activeRoute];
+    if (!parent) return undefined;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setActiveRoute(parent);
+      return true;
+    });
+    return () => sub.remove();
+  }, [activeRoute]);
+
   const handleStepMonth = (delta: number) => {
     const next = addMonthsYearMonth(effectiveMonth, delta);
     setLocalMonth(next);
@@ -168,7 +205,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
   const topCategories = useMemo(
     () =>
-      monthlySummary.expenseByCategory.slice(0, 5).map((item) => {
+      monthlySummary.expenseByCategory.slice(0, 3).map((item) => {
         const cat = categoryById.get(item.categoryId);
         const visual = resolveCategoryVisual(cat);
         const roundedPct = Math.round(item.percentage);
@@ -194,371 +231,299 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     [recurrences]
   );
 
-  if (activeRoute === 'entries') {
-    return (
-      <EntriesListScreen
-        onBack={() => setActiveRoute('home')}
-        isPrivacyMode={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-        referenceDateIso={effectiveToday}
-      />
-    );
-  }
-  if (activeRoute === 'subscriptions') {
-    return (
-      <SubscriptionsScreen
-        onBack={() => setActiveRoute('home')}
-        isPrivacyMode={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-      />
-    );
-  }
-  if (activeRoute === 'recurrences') {
-    return (
-      <RecurrencesScreen
-        onBack={() => setActiveRoute('home')}
-        isPrivacyMode={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-      />
-    );
-  }
-  if (activeRoute === 'accounts') {
-    return (
-      <AccountsScreen
-        onBack={() => setActiveRoute('home')}
-        isPrivacyMode={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-      />
-    );
-  }
-  if (activeRoute === 'categories') {
-    return (
-      <CategoriesScreen
-        onBack={() => setActiveRoute('home')}
-        isPrivacyMode={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-      />
-    );
-  }
+  const renderBody = (): React.ReactElement => {
+    if (activeRoute === 'entries') {
+      return (
+        <EntriesListScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+          referenceDateIso={effectiveToday}
+        />
+      );
+    }
+    if (activeRoute === 'more') {
+      return (
+        <FinanceMoreScreen
+          onBack={() => setActiveRoute('home')}
+          onOpen={(route) => navigateTo(route)}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'subscriptions') {
+      return (
+        <SubscriptionsScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'recurrences') {
+      return (
+        <RecurrencesScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'accounts') {
+      return (
+        <AccountsScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'categories') {
+      return (
+        <CategoriesScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
 
-  return (
-    <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
-      <XpMinimalHeader
-        title="Finanças"
-        subtitle="Controle pessoal"
-        isGlobeActive={true}
-        onBack={onBack}
-        isPrivacyModeEnabled={isPrivacyMode}
-        onTogglePrivacy={onTogglePrivacy}
-        themeMode={themeMode}
-      />
+    return (
+      <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
+        <XpMinimalHeader
+          title="Finanças"
+          subtitle="Controle pessoal"
+          isGlobeActive={true}
+          onBack={onBack}
+          isPrivacyModeEnabled={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
 
-      <ScrollView
-        testID="finance-home-scroll"
-        contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}
-      >
-        {/* Seletor de mês */}
-        <View
-          testID="finance-home-month-rail"
-          style={[styles.monthRail, { backgroundColor: isLight ? '#F1ECE2' : '#141618' }]}
+        <ScrollView
+          testID="finance-home-scroll"
+          contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}
         >
-          <TouchableOpacity
-            testID="finance-home-month-prev"
-            accessibilityRole="button"
-            accessibilityLabel="Mês anterior"
-            onPress={() => handleStepMonth(-1)}
-            style={styles.monthArrowBtn}
+          {/* Seletor de mês */}
+          <View
+            testID="finance-home-month-rail"
+            style={[styles.monthRail, { backgroundColor: isLight ? '#F1ECE2' : '#141618' }]}
           >
-            <MaterialIcons name="chevron-left" size={20} color={c.muted} />
-          </TouchableOpacity>
-          <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
-            {formatYearMonthPtBr(effectiveMonth)}
-          </Text>
-          <TouchableOpacity
-            testID="finance-home-month-next"
-            accessibilityRole="button"
-            accessibilityLabel="Próximo mês"
-            onPress={() => handleStepMonth(1)}
-            style={styles.monthArrowBtn}
-          >
-            <MaterialIcons name="chevron-right" size={20} color={c.muted} />
-          </TouchableOpacity>
-        </View>
+            <TouchableOpacity
+              testID="finance-home-month-prev"
+              accessibilityRole="button"
+              accessibilityLabel="Mês anterior"
+              onPress={() => handleStepMonth(-1)}
+              style={styles.monthArrowBtn}
+            >
+              <MaterialIcons name="chevron-left" size={20} color={c.muted} />
+            </TouchableOpacity>
+            <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
+              {formatYearMonthPtBr(effectiveMonth)}
+            </Text>
+            <TouchableOpacity
+              testID="finance-home-month-next"
+              accessibilityRole="button"
+              accessibilityLabel="Próximo mês"
+              onPress={() => handleStepMonth(1)}
+              style={styles.monthArrowBtn}
+            >
+              <MaterialIcons name="chevron-right" size={20} color={c.muted} />
+            </TouchableOpacity>
+          </View>
 
-        {loading ? (
-          <FinLoadingView themeMode={themeMode} />
-        ) : error ? (
-          <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-        ) : entries.length === 0 ? (
-          <FinEmptyState
-            testID="finance-empty-state"
-            icon="account-balance"
-            title="Nenhum lançamento registrado"
-            subtitle="Cadastre contas, receitas, despesas, assinaturas ou compras parceladas para ver o resumo do mês."
-            themeMode={themeMode}
-          />
-        ) : (
-          <BentoGrid>
-            {/* Saldo do mês */}
-            <BentoTile variant="primary" title="SALDO DO MÊS">
-              <Text testID="finance-month-balance" style={styles.heroValue}>
-                {formatCentsBRL(monthlySummary.balanceCents, isPrivacyMode)}
-              </Text>
-              <Text testID="finance-month-comparison" style={styles.heroSub}>
-                {isPrivacyMode
-                  ? 'R$ •••••• em relação a ' + prevMonthName
-                  : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
-              </Text>
-            </BentoTile>
-
-            {/* Receitas x Despesas */}
-            <BentoRow>
-              <BentoTile variant={tileVariant} title="RECEITAS">
-                <Text
-                  testID="finance-month-income"
-                  style={[styles.pairValue, { color: c.income }]}
-                  numberOfLines={1}
-                >
-                  {formatSignedCentsBRL(monthlySummary.totalIncomeCents, 'income', isPrivacyMode)}
+          {loading ? (
+            <FinLoadingView themeMode={themeMode} />
+          ) : error ? (
+            <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+          ) : entries.length === 0 ? (
+            <FinEmptyState
+              testID="finance-empty-state"
+              icon="account-balance"
+              title="Nenhum lançamento registrado"
+              subtitle="Cadastre contas, receitas, despesas, assinaturas ou compras parceladas para ver o resumo do mês."
+              themeMode={themeMode}
+            />
+          ) : (
+            <BentoGrid>
+              {/* Saldo do mês */}
+              <BentoTile variant="primary" title="SALDO DO MÊS">
+                <Text testID="finance-month-balance" style={styles.heroValue}>
+                  {formatCentsBRL(monthlySummary.balanceCents, isPrivacyMode)}
                 </Text>
-                <Text style={[styles.pairCaption, { color: c.muted }]}>
-                  {pendingIncomeCount} a receber
+                <Text testID="finance-month-comparison" style={styles.heroSub}>
+                  {isPrivacyMode
+                    ? 'R$ •••••• em relação a ' + prevMonthName
+                    : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
                 </Text>
               </BentoTile>
-              <BentoTile variant={tileVariant} title="DESPESAS">
-                <Text
-                  testID="finance-month-expense"
-                  style={[styles.pairValue, { color: c.expense }]}
-                  numberOfLines={1}
-                >
-                  {formatSignedCentsBRL(monthlySummary.totalExpenseCents, 'expense', isPrivacyMode)}
-                </Text>
-                <Text style={[styles.pairCaption, { color: c.muted }]}>
-                  {pendingExpenseCount} pendentes
-                </Text>
-              </BentoTile>
-            </BentoRow>
 
-            {/* A vencer 7 dias e Atrasadas */}
-            <BentoRow>
-              <BentoTile
-                variant="gold"
-                testID="finance-upcoming-tile"
-                accessibilityLabel="A vencer em 7 dias"
-                onPress={() => openEntriesWith({ status: 'pending' })}
-              >
-                <View style={styles.overdueHeader}>
-                  <Text style={[styles.overdueTitle, { color: bento.variants.gold.muted }]}>
-                    A VENCER · 7 DIAS
+              {/* Receitas x Despesas */}
+              <BentoRow>
+                <BentoTile variant={tileVariant} title="RECEITAS">
+                  <Text
+                    testID="finance-month-income"
+                    style={[styles.pairValue, { color: c.income }]}
+                    numberOfLines={1}
+                  >
+                    {formatSignedCentsBRL(monthlySummary.totalIncomeCents, 'income', isPrivacyMode)}
                   </Text>
-                  <MaterialIcons name="schedule" size={14} color={bento.variants.gold.muted} />
-                </View>
-                <Text
-                  testID="finance-upcoming-7d"
-                  style={[styles.pairValue, { color: bento.variants.gold.foreground }]}
-                >
-                  {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
-                </Text>
-                <Text style={[styles.pairCaption, { color: bento.variants.gold.muted }]}>
-                  {dueAlerts.dueSoon.length} {dueAlerts.dueSoon.length === 1 ? 'conta' : 'contas'}
-                </Text>
-              </BentoTile>
+                  <Text style={[styles.pairCaption, { color: c.muted }]}>
+                    {pendingIncomeCount} a receber
+                  </Text>
+                </BentoTile>
+                <BentoTile variant={tileVariant} title="DESPESAS">
+                  <Text
+                    testID="finance-month-expense"
+                    style={[styles.pairValue, { color: c.expense }]}
+                    numberOfLines={1}
+                  >
+                    {formatSignedCentsBRL(monthlySummary.totalExpenseCents, 'expense', isPrivacyMode)}
+                  </Text>
+                  <Text style={[styles.pairCaption, { color: c.muted }]}>
+                    {pendingExpenseCount} pendentes
+                  </Text>
+                </BentoTile>
+              </BentoRow>
 
-              <BentoTile
-                variant={tileVariant}
-                testID="finance-overdue-tile"
-                onPress={() => openEntriesWith({ status: 'pending' })}
-              >
-                <View style={styles.overdueHeader}>
-                  <Text style={[styles.overdueTitle, { color: c.muted }]}>ATRASADAS</Text>
-                  <MaterialIcons name="warning" size={14} color={c.overdue} />
-                </View>
-                <Text style={[styles.pairValue, { color: c.overdue }]}>
-                  {formatCentsBRL(dueAlerts.overduePayableCents, isPrivacyMode)}
-                </Text>
-                <Text style={[styles.pairCaption, { color: c.muted }]}>
-                  {dueAlerts.overdue.length} {dueAlerts.overdue.length === 1 ? 'conta' : 'contas'} · ver
-                </Text>
-              </BentoTile>
-            </BentoRow>
+              {/* Atenção: a vencer (7 dias) e atrasadas num único card */}
+            <BentoTile
+              variant={tileVariant}
+              testID="finance-attention-tile"
+              title="ATENÇÃO"
+            >
+              <View style={styles.attentionRow}>
+                <TouchableOpacity
+                  testID="finance-upcoming-7d-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel="A vencer em 7 dias"
+                  activeOpacity={0.7}
+                  onPress={() => openEntriesWith({ status: 'pending' })}
+                  style={styles.attentionCell}
+                >
+                  <Text style={[styles.attentionLabel, { color: c.muted }]}>A VENCER · 7 DIAS</Text>
+                  <Text
+                    testID="finance-upcoming-7d"
+                    style={[styles.pairValue, { color: c.text }]}
+                    numberOfLines={1}
+                  >
+                    {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
+                  </Text>
+                  <Text style={[styles.pairCaption, { color: c.muted }]}>
+                    {dueAlerts.dueSoon.length} {dueAlerts.dueSoon.length === 1 ? 'conta' : 'contas'}
+                  </Text>
+                </TouchableOpacity>
+                <View style={[styles.attentionDivider, { backgroundColor: isLight ? '#ECE6DA' : '#2A2D30' }]} />
+                <TouchableOpacity
+                  testID="finance-overdue-tile"
+                  accessibilityRole="button"
+                  accessibilityLabel="Atrasadas"
+                  activeOpacity={0.7}
+                  onPress={() => openEntriesWith({ status: 'pending' })}
+                  style={styles.attentionCell}
+                >
+                  <Text style={[styles.attentionLabel, { color: c.overdue }]}>ATRASADAS</Text>
+                  <Text style={[styles.pairValue, { color: c.overdue }]} numberOfLines={1}>
+                    {formatCentsBRL(dueAlerts.overduePayableCents, isPrivacyMode)}
+                  </Text>
+                  <Text style={[styles.pairCaption, { color: c.muted }]}>
+                    {dueAlerts.overdue.length} {dueAlerts.overdue.length === 1 ? 'conta' : 'contas'} · ver
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </BentoTile>
 
             {/* Gasto por categoria — Matriz de pontos (top 5) */}
-            {topCategories.length > 0 ? (
-              <BentoTile
-                variant={tileVariant}
-                testID="finance-category-chart"
-                title="GASTO POR CATEGORIA"
-                action="Ver tudo"
-                onActionPress={() => openEntriesWith({ kind: 'expense' })}
-              >
-                <View style={styles.dotList}>
-                  {topCategories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.categoryId}
-                      testID={`finance-category-dot-row-${cat.categoryId}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${cat.name}, ${cat.percentage}% dos gastos. Ver lançamentos`}
-                      activeOpacity={0.7}
-                      hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
-                      onPress={() =>
-                        openEntriesWith({ kind: 'expense', categoryId: cat.categoryId })
-                      }
-                      style={styles.dotRow}
-                    >
-                      <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
-                        {cat.name}
-                      </Text>
-                      <View style={styles.dotsTrack}>
-                        {Array.from({ length: DOT_MATRIX_COUNT }).map((_, idx) => (
-                          <View
-                            key={idx}
-                            style={[
-                              styles.dot,
-                              {
-                                backgroundColor:
-                                  idx < cat.filledDots
-                                    ? cat.color
-                                    : isLight
-                                    ? '#ECE6DA'
-                                    : '#2A2D30',
-                              },
-                            ]}
-                          />
-                        ))}
-                      </View>
-                      <Text
-                        testID={`finance-category-pct-${cat.categoryId}`}
-                        style={[styles.dotPct, { color: c.text }]}
+              {topCategories.length > 0 ? (
+                <BentoTile
+                  variant={tileVariant}
+                  testID="finance-category-chart"
+                  title="GASTO POR CATEGORIA"
+                  action="Ver tudo"
+                  onActionPress={() => openEntriesWith({ kind: 'expense' })}
+                >
+                  <View style={styles.dotList}>
+                    {topCategories.map((cat) => (
+                      <TouchableOpacity
+                        key={cat.categoryId}
+                        testID={`finance-category-dot-row-${cat.categoryId}`}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${cat.name}, ${cat.percentage}% dos gastos. Ver lançamentos`}
+                        activeOpacity={0.7}
+                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+                        onPress={() =>
+                          openEntriesWith({ kind: 'expense', categoryId: cat.categoryId })
+                        }
+                        style={styles.dotRow}
                       >
-                        {cat.percentage}%
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </BentoTile>
-            ) : null}
-          </BentoGrid>
-        )}
+                        <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
+                          {cat.name}
+                        </Text>
+                        <View style={styles.dotsTrack}>
+                          {Array.from({ length: DOT_MATRIX_COUNT }).map((_, idx) => (
+                            <View
+                              key={idx}
+                              style={[
+                                styles.dot,
+                                {
+                                  backgroundColor:
+                                    idx < cat.filledDots
+                                      ? cat.color
+                                      : isLight
+                                      ? '#ECE6DA'
+                                      : '#2A2D30',
+                                },
+                              ]}
+                            />
+                          ))}
+                        </View>
+                        <Text
+                          testID={`finance-category-pct-${cat.categoryId}`}
+                          style={[styles.dotPct, { color: c.text }]}
+                        >
+                          {cat.percentage}%
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </BentoTile>
+              ) : null}
+            </BentoGrid>
+          )}
 
-        {/* Atalhos 2x2 */}
-        <BentoGrid>
-          <BentoRow>
-            <BentoTile
-              variant="forest"
-              height={64}
-              testID="finance-shortcut-subscriptions"
-              onPress={() => navigateTo('subscriptions')}
-              style={styles.shortcutTile}
-            >
-              <View style={styles.shortcutContent}>
-                <MaterialIcons name="autorenew" size={22} color="#E6DECA" />
-                <View style={styles.shortcutTexts}>
-                  <Text style={[styles.shortcutTitle, { color: '#E6DECA' }]}>Assinaturas</Text>
-                  <Text style={[styles.shortcutSub, { color: bento.variants.forest.muted }]}>
-                    {isPrivacyMode
-                      ? 'R$ ••••••/mês'
-                      : `${formatCentsBRL(subsSummary.monthlyTotalCents, false)}/mês`}
-                  </Text>
-                </View>
-              </View>
-            </BentoTile>
+        </ScrollView>
 
-            <BentoTile
-              variant={tileVariant}
-              height={64}
-              testID="finance-shortcut-recurrences"
-              onPress={() => navigateTo('recurrences')}
-              style={styles.shortcutTile}
-            >
-              <View style={styles.shortcutContent}>
-                <MaterialIcons name="event-repeat" size={22} color={c.primary} />
-                <View style={styles.shortcutTexts}>
-                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Recorrências</Text>
-                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
-                    {activeRecurrencesCount} ativas
-                  </Text>
-                </View>
-              </View>
-            </BentoTile>
-          </BentoRow>
+        <FinFloatingAddButton
+          testID="finance-add-entry-btn"
+          accessibilityLabel="Novo lançamento"
+          onPress={() => setIsAddEntryOpen(true)}
+        />
 
-          <BentoRow>
-            <BentoTile
-              variant={tileVariant}
-              height={64}
-              testID="finance-shortcut-accounts"
-              onPress={() => navigateTo('accounts')}
-              style={styles.shortcutTile}
-            >
-              <View style={styles.shortcutContent}>
-                <MaterialIcons name="account-balance-wallet" size={22} color={c.primary} />
-                <View style={styles.shortcutTexts}>
-                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Contas</Text>
-                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
-                    {accounts.length} ativas
-                  </Text>
-                </View>
-              </View>
-            </BentoTile>
+        <EntryFormSheet
+          visible={isAddEntryOpen}
+          onClose={() => setIsAddEntryOpen(false)}
+          onSaved={() => void loadData()}
+          defaultDueDate={effectiveToday}
+          themeMode={themeMode}
+        />
+      </View>
+    );
 
-            <BentoTile
-              variant={tileVariant}
-              height={64}
-              testID="finance-shortcut-categories"
-              onPress={() => navigateTo('categories')}
-              style={styles.shortcutTile}
-            >
-              <View style={styles.shortcutContent}>
-                <MaterialIcons name="category" size={22} color={c.primary} />
-                <View style={styles.shortcutTexts}>
-                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Categorias</Text>
-                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
-                    {categories.length} criadas
-                  </Text>
-                </View>
-              </View>
-            </BentoTile>
-          </BentoRow>
+  };
 
-          <BentoTile
-            variant={tileVariant}
-            height={60}
-            testID="finance-shortcut-entries"
-            onPress={() => navigateTo('entries')}
-            style={styles.shortcutTile}
-          >
-            <View style={styles.entriesShortcutRow}>
-              <View style={styles.shortcutContent}>
-                <MaterialIcons name="receipt-long" size={22} color={c.primary} />
-                <View style={styles.shortcutTexts}>
-                  <Text style={[styles.shortcutTitle, { color: c.text }]}>Lançamentos</Text>
-                  <Text style={[styles.shortcutSub, { color: c.muted }]}>
-                    {monthEntries.length} neste mês
-                  </Text>
-                </View>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color={c.muted} />
-            </View>
-          </BentoTile>
-        </BentoGrid>
-      </ScrollView>
-
-      <FinFloatingAddButton
-        testID="finance-add-entry-btn"
-        accessibilityLabel="Novo lançamento"
-        onPress={() => setIsAddEntryOpen(true)}
-      />
-
-      <EntryFormSheet
-        visible={isAddEntryOpen}
-        onClose={() => setIsAddEntryOpen(false)}
-        onSaved={() => void loadData()}
-        defaultDueDate={effectiveToday}
+  return (
+    <View style={styles.shell}>
+      {renderBody()}
+      <FinanceDock
+        activeTab={TAB_OF_ROUTE[activeRoute]}
+        onTabChange={(tab) => navigateTo(tab)}
         themeMode={themeMode}
       />
     </View>
@@ -566,6 +531,27 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  attentionRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  attentionCell: {
+    flex: 1,
+    paddingVertical: 2,
+  },
+  attentionDivider: {
+    width: 1,
+    marginHorizontal: 14,
+  },
+  attentionLabel: {
+    fontFamily: typography.fontFamily,
+    fontSize: 10,
+    letterSpacing: 1.0,
+    marginBottom: 6,
+  },
+  shell: {
+    flex: 1,
+  },
   monthRail: {
     flexDirection: 'row',
     alignItems: 'center',

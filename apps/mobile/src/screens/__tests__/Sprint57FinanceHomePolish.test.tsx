@@ -110,7 +110,7 @@ describe('Sprint 57 — Resumo do módulo Finanças: alinhamento e gasto por cat
   describe('S57-T02: Tiles "A vencer" e "Atrasadas" alinhados e navegáveis', () => {
     it('os dois tiles da linha usam o mesmo tipo de contêiner (botão) para ter larguras iguais', async () => {
       await openHome();
-      const upcoming = screen.getByTestId('finance-upcoming-tile');
+      const upcoming = screen.getByTestId('finance-upcoming-7d-btn');
       const overdue = screen.getByTestId('finance-overdue-tile');
       expect(upcoming.props.accessibilityRole).toBe('button');
       expect(overdue.props.accessibilityRole).toBe('button');
@@ -119,7 +119,7 @@ describe('Sprint 57 — Resumo do módulo Finanças: alinhamento e gasto por cat
     it('tocar em "A vencer" abre Lançamentos com pendentes', async () => {
       await openHome();
 
-      fireEvent.press(screen.getByTestId('finance-upcoming-tile'));
+      fireEvent.press(screen.getByTestId('finance-upcoming-7d-btn'));
 
       await waitFor(() => expect(screen.getByTestId('entries-list-screen')).toBeTruthy());
       expect(finStore.getState().filters.status).toBe('pending');

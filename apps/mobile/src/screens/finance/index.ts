@@ -5,3 +5,5 @@ export * from './RecurrencesScreen';
 export * from './SubscriptionsScreen';
 export * from './AccountsScreen';
 export * from './CategoriesScreen';
+export * from './FinanceDock';
+export * from './FinanceMoreScreen';

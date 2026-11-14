@@ -120,4 +120,11 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
 ## Sprint 57 — Resumo Finanças: alinhamento e gasto por categoria navegável
 - Fase A: `Sprint57FinanceHomePolish.test.tsx` (7 testes, travado).
 - Fase B: linhas de categoria e "Ver tudo" abrem Lançamentos filtrados; "A vencer" e "Atrasadas" agora usam o mesmo contêiner (largura igual, cabeçalho de mesma altura); espaço inferior da rolagem 130.
-- Resultado: 109 suites / 729 testes passando; `test-lock verify` OK (125 arquivos).
+- Resultado: 110 suites / 739 testes passando; `test-lock verify` OK (125 arquivos).
+
+
+## Sprint 58 — Navbar de Finanças, Home enxuta e voltar correto
+- Fase A: `Sprint58FinanceNavbar.test.tsx` (10 testes, travado).
+- Fase B: `FinanceDock` (Resumo/Lançamentos/Contas/Mais), tela `FinanceMoreScreen` (Assinaturas, Recorrências, Categorias), voltar do Android sobe um nível dentro do módulo (só o Resumo sai para o App), Home sem atalhos 2x2, card único "Atenção" e top 3 categorias.
+- Testes das sprints 54, 55 e 57 atualizados com autorização do usuário (atalhos → navbar, top 5 → top 3, tile A vencer).
+- Resultado: 110 suites / 739 testes passando.
