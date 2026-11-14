@@ -3,10 +3,10 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
-  SegmentedControl,
   TextField,
   XpMinimalHeader,
 } from '../../components/ui';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinCategory } from '../../db/schema';
 import type { FinKind } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';

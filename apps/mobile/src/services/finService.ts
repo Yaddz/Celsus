@@ -1,20 +1,56 @@
 import type { FinEntry, FinRecurrence } from '../db/schema';
-import type { FinKind, InstallmentScope } from '../domain/financeFlow';
+import {
+  addMonthsYearMonth,
+  getMonthDateRange,
+  getTodayIsoLocal,
+  type FinKind,
+  type InstallmentScope,
+} from '../domain/financeFlow';
+import { finRepository } from '../repositories/finRepository';
 
 export class FinService {
-  async initializeFinanceModule(_referenceDateIso?: string): Promise<void> {
-    return;
+  async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
+    await finRepository.seedDefaultCategoriesIfNeeded();
+    const refIso = referenceDateIso ?? getTodayIsoLocal();
+    const refMonth = refIso.slice(0, 7);
+    const startMonth = addMonthsYearMonth(refMonth, -1);
+    const endMonth = addMonthsYearMonth(refMonth, 2);
+    const windowStart = getMonthDateRange(startMonth).start;
+    const windowEnd = getMonthDateRange(endMonth).end;
+    await this.generateRecurrenceWindow(windowStart, windowEnd);
   }
 
   async markEntryAsPaid(
-    _entryId: string,
-    _options?: { paidDate?: string; paidAmountCents?: number }
+    entryId: string,
+    options?: { paidDate?: string; paidAmountCents?: number }
   ): Promise<FinEntry> {
-    throw new Error('Not implemented: markEntryAsPaid');
+    const entry = await finRepository.getEntryById(entryId);
+    if (!entry) {
+      throw new Error(`Lançamento não encontrado: ${entryId}`);
+    }
+    const paidDate = options?.paidDate ?? getTodayIsoLocal();
+    const paidAmountCents =
+      options?.paidAmountCents !== undefined
+        ? Math.round(options.paidAmountCents)
+        : entry.amount_cents;
+
+    return finRepository.updateEntry(entryId, {
+      status: 'paid',
+      paid_date: paidDate,
+      paid_amount_cents: paidAmountCents,
+    });
   }
 
-  async markEntryAsPending(_entryId: string): Promise<FinEntry> {
-    throw new Error('Not implemented: markEntryAsPending');
+  async markEntryAsPending(entryId: string): Promise<FinEntry> {
+    const entry = await finRepository.getEntryById(entryId);
+    if (!entry) {
+      throw new Error(`Lançamento não encontrado: ${entryId}`);
+    }
+    return finRepository.updateEntry(entryId, {
+      status: 'pending',
+      paid_date: null,
+      paid_amount_cents: null,
+    });
   }
 
   async generateRecurrenceWindow(_windowStart: string, _windowEnd: string): Promise<FinEntry[]> {

@@ -4,10 +4,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
   LedgerInput,
-  SegmentedControl,
   TextField,
   XpMinimalHeader,
 } from '../../components/ui';
+import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinEntry } from '../../db/schema';
 import {
   calculateAccountBalance,
