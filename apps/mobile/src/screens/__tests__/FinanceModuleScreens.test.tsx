@@ -277,12 +277,14 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
         expect(screen.getByTestId(`entry-row-${novPart.id}`)).toBeTruthy();
       });
 
-      expect(screen.getByTestId(`entry-overdue-badge-${overdue.id}`)).toBeTruthy();
-      expect(screen.getByTestId(`entry-duesoon-badge-${dueSoon.id}`)).toBeTruthy();
       expect(screen.getByText(/2\/4/)).toBeTruthy();
 
-      // Marcar como pago
-      fireEvent.press(screen.getByTestId(`entry-pay-btn-${dueSoon.id}`));
+      // Marcar como pago (ações ficam na folha aberta ao tocar a linha)
+      fireEvent.press(screen.getByTestId(`entry-row-${dueSoon.id}`));
+      await waitFor(() => {
+        expect(screen.getByTestId('entry-actions-sheet')).toBeTruthy();
+      });
+      fireEvent.press(screen.getByTestId(`entry-action-pay-${dueSoon.id}`));
       await waitFor(() => {
         expect(screen.getByTestId('pay-entry-modal')).toBeTruthy();
       });
@@ -296,7 +298,11 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
       });
 
       // Ao tentar excluir item parcelado, pergunta escopo (só esta, esta e próximas, todas)
-      fireEvent.press(screen.getByTestId(`entry-delete-btn-${novPart.id}`));
+      fireEvent.press(screen.getByTestId(`entry-row-${novPart.id}`));
+      await waitFor(() => {
+        expect(screen.getByTestId(`entry-action-delete-${novPart.id}`)).toBeTruthy();
+      });
+      fireEvent.press(screen.getByTestId(`entry-action-delete-${novPart.id}`));
       await waitFor(() => {
         expect(screen.getByTestId('installment-scope-dialog')).toBeTruthy();
         expect(screen.getByTestId('installment-scope-only_this')).toBeTruthy();
@@ -331,7 +337,8 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
 
       fireEvent.changeText(screen.getByTestId('entry-form-description'), 'Almoço');
       fireEvent.changeText(screen.getByTestId('entry-form-amount'), '45,90');
-      fireEvent.changeText(screen.getByTestId('entry-form-due-date'), '2026-11-13');
+      fireEvent.changeText(screen.getByTestId('entry-form-due-date'), '13/11/2026');
+      fireEvent.press(screen.getByTestId('entry-form-account-select'));
       fireEvent.press(screen.getByTestId(`entry-form-account-${acc.id}`));
       fireEvent.press(screen.getByTestId('entry-form-save-btn'));
 
