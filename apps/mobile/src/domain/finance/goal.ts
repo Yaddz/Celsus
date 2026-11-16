@@ -75,3 +75,141 @@ export function requiredMonthlyContribution(
   const annuity = r.isZero() ? new Decimal(months) : growth.minus(1).div(r);
   return needed.div(annuity).toFixed(2);
 }
+
+// ---------------------------------------------------------------------------
+// Sprint 68 — Metas unificadas & Patrimônio líquido (interfaces + stubs Fase A)
+// ---------------------------------------------------------------------------
+
+export type FinGoalSourceType = 'manual' | 'account' | 'portfolio' | 'net_worth';
+
+export interface FinGoalInput {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  target_cents: number;
+  target_date?: string | null;
+  source_type: FinGoalSourceType;
+  monthly_contribution_cents?: number | null;
+  archived?: number;
+  created_at?: string;
+}
+
+export interface FinGoalSourceInput {
+  id?: string;
+  goal_id: string;
+  ref_type: 'account' | 'portfolio';
+  ref_id: string;
+  asset_class?: string | null;
+  share_percent: number;
+}
+
+export interface FinGoalContributionInput {
+  id?: string;
+  goal_id: string;
+  amount_cents: number;
+  date: string;
+  notes?: string | null;
+}
+
+export interface GoalAccountContext {
+  id: string;
+  name?: string;
+  type?: string;
+  balance_cents: number;
+}
+
+export interface GoalPortfolioContext {
+  id: string;
+  name?: string;
+  total_cents: number;
+  by_class_cents?: Partial<Record<string, number>>;
+  annual_return_percent?: number | null;
+}
+
+export interface GoalValueContext {
+  accounts: GoalAccountContext[];
+  portfolios: GoalPortfolioContext[];
+  contributions?: FinGoalContributionInput[];
+  netWorthCents?: number;
+}
+
+export interface GoalEvaluation {
+  currentCents: number;
+  targetCents: number;
+  progressPercent: number;
+  remainingCents: number;
+  reached: boolean;
+  unreachable: boolean;
+  monthsToGoal: number | null;
+  projectedYearMonth: string | null;
+  projectedLabel: string | null;
+  requiredMonthlyCents: number | null;
+  annualReturnUsed: number;
+  isReturnEstimated: boolean;
+  sourceSummary: string;
+}
+
+export interface NetWorthAccountInput {
+  id: string;
+  type: string;
+  balance_cents: number;
+  archived?: number;
+}
+
+export interface NetWorthPortfolioInput {
+  id: string;
+  totalValueReais: string | number | Decimal;
+  is_archived?: number;
+}
+
+export interface NetWorthResult {
+  accountsCents: number;
+  investmentsCents: number;
+  cardDebtCents: number;
+  totalCents: number;
+}
+
+export const PRUDENT_ANNUAL_RETURN_MIN = 0;
+export const PRUDENT_ANNUAL_RETURN_MAX = 15;
+
+export function decimalReaisToCents(_value: string | number | Decimal): number {
+  throw new Error('Not implemented: decimalReaisToCents');
+}
+
+export function clampPrudentAnnualReturn(_annualReturnPercent: number | null | undefined): number {
+  throw new Error('Not implemented: clampPrudentAnnualReturn');
+}
+
+export function validatePortfolioShareSlices(
+  _allSources: FinGoalSourceInput[],
+  _archivedGoalIds?: Set<string>
+): { valid: boolean; offendingPortfolioIds: string[] } {
+  throw new Error('Not implemented: validatePortfolioShareSlices');
+}
+
+export function calculateGoalValue(
+  _goal: FinGoalInput,
+  _sources: FinGoalSourceInput[],
+  _context: GoalValueContext
+): number {
+  throw new Error('Not implemented: calculateGoalValue');
+}
+
+export function evaluateGoal(
+  _goal: FinGoalInput,
+  _sources: FinGoalSourceInput[],
+  _context: GoalValueContext,
+  _options?: { referenceDateIso?: string }
+): GoalEvaluation {
+  throw new Error('Not implemented: evaluateGoal');
+}
+
+export function calculateNetWorth(
+  _accounts: NetWorthAccountInput[],
+  _portfolios: NetWorthPortfolioInput[],
+  _openBillsCents: number
+): NetWorthResult {
+  throw new Error('Not implemented: calculateNetWorth');
+}
+

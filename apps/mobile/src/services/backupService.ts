@@ -10,6 +10,10 @@ import {
   FinRecurrence,
   FinRecurrenceSkip,
   FinCategoryRule,
+  FinGoal,
+  FinGoalContribution,
+  FinGoalSource,
+  NetWorthSnapshot,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -65,6 +69,10 @@ export interface BackupDatabaseSnapshot {
   finRecurrences?: FinRecurrence[];
   finRecurrenceSkips?: FinRecurrenceSkip[];
   finCategoryRules?: FinCategoryRule[];
+  finGoals?: FinGoal[];
+  finGoalContributions?: FinGoalContribution[];
+  finGoalSources?: FinGoalSource[];
+  netWorthSnapshots?: NetWorthSnapshot[];
 }
 
 export interface ExportArchiveResult {

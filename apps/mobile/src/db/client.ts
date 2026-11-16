@@ -41,14 +41,22 @@ CREATE TABLE IF NOT EXISTS assets (
   quantity TEXT NOT NULL DEFAULT '0',
   average_price TEXT NOT NULL DEFAULT '0.00',
   manual_price_override TEXT,
+  manual_position_value TEXT,
   rf_indexer TEXT,
   rf_rate REAL,
   rf_maturity_date TEXT,
   rf_is_tax_exempt INTEGER NOT NULL DEFAULT 0,
+  rf_issuer TEXT,
   source TEXT NOT NULL DEFAULT 'MANUAL',
   external_id TEXT,
   institution_id TEXT,
   last_synced_at TEXT,
+  isin TEXT,
+  gross_amount TEXT,
+  cost_basis_source TEXT,
+  missing_since TEXT,
+  is_etf INTEGER NOT NULL DEFAULT 0,
+  of_status TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
@@ -67,6 +75,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   notes TEXT,
   source TEXT NOT NULL DEFAULT 'MANUAL',
   external_id TEXT,
+  archived_at TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
   FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
@@ -123,6 +132,10 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   closing_day INTEGER,
   due_day INTEGER,
   credit_limit_cents INTEGER,
+  of_account_id TEXT,
+  source TEXT NOT NULL DEFAULT 'MANUAL',
+  reported_balance_cents INTEGER,
+  reported_balance_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_categories (
@@ -155,6 +168,8 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   source TEXT NOT NULL DEFAULT 'MANUAL',
   external_id TEXT,
   import_batch_id TEXT,
+  description_raw TEXT,
+  user_edited_fields TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -206,6 +221,48 @@ CREATE TABLE IF NOT EXISTS of_sync_runs (
   counts_json TEXT,
   error TEXT
 );
+CREATE TABLE IF NOT EXISTS fin_goals (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  icon TEXT NOT NULL,
+  color TEXT NOT NULL,
+  target_cents INTEGER NOT NULL,
+  target_date TEXT,
+  source_type TEXT NOT NULL,
+  monthly_contribution_cents INTEGER,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_goal_contributions (
+  id TEXT PRIMARY KEY NOT NULL,
+  goal_id TEXT NOT NULL REFERENCES fin_goals(id) ON DELETE CASCADE,
+  amount_cents INTEGER NOT NULL,
+  date TEXT NOT NULL,
+  notes TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_goal_sources (
+  id TEXT PRIMARY KEY NOT NULL,
+  goal_id TEXT NOT NULL REFERENCES fin_goals(id) ON DELETE CASCADE,
+  ref_type TEXT NOT NULL,
+  ref_id TEXT NOT NULL,
+  asset_class TEXT,
+  share_percent INTEGER NOT NULL DEFAULT 100
+);
+CREATE TABLE IF NOT EXISTS net_worth_snapshots (
+  year_month TEXT PRIMARY KEY NOT NULL,
+  accounts_cents INTEGER NOT NULL,
+  investments_cents INTEGER NOT NULL,
+  card_debt_cents INTEGER NOT NULL,
+  total_cents INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_budgets (
+  id TEXT PRIMARY KEY NOT NULL,
+  category_id TEXT NOT NULL,
+  year_month TEXT,
+  limit_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
 `;
 
 export const SCHEMA_SQL = INITIAL_SCHEMA_SQL;
@@ -232,6 +289,10 @@ CREATE INDEX IF NOT EXISTS idx_fin_entries_transfer_group ON fin_entries(transfe
 CREATE UNIQUE INDEX IF NOT EXISTS idx_fin_entries_account_external ON fin_entries(account_id, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_fin_entries_import_batch ON fin_entries(import_batch_id);
 CREATE INDEX IF NOT EXISTS idx_of_sync_runs_item ON of_sync_runs(item_id);
+CREATE INDEX IF NOT EXISTS idx_fin_goal_contributions_goal ON fin_goal_contributions(goal_id);
+CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_goal ON fin_goal_sources(goal_id);
+CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_ref ON fin_goal_sources(ref_type, ref_id);
+CREATE INDEX IF NOT EXISTS idx_fin_budgets_category_month ON fin_budgets(category_id, year_month);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -252,6 +313,11 @@ const inMemoryStore: Record<string, any[]> = {
   fin_category_rules: [],
   of_items: [],
   of_sync_runs: [],
+  fin_goals: [],
+  fin_goal_contributions: [],
+  fin_goal_sources: [],
+  net_worth_snapshots: [],
+  fin_budgets: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {
@@ -460,6 +526,21 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'fin_entries', column: 'source', ddl: "ALTER TABLE fin_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'MANUAL'" },
   { table: 'fin_entries', column: 'external_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN external_id TEXT' },
   { table: 'fin_entries', column: 'import_batch_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN import_batch_id TEXT' },
+  { table: 'fin_accounts', column: 'of_account_id', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_account_id TEXT' },
+  { table: 'fin_accounts', column: 'source', ddl: "ALTER TABLE fin_accounts ADD COLUMN source TEXT NOT NULL DEFAULT 'MANUAL'" },
+  { table: 'fin_accounts', column: 'reported_balance_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN reported_balance_cents INTEGER' },
+  { table: 'fin_accounts', column: 'reported_balance_at', ddl: 'ALTER TABLE fin_accounts ADD COLUMN reported_balance_at TEXT' },
+  { table: 'fin_entries', column: 'description_raw', ddl: 'ALTER TABLE fin_entries ADD COLUMN description_raw TEXT' },
+  { table: 'fin_entries', column: 'user_edited_fields', ddl: 'ALTER TABLE fin_entries ADD COLUMN user_edited_fields TEXT' },
+  { table: 'assets', column: 'manual_position_value', ddl: 'ALTER TABLE assets ADD COLUMN manual_position_value TEXT' },
+  { table: 'assets', column: 'rf_issuer', ddl: 'ALTER TABLE assets ADD COLUMN rf_issuer TEXT' },
+  { table: 'assets', column: 'isin', ddl: 'ALTER TABLE assets ADD COLUMN isin TEXT' },
+  { table: 'assets', column: 'gross_amount', ddl: 'ALTER TABLE assets ADD COLUMN gross_amount TEXT' },
+  { table: 'assets', column: 'cost_basis_source', ddl: 'ALTER TABLE assets ADD COLUMN cost_basis_source TEXT' },
+  { table: 'assets', column: 'missing_since', ddl: 'ALTER TABLE assets ADD COLUMN missing_since TEXT' },
+  { table: 'assets', column: 'is_etf', ddl: 'ALTER TABLE assets ADD COLUMN is_etf INTEGER NOT NULL DEFAULT 0' },
+  { table: 'assets', column: 'of_status', ddl: 'ALTER TABLE assets ADD COLUMN of_status TEXT' },
+  { table: 'transactions', column: 'archived_at', ddl: 'ALTER TABLE transactions ADD COLUMN archived_at TEXT' },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {
@@ -470,6 +551,10 @@ function applySchemaUpgrades(raw: SQLiteDatabase) {
     }
   }
   raw.execSync(SCHEMA_INDEXES_SQL);
+  // Migração item 1.1: em Renda Fixa, manual_price_override representava valor da posição.
+  raw.execSync(
+    "UPDATE assets SET manual_position_value = manual_price_override, manual_price_override = NULL WHERE asset_class = 'FIXED_INCOME' AND manual_price_override IS NOT NULL AND manual_price_override != '' AND manual_position_value IS NULL;"
+  );
 }
 
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
@@ -557,11 +642,22 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
       _rawSqliteDb = {
         execSync: () => {},
         prepareSync: () => ({ executeSync: () => ({}) }),
+        getAllSync: (sql: string) => {
+          if (sql.includes('PRAGMA table_info(assets)')) {
+            return Object.keys(assets).map((name) => ({ name }));
+          }
+          if (sql.includes('PRAGMA table_info(transactions)')) {
+            return Object.keys(transactions).map((name) => ({ name }));
+          }
+          return [];
+        },
       } as any;
     }
   }
   return _rawSqliteDb!;
 }
+
+export const getRawSqlite = getRawSqliteDatabase;
 
 let _inTransaction = false;
 

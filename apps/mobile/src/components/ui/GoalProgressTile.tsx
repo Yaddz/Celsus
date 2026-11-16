@@ -24,6 +24,13 @@ export const formatMonthsPtBr = (months: number): string => {
 /** Altura fixa do tile: o esqueleto e o conteúdo final ocupam exatamente o mesmo espaço. */
 export const GOAL_TILE_HEIGHT = 114;
 
+export interface LinkedGoalSummary {
+  id: string;
+  name: string;
+  progressPercent: number;
+  targetLabel: string;
+}
+
 export interface GoalProgressTileProps {
   /** Mostra o esqueleto (mesmas dimensões) enquanto a carteira carrega. */
   loading?: boolean;
@@ -31,6 +38,7 @@ export interface GoalProgressTileProps {
   currentValue: string | number;
   patrimonyGoal?: string | null;
   monthlyContribution?: string | null;
+  linkedGoals?: LinkedGoalSummary[];
   isPrivacyMode?: boolean;
   onPress?: () => void;
   testID?: string;
