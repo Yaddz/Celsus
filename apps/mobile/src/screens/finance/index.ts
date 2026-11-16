@@ -8,3 +8,4 @@ export * from './CardBillScreen';
 export * from './CategoriesScreen';
 export * from './FinanceDock';
 export * from './FinanceMoreScreen';
+export * from './ReceiptScannerSheet';

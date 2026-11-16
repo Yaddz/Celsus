@@ -219,7 +219,11 @@ export function decodeStatementBytes(bytes: Uint8Array): {
     /ENCODING\s*=\s*["']?(ISO-8859-1|WINDOWS-1252)/i.test(upperHeader);
 
   if (declaresLatin1) {
-    return { text: decodeLatin1Bytes(bytes), encoding: 'latin1' };
+    const utf8Fallback = decodeUtf8Strict(bytes);
+    return {
+      text: utf8Fallback !== null ? utf8Fallback : decodeLatin1Bytes(bytes),
+      encoding: 'latin1',
+    };
   }
 
   const utf8Text = decodeUtf8Strict(bytes);

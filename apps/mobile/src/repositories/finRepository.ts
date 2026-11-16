@@ -4,11 +4,13 @@ import { getDatabase } from '../db/client';
 import {
   finAccounts,
   finCategories,
+  finCategoryRules,
   finEntries,
   finRecurrences,
   finRecurrenceSkips,
   type FinAccount,
   type FinCategory,
+  type FinCategoryRule,
   type FinEntry,
   type FinRecurrence,
   type FinRecurrenceSkip,
@@ -245,6 +247,9 @@ export class FinRepository {
       installment_total: item.installment_total ?? item.installmentTotal ?? null,
       bill_month: item.bill_month ?? item.billMonth ?? null,
       transfer_group_id: item.transfer_group_id ?? item.transferGroupId ?? null,
+      source: item.source ?? 'MANUAL',
+      external_id: item.external_id ?? item.externalId ?? null,
+      import_batch_id: item.import_batch_id ?? item.importBatchId ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);
@@ -441,6 +446,22 @@ export class FinRepository {
         .where(eq(finRecurrenceSkips.recurrence_id, recurrenceId))) as FinRecurrenceSkip[];
     }
     return (await db.select().from(finRecurrenceSkips)) as FinRecurrenceSkip[];
+  }
+
+  async findEntryByExternalId(externalId: string): Promise<FinEntry | null> {
+    if (!externalId) return null;
+    const db = getDatabase();
+    const rows = (await db
+      .select()
+      .from(finEntries)
+      .where(eq(finEntries.external_id, externalId))) as FinEntry[];
+    return rows[0] ?? null;
+  }
+
+  async listCategoryRules(kind?: FinKind): Promise<FinCategoryRule[]> {
+    const db = getDatabase();
+    const rows = (await db.select().from(finCategoryRules)) as FinCategoryRule[];
+    return kind ? rows.filter((r) => r.kind === kind) : rows;
   }
 }
 

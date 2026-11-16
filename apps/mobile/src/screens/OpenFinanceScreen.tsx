@@ -247,7 +247,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
               <CircleIconButton
                 icon="arrow-back"
                 onPress={onClose}
-                isLight={isLight}
+                themeMode={themeMode}
                 testID="open-finance-back-btn"
                 accessibilityLabel="Voltar"
               />
@@ -414,7 +414,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                           testID={`open-finance-item-expired-error-${item.id}`}
                           style={[styles.errorText]}
                         >
-                          Autorização expirada. Para renovar, acesse Applications → Demo → Connect Account → MeuPluggy.
+                          Autorização expirada. Refaça a conexão no Dashboard da Pluggy (MeuPluggy).
                         </Text>
                       ) : null}
                     </View>
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   scrollContent: { padding: layout.screenPadding, paddingTop: 12, paddingBottom: 40, alignItems: 'center' },
   content: { width: '100%', maxWidth: 960, gap: bento.gap },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
-  title: { fontSize: 22, fontWeight: '700', fontFamily: typography.display },
+  title: { fontSize: 22, fontWeight: '700', fontFamily: typography.fontFamily },
   subtitle: { fontSize: 13 },
   card: { padding: 16, gap: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700' },

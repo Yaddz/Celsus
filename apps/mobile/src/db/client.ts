@@ -152,7 +152,19 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   installment_total INTEGER,
   bill_month TEXT,
   transfer_group_id TEXT,
+  source TEXT NOT NULL DEFAULT 'MANUAL',
+  external_id TEXT,
+  import_batch_id TEXT,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_category_rules (
+  id TEXT PRIMARY KEY NOT NULL,
+  match_type TEXT NOT NULL,
+  pattern TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  category_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  hits INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS fin_recurrence_skips (
   recurrence_id TEXT NOT NULL,
@@ -215,6 +227,8 @@ CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence_period ON fin_entries(recu
 CREATE INDEX IF NOT EXISTS idx_fin_entries_installment_group ON fin_entries(installment_group_id);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_bill_month ON fin_entries(bill_month);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_transfer_group ON fin_entries(transfer_group_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_fin_entries_account_external ON fin_entries(account_id, external_id) WHERE external_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_fin_entries_import_batch ON fin_entries(import_batch_id);
 CREATE INDEX IF NOT EXISTS idx_of_sync_runs_item ON of_sync_runs(item_id);
 `;
 
@@ -233,6 +247,7 @@ const inMemoryStore: Record<string, any[]> = {
   fin_entries: [],
   fin_recurrences: [],
   fin_recurrence_skips: [],
+  fin_category_rules: [],
   of_items: [],
   of_sync_runs: [],
 };
@@ -440,6 +455,9 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'fin_accounts', column: 'credit_limit_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN credit_limit_cents INTEGER' },
   { table: 'fin_entries', column: 'bill_month', ddl: 'ALTER TABLE fin_entries ADD COLUMN bill_month TEXT' },
   { table: 'fin_entries', column: 'transfer_group_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN transfer_group_id TEXT' },
+  { table: 'fin_entries', column: 'source', ddl: "ALTER TABLE fin_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'MANUAL'" },
+  { table: 'fin_entries', column: 'external_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN external_id TEXT' },
+  { table: 'fin_entries', column: 'import_batch_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN import_batch_id TEXT' },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {

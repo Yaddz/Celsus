@@ -7,10 +7,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **2 suítes** Sprint 63 (Fase A, Red) + **3 suítes** Sprint 64 (Fase A, Red) + **3 suítes** Sprint 62 (Fase A, Red) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **121 suítes** passando (**840 testes**, incluindo **3 suítes / 16 testes** da Sprint 64); 5 suítes em Fase A (Red) das Sprints 62/63 |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **140 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 64 — Fundação do Open Finance com Pluggy / Meu Pluggy (Fase B concluída)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`140` arquivos verificados via SHA-256):
+  - `apps/mobile/src/services/pluggy/__tests__/pluggyClient.test.ts` (**S64-T01 a S64-T08**, 8 casos).
+  - `apps/mobile/src/services/pluggy/__tests__/pluggySecurityAndStorage.test.ts` (**S64-T09 a S64-T10**, 2 casos).
+  - `apps/mobile/src/screens/__tests__/Sprint64OpenFinanceScreen.test.tsx` (**S64-T11 a S64-T16**, 6 casos).
+- **Fase B:** implementação concluída em `src/services/pluggy/types.ts`, `src/services/pluggy/pluggyClient.ts`, `src/db/schema.ts`, `src/db/client.ts` (`of_items`, `of_sync_runs`), `src/repositories/openFinanceRepository.ts`, `src/screens/OpenFinanceScreen.tsx`, `src/screens/SettingsBackupScreen.tsx`, `src/screens/profile/ProfileTiles.tsx`, `src/navigation/backNavigation.ts`, `apps/mobile/App.tsx` e `docs/PLANO_FINANCAS_OPEN_FINANCE.md` (seção 5.1). **3/3 suítes Sprint 64 (16/16 testes)** e **5/5 suítes com `backNavigation` (37/37 testes)** passando; `tsc --noEmit` com **0 erros** nos arquivos da Sprint 64; `node scripts/test-lock.js verify` aprovado (`140` arquivos íntegros).
 
 ## Sprint 63 — Leitura de compras por foto (OCR) e QR da NFC-e (Fase A concluída — Red Phase)
 

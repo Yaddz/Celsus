@@ -9,6 +9,7 @@ import {
   FinEntry,
   FinRecurrence,
   FinRecurrenceSkip,
+  FinCategoryRule,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -19,6 +20,7 @@ import {
   finEntries as finEntriesTable,
   finRecurrences as finRecurrencesTable,
   finRecurrenceSkips as finRecurrenceSkipsTable,
+  finCategoryRules as finCategoryRulesTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
@@ -62,6 +64,7 @@ export interface BackupDatabaseSnapshot {
   finEntries?: FinEntry[];
   finRecurrences?: FinRecurrence[];
   finRecurrenceSkips?: FinRecurrenceSkip[];
+  finCategoryRules?: FinCategoryRule[];
 }
 
 export interface ExportArchiveResult {
@@ -577,7 +580,20 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'installment_total',
   'bill_month',
   'transfer_group_id',
+  'source',
+  'external_id',
+  'import_batch_id',
   'created_at',
+];
+
+const FIN_CATEGORY_RULES_COLUMNS: (keyof FinCategoryRule)[] = [
+  'id',
+  'match_type',
+  'pattern',
+  'kind',
+  'category_id',
+  'created_at',
+  'hits',
 ];
 
 const FIN_RECURRENCES_COLUMNS: (keyof FinRecurrence)[] = [
@@ -663,7 +679,23 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     installment_total: parseOptionalInt(r.installment_total),
     bill_month: r.bill_month === '' ? null : r.bill_month ?? null,
     transfer_group_id: r.transfer_group_id === '' ? null : r.transfer_group_id ?? null,
+    source: r.source || 'MANUAL',
+    external_id: r.external_id === '' ? null : r.external_id ?? null,
+    import_batch_id: r.import_batch_id === '' ? null : r.import_batch_id ?? null,
     created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinCategoryRulesFromCsv(csvText?: string): FinCategoryRule[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    match_type: r.match_type || 'contains',
+    pattern: r.pattern ?? '',
+    kind: r.kind || 'expense',
+    category_id: r.category_id,
+    created_at: r.created_at || new Date().toISOString(),
+    hits: parseRequiredInt(r.hits, 0),
   }));
 }
 
@@ -874,6 +906,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const finEntries = await finRepository.listAllEntries();
       const finRecurrences = await finRepository.listRecurrences();
       const finRecurrenceSkips = await finRepository.listAllRecurrenceSkips();
+      const db = getDatabase();
+      const finCategoryRules = db ? await db.select().from(finCategoryRulesTable) : [];
       return {
         portfolios,
         classTargets,
@@ -885,6 +919,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finEntries,
         finRecurrences,
         finRecurrenceSkips,
+        finCategoryRules,
       };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
@@ -901,6 +936,9 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     if (snapshot.finRecurrenceSkips) {
       await db.delete(finRecurrenceSkipsTable);
+    }
+    if (snapshot.finCategoryRules) {
+      await db.delete(finCategoryRulesTable);
     }
     if (snapshot.finRecurrences) {
       await db.delete(finRecurrencesTable);
@@ -959,6 +997,11 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.finRecurrenceSkips) {
       for (const skip of snapshot.finRecurrenceSkips) {
         await db.insert(finRecurrenceSkipsTable).values(skip);
+      }
+    }
+    if (snapshot.finCategoryRules) {
+      for (const rule of snapshot.finCategoryRules) {
+        await db.insert(finCategoryRulesTable).values(rule);
       }
     }
   }
@@ -1070,6 +1113,10 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
               return Array.from(map.values());
             })()
           : undefined,
+      finCategoryRules:
+        incoming.finCategoryRules || (current.finCategoryRules?.length ?? 0) > 0
+          ? mergeById(current.finCategoryRules, incoming.finCategoryRules)
+          : undefined,
     });
   }
 }
@@ -1148,6 +1195,14 @@ export class BackupService {
     const finRecurrenceSkips =
       snapshot.finRecurrenceSkips ??
       (snapshotOverride ? [] : await finRepository.listAllRecurrenceSkips());
+    const finCategoryRules =
+      snapshot.finCategoryRules ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(finCategoryRulesTable) : [];
+          })());
 
     const manifestFiles: Record<string, ManifestFileEntry> = {
       'portfolios.csv': {
@@ -1223,6 +1278,14 @@ export class BackupService {
         sha256: BackupService.computeSha256(csv),
       };
       files['fin_recurrence_skips.csv'] = csv;
+    }
+    if (finCategoryRules.length > 0) {
+      const csv = serializeToCsv(finCategoryRules, FIN_CATEGORY_RULES_COLUMNS);
+      manifestFiles['fin_category_rules.csv'] = {
+        rows: finCategoryRules.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_category_rules.csv'] = csv;
     }
 
     const manifest: BackupManifest = {
@@ -1319,6 +1382,7 @@ export class BackupService {
       'fin_entries.csv',
       'fin_recurrences.csv',
       'fin_recurrence_skips.csv',
+      'fin_category_rules.csv',
     ] as const;
 
     for (const csvName of optionalCsvs) {
@@ -1357,6 +1421,9 @@ export class BackupService {
       finRecurrenceSkips: extracted['fin_recurrence_skips.csv']
         ? parseFinRecurrenceSkipsFromCsv(extracted['fin_recurrence_skips.csv'])
         : undefined,
+      finCategoryRules: extracted['fin_category_rules.csv']
+        ? parseFinCategoryRulesFromCsv(extracted['fin_category_rules.csv'])
+        : undefined,
     };
 
     // 5. Execute transactional import (RESTORE or MERGE)
@@ -1377,6 +1444,15 @@ export class BackupService {
       },
       manifest,
     };
+  }
+
+  async createBackupZip(): Promise<Uint8Array> {
+    const exported = await this.exportDossierArchive();
+    return exported.zipBytes;
+  }
+
+  async restoreFromZip(zipBytes: Uint8Array): Promise<void> {
+    await this.importDossierArchive(zipBytes, 'RESTORE');
   }
 }
 

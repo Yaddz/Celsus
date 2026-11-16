@@ -242,7 +242,24 @@ export const finEntries = sqliteTable('fin_entries', {
   installment_total: integer('installment_total'),
   bill_month: text('bill_month'), // YYYY-MM (apenas contas tipo card)
   transfer_group_id: text('transfer_group_id'),
+  source: text('source').notNull().default('MANUAL'), // 'MANUAL' | 'FILE_IMPORT' | 'OCR' | 'OPEN_FINANCE'
+  external_id: text('external_id'),
+  import_batch_id: text('import_batch_id'),
   created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_CATEGORY_RULES
+ * Regras de categorização automática aprendidas para importação de extratos/faturas, OCR e Open Finance.
+ */
+export const finCategoryRules = sqliteTable('fin_category_rules', {
+  id: text('id').primaryKey(),
+  match_type: text('match_type').notNull(), // 'contains' | 'starts_with' | 'exact'
+  pattern: text('pattern').notNull(), // normalizado sem acento e em minúsculas
+  kind: text('kind').notNull(), // 'income' | 'expense'
+  category_id: text('category_id').notNull(),
+  created_at: text('created_at').notNull(),
+  hits: integer('hits').notNull().default(0),
 });
 
 /**
@@ -283,6 +300,9 @@ export type NewFinAccount = typeof finAccounts.$inferInsert;
 
 export type FinCategory = typeof finCategories.$inferSelect;
 export type NewFinCategory = typeof finCategories.$inferInsert;
+
+export type FinCategoryRule = typeof finCategoryRules.$inferSelect;
+export type NewFinCategoryRule = typeof finCategoryRules.$inferInsert;
 
 export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period'> & {
   recurrence_period?: string | null;

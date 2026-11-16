@@ -20,6 +20,7 @@ import {
   type FinKind,
   type InstallmentScope,
 } from '../../domain/financeFlow';
+import type { ReceiptDraft } from '../../domain/receipt';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
 import { bento, space, typography } from '../../theme/tokens';
@@ -38,6 +39,7 @@ export interface EntryFormSheetProps {
   onSaved?: () => void;
   onRequestCreateAccount?: () => void;
   editingEntry?: FinEntry | null;
+  receiptDraft?: ReceiptDraft | null;
   installmentScope?: InstallmentScope;
   defaultDueDate?: string;
   themeMode?: ThemeMode;
@@ -66,6 +68,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   onSaved,
   onRequestCreateAccount,
   editingEntry = null,
+  receiptDraft = null,
   installmentScope,
   defaultDueDate,
   themeMode = 'dark',
@@ -120,11 +123,22 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
         editingEntry?.kind === 'income' ? 'income' : 'expense';
       setKind(initialKind);
       setFormKind(initialKind);
-      setDescription(editingEntry?.description ?? '');
-      setAmountText(
-        editingEntry ? (editingEntry.amount_cents / 100).toFixed(2).replace('.', ',') : ''
-      );
-      setDueDate(isoToBr(editingEntry?.due_date ?? defaultDueDate ?? getTodayIsoLocal()));
+
+      if (!editingEntry && receiptDraft) {
+        setDescription(receiptDraft.description ?? '');
+        setAmountText(
+          receiptDraft.amountCents !== null && receiptDraft.amountCents > 0
+            ? (receiptDraft.amountCents / 100).toFixed(2).replace('.', ',')
+            : ''
+        );
+        setDueDate(receiptDraft.dateIso ? isoToBr(receiptDraft.dateIso) : '');
+      } else {
+        setDescription(editingEntry?.description ?? '');
+        setAmountText(
+          editingEntry ? (editingEntry.amount_cents / 100).toFixed(2).replace('.', ',') : ''
+        );
+        setDueDate(isoToBr(editingEntry?.due_date ?? defaultDueDate ?? getTodayIsoLocal()));
+      }
       setAccountPickerOpen(false);
       setRepeatMode(
         editingEntry?.installment_total && editingEntry.installment_total > 1
@@ -141,8 +155,9 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       const secondAccId = accs.find((a) => a.id !== firstAccId)?.id ?? firstAccId;
       setToAccountId(secondAccId);
 
+      const preferredCatId = editingEntry?.category_id ?? receiptDraft?.categoryId ?? null;
       const matchingCat =
-        cats.find((cat) => cat.id === editingEntry?.category_id) ??
+        (preferredCatId ? cats.find((cat) => cat.id === preferredCatId) : undefined) ??
         cats.find((cat) => cat.kind === initialKind) ??
         cats[0];
       setCategoryId(matchingCat?.id ?? '');
@@ -153,7 +168,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [visible, editingEntry, defaultDueDate]);
+  }, [visible, editingEntry, receiptDraft, defaultDueDate]);
 
   const categoriesForKind = useMemo(() => {
     const matching = categories.filter((cat) => cat.kind === kind);
@@ -309,6 +324,14 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           description: description.trim() || 'Parcelamento',
         });
       } else {
+        if (receiptDraft?.externalId) {
+          const existing = await finRepository.findEntryByExternalId(receiptDraft.externalId);
+          if (existing) {
+            setFormError('Esta NFC-e já foi lançada anteriormente.');
+            setSaving(false);
+            return;
+          }
+        }
         const selectedAcc = accounts.find((a) => a.id === resolvedAccountId);
         const billMonth =
           selectedAcc?.type === 'card'
@@ -329,6 +352,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           installment_number: null,
           installment_total: null,
           bill_month: billMonth,
+          source: receiptDraft ? receiptDraft.source : 'MANUAL',
+          external_id: receiptDraft?.externalId ?? null,
         });
       }
 

@@ -117,8 +117,8 @@ padrão hoje usam cores fora dela (`#3386B0`, `#CD528F`, `#A958E4`, `#2A904C`, `
 - O servidor MCP `https://mcp.pluggy.ai/mcp` serve **documentação e diagnóstico** (status de item, webhooks). Ele não lê saldos nem transações; é ferramenta de desenvolvimento, não parte do app. Para usar nas sprints:
   `claude mcp add --transport http pluggy-docs https://mcp.pluggy.ai/mcp`
 
-Não confirmado na documentação: lista de bancos aceitos no Meu Pluggy, parâmetros de filtro de `/bills`, e se **ações e FIIs
-custodiados na B3 chegam via Open Finance**. A sprint 64 começa verificando isso com os seus próprios itens.
+Não confirmado na documentação: lista de bancos aceitos no Meu Pluggy e parâmetros de filtro de `/bills`.
+Sobre **ações e FIIs custodiados na B3 via Open Finance**: a tabela oficial de cobertura (`docs.pluggy.ai/en/docs/open-finance/investments`, atualizada em 30/10/2026) confirma que conectores como **Itaú (601)**, **XP Banking (602)**, **Rico (605)** e **BTG Pactual Investimentos** já entregam `EQUITY/STOCK`, `EQUITY/REAL_ESTATE_FUND`, `EQUITY/BDR` e `ETF`, enquanto bancos de varejo como **Bradesco (603)** e **Mercado Pago (606)** ainda marcam esses subtipos como 🔴. Na Sprint 64, o botão **"Testar conexão"** da tela Open Finance gera o relatório de cobertura por item para confirmar exatamente o que chega nos seus itens do Meu Pluggy (e manter a importação B3 como fallback quando algum conector não trouxer renda variável).
 
 ### 5.2 Arquitetura
 

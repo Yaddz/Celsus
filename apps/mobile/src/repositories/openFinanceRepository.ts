@@ -1,5 +1,5 @@
 import { desc, eq } from 'drizzle-orm';
-import { getDb } from '../db/client';
+import { getDatabase } from '../db/client';
 import { ofItems, ofSyncRuns } from '../db/schema';
 
 export const MAX_MEU_PLUGGY_ITEMS = 5;
@@ -33,7 +33,7 @@ export class MeuPluggyItemLimitError extends Error {
 
 export const openFinanceRepository = {
   async listItems(): Promise<OfItemRecord[]> {
-    const db = await getDb();
+    const db = await getDatabase();
     return db.select().from(ofItems);
   },
 
@@ -43,7 +43,7 @@ export const openFinanceRepository = {
       throw new Error('Informe um itemId válido.');
     }
 
-    const db = await getDb();
+    const db = await getDatabase();
     const existing = await db.select().from(ofItems).where(eq(ofItems.id, normalized));
     if (existing.length > 0) {
       return existing[0];
@@ -68,7 +68,7 @@ export const openFinanceRepository = {
   },
 
   async upsertItem(record: OfItemRecord): Promise<void> {
-    const db = await getDb();
+    const db = await getDatabase();
     const existing = await db.select().from(ofItems).where(eq(ofItems.id, record.id));
     if (existing.length > 0) {
       await db
@@ -93,17 +93,17 @@ export const openFinanceRepository = {
   },
 
   async removeItem(itemId: string): Promise<void> {
-    const db = await getDb();
+    const db = await getDatabase();
     await db.delete(ofItems).where(eq(ofItems.id, itemId));
   },
 
   async recordSyncRun(run: OfSyncRunRecord): Promise<void> {
-    const db = await getDb();
+    const db = await getDatabase();
     await db.insert(ofSyncRuns).values(run);
   },
 
   async listSyncRuns(itemId?: string): Promise<OfSyncRunRecord[]> {
-    const db = await getDb();
+    const db = await getDatabase();
     if (itemId) {
       return db
         .select()
