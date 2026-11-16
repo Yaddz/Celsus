@@ -335,6 +335,32 @@ jest.mock('expo-text-extractor', () => ({
   extractTextFromImage: jest.fn(async () => []),
 }));
 
+jest.mock(
+  'expo-notifications',
+  () => ({
+    __esModule: true,
+    SchedulableTriggerInputTypes: {
+      DATE: 'date',
+      TIME_INTERVAL: 'timeInterval',
+      DAILY: 'daily',
+      WEEKLY: 'weekly',
+      MONTHLY: 'monthly',
+      YEARLY: 'yearly',
+      CALENDAR: 'calendar',
+    },
+    setNotificationHandler: jest.fn(),
+    getPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
+    requestPermissionsAsync: jest.fn(async () => ({ status: 'granted', granted: true, canAskAgain: true })),
+    scheduleNotificationAsync: jest.fn(async () => `notif-${Date.now()}-${Math.random()}`),
+    cancelScheduledNotificationAsync: jest.fn(async () => undefined),
+    cancelAllScheduledNotificationsAsync: jest.fn(async () => undefined),
+    getAllScheduledNotificationsAsync: jest.fn(async () => []),
+    addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+    getLastNotificationResponseAsync: jest.fn(async () => null),
+  }),
+  { virtual: true }
+);
+
 const { toHaveTextContent: rntlToHaveTextContent } = require('@testing-library/react-native/dist/matchers/to-have-text-content');
 
 expect.extend({

@@ -7,6 +7,9 @@ import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
 
 export type FinanceMoreRoute =
+  | 'netWorth'
+  | 'goals'
+  | 'budgets'
   | 'subscriptions'
   | 'recurrences'
   | 'categories'
@@ -19,6 +22,7 @@ export interface FinanceMoreScreenProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
+  netWorthTotalCents?: number | null;
   testID?: string;
 }
 

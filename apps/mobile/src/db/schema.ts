@@ -211,6 +211,10 @@ export const finAccounts = sqliteTable('fin_accounts', {
   closing_day: integer('closing_day'),
   due_day: integer('due_day'),
   credit_limit_cents: integer('credit_limit_cents'),
+  of_account_id: text('of_account_id'),
+  source: text('source').notNull().default('MANUAL'), // 'MANUAL' | 'OPEN_FINANCE'
+  reported_balance_cents: integer('reported_balance_cents'),
+  reported_balance_at: text('reported_balance_at'),
   created_at: text('created_at').notNull(),
 });
 
@@ -254,6 +258,8 @@ export const finEntries = sqliteTable('fin_entries', {
   source: text('source').notNull().default('MANUAL'), // 'MANUAL' | 'FILE_IMPORT' | 'OCR' | 'OPEN_FINANCE'
   external_id: text('external_id'),
   import_batch_id: text('import_batch_id'),
+  description_raw: text('description_raw'),
+  user_edited_fields: text('user_edited_fields'),
   created_at: text('created_at').notNull(),
 });
 
