@@ -12,6 +12,19 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 69 — Correções da revisão das sprints 59–68 (Fase A concluída — Red Phase)
+
+Quatro correções: mês da fatura quando o cartão fecha depois do dia do vencimento, saldo de conta vinda do
+Open Finance, backup de orçamentos e vínculos do Open Finance, e investimentos da Pluggy acessíveis pela tela.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/financeFlow/__tests__/Sprint69CardBillAndBalance.test.ts` | S69-T01…T08 | `266727bf6f0e233a025c1804adb017d05c3b3434ac82a512a8856843bfc5d8bf` | 5 FAIL, 3 PASS (guardas de regressão) |
+| `apps/mobile/src/services/__tests__/Sprint69FinanceFixes.test.ts` | S69-S01…S07 | `a1f7661a940b83ccc41043abfd77b5c66ad2f825230834a19e6cac7f33ad685c` | 5 FAIL, 2 PASS (guardas de regressão) |
+| `apps/mobile/src/screens/__tests__/Sprint69OpenFinanceInvestmentsUI.test.tsx` | S69-U01…U04 | `a689d998d02dd337255ba33692a127c691d65db9eadf51c8bb160dbaecab44d9` | 4 FAIL |
+
+Execução da Fase A: `npx jest Sprint69` → 14 falhando, 5 passando (19 testes, 3 suítes). 155 arquivos travados.
+
 ## Sprint 68 — Metas financeiras unificadas e patrimônio líquido único (Fase B concluída)
 
 - **Fase A:** bloqueada em `tests.lock.json` (`152` arquivos verificados via SHA-256):
