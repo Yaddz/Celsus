@@ -3,8 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 import { JellyPressable } from './JellyPressable';
 import { colors, typography, spacing, borders } from '../../theme/tokens';
 
-export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO';
-export type CategoryName = 'Renda Fixa' | 'FIIs' | 'Ações' | 'Criptomoedas';
+export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO' | 'FUNDS';
+export type CategoryName = 'Renda Fixa' | 'FIIs' | 'Ações' | 'Criptomoedas' | 'Fundos e Previdência';
 
 export interface CategoryConfig {
   name: CategoryName;
@@ -46,6 +46,11 @@ export const ASSET_CLASS_ATTRIBUTE_MAP: Record<AssetClass, CategoryConfig> = {
     name: 'Criptomoedas',
     color: '#C49A45',
     label: 'Ativos Digitais',
+  },
+  FUNDS: {
+    name: 'Fundos e Previdência',
+    color: '#5B525C',
+    label: 'Fundos e Previdência',
   },
 };
 

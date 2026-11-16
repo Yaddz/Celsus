@@ -38,6 +38,7 @@ const BENTO_VARIANT: Record<AssetClass, BentoVariant> = {
   FIXED_INCOME: 'forest',
   FII: 'cream',
   CRYPTO: 'gold',
+  FUNDS: 'obsidian',
 };
 
 const formatMoneyParts = (marketValue: string | undefined, isPrivacyMode: boolean): string[] => {

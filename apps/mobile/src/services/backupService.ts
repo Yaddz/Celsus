@@ -25,6 +25,10 @@ import {
   finRecurrences as finRecurrencesTable,
   finRecurrenceSkips as finRecurrenceSkipsTable,
   finCategoryRules as finCategoryRulesTable,
+  finGoals as finGoalsTable,
+  finGoalContributions as finGoalContributionsTable,
+  finGoalSources as finGoalSourcesTable,
+  netWorthSnapshots as netWorthSnapshotsTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
@@ -486,14 +490,22 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'quantity',
   'average_price',
   'manual_price_override',
+  'manual_position_value',
   'rf_indexer',
   'rf_rate',
   'rf_maturity_date',
   'rf_is_tax_exempt',
+  'rf_issuer',
   'source',
   'external_id',
   'institution_id',
   'last_synced_at',
+  'isin',
+  'gross_amount',
+  'cost_basis_source',
+  'missing_since',
+  'is_etf',
+  'of_status',
   'created_at',
   'updated_at',
 ];
@@ -511,6 +523,7 @@ const TRANSACTIONS_COLUMNS: (keyof Transaction)[] = [
   'notes',
   'source',
   'external_id',
+  'archived_at',
   'created_at',
 ];
 
@@ -736,6 +749,96 @@ function parseFinRecurrencesFromCsv(csvText?: string): FinRecurrence[] {
   }));
 }
 
+const FIN_GOALS_COLUMNS: (keyof FinGoal)[] = [
+  'id',
+  'name',
+  'icon',
+  'color',
+  'target_cents',
+  'target_date',
+  'source_type',
+  'monthly_contribution_cents',
+  'archived',
+  'created_at',
+];
+
+const FIN_GOAL_CONTRIBUTIONS_COLUMNS: (keyof FinGoalContribution)[] = [
+  'id',
+  'goal_id',
+  'amount_cents',
+  'date',
+  'notes',
+  'created_at',
+];
+
+const FIN_GOAL_SOURCES_COLUMNS: (keyof FinGoalSource)[] = [
+  'id',
+  'goal_id',
+  'ref_type',
+  'ref_id',
+  'asset_class',
+  'share_percent',
+];
+
+const NET_WORTH_SNAPSHOTS_COLUMNS: (keyof NetWorthSnapshot)[] = [
+  'year_month',
+  'accounts_cents',
+  'investments_cents',
+  'card_debt_cents',
+  'total_cents',
+];
+
+function parseFinGoalsFromCsv(csvText?: string): FinGoal[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    name: r.name ?? '',
+    icon: r.icon || 'flag',
+    color: r.color || '#4F9A65',
+    target_cents: parseRequiredInt(r.target_cents, 0),
+    target_date: r.target_date === '' ? null : r.target_date ?? null,
+    source_type: r.source_type || 'manual',
+    monthly_contribution_cents: parseOptionalInt(r.monthly_contribution_cents),
+    archived: parseRequiredInt(r.archived, 0),
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinGoalContributionsFromCsv(csvText?: string): FinGoalContribution[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    goal_id: r.goal_id,
+    amount_cents: parseRequiredInt(r.amount_cents, 0),
+    date: r.date,
+    notes: r.notes === '' ? null : r.notes ?? null,
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinGoalSourcesFromCsv(csvText?: string): FinGoalSource[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    goal_id: r.goal_id,
+    ref_type: r.ref_type,
+    ref_id: r.ref_id,
+    asset_class: r.asset_class === '' ? null : r.asset_class ?? null,
+    share_percent: parseRequiredInt(r.share_percent, 100),
+  }));
+}
+
+function parseNetWorthSnapshotsFromCsv(csvText?: string): NetWorthSnapshot[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    year_month: r.year_month,
+    accounts_cents: parseRequiredInt(r.accounts_cents, 0),
+    investments_cents: parseRequiredInt(r.investments_cents, 0),
+    card_debt_cents: parseRequiredInt(r.card_debt_cents, 0),
+    total_cents: parseRequiredInt(r.total_cents, 0),
+  }));
+}
+
 function escapeCsvCell(val: unknown): string {
   if (val === null || val === undefined) return '';
   const str = String(val);
@@ -850,14 +953,22 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     quantity: r.quantity || '0',
     average_price: r.average_price || '0.00',
     manual_price_override: r.manual_price_override === '' ? null : r.manual_price_override,
+    manual_position_value: !r.manual_position_value || r.manual_position_value === '' ? null : r.manual_position_value,
     rf_indexer: r.rf_indexer === '' ? null : r.rf_indexer,
     rf_rate: r.rf_rate === '' ? null : Number(r.rf_rate),
     rf_maturity_date: r.rf_maturity_date === '' ? null : r.rf_maturity_date,
     rf_is_tax_exempt: Number(r.rf_is_tax_exempt || 0),
+    rf_issuer: !r.rf_issuer || r.rf_issuer === '' ? null : r.rf_issuer,
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id,
     institution_id: r.institution_id === '' ? null : r.institution_id,
     last_synced_at: r.last_synced_at === '' ? null : r.last_synced_at,
+    isin: !r.isin || r.isin === '' ? null : r.isin,
+    gross_amount: !r.gross_amount || r.gross_amount === '' ? null : r.gross_amount,
+    cost_basis_source: !r.cost_basis_source || r.cost_basis_source === '' ? null : r.cost_basis_source,
+    missing_since: !r.missing_since || r.missing_since === '' ? null : r.missing_since,
+    is_etf: Number(r.is_etf || 0),
+    of_status: !r.of_status || r.of_status === '' ? null : r.of_status,
     created_at: r.created_at,
     updated_at: r.updated_at,
   }));
@@ -877,6 +988,7 @@ function parseTransactionsFromCsv(csv: string): Transaction[] {
     notes: r.notes === '' ? null : r.notes,
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id,
+    archived_at: !r.archived_at || r.archived_at === '' ? null : r.archived_at,
     created_at: r.created_at,
   }));
 }
@@ -916,6 +1028,10 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const finRecurrenceSkips = await finRepository.listAllRecurrenceSkips();
       const db = getDatabase();
       const finCategoryRules = db ? await db.select().from(finCategoryRulesTable) : [];
+      const finGoals = db ? await db.select().from(finGoalsTable) : [];
+      const finGoalContributions = db ? await db.select().from(finGoalContributionsTable) : [];
+      const finGoalSources = db ? await db.select().from(finGoalSourcesTable) : [];
+      const netWorthSnapshots = db ? await db.select().from(netWorthSnapshotsTable) : [];
       return {
         portfolios,
         classTargets,
@@ -928,6 +1044,10 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finRecurrences,
         finRecurrenceSkips,
         finCategoryRules,
+        finGoals,
+        finGoalContributions,
+        finGoalSources,
+        netWorthSnapshots,
       };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
@@ -947,6 +1067,18 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     if (snapshot.finCategoryRules) {
       await db.delete(finCategoryRulesTable);
+    }
+    if (snapshot.finGoalSources) {
+      await db.delete(finGoalSourcesTable);
+    }
+    if (snapshot.finGoalContributions) {
+      await db.delete(finGoalContributionsTable);
+    }
+    if (snapshot.finGoals) {
+      await db.delete(finGoalsTable);
+    }
+    if (snapshot.netWorthSnapshots) {
+      await db.delete(netWorthSnapshotsTable);
     }
     if (snapshot.finRecurrences) {
       await db.delete(finRecurrencesTable);
@@ -1010,6 +1142,26 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.finCategoryRules) {
       for (const rule of snapshot.finCategoryRules) {
         await db.insert(finCategoryRulesTable).values(rule);
+      }
+    }
+    if (snapshot.finGoals) {
+      for (const g of snapshot.finGoals) {
+        await db.insert(finGoalsTable).values(g);
+      }
+    }
+    if (snapshot.finGoalContributions) {
+      for (const c of snapshot.finGoalContributions) {
+        await db.insert(finGoalContributionsTable).values(c);
+      }
+    }
+    if (snapshot.finGoalSources) {
+      for (const s of snapshot.finGoalSources) {
+        await db.insert(finGoalSourcesTable).values(s);
+      }
+    }
+    if (snapshot.netWorthSnapshots) {
+      for (const nw of snapshot.netWorthSnapshots) {
+        await db.insert(netWorthSnapshotsTable).values(nw);
       }
     }
   }
@@ -1125,6 +1277,27 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         incoming.finCategoryRules || (current.finCategoryRules?.length ?? 0) > 0
           ? mergeById(current.finCategoryRules, incoming.finCategoryRules)
           : undefined,
+      finGoals:
+        incoming.finGoals || (current.finGoals?.length ?? 0) > 0
+          ? mergeById(current.finGoals, incoming.finGoals)
+          : undefined,
+      finGoalContributions:
+        incoming.finGoalContributions || (current.finGoalContributions?.length ?? 0) > 0
+          ? mergeById(current.finGoalContributions, incoming.finGoalContributions)
+          : undefined,
+      finGoalSources:
+        incoming.finGoalSources || (current.finGoalSources?.length ?? 0) > 0
+          ? mergeById(current.finGoalSources, incoming.finGoalSources)
+          : undefined,
+      netWorthSnapshots:
+        incoming.netWorthSnapshots || (current.netWorthSnapshots?.length ?? 0) > 0
+          ? (() => {
+              const map = new Map<string, NetWorthSnapshot>();
+              for (const s of current.netWorthSnapshots ?? []) map.set(s.year_month, { ...s });
+              for (const s of incoming.netWorthSnapshots ?? []) map.set(s.year_month, { ...s });
+              return Array.from(map.values());
+            })()
+          : undefined,
     });
   }
 }
@@ -1211,6 +1384,38 @@ export class BackupService {
             const db = getDatabase();
             return db ? db.select().from(finCategoryRulesTable) : [];
           })());
+    const finGoals =
+      snapshot.finGoals ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(finGoalsTable) : [];
+          })());
+    const finGoalContributions =
+      snapshot.finGoalContributions ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(finGoalContributionsTable) : [];
+          })());
+    const finGoalSources =
+      snapshot.finGoalSources ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(finGoalSourcesTable) : [];
+          })());
+    const netWorthSnapshots =
+      snapshot.netWorthSnapshots ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(netWorthSnapshotsTable) : [];
+          })());
 
     const manifestFiles: Record<string, ManifestFileEntry> = {
       'portfolios.csv': {
@@ -1294,6 +1499,38 @@ export class BackupService {
         sha256: BackupService.computeSha256(csv),
       };
       files['fin_category_rules.csv'] = csv;
+    }
+    if (finGoals.length > 0) {
+      const csv = serializeToCsv(finGoals, FIN_GOALS_COLUMNS);
+      manifestFiles['fin_goals.csv'] = {
+        rows: finGoals.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_goals.csv'] = csv;
+    }
+    if (finGoalContributions.length > 0) {
+      const csv = serializeToCsv(finGoalContributions, FIN_GOAL_CONTRIBUTIONS_COLUMNS);
+      manifestFiles['fin_goal_contributions.csv'] = {
+        rows: finGoalContributions.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_goal_contributions.csv'] = csv;
+    }
+    if (finGoalSources.length > 0) {
+      const csv = serializeToCsv(finGoalSources, FIN_GOAL_SOURCES_COLUMNS);
+      manifestFiles['fin_goal_sources.csv'] = {
+        rows: finGoalSources.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_goal_sources.csv'] = csv;
+    }
+    if (netWorthSnapshots.length > 0) {
+      const csv = serializeToCsv(netWorthSnapshots, NET_WORTH_SNAPSHOTS_COLUMNS);
+      manifestFiles['net_worth_snapshots.csv'] = {
+        rows: netWorthSnapshots.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['net_worth_snapshots.csv'] = csv;
     }
 
     const manifest: BackupManifest = {
@@ -1391,6 +1628,10 @@ export class BackupService {
       'fin_recurrences.csv',
       'fin_recurrence_skips.csv',
       'fin_category_rules.csv',
+      'fin_goals.csv',
+      'fin_goal_contributions.csv',
+      'fin_goal_sources.csv',
+      'net_worth_snapshots.csv',
     ] as const;
 
     for (const csvName of optionalCsvs) {
@@ -1431,6 +1672,18 @@ export class BackupService {
         : undefined,
       finCategoryRules: extracted['fin_category_rules.csv']
         ? parseFinCategoryRulesFromCsv(extracted['fin_category_rules.csv'])
+        : undefined,
+      finGoals: extracted['fin_goals.csv']
+        ? parseFinGoalsFromCsv(extracted['fin_goals.csv'])
+        : undefined,
+      finGoalContributions: extracted['fin_goal_contributions.csv']
+        ? parseFinGoalContributionsFromCsv(extracted['fin_goal_contributions.csv'])
+        : undefined,
+      finGoalSources: extracted['fin_goal_sources.csv']
+        ? parseFinGoalSourcesFromCsv(extracted['fin_goal_sources.csv'])
+        : undefined,
+      netWorthSnapshots: extracted['net_worth_snapshots.csv']
+        ? parseNetWorthSnapshotsFromCsv(extracted['net_worth_snapshots.csv'])
         : undefined,
     };
 

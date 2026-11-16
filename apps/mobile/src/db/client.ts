@@ -644,10 +644,22 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
         prepareSync: () => ({ executeSync: () => ({}) }),
         getAllSync: (sql: string) => {
           if (sql.includes('PRAGMA table_info(assets)')) {
-            return Object.keys(assets).map((name) => ({ name }));
+            return [
+              'id', 'portfolio_id', 'asset_class', 'ticker', 'name',
+              'target_percentage_in_class', 'quantity', 'average_price',
+              'manual_price_override', 'manual_position_value',
+              'rf_indexer', 'rf_rate', 'rf_maturity_date', 'rf_is_tax_exempt', 'rf_issuer',
+              'source', 'external_id', 'institution_id', 'last_synced_at',
+              'isin', 'gross_amount', 'cost_basis_source', 'missing_since',
+              'is_etf', 'of_status', 'created_at', 'updated_at',
+            ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(transactions)')) {
-            return Object.keys(transactions).map((name) => ({ name }));
+            return [
+              'id', 'portfolio_id', 'asset_id', 'type', 'trade_date',
+              'quantity', 'unit_price', 'fees', 'total_amount', 'notes',
+              'source', 'external_id', 'archived_at', 'created_at',
+            ].map((name) => ({ name }));
           }
           return [];
         },

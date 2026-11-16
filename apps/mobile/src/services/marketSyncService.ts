@@ -318,8 +318,10 @@ export class MarketSyncService {
       const invested = qty.mul(pm);
       totalInvested = totalInvested.plus(invested);
 
-      if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
-        totalMarket = totalMarket.plus(new Decimal(a.manual_price_override));
+      if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
+        totalMarket = totalMarket.plus(new Decimal(a.manual_position_value));
+      } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
+        totalMarket = totalMarket.plus(qty.mul(new Decimal(a.manual_price_override)));
       } else {
         const cached = await this.marketApi.getCachedQuote(a.ticker);
         if (cached && cached.currentPrice) {
@@ -356,8 +358,10 @@ export class MarketSyncService {
       const invested = qty.mul(pm);
       investedCapitalDec = investedCapitalDec.plus(invested);
 
-      if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
-        marketValueDec = marketValueDec.plus(new Decimal(a.manual_price_override));
+      if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
+        marketValueDec = marketValueDec.plus(new Decimal(a.manual_position_value));
+      } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
+        marketValueDec = marketValueDec.plus(qty.mul(new Decimal(a.manual_price_override)));
       } else {
         const norm = a.ticker.trim().toUpperCase();
         const quote = quotesMap[norm];

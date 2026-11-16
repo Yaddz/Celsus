@@ -52,6 +52,7 @@ export class TransactionRepository {
       notes: params.notes ?? null,
       source: params.source ?? 'MANUAL',
       external_id: params.external_id ?? null,
+      archived_at: params.archived_at ?? null,
       created_at: now,
     };
 

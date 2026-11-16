@@ -167,6 +167,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
             averagePrice: a.average_price,
             currentPrice: a.manual_price_override || quotePrice || a.average_price,
             manualPriceOverride: a.manual_price_override,
+            manualPositionValue: a.manual_position_value,
           };
         }),
         classTargets: pTargets.map((ct) => ({
@@ -188,7 +189,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         selected.map(({ p }) => transactionRepository.getTransactionsByPortfolio(p.id))
       );
       if (isStale()) return;
-      const targetTxs: any[] = txLists.flat();
+      const targetTxs: any[] = txLists.flat().filter((t: any) => !t.archived_at);
 
       const mappedTxs: HistoricalTransactionInput[] = targetTxs.map((t) => ({
         id: t.id,
@@ -222,6 +223,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
             rfIndexer: a.rf_indexer as any,
             rfRate: a.rf_rate,
             manualPriceOverride: a.manual_price_override,
+            manualPositionValue: a.manual_position_value,
           })),
           transactions: mappedTxs,
           historicalQuotes: Object.keys(histQuotesMap).length > 0 ? histQuotesMap : undefined,

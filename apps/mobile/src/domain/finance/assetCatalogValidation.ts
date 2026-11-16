@@ -66,6 +66,7 @@ const ASSET_CLASS_LABELS: Record<AssetClass, string> = {
   FII: 'Fundos Imobiliários (FII)',
   FIXED_INCOME: 'Renda Fixa',
   CRYPTO: 'Criptomoedas',
+  FUNDS: 'Fundos e Previdência',
 };
 
 export function detectAssetClassFromTicker(ticker: string): AssetClass | null {

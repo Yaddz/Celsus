@@ -27,6 +27,7 @@ const CLASS_COLORS: Record<AssetClass, string> = {
   FII: colors.fii,
   STOCK: colors.stock || colors.primary,
   CRYPTO: colors.crypto,
+  FUNDS: '#5B525C',
 };
 
 export const AssetSearchRow: React.FC<AssetSearchRowProps> = ({

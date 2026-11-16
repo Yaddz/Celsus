@@ -585,7 +585,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               weight: Math.max(0.1, Math.round(((a.target_percentage_in_class || 0) / 10) * 100) / 100),
               isLocked: false,
               quantity: a.quantity,
-              price: a.manual_price_override || a.average_price,
+              price: a.manual_position_value
+                ? String((parseFloat(a.manual_position_value) || 0) / Math.max(1, parseFloat(a.quantity || '1') || 1))
+                : a.manual_price_override || a.average_price,
             }))
           : null;
         // Sempre substitui (inclusive por lista vazia): uma carteira sem ativos não herda os da anterior.
@@ -594,7 +596,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         if (dbTargets) {
           const stored = new Map(dbTargets.map((ct) => [ct.asset_class, ct]));
           // Classes sem meta gravada ficam zeradas/desativadas em vez de herdar valores da carteira anterior.
-          const targets = (['FIXED_INCOME', 'FII', 'STOCK', 'CRYPTO'] as AssetClass[]).map((c) => {
+          const targets = (['FIXED_INCOME', 'FII', 'STOCK', 'CRYPTO', 'FUNDS'] as AssetClass[]).map((c) => {
             const ct = stored.get(c);
             const pct = ct ? ct.target_percentage : 0;
             return {
@@ -615,7 +617,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         (dbAssets || []).forEach((a) =>
           assetMap.set(a.id, { id: a.id, ticker: a.ticker, name: a.name, assetClass: a.asset_class })
         );
-        const mappedTx = (txs || []).map((t) => {
+        const mappedTx = (txs || []).filter((t) => !t.archived_at).map((t) => {
           const a = assetMap.get(t.asset_id);
           const totalVal = (parseFloat(t.quantity || '0') || 0) * (parseFloat(t.unit_price || '0') || 0);
           return {
@@ -671,6 +673,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         try {
           const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
           balances[p.id] = pAssets.reduce((sum, a) => {
+            if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
+              return sum + (parseFloat(a.manual_position_value) || 0);
+            }
             const q = parseFloat(a.quantity || '0') || 0;
             const pr = parseFloat(a.manual_price_override || a.average_price || '0') || 0;
             return sum + q * pr;

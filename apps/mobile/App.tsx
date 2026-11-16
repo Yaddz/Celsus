@@ -38,7 +38,9 @@ import { spreadsheetImportService } from './src/services/spreadsheetImportServic
 import { resolveBackAction, BackState } from './src/navigation/backNavigation';
 import { AppGate } from './src/components/AppGate';
 import { sessionStore } from './src/stores/sessionStore';
+import * as Notifications from 'expo-notifications';
 import { finStore } from './src/stores/finStore';
+import { finReminderService } from './src/services/finReminderService';
 import { useProfile, profileStore } from './src/stores/profileStore';
 import { deriveInitials } from './src/domain/profile';
 import {
@@ -90,6 +92,8 @@ import { incomeRepository } from './src/repositories/incomeRepository';
 import { summarizeIncome } from './src/domain/finance/income';
 import { marketApiService, MarketQuote } from './src/services/marketApi';
 import { ASSET_CLASS_ATTRIBUTE_MAP } from './src/components/ui/AttributeStatBar';
+import { formatUpdatedAgo } from './src/domain/openFinance';
+import { openFinanceRepository } from './src/repositories/openFinanceRepository';
 import Decimal from 'decimal.js';
 
 
@@ -282,6 +286,25 @@ function AppContent(props: {
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
+  const [financeInitialRoute, setFinanceInitialRoute] = useState<'home' | 'entries'>('home');
+
+  useEffect(() => {
+    const applyResponse = (resp: Notifications.NotificationResponse | null | undefined) => {
+      if (!resp) return;
+      const nav = finReminderService.handleNotificationResponse(resp as any);
+      if (nav?.route === 'entries') {
+        setFinanceInitialRoute('entries');
+        setIsFinanceOpen(true);
+      }
+    };
+    Notifications.getLastNotificationResponseAsync?.().then(applyResponse).catch(() => {});
+    const sub = Notifications.addNotificationResponseReceivedListener?.((resp) => {
+      applyResponse(resp);
+    });
+    return () => {
+      sub?.remove?.();
+    };
+  }, []);
   const [selectedRecentTransaction, setSelectedRecentTransaction] = useState<RecentTransactionItem | null>(null);
   const [selectedClassDetail, setSelectedClassDetail] = useState<AssetClass | null>(null);
   const [selectedAssetTicker, setSelectedAssetTicker] = useState<string | null>(null);
@@ -400,6 +423,8 @@ function AppContent(props: {
               quantity: a.quantity,
               averagePrice: a.average_price,
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
+              manualPriceOverride: a.manual_price_override,
+              manualPositionValue: a.manual_position_value,
             };
           }),
           classTargets: pTargets.map((ct) => ({
@@ -642,6 +667,8 @@ function AppContent(props: {
               quantity: a.quantity,
               averagePrice: a.average_price,
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
+              manualPriceOverride: a.manual_price_override,
+              manualPositionValue: a.manual_position_value,
             };
           });
           apply.push(() => setCachedQuotes(quoteCacheMap));
@@ -1183,10 +1210,14 @@ function AppContent(props: {
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <FinanceHomeScreen
-          onBack={() => setIsFinanceOpen(false)}
+          onBack={() => {
+            setFinanceInitialRoute('home');
+            setIsFinanceOpen(false);
+          }}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={homeTogglePrivacy}
           themeMode={themeMode}
+          initialRoute={financeInitialRoute}
         />
       </SafeAreaView>
     );
@@ -1359,6 +1390,10 @@ function AppContent(props: {
     // Mesma precedência de preço da Home (consolidatePortfolios): preço manual > cotação > preço médio.
     // Antes a cotação vencia o preço manual aqui, e o detalhe da classe divergia do card da Home.
     const priceOf = (a: any): Decimal => {
+      if (a.manual_position_value) {
+        const q = new Decimal(a.quantity || '0');
+        return q.gt(0) ? new Decimal(a.manual_position_value).div(q) : new Decimal(0);
+      }
       const cached = cachedQuotes[a.ticker?.toUpperCase()] || null;
       return a.manual_price_override
         ? new Decimal(a.manual_price_override)
@@ -1366,7 +1401,10 @@ function AppContent(props: {
         ? new Decimal(cached.currentPrice)
         : new Decimal(a.average_price || '0');
     };
-    const grossOf = (a: any): Decimal => new Decimal(a.quantity || '0').mul(priceOf(a));
+    const grossOf = (a: any): Decimal =>
+      a.manual_position_value
+        ? new Decimal(a.manual_position_value)
+        : new Decimal(a.quantity || '0').mul(priceOf(a));
     const classTotalGross = classRawAssets.reduce((sum, a) => sum.plus(grossOf(a)), new Decimal(0));
     const classAssetsForDetail: ClassAssetDetailItem[] = classRawAssets
       .map((a) => {
@@ -1374,7 +1412,7 @@ function AppContent(props: {
         const avgDec = new Decimal(a.average_price || '0');
         const investedDec = qtyDec.mul(avgDec);
         const currentPriceDec = priceOf(a);
-        const grossDec = qtyDec.mul(currentPriceDec);
+        const grossDec = grossOf(a);
         const profitDec = grossDec.minus(investedDec);
         const profitPctDec = investedDec.gt(0) ? profitDec.div(investedDec).mul(100) : new Decimal(0);
         const isPos = profitDec.gte(0);

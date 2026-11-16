@@ -19,6 +19,7 @@ const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.gly
   FII: 'apartment',
   STOCK: 'trending-up',
   CRYPTO: 'currency-bitcoin',
+  FUNDS: 'pie-chart',
 };
 
 /** "2026-10-28" → "28/10/2026"; textos que já não são ISO são mantidos. */

@@ -93,6 +93,20 @@ export function calculateFixedIncomeCurrentValue(
   const p = new Decimal(params.principal);
 
   if (
+    params.manualPositionValue !== null &&
+    params.manualPositionValue !== undefined &&
+    params.manualPositionValue !== ''
+  ) {
+    const overrideVal = new Decimal(params.manualPositionValue);
+    const factor = p.isZero() ? new Decimal(1) : overrideVal.div(p);
+    return {
+      factor: factor.toFixed(6),
+      currentValue: overrideVal.toFixed(2),
+      isOverridden: true,
+    };
+  }
+
+  if (
     params.manualPriceOverride !== null &&
     params.manualPriceOverride !== undefined &&
     params.manualPriceOverride !== ''

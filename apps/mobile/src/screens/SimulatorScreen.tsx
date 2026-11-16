@@ -36,6 +36,7 @@ const CATEGORY_MATERIAL_ICONS: Record<AssetClass, keyof typeof MaterialIcons.gly
   FII: 'domain',
   STOCK: 'trending-up',
   CRYPTO: 'currency-bitcoin',
+  FUNDS: 'pie-chart',
 };
 
 export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({

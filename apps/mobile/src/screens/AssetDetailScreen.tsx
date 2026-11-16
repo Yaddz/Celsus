@@ -61,6 +61,7 @@ const CLASS_BADGE_LABELS: Record<AssetClass, string> = {
   FII: 'FII',
   STOCK: 'Ação',
   CRYPTO: 'Cripto',
+  FUNDS: 'Fundo/Prev.',
 };
 
 const CLASS_BORDER_COLORS: Record<AssetClass, string> = {
@@ -68,6 +69,7 @@ const CLASS_BORDER_COLORS: Record<AssetClass, string> = {
   FII: colors.fii,
   STOCK: colors.stock || colors.primary,
   CRYPTO: colors.crypto,
+  FUNDS: '#5B525C',
 };
 
 export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({

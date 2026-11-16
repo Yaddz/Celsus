@@ -211,11 +211,19 @@ export function calculateDailyPatrimonyCurve(
 
       // Determine Market Value for this asset
       if (
+        asset.manualPositionValue !== null &&
+        asset.manualPositionValue !== undefined &&
+        asset.manualPositionValue !== ''
+      ) {
+        totalMarketValue = totalMarketValue.plus(new Decimal(asset.manualPositionValue));
+      } else if (
         asset.manualPriceOverride !== null &&
         asset.manualPriceOverride !== undefined &&
         asset.manualPriceOverride !== ''
       ) {
-        totalMarketValue = totalMarketValue.plus(new Decimal(asset.manualPriceOverride));
+        totalMarketValue = totalMarketValue.plus(
+          activeQty.mul(new Decimal(asset.manualPriceOverride))
+        );
       } else if (asset.assetClass === 'FIXED_INCOME') {
         const principal = activeCost;
         const indexer = asset.rfIndexer;

@@ -77,7 +77,7 @@ export interface ConsolidatePortfoliosOptions {
   marketQuotes?: Record<string, string | number>;
 }
 
-const ALL_ASSET_CLASSES: AssetClass[] = ['FIXED_INCOME', 'FII', 'STOCK', 'CRYPTO'];
+const ALL_ASSET_CLASSES: AssetClass[] = ['FIXED_INCOME', 'FII', 'STOCK', 'CRYPTO', 'FUNDS'];
 
 /**
  * S5-T02: Consolidação precisa de múltiplas carteiras independentes no Dossiê Geral (Home).
@@ -134,18 +134,21 @@ export function consolidatePortfolios(
     FII: new Decimal(0),
     STOCK: new Decimal(0),
     CRYPTO: new Decimal(0),
+    FUNDS: new Decimal(0),
   };
   const classMarketValueMap: Record<AssetClass, Decimal> = {
     FIXED_INCOME: new Decimal(0),
     FII: new Decimal(0),
     STOCK: new Decimal(0),
     CRYPTO: new Decimal(0),
+    FUNDS: new Decimal(0),
   };
   const classWeightedTargetSum: Record<AssetClass, Decimal> = {
     FIXED_INCOME: new Decimal(0),
     FII: new Decimal(0),
     STOCK: new Decimal(0),
     CRYPTO: new Decimal(0),
+    FUNDS: new Decimal(0),
   };
 
   for (const p of activePortfolios) {
@@ -158,23 +161,32 @@ export function consolidatePortfolios(
       const invested = qty.mul(avgPrice);
 
       let price = avgPrice;
+      let mv: Decimal;
       if (
-        asset.manualPriceOverride !== null &&
-        asset.manualPriceOverride !== undefined &&
-        asset.manualPriceOverride !== ''
+        asset.manualPositionValue !== null &&
+        asset.manualPositionValue !== undefined &&
+        asset.manualPositionValue !== ''
       ) {
-        price = new Decimal(asset.manualPriceOverride);
-      } else if (marketQuotes && marketQuotes[asset.ticker] !== undefined) {
-        price = new Decimal(marketQuotes[asset.ticker]);
-      } else if (
-        asset.currentPrice !== null &&
-        asset.currentPrice !== undefined &&
-        asset.currentPrice !== ''
-      ) {
-        price = new Decimal(asset.currentPrice);
+        mv = new Decimal(asset.manualPositionValue);
+        price = qty.gt(0) ? mv.div(qty) : new Decimal(0);
+      } else {
+        if (
+          asset.manualPriceOverride !== null &&
+          asset.manualPriceOverride !== undefined &&
+          asset.manualPriceOverride !== ''
+        ) {
+          price = new Decimal(asset.manualPriceOverride);
+        } else if (marketQuotes && marketQuotes[asset.ticker] !== undefined) {
+          price = new Decimal(marketQuotes[asset.ticker]);
+        } else if (
+          asset.currentPrice !== null &&
+          asset.currentPrice !== undefined &&
+          asset.currentPrice !== ''
+        ) {
+          price = new Decimal(asset.currentPrice);
+        }
+        mv = qty.mul(price);
       }
-
-      const mv = qty.mul(price);
 
       pInvested = pInvested.plus(invested);
       pMarketValue = pMarketValue.plus(mv);

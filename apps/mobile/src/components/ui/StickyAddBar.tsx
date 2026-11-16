@@ -23,6 +23,7 @@ const CLASS_NAMES: Record<AssetClass, string> = {
   FII: 'FIIs',
   STOCK: 'Ações',
   CRYPTO: 'Cripto',
+  FUNDS: 'Fundos',
 };
 
 export const StickyAddBar: React.FC<StickyAddBarProps> = ({
