@@ -1,4 +1,10 @@
-import type { FinEntry, FinRecurrence } from '../../db/schema';
+import type { FinAccount, FinEntry, FinRecurrence } from '../../db/schema';
+import {
+  billDueDate,
+  resolveBillMonth,
+  summarizeBill,
+  type CardBillDueItem,
+} from './cards';
 
 export type FinKind = 'income' | 'expense';
 export type FinEntryKind = 'income' | 'expense' | 'transfer_out' | 'transfer_in';
@@ -383,7 +389,11 @@ export function calculateAccountBalance(
     if (accountId !== undefined && entry.account_id !== accountId) continue;
     if (entry.status !== 'paid') continue;
     const realCents = entry.paid_amount_cents ?? entry.amount_cents;
-    balance += entry.kind === 'income' ? realCents : -realCents;
+    if (entry.kind === 'income' || entry.kind === 'transfer_in') {
+      balance += realCents;
+    } else {
+      balance -= realCents;
+    }
   }
   return balance;
 }
@@ -397,6 +407,7 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string):
 
   for (const entry of entries) {
     if (!entry.due_date.startsWith(yearMonth)) continue;
+    if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
 
     if (entry.status === 'paid') {
       const realCents = entry.paid_amount_cents ?? entry.amount_cents;
@@ -665,10 +676,80 @@ export interface OverdueAndDueSoonWithBillsResult extends OverdueAndDueSoonResul
 }
 
 export function detectOverdueAndDueSoonWithBills(
-  _entries: FinEntry[],
-  _accounts: import('../../db/schema').FinAccount[],
-  _todayIso: string,
-  _horizonDays = 7
+  entries: FinEntry[],
+  accounts: FinAccount[],
+  todayIso: string,
+  horizonDays = 7
 ): OverdueAndDueSoonWithBillsResult {
-  throw new Error('Not implemented: detectOverdueAndDueSoonWithBills');
+  const cardAccounts = accounts.filter((a) => a.type === 'card' && a.archived === 0);
+  const cardAccountIds = new Set(cardAccounts.map((a) => a.id));
+
+  const nonCardEntries = entries.filter(
+    (e) =>
+      !cardAccountIds.has(e.account_id) &&
+      e.kind !== 'transfer_out' &&
+      e.kind !== 'transfer_in'
+  );
+  const base = detectOverdueAndDueSoon(nonCardEntries, todayIso, horizonDays);
+
+  const horizonLimit = addDaysIso(todayIso, horizonDays);
+  const overdueBills: CardBillDueItem[] = [];
+  const dueSoonBills: CardBillDueItem[] = [];
+  let overdueBillsTotalCents = 0;
+  let dueSoonBillsTotalCents = 0;
+
+  for (const card of cardAccounts) {
+    const cardEntries = entries.filter((e) => e.account_id === card.id);
+    const months = new Set<string>();
+    for (const e of cardEntries) {
+      const bm = e.bill_month ?? resolveBillMonth(e.due_date, card.closing_day ?? 1);
+      months.add(bm);
+    }
+    const normalizedEntries = cardEntries.map((e) =>
+      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1) }
+    );
+
+    for (const billMonth of months) {
+      const dueDate = billDueDate(billMonth, card.due_day ?? 10);
+      const summary = summarizeBill(normalizedEntries, billMonth, {
+        dueDate,
+        todayIso,
+        closingDay: card.closing_day ?? undefined,
+      });
+      if (summary.openCents <= 0) continue;
+
+      if (dueDate < todayIso) {
+        overdueBills.push({
+          account: card,
+          billMonth,
+          dueDate,
+          openCents: summary.openCents,
+          status: summary.status,
+        });
+        overdueBillsTotalCents += summary.openCents;
+      } else if (dueDate <= horizonLimit) {
+        dueSoonBills.push({
+          account: card,
+          billMonth,
+          dueDate,
+          openCents: summary.openCents,
+          status: summary.status,
+        });
+        dueSoonBillsTotalCents += summary.openCents;
+      }
+    }
+  }
+
+  overdueBills.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  dueSoonBills.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  return {
+    ...base,
+    overdueTotalCents: base.overdueTotalCents + overdueBillsTotalCents,
+    dueSoonTotalCents: base.dueSoonTotalCents + dueSoonBillsTotalCents,
+    overduePayableCents: base.overduePayableCents + overdueBillsTotalCents,
+    dueSoonPayableCents: base.dueSoonPayableCents + dueSoonBillsTotalCents,
+    overdueBills,
+    dueSoonBills,
+  };
 }

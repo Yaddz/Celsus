@@ -199,6 +199,9 @@ export const finAccounts = sqliteTable('fin_accounts', {
   initial_balance_cents: integer('initial_balance_cents').notNull().default(0),
   color: text('color').notNull(),
   archived: integer('archived').notNull().default(0),
+  closing_day: integer('closing_day'),
+  due_day: integer('due_day'),
+  credit_limit_cents: integer('credit_limit_cents'),
   created_at: text('created_at').notNull(),
 });
 
@@ -223,7 +226,7 @@ export const finCategories = sqliteTable('fin_categories', {
  */
 export const finEntries = sqliteTable('fin_entries', {
   id: text('id').primaryKey(),
-  kind: text('kind').notNull(), // 'income' | 'expense'
+  kind: text('kind').notNull(), // 'income' | 'expense' | 'transfer_out' | 'transfer_in'
   amount_cents: integer('amount_cents').notNull(),
   due_date: text('due_date').notNull(), // YYYY-MM-DD
   paid_date: text('paid_date'), // YYYY-MM-DD
@@ -237,6 +240,8 @@ export const finEntries = sqliteTable('fin_entries', {
   installment_group_id: text('installment_group_id'),
   installment_number: integer('installment_number'),
   installment_total: integer('installment_total'),
+  bill_month: text('bill_month'), // YYYY-MM (apenas contas tipo card)
+  transfer_group_id: text('transfer_group_id'),
   created_at: text('created_at').notNull(),
 });
 

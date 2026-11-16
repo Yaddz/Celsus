@@ -705,7 +705,7 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
       expect(screen.getByText(/1 conta ativa • cartões ficam fora do saldo/i)).toBeTruthy();
       expect(screen.getByTestId(`account-row-${nubank.id}`)).toBeTruthy();
       expect(screen.getByText(/Conta corrente • \d+ lançamentos/)).toBeTruthy();
-      expect(screen.getByText('Gasto no mês')).toBeTruthy();
+      expect(screen.getByText(/Fatura atual/i)).toBeTruthy();
       expect(screen.getByText(/Arquivadas · 1/i)).toBeTruthy();
       expect(screen.getByText('Restaurar')).toBeTruthy();
     });

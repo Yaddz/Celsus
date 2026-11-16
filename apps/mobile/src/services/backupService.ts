@@ -543,6 +543,9 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'initial_balance_cents',
   'color',
   'archived',
+  'closing_day',
+  'due_day',
+  'credit_limit_cents',
   'created_at',
 ];
 
@@ -572,6 +575,8 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'installment_group_id',
   'installment_number',
   'installment_total',
+  'bill_month',
+  'transfer_group_id',
   'created_at',
 ];
 
@@ -618,6 +623,9 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     initial_balance_cents: parseRequiredInt(r.initial_balance_cents, 0),
     color: r.color || '#D96628',
     archived: parseRequiredInt(r.archived, 0),
+    closing_day: parseOptionalInt(r.closing_day),
+    due_day: parseOptionalInt(r.due_day),
+    credit_limit_cents: parseOptionalInt(r.credit_limit_cents),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -653,6 +661,8 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     installment_group_id: r.installment_group_id === '' ? null : r.installment_group_id ?? null,
     installment_number: parseOptionalInt(r.installment_number),
     installment_total: parseOptionalInt(r.installment_total),
+    bill_month: r.bill_month === '' ? null : r.bill_month ?? null,
+    transfer_group_id: r.transfer_group_id === '' ? null : r.transfer_group_id ?? null,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }

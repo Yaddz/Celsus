@@ -16,6 +16,7 @@ import {
   getTodayIsoLocal,
   isoToBr,
   parseBRLToCents,
+  resolveBillMonth,
   type FinKind,
   type InstallmentScope,
 } from '../../domain/financeFlow';
@@ -44,6 +45,7 @@ export interface EntryFormSheetProps {
 }
 
 type RepeatMode = 'single' | 'monthly' | 'installment';
+type EntryFormKind = FinKind | 'transfer';
 
 function extractDayLabel(isoDate: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(isoDate || '');
@@ -76,6 +78,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   const [categories, setCategories] = useState<FinCategory[]>([]);
 
   const [kind, setKind] = useState<FinKind>('expense');
+  const [formKind, setFormKind] = useState<EntryFormKind>('expense');
   const [description, setDescription] = useState('');
   const [descFocused, setDescFocused] = useState(false);
   const [amountText, setAmountText] = useState('');
@@ -84,6 +87,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   const [repeatMode, setRepeatMode] = useState<RepeatMode>('single');
   const [installmentsText, setInstallmentsText] = useState('1');
   const [accountId, setAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -115,6 +119,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       const initialKind: FinKind =
         editingEntry?.kind === 'income' ? 'income' : 'expense';
       setKind(initialKind);
+      setFormKind(initialKind);
       setDescription(editingEntry?.description ?? '');
       setAmountText(
         editingEntry ? (editingEntry.amount_cents / 100).toFixed(2).replace('.', ',') : ''
@@ -131,7 +136,10 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       setInstallmentsText(
         editingEntry?.installment_total ? String(editingEntry.installment_total) : '1'
       );
-      setAccountId(editingEntry?.account_id ?? accs[0]?.id ?? '');
+      const firstAccId = editingEntry?.account_id ?? accs[0]?.id ?? '';
+      setAccountId(firstAccId);
+      const secondAccId = accs.find((a) => a.id !== firstAccId)?.id ?? firstAccId;
+      setToAccountId(secondAccId);
 
       const matchingCat =
         cats.find((cat) => cat.id === editingEntry?.category_id) ??
@@ -152,7 +160,9 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
     return matching.length > 0 ? matching : categories;
   }, [categories, kind]);
 
-  const handleKindChange = (nextKind: FinKind) => {
+  const handleKindChange = (nextKind: EntryFormKind) => {
+    setFormKind(nextKind);
+    if (nextKind === 'transfer') return;
     setKind(nextKind);
     const matching = categories.filter((cat) => cat.kind === nextKind);
     if (matching.length > 0 && !matching.some((cat) => cat.id === categoryId)) {
@@ -202,15 +212,42 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       setFormError('Cadastre uma conta antes de lançar.');
       return;
     }
+    const trimmedDate = dueDate.trim() ? brToIso(dueDate) : getTodayIsoLocal();
+    if (!trimmedDate) {
+      setFormError('Informe uma data válida (dd/mm/aaaa).');
+      return;
+    }
+
+    if (formKind === 'transfer') {
+      const resolvedToAccountId = toAccountId || accounts.find((a) => a.id !== resolvedAccountId)?.id || '';
+      if (!resolvedToAccountId || resolvedToAccountId === resolvedAccountId) {
+        setFormError('Escolha contas de origem e destino diferentes.');
+        return;
+      }
+      setSaving(true);
+      setFormError(null);
+      try {
+        await finService.createTransfer({
+          fromAccountId: resolvedAccountId,
+          toAccountId: resolvedToAccountId,
+          amountCents,
+          dateIso: trimmedDate,
+          description: description.trim() || 'Transferência entre contas',
+        });
+        onSaved?.();
+        onClose();
+      } catch (err) {
+        setFormError(err instanceof Error ? err.message : 'Erro ao registrar transferência.');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     const resolvedCategoryId =
       categoryId || categoriesForKind[0]?.id || categories[0]?.id || '';
     if (!resolvedCategoryId || !categories.some((cat) => cat.id === resolvedCategoryId)) {
       setFormError('Selecione uma categoria válida.');
-      return;
-    }
-    const trimmedDate = dueDate.trim() ? brToIso(dueDate) : getTodayIsoLocal();
-    if (!trimmedDate) {
-      setFormError('Informe uma data válida (dd/mm/aaaa).');
       return;
     }
     const installmentsCount = Math.max(
@@ -272,6 +309,11 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           description: description.trim() || 'Parcelamento',
         });
       } else {
+        const selectedAcc = accounts.find((a) => a.id === resolvedAccountId);
+        const billMonth =
+          selectedAcc?.type === 'card'
+            ? resolveBillMonth(trimmedDate, selectedAcc.closing_day ?? 1)
+            : null;
         await finRepository.createEntry({
           kind,
           amount_cents: amountCents,
@@ -286,6 +328,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           installment_group_id: null,
           installment_number: null,
           installment_total: null,
+          bill_month: billMonth,
         });
       }
 
@@ -338,14 +381,22 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              <SegmentedControl<FinKind>
+              <SegmentedControl<EntryFormKind>
                 testID="entry-form-kind-segmented"
-                value={kind}
+                value={formKind}
                 onChange={handleKindChange}
-                options={[
-                  { id: 'expense', label: 'Despesa', icon: 'south-west' },
-                  { id: 'income', label: 'Receita', icon: 'north-east' },
-                ]}
+                options={
+                  editingEntry
+                    ? [
+                        { id: 'expense', label: 'Despesa', icon: 'south-west' },
+                        { id: 'income', label: 'Receita', icon: 'north-east' },
+                      ]
+                    : [
+                        { id: 'expense', label: 'Despesa', icon: 'south-west' },
+                        { id: 'income', label: 'Receita', icon: 'north-east' },
+                        { id: 'transfer', label: 'Transferência', icon: 'swap-horiz' },
+                      ]
+                }
                 themeMode={themeMode}
               />
 
@@ -495,6 +546,68 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                 </View>
               </BentoTile>
 
+              {formKind === 'transfer' ? (
+                <BentoTile variant={tileVariant} title="TRANSFERÊNCIA" testID="entry-form-tile-transfer">
+                  <View style={{ gap: 10 }}>
+                    <Text style={[styles.metaLabel, { color: c.muted }]}>Conta de origem</Text>
+                    <View testID="entry-transfer-from-picker" style={sharedStyles.chipRow}>
+                      {accounts.map((acc) => {
+                        const selected = acc.id === accountId;
+                        return (
+                          <TouchableOpacity
+                            key={acc.id}
+                            testID={`entry-transfer-from-${acc.id}`}
+                            accessibilityRole="button"
+                            onPress={() => setAccountId(acc.id)}
+                            style={[
+                              sharedStyles.chip,
+                              {
+                                backgroundColor: selected ? c.chipActiveBg : c.surfaceContainer,
+                                borderWidth: 1,
+                                borderColor: selected ? c.chipActiveBg : c.border,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.chipText, { color: selected ? c.chipActiveText : c.text }]}>
+                              {acc.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+
+                    <Text style={[styles.metaLabel, { color: c.muted }]}>Conta de destino</Text>
+                    <View testID="entry-transfer-to-picker" style={sharedStyles.chipRow}>
+                      {accounts.map((acc) => {
+                        const selected = acc.id === toAccountId;
+                        return (
+                          <TouchableOpacity
+                            key={acc.id}
+                            testID={`entry-transfer-to-${acc.id}`}
+                            accessibilityRole="button"
+                            onPress={() => setToAccountId(acc.id)}
+                            style={[
+                              sharedStyles.chip,
+                              {
+                                backgroundColor: selected ? c.chipActiveBg : c.surfaceContainer,
+                                borderWidth: 1,
+                                borderColor: selected ? c.chipActiveBg : c.border,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.chipText, { color: selected ? c.chipActiveText : c.text }]}>
+                              {acc.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </BentoTile>
+              ) : null}
+
+              {formKind !== 'transfer' ? (
+              <>
               <BentoTile variant={tileVariant} title="CATEGORIA" testID="entry-form-tile-categoria">
                 <View testID="entry-form-section-categoria">
                   <View style={sharedStyles.chipRow}>
@@ -643,6 +756,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   ) : null}
                 </View>
               </BentoTile>
+              </>
+              ) : null}
             </ScrollView>
 
             <View testID="entry-form-footer" style={styles.footer}>

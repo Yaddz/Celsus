@@ -210,7 +210,7 @@ describe('Sprint 61 — Telas de Cartão, Fatura e Transferências', () => {
     expect(screen.getByTestId('finance-overdue-tile')).toHaveTextContent(/0,00/);
 
     // Navega para Contas -> toca no Cartão XP -> abre CardBillScreen -> BackHandler volta para Contas
-    fireEvent.press(screen.getByTestId('fin-dock-accounts'));
+    fireEvent.press(screen.getByTestId('finance-dock-tab-accounts'));
     await waitFor(() => {
       expect(screen.getByText('Cartão XP')).toBeTruthy();
     });

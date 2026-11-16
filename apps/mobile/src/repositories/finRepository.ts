@@ -68,8 +68,12 @@ export class FinRepository {
     type: FinAccountType;
     initialBalanceCents?: number;
     color?: string;
+    closingDay?: number | null;
+    dueDay?: number | null;
+    creditLimitCents?: number | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
+    const isCard = params.type === 'card';
     const record: NewFinAccount = {
       id: params.id ?? generateUUID(),
       name: params.name.trim(),
@@ -77,6 +81,9 @@ export class FinRepository {
       initial_balance_cents: Math.round(params.initialBalanceCents ?? 0),
       color: params.color ?? '#D96628',
       archived: 0,
+      closing_day: isCard ? (params.closingDay ?? null) : null,
+      due_day: isCard ? (params.dueDay ?? null) : null,
+      credit_limit_cents: isCard ? (params.creditLimitCents ?? null) : null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -85,7 +92,16 @@ export class FinRepository {
 
   async updateAccount(
     id: string,
-    patch: Partial<{ name: string; type: FinAccountType; initial_balance_cents: number; color: string; archived: number }>
+    patch: Partial<{
+      name: string;
+      type: FinAccountType;
+      initial_balance_cents: number;
+      color: string;
+      archived: number;
+      closing_day: number | null;
+      due_day: number | null;
+      credit_limit_cents: number | null;
+    }>
   ): Promise<FinAccount> {
     const db = getDatabase();
     await db.update(finAccounts).set(patch).where(eq(finAccounts.id, id));
@@ -197,34 +213,38 @@ export class FinRepository {
   }
 
   async createEntry(
-    params: Omit<NewFinEntry, 'id' | 'created_at' | 'status'> & { id?: string; status?: FinEntryStatus }
+    params: (Omit<NewFinEntry, 'id' | 'created_at' | 'status'> & { id?: string; status?: FinEntryStatus }) | Record<string, any>
   ): Promise<FinEntry> {
-    const created = await this.createEntriesBatch([params]);
+    const created = await this.createEntriesBatch([params as any]);
     return created[0];
   }
 
   async createEntriesBatch(
-    items: Array<Omit<NewFinEntry, 'id' | 'created_at' | 'status'> & { id?: string; status?: FinEntryStatus }>
+    items: Array<
+      (Omit<NewFinEntry, 'id' | 'created_at' | 'status'> & { id?: string; status?: FinEntryStatus }) | Record<string, any>
+    >
   ): Promise<FinEntry[]> {
     if (items.length === 0) return [];
     const db = getDatabase();
     const now = new Date().toISOString();
-    const records: NewFinEntry[] = items.map((item) => ({
+    const records: NewFinEntry[] = items.map((item: any) => ({
       id: item.id ?? generateUUID(),
       kind: item.kind,
-      amount_cents: Math.round(item.amount_cents),
-      due_date: item.due_date,
-      paid_date: item.paid_date ?? null,
-      paid_amount_cents: item.paid_amount_cents ?? null,
+      amount_cents: Math.round(item.amount_cents ?? item.amountCents ?? 0),
+      due_date: item.due_date ?? item.dueDate,
+      paid_date: item.paid_date ?? item.paidDate ?? null,
+      paid_amount_cents: item.paid_amount_cents ?? item.paidAmountCents ?? null,
       status: item.status ?? 'pending',
-      account_id: item.account_id,
-      category_id: item.category_id,
+      account_id: item.account_id ?? item.accountId,
+      category_id: item.category_id ?? item.categoryId ?? 'cat-outros-despesa',
       description: item.description ?? '',
-      recurrence_id: item.recurrence_id ?? null,
-      recurrence_period: item.recurrence_period ?? null,
-      installment_group_id: item.installment_group_id ?? null,
-      installment_number: item.installment_number ?? null,
-      installment_total: item.installment_total ?? null,
+      recurrence_id: item.recurrence_id ?? item.recurrenceId ?? null,
+      recurrence_period: item.recurrence_period ?? item.recurrencePeriod ?? null,
+      installment_group_id: item.installment_group_id ?? item.installmentGroupId ?? null,
+      installment_number: item.installment_number ?? item.installmentNumber ?? null,
+      installment_total: item.installment_total ?? item.installmentTotal ?? null,
+      bill_month: item.bill_month ?? item.billMonth ?? null,
+      transfer_group_id: item.transfer_group_id ?? item.transferGroupId ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);
@@ -244,6 +264,11 @@ export class FinRepository {
   async deleteEntry(id: string): Promise<void> {
     const db = getDatabase();
     await db.delete(finEntries).where(eq(finEntries.id, id));
+  }
+
+  async deleteEntriesByTransferGroup(transferGroupId: string): Promise<void> {
+    const db = getDatabase();
+    await db.delete(finEntries).where(eq(finEntries.transfer_group_id, transferGroupId));
   }
 
   async getEntryById(id: string): Promise<FinEntry | null> {

@@ -7,10 +7,21 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **113 suítes**, **773 testes** passando (incluindo Sprint 60) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes**, **791 testes** passando (incluindo Sprint 61) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 60 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **129 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 61 |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **132 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 61 — Cartão de crédito, fatura e transferências (Fase B concluída)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`132` arquivos verificados via SHA-256):
+  - `apps/mobile/src/domain/financeFlow/__tests__/Sprint61Cards.test.ts` (**S61-T01 a S61-T09**, 9 casos): `resolveBillMonth` (antes, no dia do fechamento, virada de ano, dia 31 em fevereiro comum/bissexto), `billDueDate` com clamp, `summarizeBill` (compras, estorno, pagamento parcial, quitação e status `aberta`/`fechada`/`paga`/`atrasada`), `availableLimit` (`null` quando ausente), `calculateMonthlySummary`/`calculateAccountBalance` (competência do cartão e isolamento de `transfer_out`/`transfer_in`), e `detectOverdueAndDueSoonWithBills`.
+  - `apps/mobile/src/services/__tests__/Sprint61CardServiceAndMigration.test.ts` (**S61-T10 a S61-T14**, 5 casos): schema/migrações idempotentes/índices (`closing_day`, `due_day`, `credit_limit_cents`, `bill_month`, `transfer_group_id`), `createTransfer` e `deleteTransferGroup` atômicos, `payCardBill` (parcial/total e reversível), `createInstallmentPurchase` em cartão calculando `bill_month` por parcela, e backup `.celsus.zip` ida e volta.
+  - `apps/mobile/src/screens/__tests__/Sprint61CreditCardAndTransfers.test.tsx` (**S61-T15 a S61-T18**, 4 casos): `AccountsScreen` (formulário e resumo do cartão), `CardBillScreen` (fatura, compras e pagamento parcial), `EntryFormSheet` (opção `"Transferência"` com origem/destino) e `FinanceHomeScreen` (navegação para `CardBillScreen`, `BackHandler` do Android e tiles de atenção com faturas).
+- **Testes atualizados com autorização explícita do usuário:**
+  - `Sprint60FinanceArtifactFidelity.test.tsx` (`S60-T06`, linha 708): atualizado `'Gasto no mês'` para `/Fatura atual/i` devido ao novo resumo da linha do cartão exigido pela Sprint 61.
+  - `Sprint61CreditCardAndTransfers.test.tsx` (`S61-T18`, linha 213): corrigido `testID` da aba Contas para `'finance-dock-tab-accounts'` (mantendo o `testID` original de `FinanceDock.tsx`).
+- **Fase B:** implementação concluída em `src/db/schema.ts`, `src/db/client.ts`, `src/services/backupService.ts`, `src/domain/financeFlow/cards.ts`, `src/domain/financeFlow/index.ts`, `src/repositories/finRepository.ts`, `src/services/finService.ts`, `src/screens/finance/CardBillScreen.tsx`, `src/screens/finance/AccountsScreen.tsx`, `src/screens/finance/EntryFormSheet.tsx`, `src/screens/finance/FinanceHomeScreen.tsx`, `src/screens/finance/index.ts`, `docs/REGRAS_DE_NEGOCIO.md` e `docs/ARQUITETURA.md`. **116/116 suítes (791/791 testes) passando** em 27,401 s; `tsc --noEmit` com 0 erros em produção e na Sprint 61; `node scripts/test-lock.js verify` aprovado.
 
 ## Sprint 60 — Fidelidade visual e funcional ao artifact (Fase B concluída)
 

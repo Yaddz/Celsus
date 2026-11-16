@@ -6,7 +6,7 @@ import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/
 import {
   addMonthsYearMonth,
   calculateMonthlySummary,
-  detectOverdueAndDueSoon,
+  detectOverdueAndDueSoonWithBills,
   formatCentsBRL,
   formatYearMonthPtBr,
   getTodayIsoLocal,
@@ -17,6 +17,7 @@ import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
 import { bento, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
+import { CardBillScreen } from './CardBillScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { EntriesListScreen } from './EntriesListScreen';
 import { EntryFormSheet } from './EntryFormSheet';
@@ -41,6 +42,7 @@ export type FinanceRoute =
   | 'recurrences'
   | 'subscriptions'
   | 'accounts'
+  | 'cardBill'
   | 'categories'
   | 'more';
 
@@ -61,6 +63,7 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   home: 'home',
   entries: 'entries',
   accounts: 'accounts',
+  cardBill: 'accounts',
   more: 'more',
   subscriptions: 'more',
   recurrences: 'more',
@@ -72,6 +75,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   home: null,
   entries: 'home',
   accounts: 'home',
+  cardBill: 'accounts',
   more: 'home',
   subscriptions: 'more',
   recurrences: 'more',
@@ -98,6 +102,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const effectiveMonth = localMonth ?? selectedMonth;
 
   const [activeRoute, setActiveRoute] = useState<FinanceRoute>('home');
+  const [selectedCardAccountId, setSelectedCardAccountId] = useState<string | null>(null);
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
@@ -202,16 +207,16 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   );
 
   const dueAlerts = useMemo(
-    () => detectOverdueAndDueSoon(entries, effectiveToday, 7),
-    [entries, effectiveToday]
+    () => detectOverdueAndDueSoonWithBills(entries, accounts, effectiveToday, 7),
+    [entries, accounts, effectiveToday]
   );
   const dueSoonExpensesCount = useMemo(
-    () => dueAlerts.dueSoon.filter((e) => e.kind === 'expense').length,
-    [dueAlerts.dueSoon]
+    () => dueAlerts.dueSoon.filter((e) => e.kind === 'expense').length + dueAlerts.dueSoonBills.length,
+    [dueAlerts.dueSoon, dueAlerts.dueSoonBills]
   );
   const overdueExpensesCount = useMemo(
-    () => dueAlerts.overdue.filter((e) => e.kind === 'expense').length,
-    [dueAlerts.overdue]
+    () => dueAlerts.overdue.filter((e) => e.kind === 'expense').length + dueAlerts.overdueBills.length,
+    [dueAlerts.overdue, dueAlerts.overdueBills]
   );
   const overdueIncomeCount = useMemo(
     () => dueAlerts.overdue.filter((e) => e.kind === 'income').length,
@@ -304,6 +309,21 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <AccountsScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onOpenCardBill={(accId) => {
+            setSelectedCardAccountId(accId);
+            navigateTo('cardBill');
+          }}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'cardBill' && selectedCardAccountId) {
+      return (
+        <CardBillScreen
+          accountId={selectedCardAccountId}
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'accounts')}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}

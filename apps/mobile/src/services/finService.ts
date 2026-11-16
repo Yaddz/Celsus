@@ -11,6 +11,7 @@ import {
   getMonthDateRange,
   getTodayIsoLocal,
   parseIsoDate,
+  resolveBillMonth,
   resolveRecurrencePeriod,
   type FinKind,
   type InstallmentScope,
@@ -275,8 +276,12 @@ export class FinService {
       remainderOn: params.remainderOn ?? 'first',
     });
 
-    return runInTransaction(async () =>
-      finRepository.createEntriesBatch(
+    return runInTransaction(async () => {
+      const account = await finRepository.getAccountById(params.accountId);
+      const isCard = account?.type === 'card';
+      const closingDay = account?.closing_day ?? 1;
+
+      return finRepository.createEntriesBatch(
         schedule.map((part) => ({
           kind: params.kind ?? 'expense',
           amount_cents: part.amountCents,
@@ -292,9 +297,10 @@ export class FinService {
           installment_group_id: groupId,
           installment_number: part.installmentNumber,
           installment_total: part.installmentTotal,
+          bill_month: isCard ? resolveBillMonth(part.dueDate, closingDay) : null,
         }))
-      )
-    );
+      );
+    });
   }
 
   async updateInstallmentEntries(
@@ -425,28 +431,111 @@ export class FinService {
     });
   }
 
-  async createTransfer(_params: {
+  async createTransfer(params: {
     fromAccountId: string;
     toAccountId: string;
     amountCents: number;
     dateIso: string;
     description?: string;
   }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
-    throw new Error('Not implemented: createTransfer');
+    const amountCents = Math.round(params.amountCents);
+    if (amountCents <= 0) {
+      throw new Error('O valor da transferência deve ser maior que zero.');
+    }
+    if (!params.fromAccountId || !params.toAccountId || params.fromAccountId === params.toAccountId) {
+      throw new Error('Escolha contas de origem e destino diferentes.');
+    }
+
+    const transferGroupId = `tr-${Crypto.randomUUID()}`;
+    const desc = params.description?.trim() || 'Transferência entre contas';
+
+    return runInTransaction(async () => {
+      const [outEntry, inEntry] = await finRepository.createEntriesBatch([
+        {
+          kind: 'transfer_out',
+          amount_cents: amountCents,
+          due_date: params.dateIso,
+          paid_date: params.dateIso,
+          paid_amount_cents: amountCents,
+          status: 'paid',
+          account_id: params.fromAccountId,
+          category_id: 'cat-outros-despesa',
+          description: desc,
+          transfer_group_id: transferGroupId,
+        },
+        {
+          kind: 'transfer_in',
+          amount_cents: amountCents,
+          due_date: params.dateIso,
+          paid_date: params.dateIso,
+          paid_amount_cents: amountCents,
+          status: 'paid',
+          account_id: params.toAccountId,
+          category_id: 'cat-outros-receita',
+          description: desc,
+          transfer_group_id: transferGroupId,
+        },
+      ]);
+      return { transferGroupId, outEntry, inEntry };
+    });
   }
 
-  async payCardBill(_params: {
+  async payCardBill(params: {
     cardAccountId: string;
     fromAccountId: string;
     billMonth: string;
     amountCents: number;
     paidDateIso: string;
   }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
-    throw new Error('Not implemented: payCardBill');
+    const amountCents = Math.round(params.amountCents);
+    if (amountCents <= 0) {
+      throw new Error('O valor do pagamento deve ser maior que zero.');
+    }
+    if (!params.fromAccountId || !params.cardAccountId || params.fromAccountId === params.cardAccountId) {
+      throw new Error('Selecione a conta pagadora.');
+    }
+
+    const transferGroupId = `bill-${Crypto.randomUUID()}`;
+    const desc = `Pagamento fatura ${params.billMonth}`;
+
+    return runInTransaction(async () => {
+      const [outEntry, inEntry] = await finRepository.createEntriesBatch([
+        {
+          kind: 'transfer_out',
+          amount_cents: amountCents,
+          due_date: params.paidDateIso,
+          paid_date: params.paidDateIso,
+          paid_amount_cents: amountCents,
+          status: 'paid',
+          account_id: params.fromAccountId,
+          category_id: 'cat-outros-despesa',
+          description: desc,
+          bill_month: null,
+          transfer_group_id: transferGroupId,
+        },
+        {
+          kind: 'transfer_in',
+          amount_cents: amountCents,
+          due_date: params.paidDateIso,
+          paid_date: params.paidDateIso,
+          paid_amount_cents: amountCents,
+          status: 'paid',
+          account_id: params.cardAccountId,
+          category_id: 'cat-outros-receita',
+          description: desc,
+          bill_month: params.billMonth,
+          transfer_group_id: transferGroupId,
+        },
+      ]);
+      return { transferGroupId, outEntry, inEntry };
+    });
   }
 
-  async deleteTransferGroup(_transferGroupId: string): Promise<void> {
-    throw new Error('Not implemented: deleteTransferGroup');
+  async deleteTransferGroup(transferGroupId: string): Promise<void> {
+    if (!transferGroupId) return;
+    return runInTransaction(async () => {
+      await finRepository.deleteEntriesByTransferGroup(transferGroupId);
+    });
   }
 }
 

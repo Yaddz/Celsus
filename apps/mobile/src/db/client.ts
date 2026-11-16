@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   initial_balance_cents INTEGER NOT NULL DEFAULT 0,
   color TEXT NOT NULL DEFAULT '#D96628',
   archived INTEGER NOT NULL DEFAULT 0,
+  closing_day INTEGER,
+  due_day INTEGER,
+  credit_limit_cents INTEGER,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_categories (
@@ -147,6 +150,8 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   installment_group_id TEXT,
   installment_number INTEGER,
   installment_total INTEGER,
+  bill_month TEXT,
+  transfer_group_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_recurrence_skips (
@@ -190,6 +195,8 @@ CREATE INDEX IF NOT EXISTS idx_fin_entries_status ON fin_entries(status);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence ON fin_entries(recurrence_id);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence_period ON fin_entries(recurrence_id, recurrence_period);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_installment_group ON fin_entries(installment_group_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_bill_month ON fin_entries(bill_month);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_transfer_group ON fin_entries(transfer_group_id);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -407,6 +414,11 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
     column: 'variable_amount',
     ddl: 'ALTER TABLE fin_recurrences ADD COLUMN variable_amount INTEGER NOT NULL DEFAULT 0',
   },
+  { table: 'fin_accounts', column: 'closing_day', ddl: 'ALTER TABLE fin_accounts ADD COLUMN closing_day INTEGER' },
+  { table: 'fin_accounts', column: 'due_day', ddl: 'ALTER TABLE fin_accounts ADD COLUMN due_day INTEGER' },
+  { table: 'fin_accounts', column: 'credit_limit_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN credit_limit_cents INTEGER' },
+  { table: 'fin_entries', column: 'bill_month', ddl: 'ALTER TABLE fin_entries ADD COLUMN bill_month TEXT' },
+  { table: 'fin_entries', column: 'transfer_group_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN transfer_group_id TEXT' },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {

@@ -16,10 +16,14 @@ import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinEntry } from '../../db/schema';
 import {
+  availableLimit,
+  billDueDate,
   calculateAccountBalance,
   formatCentsBRL,
   getTodayIsoLocal,
   parseBRLToCents,
+  resolveBillMonth,
+  summarizeBill,
   type FinAccountType,
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
@@ -38,6 +42,7 @@ import {
 
 export interface AccountsScreenProps {
   onBack: () => void;
+  onOpenCardBill?: (accountId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -62,6 +67,7 @@ function getCurrentYearMonth(): string {
 
 export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   onBack,
+  onOpenCardBill,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -79,6 +85,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [name, setName] = useState('');
   const [accountType, setAccountType] = useState<FinAccountType>('checking');
   const [balanceText, setBalanceText] = useState('0,00');
+  const [closingDayText, setClosingDayText] = useState('10');
+  const [dueDayText, setDueDayText] = useState('17');
+  const [creditLimitText, setCreditLimitText] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>(FIN_COLOR_SWATCHES[0]);
   const [saving, setSaving] = useState(false);
 
@@ -173,6 +182,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setName('');
     setAccountType('checking');
     setBalanceText('0,00');
+    setClosingDayText('10');
+    setDueDayText('17');
+    setCreditLimitText('');
     setSelectedColor(FIN_COLOR_SWATCHES[0]);
     setFormOpen(true);
   };
@@ -183,6 +195,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setAccountType((acc.type as FinAccountType) || 'checking');
     const absFormatted = (Math.abs(acc.initial_balance_cents) / 100).toFixed(2).replace('.', ',');
     setBalanceText(acc.initial_balance_cents < 0 ? `-${absFormatted}` : absFormatted);
+    setClosingDayText(acc.closing_day != null ? String(acc.closing_day) : '10');
+    setDueDayText(acc.due_day != null ? String(acc.due_day) : '17');
+    setCreditLimitText(
+      acc.credit_limit_cents != null
+        ? (acc.credit_limit_cents / 100).toFixed(2).replace('.', ',')
+        : ''
+    );
     setSelectedColor(resolveApprovedColor(acc.color, FIN_COLOR_SWATCHES[0]));
     setFormOpen(true);
   };
@@ -193,12 +212,27 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setSaving(true);
     try {
       const initialCents = parseBRLToCents(balanceText);
+      const isCard = accountType === 'card';
+      const parsedClosing = Number.parseInt(closingDayText, 10);
+      const parsedDue = Number.parseInt(dueDayText, 10);
+      const closingDay = isCard
+        ? Math.max(1, Math.min(31, Number.isFinite(parsedClosing) ? parsedClosing : 10))
+        : null;
+      const dueDay = isCard
+        ? Math.max(1, Math.min(31, Number.isFinite(parsedDue) ? parsedDue : 17))
+        : null;
+      const creditLimitCents =
+        isCard && creditLimitText.trim().length > 0 ? parseBRLToCents(creditLimitText) : null;
+
       if (editingAccount) {
         await finRepository.updateAccount(editingAccount.id, {
           name: trimmed,
           type: accountType,
           initial_balance_cents: initialCents,
           color: selectedColor,
+          closing_day: closingDay,
+          due_day: dueDay,
+          credit_limit_cents: creditLimitCents,
         });
       } else {
         await finRepository.createAccount({
@@ -206,6 +240,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           type: accountType,
           initialBalanceCents: initialCents,
           color: selectedColor,
+          closingDay,
+          dueDay,
+          creditLimitCents,
         });
       }
       setFormOpen(false);
@@ -227,8 +264,36 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
   const renderAccountRow = (acc: FinAccount, isLast: boolean, isArchived: boolean) => {
     const isCard = acc.type === 'card';
+    const cardEntries = isCard
+      ? entries
+          .filter((e) => e.account_id === acc.id)
+          .map((e) =>
+            e.bill_month
+              ? e
+              : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1) }
+          )
+      : [];
+    const currentBillMonth = isCard
+      ? resolveBillMonth(getTodayIsoLocal(), acc.closing_day ?? 1)
+      : currentYm;
+    const currentBillSummary = isCard
+      ? summarizeBill(cardEntries, currentBillMonth, {
+          dueDate: billDueDate(currentBillMonth, acc.due_day ?? 10),
+          todayIso: getTodayIsoLocal(),
+          closingDay: acc.closing_day ?? undefined,
+        })
+      : null;
+    const openBillsTotalCents = isCard
+      ? Array.from(
+          new Set(cardEntries.map((e) => e.bill_month).filter(Boolean) as string[])
+        ).reduce((sum, bm) => sum + summarizeBill(cardEntries, bm).openCents, 0)
+      : 0;
+    const availLimitCents = isCard
+      ? availableLimit(acc.credit_limit_cents, openBillsTotalCents)
+      : null;
+
     const balance = isCard
-      ? cardMonthSpendMap.get(acc.id) ?? 0
+      ? currentBillSummary?.openCents ?? cardMonthSpendMap.get(acc.id) ?? 0
       : balanceMap.get(acc.id) ?? 0;
     const monthDelta = monthDeltaMap.get(acc.id) ?? 0;
     const entryCount = entryCountByAccount.get(acc.id) ?? 0;
@@ -246,7 +311,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     const subtitle = isArchived
       ? undefined
       : isCard
-      ? 'Gasto no mês'
+      ? `Fatura atual • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
+          availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
+        }`
       : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
 
     const deltaText =
@@ -276,7 +343,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         rightSubtitleColor={deltaColor}
         isLast={isLast}
         themeMode={themeMode}
-        onPress={() => openEditModal(acc)}
+        onPress={() => {
+          if (isCard && !isArchived && onOpenCardBill) {
+            onOpenCardBill(acc.id);
+          } else {
+            openEditModal(acc);
+          }
+        }}
         bottomContent={
           <View style={styles.rowActions}>
             {isArchived ? (
@@ -445,6 +518,42 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               testID="account-form-balance-input"
             />
           </BentoSection>
+
+          {accountType === 'card' ? (
+            <>
+              <BentoSection title="DIA DE FECHAMENTO (1–31)" themeMode={themeMode}>
+                <TextField
+                  value={closingDayText}
+                  onChangeText={setClosingDayText}
+                  keyboardType="number-pad"
+                  placeholder="10"
+                  themeMode={themeMode}
+                  testID="account-closing-day-input"
+                />
+              </BentoSection>
+
+              <BentoSection title="DIA DE VENCIMENTO (1–31)" themeMode={themeMode}>
+                <TextField
+                  value={dueDayText}
+                  onChangeText={setDueDayText}
+                  keyboardType="number-pad"
+                  placeholder="17"
+                  themeMode={themeMode}
+                  testID="account-due-day-input"
+                />
+              </BentoSection>
+
+              <BentoSection title="LIMITE DO CARTÃO (OPCIONAL)" themeMode={themeMode}>
+                <LedgerInput
+                  value={creditLimitText}
+                  onChangeText={setCreditLimitText}
+                  prefix="R$"
+                  themeMode={themeMode}
+                  testID="account-credit-limit-input"
+                />
+              </BentoSection>
+            </>
+          ) : null}
 
           <BentoSection title="COR" themeMode={themeMode}>
             <View style={styles.swatchRow}>

@@ -4,6 +4,7 @@ export * from './EntryFormSheet';
 export * from './RecurrencesScreen';
 export * from './SubscriptionsScreen';
 export * from './AccountsScreen';
+export * from './CardBillScreen';
 export * from './CategoriesScreen';
 export * from './FinanceDock';
 export * from './FinanceMoreScreen';
