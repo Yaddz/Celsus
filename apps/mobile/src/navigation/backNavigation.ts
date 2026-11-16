@@ -15,6 +15,7 @@ export interface BackState {
   isLocked?: boolean;
   activeTab: DockTabId;
   isSettingsOpen: boolean;
+  isOpenFinanceOpen?: boolean;
   isB3ImportOpen?: boolean;
   isIncomeHistoryOpen?: boolean;
   isFinanceOpen?: boolean;
@@ -29,6 +30,7 @@ export interface BackState {
 
 export type BackAction =
   | 'minimize'
+  | 'close-open-finance'
   | 'close-b3-import'
   | 'close-income-history'
   | 'close-finance'

@@ -176,6 +176,24 @@ CREATE TABLE IF NOT EXISTS fin_recurrences (
   generated_until TEXT,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS of_items (
+  id TEXT PRIMARY KEY NOT NULL,
+  connector_name TEXT,
+  status TEXT,
+  execution_status TEXT,
+  consent_expires_at TEXT,
+  last_synced_at TEXT,
+  last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS of_sync_runs (
+  id TEXT PRIMARY KEY NOT NULL,
+  item_id TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  status TEXT NOT NULL,
+  counts_json TEXT,
+  error TEXT
+);
 `;
 
 /**
@@ -197,6 +215,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence_period ON fin_entries(recu
 CREATE INDEX IF NOT EXISTS idx_fin_entries_installment_group ON fin_entries(installment_group_id);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_bill_month ON fin_entries(bill_month);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_transfer_group ON fin_entries(transfer_group_id);
+CREATE INDEX IF NOT EXISTS idx_of_sync_runs_item ON of_sync_runs(item_id);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -214,6 +233,8 @@ const inMemoryStore: Record<string, any[]> = {
   fin_entries: [],
   fin_recurrences: [],
   fin_recurrence_skips: [],
+  of_items: [],
+  of_sync_runs: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {

@@ -295,4 +295,38 @@ export type NewFinRecurrence = typeof finRecurrences.$inferInsert;
 export type FinRecurrenceSkip = typeof finRecurrenceSkips.$inferSelect;
 export type NewFinRecurrenceSkip = typeof finRecurrenceSkips.$inferInsert;
 
+/**
+ * OF_ITEMS
+ * Conexões Open Finance (Meu Pluggy) cadastradas pelo usuário (máx. 5).
+ */
+export const ofItems = sqliteTable('of_items', {
+  id: text('id').primaryKey(),
+  connector_name: text('connector_name'),
+  status: text('status'),
+  execution_status: text('execution_status'),
+  consent_expires_at: text('consent_expires_at'),
+  last_synced_at: text('last_synced_at'),
+  last_error: text('last_error'),
+});
+
+/**
+ * OF_SYNC_RUNS
+ * Histórico de execuções de teste de conexão / sincronização Open Finance.
+ */
+export const ofSyncRuns = sqliteTable('of_sync_runs', {
+  id: text('id').primaryKey(),
+  item_id: text('item_id').notNull(),
+  started_at: text('started_at').notNull(),
+  finished_at: text('finished_at'),
+  status: text('status').notNull(),
+  counts_json: text('counts_json'),
+  error: text('error'),
+});
+
+export type OfItem = typeof ofItems.$inferSelect;
+export type NewOfItem = typeof ofItems.$inferInsert;
+
+export type OfSyncRun = typeof ofSyncRuns.$inferSelect;
+export type NewOfSyncRun = typeof ofSyncRuns.$inferInsert;
+
 

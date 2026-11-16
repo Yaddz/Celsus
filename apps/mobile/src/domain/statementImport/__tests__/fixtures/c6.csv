@@ -1,0 +1,4 @@
+Data de Compra;Nome no Cartão;Final do Cartão;Categoria;Descrição;Parcela;Valor (em US$);Cotação (em R$);Valor (em R$)
+04/11/2026;TITULAR EXEMPLO;1234;Supermercado;MERCADO BAIRRO;Única;0.00;0.00;184.35
+08/11/2026;TITULAR EXEMPLO;1234;Eletrônicos;LOJA TECH PARC 03/12;3/12;0.00;0.00;299.90
+11/11/2026;TITULAR EXEMPLO;1234;Outros;Estorno Compra;-;0.00;0.00;-50.00

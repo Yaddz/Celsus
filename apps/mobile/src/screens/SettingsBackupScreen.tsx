@@ -25,6 +25,7 @@ export interface SettingsBackupScreenProps {
   onClose?: () => void;
   onDataRestored?: () => void;
   onOpenB3Import?: () => void;
+  onOpenOpenFinance?: () => void;
   themeMode?: ThemeMode;
   onThemeModeChange?: (mode: ThemeMode) => void;
   /** Dados do usuário só aparecem quando informados; não há valores de exemplo. */

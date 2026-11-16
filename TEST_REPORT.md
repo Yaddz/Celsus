@@ -7,10 +7,17 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes**, **791 testes** passando (incluindo Sprint 61) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **3 suítes** Sprint 64 (Fase A, Red) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 61 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **132 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção e na Sprint 64 |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **135 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 64 — Fundação do Open Finance com Pluggy / Meu Pluggy (Fase A concluída)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`135` arquivos verificados via SHA-256):
+  - `apps/mobile/src/services/pluggy/__tests__/pluggyClient.test.ts` (**S64-T01 a S64-T08**, 8 casos): `POST /auth` com cache 2h em memória + `SecureStore`, renovação automática em `401` (`PluggyAuthError` se persistir), cursor `next` em `/v2/transactions` por 3 páginas, timeout via `AbortController` (`PluggyNetworkError`), retry exponencial em `429` (`PluggyRateLimitError`), consentimento expirado (`PluggyConsentExpiredError`), respostas vazias em todos os endpoints e `inspectItemCoverage` com contagem de contas, cartões, faturas, investimentos e tipos/subtipos B3.
+  - `apps/mobile/src/services/pluggy/__tests__/pluggySecurityAndStorage.test.ts` (**S64-T09 a S64-T10**, 2 casos): isolamento estrito de segredos (`clientId`, `clientSecret`, `apiKey` apenas no `SecureStore`, nunca em erros nem no backup `.celsus.zip`) e persistência SQLite de `of_items` e `of_sync_runs` com limite de 5 itens do Meu Pluggy (`MeuPluggyItemLimitError`).
+  - `apps/mobile/src/screens/__tests__/Sprint64OpenFinanceScreen.test.tsx` (**S64-T11 a S64-T16**, 6 casos): guia em 4 etapas com links, campos mascarados (`secureTextEntry`), lista de itens com vencimento em 30 dias e estado expirado, bloqueio do 6º item, relatório de cobertura ao testar conexão, remoção de credenciais com `ConfirmDialog`, entrada em `SettingsBackupScreen` e `resolveBackAction`.
 
 ## Sprint 61 — Cartão de crédito, fatura e transferências (Fase B concluída)
 
