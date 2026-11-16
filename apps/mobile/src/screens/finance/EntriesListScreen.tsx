@@ -336,6 +336,26 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         isLast={index === total - 1}
         themeMode={themeMode}
         onPress={() => setActionEntry(entry)}
+        bottomContent={
+          entry.source === 'OPEN_FINANCE' ? (
+            <View
+              testID={`entry-of-badge-${entry.id}`}
+              style={{
+                alignSelf: 'flex-start',
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: c.income,
+                marginTop: 4,
+              }}
+            >
+              <Text style={{ fontSize: 10, fontWeight: '600', color: c.income }}>
+                Open Finance
+              </Text>
+            </View>
+          ) : undefined
+        }
       />
     );
   };

@@ -3,18 +3,21 @@ import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
 import {
   finAccounts,
+  finBudgets,
   finCategories,
   finCategoryRules,
   finEntries,
   finRecurrences,
   finRecurrenceSkips,
   type FinAccount,
+  type FinBudget,
   type FinCategory,
   type FinCategoryRule,
   type FinEntry,
   type FinRecurrence,
   type FinRecurrenceSkip,
   type NewFinAccount,
+  type NewFinBudget,
   type NewFinCategory,
   type NewFinEntry,
   type NewFinRecurrence,
@@ -73,6 +76,10 @@ export class FinRepository {
     closingDay?: number | null;
     dueDay?: number | null;
     creditLimitCents?: number | null;
+    ofAccountId?: string | null;
+    source?: 'MANUAL' | 'OPEN_FINANCE';
+    reportedBalanceCents?: number | null;
+    reportedBalanceAt?: string | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
     const isCard = params.type === 'card';
@@ -86,6 +93,10 @@ export class FinRepository {
       closing_day: isCard ? (params.closingDay ?? null) : null,
       due_day: isCard ? (params.dueDay ?? null) : null,
       credit_limit_cents: isCard ? (params.creditLimitCents ?? null) : null,
+      of_account_id: params.ofAccountId ?? null,
+      source: params.source ?? 'MANUAL',
+      reported_balance_cents: params.reportedBalanceCents ?? null,
+      reported_balance_at: params.reportedBalanceAt ?? null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -103,6 +114,10 @@ export class FinRepository {
       closing_day: number | null;
       due_day: number | null;
       credit_limit_cents: number | null;
+      of_account_id: string | null;
+      source: 'MANUAL' | 'OPEN_FINANCE';
+      reported_balance_cents: number | null;
+      reported_balance_at: string | null;
     }>
   ): Promise<FinAccount> {
     const db = getDatabase();
@@ -250,6 +265,8 @@ export class FinRepository {
       source: item.source ?? 'MANUAL',
       external_id: item.external_id ?? item.externalId ?? null,
       import_batch_id: item.import_batch_id ?? item.importBatchId ?? null,
+      description_raw: item.description_raw ?? item.descriptionRaw ?? null,
+      user_edited_fields: item.user_edited_fields ?? item.userEditedFields ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);
@@ -462,6 +479,45 @@ export class FinRepository {
     const db = getDatabase();
     const rows = (await db.select().from(finCategoryRules)) as FinCategoryRule[];
     return kind ? rows.filter((r) => r.kind === kind) : rows;
+  }
+
+  async listBudgets(): Promise<FinBudget[]> {
+    const db = getDatabase();
+    return (await db.select().from(finBudgets)) as FinBudget[];
+  }
+
+  async upsertBudget(input: {
+    categoryId: string;
+    yearMonth: string | null;
+    limitCents: number;
+  }): Promise<FinBudget> {
+    const db = getDatabase();
+    const all = await this.listBudgets();
+    const existing = all.find(
+      (b) => b.category_id === input.categoryId && (b.year_month ?? null) === (input.yearMonth ?? null)
+    );
+    const limitCents = Math.max(0, Math.round(input.limitCents));
+    if (existing) {
+      await db
+        .update(finBudgets)
+        .set({ limit_cents: limitCents })
+        .where(eq(finBudgets.id, existing.id));
+      return { ...existing, limit_cents: limitCents };
+    }
+    const row: NewFinBudget = {
+      id: Crypto.randomUUID(),
+      category_id: input.categoryId,
+      year_month: input.yearMonth ?? null,
+      limit_cents: limitCents,
+      created_at: new Date().toISOString(),
+    };
+    await db.insert(finBudgets).values(row);
+    return row as FinBudget;
+  }
+
+  async deleteBudget(id: string): Promise<void> {
+    const db = getDatabase();
+    await db.delete(finBudgets).where(eq(finBudgets.id, id));
   }
 }
 

@@ -26,6 +26,10 @@ import {
   summarizeBill,
   type FinAccountType,
 } from '../../domain/financeFlow';
+import {
+  computeBalanceDivergence,
+  formatReportedBalanceDate,
+} from '../../domain/openFinance';
 import { finRepository } from '../../repositories/finRepository';
 import type { ThemeMode } from '../../theme/palettes';
 import { layout, typography } from '../../theme/tokens';
@@ -225,10 +229,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         isCard && creditLimitText.trim().length > 0 ? parseBRLToCents(creditLimitText) : null;
 
       if (editingAccount) {
+        const isOpenFinance = editingAccount.source === 'OPEN_FINANCE';
         await finRepository.updateAccount(editingAccount.id, {
           name: trimmed,
           type: accountType,
-          initial_balance_cents: initialCents,
+          initial_balance_cents: isOpenFinance
+            ? editingAccount.initial_balance_cents
+            : initialCents,
           color: selectedColor,
           closing_day: closingDay,
           due_day: dueDay,
@@ -292,9 +299,17 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       ? availableLimit(acc.credit_limit_cents, openBillsTotalCents)
       : null;
 
-    const balance = isCard
+    const isOpenFinance = acc.source === 'OPEN_FINANCE';
+    const calculatedBalance = isCard
       ? currentBillSummary?.openCents ?? cardMonthSpendMap.get(acc.id) ?? 0
       : balanceMap.get(acc.id) ?? 0;
+    const hasReportedBalance = isOpenFinance && acc.reported_balance_cents != null;
+    const balance = hasReportedBalance
+      ? (acc.reported_balance_cents as number)
+      : calculatedBalance;
+    const divergence = hasReportedBalance
+      ? computeBalanceDivergence(acc.reported_balance_cents, calculatedBalance)
+      : { hasDivergence: false, diffCents: 0 };
     const monthDelta = monthDeltaMap.get(acc.id) ?? 0;
     const entryCount = entryCountByAccount.get(acc.id) ?? 0;
     const avatarColor = isArchived
@@ -308,13 +323,23 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     const typeLabel = ACCOUNT_TYPE_LABELS[(acc.type as FinAccountType) || 'checking'] ?? 'Conta';
     const actionBorder = ui.actionBorder;
 
-    const subtitle = isArchived
+    const reportedDateLabel =
+      !isCard && hasReportedBalance && acc.reported_balance_at
+        ? formatReportedBalanceDate(acc.reported_balance_at)
+        : null;
+
+    const baseSubtitle = isArchived
       ? undefined
       : isCard
       ? `Fatura atual • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
           availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
         }`
       : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
+
+    const subtitle =
+      baseSubtitle && reportedDateLabel
+        ? `${baseSubtitle} • ${reportedDateLabel}`
+        : baseSubtitle;
 
     const deltaText =
       isCard || isArchived
@@ -352,6 +377,36 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         }}
         bottomContent={
           <View style={styles.rowActions}>
+            {isOpenFinance ? (
+              <View
+                testID={`account-of-badge-${acc.id}`}
+                style={[styles.actionBtn, { borderColor: ui.income }]}
+              >
+                <Text style={[styles.actionBtnText, { color: ui.income }]}>Open Finance</Text>
+              </View>
+            ) : null}
+            {divergence.hasDivergence ? (
+              <View
+                testID={`account-balance-diff-${acc.id}`}
+                style={[styles.actionBtn, { borderColor: actionBorder }]}
+              >
+                <Text style={[styles.actionBtnText, { color: ui.muted }]}>
+                  Dif. calculado: {formatCentsBRL(Math.abs(divergence.diffCents), isPrivacyMode)}
+                </Text>
+              </View>
+            ) : null}
+            {isOpenFinance && isCard && acc.closing_day == null ? (
+              <TouchableOpacity
+                testID={`account-missing-closing-day-${acc.id}`}
+                accessibilityRole="button"
+                onPress={() => openEditModal(acc)}
+                style={[styles.actionBtn, { borderColor: ui.expense }]}
+              >
+                <Text style={[styles.actionBtnText, { color: ui.expense }]}>
+                  Informar fechamento
+                </Text>
+              </TouchableOpacity>
+            ) : null}
             {isArchived ? (
               <TouchableOpacity
                 testID={`account-restore-btn-${acc.id}`}
@@ -515,6 +570,12 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               onChangeText={setBalanceText}
               prefix="R$"
               themeMode={themeMode}
+              disabled={Boolean(editingAccount && editingAccount.source === 'OPEN_FINANCE')}
+              helper={
+                editingAccount && editingAccount.source === 'OPEN_FINANCE'
+                  ? 'Conta sincronizada via Open Finance não permite editar o saldo inicial.'
+                  : undefined
+              }
               testID="account-form-balance-input"
             />
           </BentoSection>

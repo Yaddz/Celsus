@@ -11,6 +11,8 @@ import {
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoTile, ConfirmDialog } from '../components/ui';
 import { CircleIconButton } from '../components/ui/CircleIconButton';
+import type { FinAccount } from '../db/schema';
+import { finRepository } from '../repositories/finRepository';
 import {
   MAX_MEU_PLUGGY_ITEMS,
   MeuPluggyItemLimitError,
@@ -23,6 +25,11 @@ import {
   PluggyCoverageItemSummary,
   pluggyCredentialsService,
 } from '../services/pluggy/pluggyClient';
+import {
+  pluggySyncService,
+  type AccountReconciliationChoice,
+  type AccountReconciliationProposal,
+} from '../services/pluggy/pluggySyncService';
 import { ThemeMode } from '../theme/palettes';
 import { bento, BentoVariant, colors, layout, typography } from '../theme/tokens';
 
@@ -78,6 +85,11 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [isSyncingFinance, setIsSyncingFinance] = useState(false);
+  const [reconcileItemId, setReconcileItemId] = useState<string | null>(null);
+  const [reconcileProposals, setReconcileProposals] = useState<AccountReconciliationProposal[]>([]);
+  const [reconcileChoices, setReconcileChoices] = useState<Record<string, string | 'CREATE_NEW'>>({});
+  const [localAccounts, setLocalAccounts] = useState<FinAccount[]>([]);
   const [coverageReport, setCoverageReport] = useState<PluggyCoverageItemSummary[] | null>(null);
   const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
 
@@ -139,6 +151,75 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const handleRemoveItem = async (id: string) => {
     await openFinanceRepository.removeItem(id);
     setItems(await openFinanceRepository.listItems());
+  };
+
+  const handleStartFinanceSync = async () => {
+    setErrorMessage(null);
+    setStatusMessage(null);
+    if (items.length === 0) {
+      setErrorMessage('Adicione pelo menos um Item ID antes de sincronizar.');
+      return;
+    }
+    setIsSyncingFinance(true);
+    try {
+      const firstUnsynced = items.find((it) => !it.last_synced_at);
+      if (firstUnsynced) {
+        const [proposals, accounts] = await Promise.all([
+          pluggySyncService.previewAccountReconciliation(firstUnsynced.id),
+          finRepository.listAccounts(false),
+        ]);
+        const initialChoices: Record<string, string | 'CREATE_NEW'> = {};
+        for (const p of proposals) {
+          initialChoices[p.pluggyAccount.id] = p.suggestedLocalAccountId ?? 'CREATE_NEW';
+        }
+        setLocalAccounts(accounts);
+        setReconcileProposals(proposals);
+        setReconcileChoices(initialChoices);
+        setReconcileItemId(firstUnsynced.id);
+        return;
+      }
+
+      let totalCreated = 0;
+      let totalUpdated = 0;
+      for (const it of items) {
+        const res = await pluggySyncService.syncFinance(it.id);
+        totalCreated += res.counts.transactionsCreated;
+        totalUpdated += res.counts.transactionsUpdated;
+      }
+      await loadState();
+      setStatusMessage(
+        `Finanças sincronizadas: ${totalCreated} novos, ${totalUpdated} atualizados.`
+      );
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao sincronizar finanças.');
+    } finally {
+      setIsSyncingFinance(false);
+    }
+  };
+
+  const handleConfirmReconciliation = async () => {
+    if (!reconcileItemId) return;
+    setIsSyncingFinance(true);
+    setErrorMessage(null);
+    try {
+      const choices: AccountReconciliationChoice[] = reconcileProposals.map((p) => ({
+        pluggyAccountId: p.pluggyAccount.id,
+        targetLocalAccountId: reconcileChoices[p.pluggyAccount.id] ?? 'CREATE_NEW',
+      }));
+      const res = await pluggySyncService.syncFinance(reconcileItemId, {
+        accountChoices: choices,
+      });
+      setReconcileItemId(null);
+      setReconcileProposals([]);
+      await loadState();
+      setStatusMessage(
+        `Primeira sincronização concluída: ${res.counts.accountsSynced} contas, ${res.counts.transactionsCreated} lançamentos.`
+      );
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro na conciliação inicial.');
+    } finally {
+      setIsSyncingFinance(false);
+    }
   };
 
   const handleTestConnection = async () => {
@@ -440,7 +521,99 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                   {isTesting ? 'Testando conexão...' : 'Testar conexão'}
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="open-finance-sync-finance-btn"
+                onPress={handleStartFinanceSync}
+                disabled={isSyncingFinance}
+                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
+                </Text>
+              </TouchableOpacity>
             </BentoTile>
+
+            {reconcileItemId && reconcileProposals.length > 0 ? (
+              <BentoTile
+                variant={variant}
+                testID="open-finance-reconcile-card"
+                style={styles.card}
+              >
+                <Text style={[styles.sectionTitle, { color: fg }]}>
+                  Conciliação inicial de contas
+                </Text>
+                <Text style={[styles.caption, { color: muted }]}>
+                  Ligue cada conta da Pluggy a uma conta existente ou crie uma nova.
+                </Text>
+                {reconcileProposals.map((prop) => {
+                  const selected = reconcileChoices[prop.pluggyAccount.id] ?? 'CREATE_NEW';
+                  const targetType = prop.pluggyAccount.type === 'CREDIT' ? 'card' : 'checking';
+                  const candidates = localAccounts.filter((a) => a.type === targetType);
+                  return (
+                    <View
+                      key={prop.pluggyAccount.id}
+                      style={[styles.itemRow, { borderColor: border, backgroundColor: inset, flexDirection: 'column', alignItems: 'stretch' }]}
+                    >
+                      <Text style={[styles.itemTitle, { color: fg }]}>
+                        {prop.pluggyAccount.marketingName || prop.pluggyAccount.name} ({targetType === 'card' ? 'Cartão' : 'Conta'})
+                      </Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                        <TouchableOpacity
+                          onPress={() =>
+                            setReconcileChoices((prev) => ({
+                              ...prev,
+                              [prop.pluggyAccount.id]: 'CREATE_NEW',
+                            }))
+                          }
+                          style={[
+                            styles.smallBtn,
+                            {
+                              borderColor: selected === 'CREATE_NEW' ? accent : border,
+                              backgroundColor: selected === 'CREATE_NEW' ? accent : 'transparent',
+                            },
+                          ]}
+                        >
+                          <Text style={{ fontSize: 12, color: selected === 'CREATE_NEW' ? '#fff' : fg }}>
+                            Criar nova conta
+                          </Text>
+                        </TouchableOpacity>
+                        {candidates.map((cand) => (
+                          <TouchableOpacity
+                            key={cand.id}
+                            onPress={() =>
+                              setReconcileChoices((prev) => ({
+                                ...prev,
+                                [prop.pluggyAccount.id]: cand.id,
+                              }))
+                            }
+                            style={[
+                              styles.smallBtn,
+                              {
+                                borderColor: selected === cand.id ? accent : border,
+                                backgroundColor: selected === cand.id ? accent : 'transparent',
+                              },
+                            ]}
+                          >
+                            <Text style={{ fontSize: 12, color: selected === cand.id ? '#fff' : fg }}>
+                              {cand.name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    </View>
+                  );
+                })}
+                <TouchableOpacity
+                  testID="open-finance-confirm-reconcile-btn"
+                  onPress={handleConfirmReconciliation}
+                  disabled={isSyncingFinance}
+                  style={[styles.primaryBtn, { backgroundColor: accent, marginTop: 8 }]}
+                >
+                  <Text style={styles.primaryBtnText}>Confirmar e sincronizar</Text>
+                </TouchableOpacity>
+              </BentoTile>
+            ) : null}
 
             {errorMessage ? (
               <BentoTile variant={variant} style={styles.card}>
@@ -562,6 +735,12 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   itemTitle: { fontSize: 14, fontWeight: '700' },
+  smallBtn: {
+    borderRadius: 9999,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
   errorText: { fontSize: 12, color: '#D94B4B', lineHeight: 17 },
 });
 

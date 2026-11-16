@@ -1,18 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
-import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
+import { PriceAreaChart } from '../../components/ui/PriceAreaChart';
+import type { FinAccount, FinBudget, FinCategory, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
 import type { ReceiptDraft } from '../../domain/receipt';
 import {
   addMonthsYearMonth,
+  calculateBudgetUsage,
   calculateMonthlySummary,
   detectOverdueAndDueSoonWithBills,
   formatCentsBRL,
   formatYearMonthPtBr,
+  getMonthDateRange,
   getTodayIsoLocal,
+  projectCashflow,
 } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
+import { openFinanceRepository } from '../../repositories/openFinanceRepository';
+import { formatUpdatedAgo } from '../../domain/openFinance';
+import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
 import { bento, typography } from '../../theme/tokens';
@@ -29,6 +36,7 @@ import { RecurrencesScreen } from './RecurrencesScreen';
 import { SubscriptionsScreen } from './SubscriptionsScreen';
 import { FinanceDock, type FinanceTab } from './FinanceDock';
 import { FinanceMoreScreen } from './FinanceMoreScreen';
+import { BudgetScreen } from './BudgetScreen';
 import {
   FinEmptyState,
   FinErrorView,
@@ -45,6 +53,7 @@ export type FinanceRoute =
   | 'entries'
   | 'recurrences'
   | 'subscriptions'
+  | 'budgets'
   | 'accounts'
   | 'cardBill'
   | 'categories'
@@ -58,6 +67,7 @@ export interface FinanceHomeScreenProps {
   themeMode?: ThemeMode;
   onNavigate?: (route: FinanceRoute) => void;
   referenceDateIso?: string;
+  initialRoute?: FinanceRoute;
   testID?: string;
 }
 
@@ -70,6 +80,7 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   accounts: 'accounts',
   cardBill: 'accounts',
   more: 'more',
+  budgets: 'more',
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
@@ -83,6 +94,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   accounts: 'home',
   cardBill: 'accounts',
   more: 'home',
+  budgets: 'more',
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
@@ -96,6 +108,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   themeMode = 'dark',
   onNavigate,
   referenceDateIso,
+  initialRoute = 'home',
   testID = 'finance-home-screen',
 }) => {
   const c = getFinUiColors(themeMode);
@@ -108,15 +121,23 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   );
   const effectiveMonth = localMonth ?? selectedMonth;
 
-  const [activeRoute, setActiveRoute] = useState<FinanceRoute>('home');
+  const [activeRoute, setActiveRoute] = useState<FinanceRoute>(initialRoute);
   const [selectedCardAccountId, setSelectedCardAccountId] = useState<string | null>(null);
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
+  const [budgets, setBudgets] = useState<FinBudget[]>([]);
+  const [skips, setSkips] = useState<FinRecurrenceSkip[]>([]);
+  const [isCashflowModalOpen, setIsCashflowModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnceRef = useRef(false);
+  const didAutoSyncRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasOfItems, setHasOfItems] = useState(false);
+  const [ofLastSyncedAt, setOfLastSyncedAt] = useState<string | null>(null);
+  const [ofSyncError, setOfSyncError] = useState<string | null>(null);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
@@ -131,16 +152,32 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, ofItems] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
         finRepository.listRecurrences(),
+        finRepository.listBudgets(),
+        finRepository.listAllRecurrenceSkips(),
+        openFinanceRepository.listItems(),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
       setAccounts(activeAccounts);
       setRecurrences(allRecurrences);
+      setBudgets(allBudgets);
+      setSkips(allSkips);
+      setHasOfItems(ofItems.length > 0);
+      const latestSynced = ofItems
+        .map((it) => it.last_synced_at)
+        .filter((d): d is string => Boolean(d))
+        .sort()
+        .pop() ?? null;
+      setOfLastSyncedAt(latestSynced);
+      const firstError = ofItems.find((it) => Boolean(it.last_error))?.last_error ?? null;
+      if (firstError) {
+        setOfSyncError(firstError);
+      }
       hasLoadedOnceRef.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar módulo.');
@@ -154,6 +191,48 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       void loadData();
     }
   }, [activeRoute, loadData]);
+
+  const runOpenFinanceSync = useCallback(
+    async (forceAll = false) => {
+      try {
+        if (forceAll) {
+          const items = await openFinanceRepository.listItems();
+          for (const it of items) {
+            await pluggySyncService.syncFinance(it.id);
+          }
+          setOfSyncError(null);
+        } else {
+          const res = await pluggySyncService.syncIfStale();
+          if (res.errors.length > 0) {
+            setOfSyncError(res.errors[0]);
+          } else if (res.triggered) {
+            setOfSyncError(null);
+          }
+        }
+        await loadData();
+      } catch (err) {
+        setOfSyncError(
+          err instanceof Error ? err.message : 'Falha de rede ao atualizar Open Finance.'
+        );
+      }
+    },
+    [loadData]
+  );
+
+  useEffect(() => {
+    if (didAutoSyncRef.current) return;
+    didAutoSyncRef.current = true;
+    void runOpenFinanceSync(false);
+  }, [runOpenFinanceSync]);
+
+  const handlePullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await runOpenFinanceSync(true);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [runOpenFinanceSync]);
 
   const openEntriesWith = (filters: Partial<FinFilters>) => {
     finStore.resetFilters();
@@ -273,6 +352,31 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     ];
   }, [monthlySummary.expenseByCategory, categoryById, c.inactiveAvatarBg]);
 
+  const budgetUsageByCategory = useMemo(() => {
+    const items = calculateBudgetUsage(entries, budgets, effectiveMonth, {
+      todayIso: effectiveToday,
+    });
+    return new Map(items.map((item) => [item.categoryId, item]));
+  }, [entries, budgets, effectiveMonth, effectiveToday]);
+
+  const cashflowProjection = useMemo(() => {
+    const { start, end } = getMonthDateRange(effectiveMonth);
+    const fromIso = effectiveToday > start && effectiveToday <= end ? effectiveToday : start;
+    return projectCashflow(accounts, entries, fromIso, end, {
+      recurrences,
+      skips,
+    });
+  }, [accounts, entries, effectiveMonth, effectiveToday, recurrences, skips]);
+
+  const cashflowChartPoints = useMemo(
+    () =>
+      cashflowProjection.days.map((d) => ({
+        date: d.date,
+        close: Math.round(d.balanceCents) / 100,
+      })),
+    [cashflowProjection.days]
+  );
+
   const renderBody = (): React.ReactElement => {
     if (activeRoute === 'entries') {
       return (
@@ -292,10 +396,20 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onOpen={(route) => {
             if (route === 'statementImport') {
               setIsStatementImportOpen(true);
-            } else {
-              navigateTo(route);
+            } else if (route in TAB_OF_ROUTE) {
+              navigateTo(route as FinanceRoute);
             }
           }}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'budgets') {
+      return (
+        <BudgetScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -383,7 +497,52 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         <ScrollView
           testID="finance-home-scroll"
           contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => void handlePullRefresh()} />
+          }
         >
+          {hasOfItems ? (
+            <View style={{ marginBottom: 8 }}>
+              <Text
+                testID="finance-of-updated-ago"
+                style={{ fontSize: 12, color: c.muted, textAlign: 'right' }}
+              >
+                {formatUpdatedAgo(ofLastSyncedAt, Date.now())}
+              </Text>
+              {ofSyncError ? (
+                <View
+                  testID="finance-of-sync-error-banner"
+                  style={{
+                    marginTop: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    borderRadius: 10,
+                    backgroundColor: c.surfaceContainer,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 8,
+                  }}
+                >
+                  <Text
+                    style={{ flex: 1, fontSize: 12, color: c.muted }}
+                    numberOfLines={2}
+                  >
+                    Não foi possível atualizar o Open Finance: {ofSyncError}
+                  </Text>
+                  <TouchableOpacity
+                    testID="finance-of-sync-retry-btn"
+                    accessibilityRole="button"
+                    onPress={() => void runOpenFinanceSync(true)}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.income }}>
+                      Tentar de novo
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
           {/* Seletor de mês */}
           <View
             testID="finance-home-month-rail"
@@ -436,6 +595,31 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                     ? 'R$ •••••• em relação a ' + prevMonthName
                     : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
                 </Text>
+                {(() => {
+                  const endIso = getMonthDateRange(effectiveMonth).end;
+                  const endDDMM = `${endIso.slice(8, 10)}/${endIso.slice(5, 7)}`;
+                  const minDay = cashflowProjection.minBalanceDate.slice(8, 10);
+                  return (
+                    <TouchableOpacity
+                      testID="finance-cashflow-forecast"
+                      activeOpacity={0.75}
+                      onPress={() => setIsCashflowModalOpen(true)}
+                      style={{ marginTop: 8 }}
+                    >
+                      <Text style={[styles.heroSub, { color: c.primaryFg, opacity: 0.92 }]}>
+                        {`Previsão para ${endDDMM}: ${formatCentsBRL(cashflowProjection.endBalanceCents, isPrivacyMode)} · menor saldo dia ${minDay}: ${formatCentsBRL(cashflowProjection.minBalanceCents, isPrivacyMode)}`}
+                      </Text>
+                      {cashflowProjection.isNegativeAlert ? (
+                        <Text
+                          testID="finance-cashflow-negative-warning"
+                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: '700', marginTop: 2 }]}
+                        >
+                          Aviso: menor saldo previsto negativo
+                        </Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })()}
               </BentoTile>
 
               {/* Receitas x Despesas */}
@@ -535,40 +719,68 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   onActionPress={() => openEntriesWith({ kind: 'expense' })}
                 >
                   <View style={styles.dotList}>
-                    {topCategories.map((cat) => (
-                      <TouchableOpacity
-                        key={cat.categoryId}
-                        testID={`finance-category-dot-row-${cat.categoryId}`}
-                        accessibilityRole="button"
-                        accessibilityLabel={`${cat.name}, ${cat.percentage}% dos gastos. Ver lançamentos`}
-                        activeOpacity={0.7}
-                        hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
-                        onPress={() =>
-                          openEntriesWith(
-                            cat.isAggregatedOther
-                              ? { kind: 'expense' }
-                              : { kind: 'expense', categoryId: cat.categoryId }
-                          )
-                        }
-                        style={styles.dotRow}
-                      >
-                        <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
-                          {cat.name}
-                        </Text>
-                        <DotTrack
-                          testID={`finance-category-dot-track-${cat.categoryId}`}
-                          percentage={cat.percentage}
-                          color={cat.color}
-                          trackColor={c.trackBg}
-                        />
-                        <Text
-                          testID={`finance-category-pct-${cat.categoryId}`}
-                          style={[styles.dotPct, { color: c.text }]}
+                    {topCategories.map((cat) => {
+                      const budgetUsage = cat.isAggregatedOther
+                        ? undefined
+                        : budgetUsageByCategory.get(cat.categoryId);
+                      const hasBudget = budgetUsage?.limitCents != null;
+                      const budgetColor =
+                        budgetUsage?.status === 'estourado'
+                          ? '#D96628'
+                          : budgetUsage?.status === 'atencao'
+                          ? '#D4A83B'
+                          : cat.color;
+                      const textHighlight =
+                        budgetUsage?.status === 'estourado'
+                          ? '#D96628'
+                          : budgetUsage?.status === 'atencao'
+                          ? '#D4A83B'
+                          : c.text;
+                      return (
+                        <TouchableOpacity
+                          key={cat.categoryId}
+                          testID={`finance-category-dot-row-${cat.categoryId}`}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${cat.name}, ${cat.percentage}% dos gastos. Ver lançamentos`}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
+                          onPress={() =>
+                            openEntriesWith(
+                              cat.isAggregatedOther
+                                ? { kind: 'expense' }
+                                : { kind: 'expense', categoryId: cat.categoryId }
+                            )
+                          }
+                          style={styles.dotRow}
                         >
-                          {cat.percentage}%
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
+                          <Text style={[styles.dotCatName, { color: textHighlight }]} numberOfLines={1}>
+                            {cat.name}
+                          </Text>
+                          <DotTrack
+                            testID={`finance-category-dot-track-${cat.categoryId}`}
+                            percentage={cat.percentage}
+                            color={hasBudget ? budgetColor : cat.color}
+                            trackColor={c.trackBg}
+                          />
+                          <View style={{ alignItems: 'flex-end' }}>
+                            <Text
+                              testID={`finance-category-pct-${cat.categoryId}`}
+                              style={[styles.dotPct, { color: textHighlight }]}
+                            >
+                              {cat.percentage}%
+                            </Text>
+                            {hasBudget && budgetUsage?.percentage !== null ? (
+                              <Text
+                                testID={`finance-category-budget-pct-${cat.categoryId}`}
+                                style={{ fontSize: 10, fontWeight: '700', color: budgetColor }}
+                              >
+                                {Math.round(budgetUsage.percentage)}% do limite
+                              </Text>
+                            ) : null}
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
                 </BentoTile>
               ) : null}
@@ -694,6 +906,36 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         onCompleted={() => void loadData()}
         themeMode={themeMode}
       />
+      <Modal
+        visible={isCashflowModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsCashflowModalOpen(false)}
+      >
+        <Pressable
+          testID="finance-cashflow-chart-modal"
+          style={styles.addMenuBackdrop}
+          onPress={() => setIsCashflowModalOpen(false)}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={[
+              styles.addMenuCard,
+              { backgroundColor: c.surface, borderColor: c.border, padding: 14, width: '100%' },
+            ]}
+          >
+            <Text style={[styles.addMenuOptionText, { color: c.text, marginBottom: 8 }]}>
+              Previsão de saldo · {formatYearMonthPtBr(effectiveMonth)}
+            </Text>
+            <PriceAreaChart
+              points={cashflowChartPoints}
+              activeRange="30D"
+              themeMode={themeMode}
+              accentColor={cashflowProjection.isNegativeAlert ? '#D96628' : '#2E7D5B'}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 };

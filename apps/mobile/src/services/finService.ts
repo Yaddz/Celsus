@@ -17,6 +17,7 @@ import {
   type InstallmentScope,
 } from '../domain/financeFlow';
 import { finRepository } from '../repositories/finRepository';
+import { finReminderService } from './finReminderService';
 
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 
@@ -32,6 +33,18 @@ export class FinService {
     const windowStart = getMonthDateRange(startMonth).start;
     const windowEnd = getMonthDateRange(endMonth).end;
     await this.generateRecurrenceWindow(windowStart, windowEnd);
+    await this.notifyRemindersChanged(refMonth);
+  }
+
+  async notifyRemindersChanged(yearMonth?: string): Promise<void> {
+    try {
+      await finReminderService.rescheduleReminders();
+      if (yearMonth) {
+        await finReminderService.checkAndNotifyBudgetAlerts(yearMonth);
+      }
+    } catch {
+      // Nunca interromper fluxo financeiro se permissão de notificação não estiver disponível
+    }
   }
 
   async migrateOrphanRecordsIfNeeded(): Promise<void> {
@@ -116,11 +129,13 @@ export class FinService {
         ? Math.round(options.paidAmountCents)
         : entry.amount_cents;
 
-    return finRepository.updateEntry(entryId, {
+    const updated = await finRepository.updateEntry(entryId, {
       status: 'paid',
       paid_date: paidDate,
       paid_amount_cents: paidAmountCents,
     });
+    await this.notifyRemindersChanged(updated.due_date.slice(0, 7));
+    return updated;
   }
 
   async markEntryAsPending(entryId: string): Promise<FinEntry> {
@@ -128,11 +143,13 @@ export class FinService {
     if (!entry) {
       throw new Error(`Lançamento não encontrado: ${entryId}`);
     }
-    return finRepository.updateEntry(entryId, {
+    const updated = await finRepository.updateEntry(entryId, {
       status: 'pending',
       paid_date: null,
       paid_amount_cents: null,
     });
+    await this.notifyRemindersChanged(updated.due_date.slice(0, 7));
+    return updated;
   }
 
   async generateRecurrenceWindow(windowStart: string, windowEnd: string): Promise<FinEntry[]> {

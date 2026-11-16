@@ -22,6 +22,7 @@ import {
 } from '../../domain/financeFlow';
 import type { ReceiptDraft } from '../../domain/receipt';
 import { finRepository } from '../../repositories/finRepository';
+import { mergeUserEditedFields } from '../../domain/openFinance';
 import { finService } from '../../services/finService';
 import { bento, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
@@ -288,9 +289,22 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
             patch
           );
         } else {
+          const editedFields: string[] = [];
+          if (editingEntry.source === 'OPEN_FINANCE') {
+            if (patch.category_id !== editingEntry.category_id) editedFields.push('category_id');
+            if (patch.description !== editingEntry.description) editedFields.push('description');
+          }
           await finRepository.updateEntry(editingEntry.id, {
             ...patch,
             kind,
+            ...(editedFields.length > 0
+              ? {
+                  user_edited_fields: mergeUserEditedFields(
+                    editingEntry.user_edited_fields,
+                    editedFields
+                  ),
+                }
+              : {}),
           });
         }
       } else if (repeatMode === 'monthly') {
@@ -425,8 +439,28 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                 themeMode={themeMode}
               />
 
+              {receiptDraft ? (
+                <View
+                  testID="entry-form-ocr-review-banner"
+                  style={[styles.ocrBanner, { borderColor: c.warning, backgroundColor: `${c.warning}18` }]}
+                >
+                  <MaterialIcons name="document-scanner" size={16} color={c.warning} />
+                  <Text style={[styles.ocrBannerText, { color: c.text }]}>
+                    Confira os dados lidos do cupom antes de salvar.
+                  </Text>
+                </View>
+              ) : null}
+
               <BentoTile variant={tileVariant} title="VALOR" testID="entry-form-tile-valor">
                 <View testID="entry-form-section-valor">
+                  {receiptDraft?.lowConfidenceFields.includes('amount') ? (
+                    <Text
+                      testID="entry-form-low-confidence-amount"
+                      style={[styles.lowConfBadge, { color: c.warning }]}
+                    >
+                      Baixa confiança — confira o valor
+                    </Text>
+                  ) : null}
                   <View style={styles.amountRow}>
                     <Text style={[styles.currencyPrefix, { color: c.muted }]}>R$</Text>
                     <TextInput
@@ -448,6 +482,14 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
 
               <BentoTile variant={tileVariant} title="DESCRIÇÃO" testID="entry-form-tile-descricao">
                 <View testID="entry-form-section-descricao">
+                  {receiptDraft?.lowConfidenceFields.includes('description') ? (
+                    <Text
+                      testID="entry-form-low-confidence-description"
+                      style={[styles.lowConfBadge, { color: c.warning }]}
+                    >
+                      Baixa confiança — confira o estabelecimento
+                    </Text>
+                  ) : null}
                   <TextInput
                     testID="entry-form-description"
                     value={description}
@@ -484,6 +526,14 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                         placeholderTextColor={c.muted}
                         style={[styles.metaValueInput, { color: c.text }]}
                       />
+                      {receiptDraft?.lowConfidenceFields.includes('date') ? (
+                        <Text
+                          testID="entry-form-low-confidence-date"
+                          style={[styles.lowConfBadge, { color: c.warning }]}
+                        >
+                          Baixa confiança
+                        </Text>
+                      ) : null}
                     </View>
 
                     <View style={styles.metaField}>
@@ -808,6 +858,26 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
 };
 
 const styles = StyleSheet.create({
+  ocrBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  ocrBannerText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    flex: 1,
+  },
+  lowConfBadge: {
+    fontFamily: typography.fontFamily,
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
   formBody: {
     gap: bento.gap,
     paddingBottom: space.md,
