@@ -3,6 +3,7 @@ import { ScrollView, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { XpMinimalHeader } from '../../components/ui';
 import { FinListCard, FinListRow } from '../../components/ui/FinListCard';
+import { formatCentsBRL } from '../../domain/financeFlow';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
 
@@ -32,10 +33,17 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
+  netWorthTotalCents = null,
   testID = 'finance-more-screen',
 }) => {
   const c = getFinUiColors(themeMode);
   const chevron = <MaterialIcons name="chevron-right" size={20} color={c.muted} />;
+  const netWorthLabel =
+    netWorthTotalCents === null || netWorthTotalCents === undefined
+      ? 'Contas + investimentos − cartão'
+      : isPrivacyMode
+      ? 'R$ ••••••'
+      : formatCentsBRL(netWorthTotalCents);
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
@@ -48,7 +56,40 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
         themeMode={themeMode}
       />
       <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}>
+        <FinListCard themeMode={themeMode} style={{ marginBottom: 12 }}>
+          <FinListRow
+            testID="finance-more-net-worth"
+            icon="account-balance"
+            avatarColor="#4F9A65"
+            title="Patrimônio"
+            subtitle={netWorthLabel}
+            isLast
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('netWorth')}
+          />
+        </FinListCard>
         <FinListCard themeMode={themeMode}>
+          <FinListRow
+            testID="finance-more-goals"
+            icon="flag"
+            avatarColor="#5E9C76"
+            title="Metas"
+            subtitle="Metas financeiras e projeções"
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('goals')}
+          />
+          <FinListRow
+            testID="finance-more-budgets"
+            icon="pie-chart"
+            avatarColor="#D4A83B"
+            title="Orçamento"
+            subtitle="Limites mensais por categoria"
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('budgets')}
+          />
           <FinListRow
             testID="finance-more-subscriptions"
             icon="autorenew"

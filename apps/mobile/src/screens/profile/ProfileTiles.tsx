@@ -1,6 +1,7 @@
 import React from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { finReminderService, type FinReminderPreferences, type ReminderLeadDays } from '../../services/finReminderService';
 import { BentoTile } from '../../components/ui';
 import { PinDots } from '../../components/ui/PinDots';
 import { PinKeypad } from '../../components/ui/PinKeypad';
@@ -922,6 +923,113 @@ export const BackupTile: React.FC<BackupTileProps> = ({
         }
       />
       {footer}
+    </View>
+  );
+};
+
+export const RemindersTile: React.FC<{ isLight: boolean }> = ({ isLight }) => {
+  const p = usePalette(isLight);
+  const [prefs, setPrefs] = React.useState<FinReminderPreferences>({
+    enabled: true,
+    leadDays: 1,
+    hour: 9,
+    minute: 0,
+  });
+  const [timeText, setTimeText] = React.useState('09:00');
+
+  React.useEffect(() => {
+    finReminderService
+      .getPreferences()
+      .then((loaded) => {
+        setPrefs(loaded);
+        setTimeText(`${String(loaded.hour).padStart(2, '0')}:${String(loaded.minute).padStart(2, '0')}`);
+      })
+      .catch(() => {});
+  }, []);
+
+  const updatePrefs = async (next: FinReminderPreferences) => {
+    setPrefs(next);
+    await finReminderService.savePreferences(next);
+    await finReminderService.rescheduleReminders({ preferences: next }).catch(() => {});
+  };
+
+  const handleTimeChange = (text: string) => {
+    setTimeText(text);
+    const m = /^(\d{1,2}):(\d{2})$/.exec(text.trim());
+    if (m) {
+      const hour = Math.min(23, Math.max(0, Number.parseInt(m[1], 10)));
+      const minute = Math.min(59, Math.max(0, Number.parseInt(m[2], 10)));
+      void updatePrefs({ ...prefs, hour, minute });
+    }
+  };
+
+  const leads: Array<{ value: ReminderLeadDays; label: string }> = [
+    { value: 0, label: 'No dia' },
+    { value: 1, label: '1 dia' },
+    { value: 3, label: '3 dias' },
+  ];
+
+  return (
+    <View testID="profile-reminders-tile">
+      <ListRow
+        first
+        icon="notifications-active"
+        title="Lembretes de vencimento"
+        subtitle={prefs.enabled ? `Aviso às ${timeText}` : 'Desativado'}
+        isLight={isLight}
+        right={
+          <Switch
+            testID="profile-reminders-switch"
+            value={prefs.enabled}
+            onValueChange={(enabled) => void updatePrefs({ ...prefs, enabled })}
+          />
+        }
+      />
+      <View style={[s.panel, { backgroundColor: p.inset, marginTop: 4 }]}>
+        <Text style={[s.panelLabel, { color: p.muted }]}>Antecedência</Text>
+        <View style={s.chipRow}>
+          {leads.map((opt) => {
+            const active = prefs.leadDays === opt.value;
+            return (
+              <TouchableOpacity
+                key={opt.value}
+                testID={`profile-reminders-lead-${opt.value}`}
+                onPress={() => void updatePrefs({ ...prefs, leadDays: opt.value })}
+                style={[
+                  s.chip,
+                  {
+                    borderColor: active ? colors.primary : p.divider,
+                    backgroundColor: active ? colors.primary : 'transparent',
+                  },
+                ]}
+              >
+                <Text style={[s.chipText, { color: active ? '#FFFFFF' : p.fg }]}>{opt.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <Text style={[s.panelLabel, { color: p.muted, marginTop: 6 }]}>Horário</Text>
+        <TextInput
+          testID="profile-reminders-time-input"
+          value={timeText}
+          onChangeText={handleTimeChange}
+          placeholder="09:00"
+          placeholderTextColor={p.muted}
+          keyboardType="numbers-and-punctuation"
+          style={[
+            s.chipText,
+            {
+              color: p.fg,
+              borderColor: p.divider,
+              borderWidth: 1,
+              borderRadius: 10,
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              width: 90,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 };

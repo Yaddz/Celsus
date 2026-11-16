@@ -13,6 +13,7 @@ import {
   PrivacyRow,
   ProfileNameRow,
   profileGroupCardStyle,
+  RemindersTile,
   WipeDataRow,
   SecurityTile,
   StatusBannerTile,
@@ -90,6 +91,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   const groupProtection = <GroupLabel label="PROTEÇÃO" isLight={p.isLight} testID="profile-group-protection" />;
   const groupData = <GroupLabel label="DADOS" isLight={p.isLight} testID="profile-group-data" />;
   const privacy = <PrivacyRow isLight={p.isLight} enabled={isPrivacyMode} onToggle={p.togglePrivacy} />;
+  const reminders = <RemindersTile isLight={p.isLight} />;
   const variant = p.isLight ? 'light' : 'dark';
   const card = (id: string, ...rows: React.ReactNode[]) => (
     <BentoTile variant={variant} testID={id} style={profileGroupCardStyle}>
@@ -124,7 +126,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
                 {identity}
                 {banner}
                 {groupAccount}
-                {card('profile-card-account', nameRow, wallets, appearance, privacy)}
+                {card('profile-card-account', nameRow, wallets, appearance, privacy, reminders)}
               </BentoGrid>
               <BentoGrid style={styles.column} testID="profile-column-right">
                 {groupProtection}
@@ -138,7 +140,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
               {identity}
               {banner}
               {groupAccount}
-              {card('profile-card-account', nameRow, wallets, appearance, privacy)}
+              {card('profile-card-account', nameRow, wallets, appearance, privacy, reminders)}
               {groupProtection}
               {card('profile-card-protection', security)}
               {groupData}

@@ -32,6 +32,7 @@
       "expo-font",
       "expo-secure-store",
       "expo-local-authentication",
+      "expo-notifications",
       [
         "expo-camera",
         {
