@@ -283,8 +283,12 @@ export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period'>
 };
 export type NewFinEntry = typeof finEntries.$inferInsert;
 
-export type FinRecurrence = typeof finRecurrences.$inferSelect;
-export type NewFinRecurrence = typeof finRecurrences.$inferInsert;
+export type FinRecurrence = typeof finRecurrences.$inferSelect & {
+  variable_amount?: number;
+};
+export type NewFinRecurrence = typeof finRecurrences.$inferInsert & {
+  variable_amount?: number;
+};
 
 export type FinRecurrenceSkip = typeof finRecurrenceSkips.$inferSelect;
 export type NewFinRecurrenceSkip = typeof finRecurrenceSkips.$inferInsert;

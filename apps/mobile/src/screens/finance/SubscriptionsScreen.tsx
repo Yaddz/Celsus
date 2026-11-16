@@ -38,6 +38,7 @@ export interface SubscriptionsScreenProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
+  referenceDateIso?: string;
   testID?: string;
 }
 

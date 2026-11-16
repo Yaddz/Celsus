@@ -19,3 +19,4 @@ export * from './PinDots';
 export * from './PinKeypad';
 export * from './HomeIncomeTile';
 export * from './FinListCard';
+export * from './DotTrack';
