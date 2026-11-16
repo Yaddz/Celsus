@@ -195,3 +195,11 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
 - Fase B: `FinanceDock` (Resumo/Lançamentos/Contas/Mais), tela `FinanceMoreScreen` (Assinaturas, Recorrências, Categorias), voltar do Android sobe um nível dentro do módulo (só o Resumo sai para o App), Home sem atalhos 2x2, card único "Atenção" e top 3 categorias.
 - Testes das sprints 54, 55 e 57 atualizados com autorização do usuário (atalhos → navbar, top 5 → top 3, tile A vencer).
 - Resultado: 110 suites / 739 testes passando.
+
+
+## Sprint 65 — Sincronizar finanças pessoais da Pluggy
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint65OpenFinanceDomain.test.ts` (8 testes: `toCentsDecimal`, `mapPluggyAccount`, `mapPluggyTransaction`, `mapPluggyCategory`, reconciliação `external_id`, pendente manual/recorrência exato e ±15%, transferência e pagamento de fatura com casos positivos e negativos, `user_edited_fields`, janela de sync, auto-sync > 12h, divergência e formatações)
+  - `apps/mobile/src/services/__tests__/Sprint65PluggySyncService.test.ts` (5 testes: schema/migrações, `syncFinance` + janela 12m/-7d + idempotência, promoção `PENDING` → `POSTED` + preservação `user_edited_fields` + estorno, rollback em erro parcial no meio da sincronização, `syncIfStale` 12h + conciliação de 1ª sync)
+  - `apps/mobile/src/screens/__tests__/Sprint65OpenFinanceFinanceUI.test.tsx` (3 testes: selo "Open Finance" em contas e lançamentos, saldo informado + "saldo de dd/mm" + diferença do calculado, bloqueio de edição de saldo inicial, prompt de `closing_day` nulo, "Atualizado há N h" e aviso discreto de erro com "Tentar de novo")
+  - Execução Fase A: 3 suites / 16 testes falhando (Red Phase), 144 arquivos bloqueados via `node scripts/test-lock.js lock`.
