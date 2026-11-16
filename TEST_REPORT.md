@@ -10,7 +10,16 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **140 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 67 — Orçamento mensal por categoria, lembretes de vencimento e previsão de saldo (Fase A concluída — Red Phase)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`152` arquivos verificados via SHA-256; execução `npx jest Sprint67 --no-coverage`: 3/3 suítes e 17/17 casos em Red Phase esperado em 3,644 s; `tsc --noEmit` com 0 erros nos arquivos da Sprint 67):
+  - `apps/mobile/jest.setup.js`: mock virtual de `expo-notifications` (SDK 58 `SchedulableTriggerInputTypes.DATE`, agendamento/cancelamento local).
+  - Stubs de compilação: `finBudgets` em `src/db/schema.ts`, `src/domain/financeFlow/budgetsAndCashflow.ts`, `src/services/finReminderService.ts` e `src/screens/finance/BudgetScreen.tsx`.
+  - `apps/mobile/src/domain/financeFlow/__tests__/Sprint67BudgetAndCashflow.test.ts` (**S67-T01 a S67-T07**, 7 casos): `calculateBudgetUsage` (meses de 28, 29, 30 e 31 dias, `ok`/`atencao` >= 80%/`estourado` >= 100%, ritmo, precedência do mês específico, orçamento sem gasto, gasto sem orçamento, competência no cartão sem transferências), `suggestBudgetLimit` (média dos últimos 3 meses) e `projectCashflow` (projeção dia a dia, menor saldo/data, alerta negativo, pendentes, recorrências, parcelas e faturas pelo vencimento).
+  - `apps/mobile/src/services/__tests__/Sprint67RemindersAndBudgets.test.ts` (**S67-T08 a S67-T13**, 6 casos): tabela `fin_budgets`, `finReminderService.rescheduleReminders` idempotente pelos próximos 30 dias com `SchedulableTriggerInputTypes.DATE` e limite <= 60 notificações, fatura de cartão como vencimento único, cancelamento ao dar baixa/excluir, preferências (ligado/desligado, antecedência 0/1/3, horário), modo privacidade sem valores (`R$`), alerta de orçamento 80%/100% no máximo 1x por categoria/mês, e `handleNotificationResponse` abrindo Lançamentos filtrado por `"a vencer"`.
+  - `apps/mobile/src/screens/__tests__/Sprint67BudgetForecastProfileScreens.test.tsx` (**S67-T14 a S67-T17**, 4 casos): entrada `"Orçamento"` em `FinanceMoreScreen`, `BudgetScreen` (`DotTrack`, gasto/limite, quanto resta por dia, sugestão 3 meses, `"Definir limite"` inline), `FinanceHomeScreen` (frase de previsão sob Saldo do mês, aviso negativo, modal com `PriceAreaChart`, % do limite em ouro/laranja em Gasto por categoria) e preferências de Lembretes em `SettingsBackupScreen`.
 
 ## Sprint 62 — Importação de fatura/extrato e regras de categorização (Fase B concluída)
 
@@ -203,3 +212,11 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - `apps/mobile/src/services/__tests__/Sprint65PluggySyncService.test.ts` (5 testes: schema/migrações, `syncFinance` + janela 12m/-7d + idempotência, promoção `PENDING` → `POSTED` + preservação `user_edited_fields` + estorno, rollback em erro parcial no meio da sincronização, `syncIfStale` 12h + conciliação de 1ª sync)
   - `apps/mobile/src/screens/__tests__/Sprint65OpenFinanceFinanceUI.test.tsx` (3 testes: selo "Open Finance" em contas e lançamentos, saldo informado + "saldo de dd/mm" + diferença do calculado, bloqueio de edição de saldo inicial, prompt de `closing_day` nulo, "Atualizado há N h" e aviso discreto de erro com "Tentar de novo")
   - Execução Fase A: 3 suites / 16 testes falhando (Red Phase), 144 arquivos bloqueados via `node scripts/test-lock.js lock`.
+
+
+## Sprint 66 — Investimentos pela Pluggy (Open Finance) e item 1.1 (preço manual × posição)
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint66InvestmentsDomain.test.ts` (12 testes: `S66-D01` a `S66-D12` — mapeamento de todos os tipos/subtipos Pluggy incluindo nova classe `FUNDS` "Fundos e Previdência" com cor da paleta, campos nulos como `"—"`, transações `BUY`/`SELL`/`INTEREST`/`AMORTIZATION`/`TAX`/`TRANSFER` com `fees` e `external_id`, custo com histórico completo `TRANSACTIONS` e incompleto `INSTITUTION`, casamento por ISIN / ticker normalizado / chave RF, cobertura por classe, ausência `dd/mm`, e cenários mistos em `consolidatedView` e `portfolioHistory` com item 1.1).
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint66InvestmentsSync.test.ts` (6 testes: `S66-S01` a `S66-S06` — migração do item 1.1 `manual_position_value` e `archived_at`, conciliação + precedência + arquivamento de movimentações manuais/B3, idempotência, investimento que some sem zerar posição × `TOTAL_WITHDRAWAL`, restauração ao desligar, e aviso de conflito na importação B3).
+  - `apps/mobile/src/screens/__tests__/Sprint66InvestmentsUI.test.tsx` (1 teste: `S66-U01` — conciliação lado a lado, seleção de carteira por instituição e cobertura por classe).
+  - Execução Fase A: 3 suítes / 19 testes falhando (Red Phase esperado), 152 arquivos bloqueados via `node scripts/test-lock.js lock`.

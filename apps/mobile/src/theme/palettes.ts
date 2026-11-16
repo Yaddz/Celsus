@@ -26,6 +26,7 @@ export interface AssetClassColors {
   FII: string;
   STOCK: string;
   CRYPTO: string;
+  FUNDS: string;
 }
 
 export const PORTFOLIO_PALETTE_ORDER: PortfolioPaletteId[] = [
@@ -79,6 +80,7 @@ export const ASSET_CLASS_COLORS: AssetClassColors = {
   FII: '#D5CAA8',
   STOCK: '#D96628',
   CRYPTO: '#C49A45',
+  FUNDS: '#5B525C',
 };
 
 export const THEME_COLORS: Record<ThemeMode, ThemeModeColors> = {

@@ -1,4 +1,4 @@
-export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO';
+export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO' | 'FUNDS';
 
 export interface ClassTarget {
   assetClass: AssetClass;
@@ -82,6 +82,7 @@ export interface FixedIncomeParams {
   dailyCDIRates?: number[];
   accumulatedIPCAVariation?: number;
   manualPriceOverride?: string | number | null;
+  manualPositionValue?: string | number | null;
 }
 
 export interface FixedIncomeResult {

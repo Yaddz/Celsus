@@ -9,6 +9,7 @@ export interface PortfolioAssetInput {
   averagePrice: string | number;
   currentPrice?: string | number | null;
   manualPriceOverride?: string | number | null;
+  manualPositionValue?: string | number | null;
 }
 
 export interface PortfolioClassTargetInput {

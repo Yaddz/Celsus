@@ -36,6 +36,7 @@ export interface HistoricalAssetInput {
   rfRate?: number | null;
   rfMaturityDate?: string | null;
   manualPriceOverride?: string | number | null;
+  manualPositionValue?: string | number | null;
 }
 
 export interface HistoricalTransactionInput {

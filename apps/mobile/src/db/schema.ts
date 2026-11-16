@@ -47,18 +47,26 @@ export const assets = sqliteTable('assets', {
   quantity: text('quantity').notNull().default('0'),
   average_price: text('average_price').notNull().default('0.00'),
   manual_price_override: text('manual_price_override'),
+  manual_position_value: text('manual_position_value'),
 
   // Renda Fixa specific fields
   rf_indexer: text('rf_indexer'), // CDI | IPCA | PRE | NULL
   rf_rate: real('rf_rate'),
   rf_maturity_date: text('rf_maturity_date'),
   rf_is_tax_exempt: integer('rf_is_tax_exempt').notNull().default(0),
+  rf_issuer: text('rf_issuer'),
 
   // Open Finance integration fields
   source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE
   external_id: text('external_id'),
   institution_id: text('institution_id'),
   last_synced_at: text('last_synced_at'),
+  isin: text('isin'),
+  gross_amount: text('gross_amount'),
+  cost_basis_source: text('cost_basis_source'), // TRANSACTIONS | INSTITUTION | MANUAL
+  missing_since: text('missing_since'),
+  is_etf: integer('is_etf').notNull().default(0),
+  of_status: text('of_status'), // ACTIVE | PENDING | TOTAL_WITHDRAWAL
 
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
@@ -87,6 +95,7 @@ export const transactions = sqliteTable('transactions', {
   // Open Finance integration fields
   source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE | YAHOO
   external_id: text('external_id'),
+  archived_at: text('archived_at'),
 
   created_at: text('created_at').notNull(),
 });
@@ -316,6 +325,21 @@ export type FinRecurrenceSkip = typeof finRecurrenceSkips.$inferSelect;
 export type NewFinRecurrenceSkip = typeof finRecurrenceSkips.$inferInsert;
 
 /**
+ * FIN_BUDGETS
+ * Orçamento mensal por categoria (year_month nulo = recorrente todo mês; específico do mês vence).
+ */
+export const finBudgets = sqliteTable('fin_budgets', {
+  id: text('id').primaryKey(),
+  category_id: text('category_id').notNull(),
+  year_month: text('year_month'),
+  limit_cents: integer('limit_cents').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export type FinBudget = typeof finBudgets.$inferSelect;
+export type NewFinBudget = typeof finBudgets.$inferInsert;
+
+/**
  * OF_ITEMS
  * Conexões Open Finance (Meu Pluggy) cadastradas pelo usuário (máx. 5).
  */
@@ -348,5 +372,77 @@ export type NewOfItem = typeof ofItems.$inferInsert;
 
 export type OfSyncRun = typeof ofSyncRuns.$inferSelect;
 export type NewOfSyncRun = typeof ofSyncRuns.$inferInsert;
+
+/**
+ * FIN_GOALS (Sprint 68)
+ * Metas financeiras unificadas: manuais, ligadas a contas, carteiras ou patrimônio líquido.
+ */
+export const finGoals = sqliteTable('fin_goals', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  icon: text('icon').notNull(),
+  color: text('color').notNull(),
+  target_cents: integer('target_cents').notNull(),
+  target_date: text('target_date'), // YYYY-MM-DD | null
+  source_type: text('source_type').notNull(), // 'manual' | 'account' | 'portfolio' | 'net_worth'
+  monthly_contribution_cents: integer('monthly_contribution_cents'),
+  archived: integer('archived').notNull().default(0),
+  created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_GOAL_CONTRIBUTIONS (Sprint 68)
+ * Aportes lançados manualmente em metas com source_type = 'manual'.
+ */
+export const finGoalContributions = sqliteTable('fin_goal_contributions', {
+  id: text('id').primaryKey(),
+  goal_id: text('goal_id')
+    .notNull()
+    .references(() => finGoals.id, { onDelete: 'cascade' }),
+  amount_cents: integer('amount_cents').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  notes: text('notes'),
+  created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_GOAL_SOURCES (Sprint 68)
+ * Origens ligadas a contas ou carteiras (com fatia percentual 1–100 e classe opcional).
+ */
+export const finGoalSources = sqliteTable('fin_goal_sources', {
+  id: text('id').primaryKey(),
+  goal_id: text('goal_id')
+    .notNull()
+    .references(() => finGoals.id, { onDelete: 'cascade' }),
+  ref_type: text('ref_type').notNull(), // 'account' | 'portfolio'
+  ref_id: text('ref_id').notNull(),
+  asset_class: text('asset_class'), // FIXED_INCOME | FII | STOCK | CRYPTO | null
+  share_percent: integer('share_percent').notNull().default(100), // 1–100
+});
+
+/**
+ * NET_WORTH_SNAPSHOTS (Sprint 68)
+ * Foto mensal única do patrimônio líquido (contas + investimentos − dívida de cartão).
+ */
+export const netWorthSnapshots = sqliteTable('net_worth_snapshots', {
+  year_month: text('year_month').primaryKey(), // YYYY-MM
+  accounts_cents: integer('accounts_cents').notNull(),
+  investments_cents: integer('investments_cents').notNull(),
+  card_debt_cents: integer('card_debt_cents').notNull(),
+  total_cents: integer('total_cents').notNull(),
+});
+
+export type FinGoal = typeof finGoals.$inferSelect;
+export type NewFinGoal = typeof finGoals.$inferInsert;
+
+export type FinGoalContribution = typeof finGoalContributions.$inferSelect;
+export type NewFinGoalContribution = typeof finGoalContributions.$inferInsert;
+
+export type FinGoalSource = typeof finGoalSources.$inferSelect;
+export type NewFinGoalSource = typeof finGoalSources.$inferInsert;
+
+export type NetWorthSnapshot = typeof netWorthSnapshots.$inferSelect;
+export type NewNetWorthSnapshot = typeof netWorthSnapshots.$inferInsert;
+
 
 
