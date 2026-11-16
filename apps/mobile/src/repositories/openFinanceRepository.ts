@@ -1,3 +1,7 @@
+import { desc, eq } from 'drizzle-orm';
+import { getDb } from '../db/client';
+import { ofItems, ofSyncRuns } from '../db/schema';
+
 export const MAX_MEU_PLUGGY_ITEMS = 5;
 
 export interface OfItemRecord {
@@ -29,21 +33,84 @@ export class MeuPluggyItemLimitError extends Error {
 
 export const openFinanceRepository = {
   async listItems(): Promise<OfItemRecord[]> {
-    throw new Error('Not implemented');
+    const db = await getDb();
+    return db.select().from(ofItems);
   },
-  async addItem(_itemId: string): Promise<OfItemRecord> {
-    throw new Error('Not implemented');
+
+  async addItem(itemId: string): Promise<OfItemRecord> {
+    const normalized = itemId.trim();
+    if (!normalized) {
+      throw new Error('Informe um itemId válido.');
+    }
+
+    const db = await getDb();
+    const existing = await db.select().from(ofItems).where(eq(ofItems.id, normalized));
+    if (existing.length > 0) {
+      return existing[0];
+    }
+
+    const current = await db.select().from(ofItems);
+    if (current.length >= MAX_MEU_PLUGGY_ITEMS) {
+      throw new MeuPluggyItemLimitError();
+    }
+
+    const record: OfItemRecord = {
+      id: normalized,
+      connector_name: null,
+      status: null,
+      execution_status: null,
+      consent_expires_at: null,
+      last_synced_at: null,
+      last_error: null,
+    };
+    await db.insert(ofItems).values(record);
+    return record;
   },
-  async upsertItem(_record: OfItemRecord): Promise<void> {
-    throw new Error('Not implemented');
+
+  async upsertItem(record: OfItemRecord): Promise<void> {
+    const db = await getDb();
+    const existing = await db.select().from(ofItems).where(eq(ofItems.id, record.id));
+    if (existing.length > 0) {
+      await db
+        .update(ofItems)
+        .set({
+          connector_name: record.connector_name,
+          status: record.status,
+          execution_status: record.execution_status,
+          consent_expires_at: record.consent_expires_at,
+          last_synced_at: record.last_synced_at,
+          last_error: record.last_error,
+        })
+        .where(eq(ofItems.id, record.id));
+      return;
+    }
+
+    const current = await db.select().from(ofItems);
+    if (current.length >= MAX_MEU_PLUGGY_ITEMS) {
+      throw new MeuPluggyItemLimitError();
+    }
+    await db.insert(ofItems).values(record);
   },
-  async removeItem(_itemId: string): Promise<void> {
-    throw new Error('Not implemented');
+
+  async removeItem(itemId: string): Promise<void> {
+    const db = await getDb();
+    await db.delete(ofItems).where(eq(ofItems.id, itemId));
   },
-  async recordSyncRun(_run: OfSyncRunRecord): Promise<void> {
-    throw new Error('Not implemented');
+
+  async recordSyncRun(run: OfSyncRunRecord): Promise<void> {
+    const db = await getDb();
+    await db.insert(ofSyncRuns).values(run);
   },
-  async listSyncRuns(_itemId?: string): Promise<OfSyncRunRecord[]> {
-    throw new Error('Not implemented');
+
+  async listSyncRuns(itemId?: string): Promise<OfSyncRunRecord[]> {
+    const db = await getDb();
+    if (itemId) {
+      return db
+        .select()
+        .from(ofSyncRuns)
+        .where(eq(ofSyncRuns.item_id, itemId))
+        .orderBy(desc(ofSyncRuns.started_at));
+    }
+    return db.select().from(ofSyncRuns).orderBy(desc(ofSyncRuns.started_at));
   },
 };

@@ -1,13 +1,16 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Celsus",
+    "slug": "celsus",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "Permitir que o Celsus acesse sua câmera para fotografar cupons e ler QR codes da NFC-e."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +20,10 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.mobile"
+      "package": "com.celsus.app",
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -25,7 +31,20 @@
     "plugins": [
       "expo-font",
       "expo-secure-store",
-      "expo-local-authentication"
+      "expo-local-authentication",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir que o Celsus acesse sua câmera para fotografar cupons e ler QR codes da NFC-e."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o Celsus acesse suas fotos para ler cupons fiscais.",
+          "cameraPermission": "Permitir que o Celsus acesse sua câmera para fotografar cupons fiscais."
+        }
+      ]
     ]
   }
 }

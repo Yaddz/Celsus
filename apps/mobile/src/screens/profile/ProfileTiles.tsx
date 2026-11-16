@@ -822,6 +822,7 @@ export interface BackupTileProps {
   onImport: () => void;
   onImportSpreadsheet: () => void;
   onImportB3?: () => void;
+  onOpenOpenFinance?: () => void;
   /** Linhas extras no fim do grupo (ex.: apagar dados). */
   footer?: React.ReactNode;
 }
@@ -835,16 +836,28 @@ export const BackupTile: React.FC<BackupTileProps> = ({
   onImport,
   onImportSpreadsheet,
   onImportB3,
+  onOpenOpenFinance,
   footer,
 }) => {
   const p = usePalette(isLight);
   return (
     <View testID="settings-section-gestao-dados">
+      {onOpenOpenFinance ? (
+        <ListRow
+          icon="sync"
+          isLight={isLight}
+          first
+          testID="open-finance-entry-btn"
+          title="Open Finance"
+          subtitle="Meu Pluggy · uso pessoal"
+          onPress={onOpenOpenFinance}
+        />
+      ) : null}
       {onImportB3 ? (
         <ListRow
           icon="account-balance"
           isLight={isLight}
-          first
+          first={!onOpenOpenFinance}
           testID="import-b3-btn"
           title="Importar extrato B3"
           subtitle="Planilha da Área do Investidor"
@@ -856,7 +869,7 @@ export const BackupTile: React.FC<BackupTileProps> = ({
         title="Backup e restauração"
         subtitle="Arquivo .celsus.zip"
         isLight={isLight}
-        first={!onImportB3}
+        first={!onImportB3 && !onOpenOpenFinance}
         rowTestID="backup-row"
         content={
           <View style={{ gap: 12 }}>

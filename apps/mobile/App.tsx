@@ -47,6 +47,7 @@ import {
   SimulatorScreen,
   StatisticsScreen,
   SettingsBackupScreen,
+  OpenFinanceScreen,
   ClassDetailScreen,
   ClassAssetDetailItem,
   TransactionDetailHistoryScreen,
@@ -277,6 +278,7 @@ function AppContent(props: {
   const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
+  const [isOpenFinanceOpen, setIsOpenFinanceOpen] = useState(false);
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
@@ -769,6 +771,7 @@ function AppContent(props: {
     isLocked: sessionStore.getState().status === 'locked',
     activeTab,
     isSettingsOpen: isSettingsBackupModalOpen,
+    isOpenFinanceOpen,
     isB3ImportOpen,
     isIncomeHistoryOpen,
     isFinanceOpen,
@@ -789,6 +792,9 @@ function AppContent(props: {
           return true;
         case 'close-b3-import':
           setIsB3ImportOpen(false);
+          return true;
+        case 'close-open-finance':
+          setIsOpenFinanceOpen(false);
           return true;
         case 'close-income-history':
           setIsIncomeHistoryOpen(false);
@@ -1106,18 +1112,29 @@ function AppContent(props: {
         edges={['top', 'left', 'right']}
       >
         <StatusBar style={isLight ? 'dark' : 'light'} />
-        <SettingsBackupScreen
-          isPrivacyMode={isPrivacyMode}
-          onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
-          onClose={() => setIsSettingsBackupModalOpen(false)}
-          onDataRestored={() => refreshAppData()}
-          onOpenB3Import={openB3Import}
-          themeMode={themeMode}
-          onThemeModeChange={(mode) => {
-            setThemeMode(mode);
-            themeModeService.setThemeMode(mode);
-          }}
-        />
+        {isOpenFinanceOpen ? (
+          <OpenFinanceScreen
+            themeMode={themeMode}
+            onClose={() => setIsOpenFinanceOpen(false)}
+          />
+        ) : (
+          <SettingsBackupScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacyMode={(enabled) => setIsPrivacyMode(enabled)}
+            onClose={() => {
+              setIsOpenFinanceOpen(false);
+              setIsSettingsBackupModalOpen(false);
+            }}
+            onDataRestored={() => refreshAppData()}
+            onOpenB3Import={openB3Import}
+            onOpenOpenFinance={() => setIsOpenFinanceOpen(true)}
+            themeMode={themeMode}
+            onThemeModeChange={(mode) => {
+              setThemeMode(mode);
+              themeModeService.setThemeMode(mode);
+            }}
+          />
+        )}
         {renderB3ImportModal()}
       </SafeAreaView>
     );

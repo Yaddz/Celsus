@@ -51,6 +51,7 @@ export function resolveBackAction(state: BackState): BackAction {
   // Importação B3 cobre o Perfil e o Histórico de proventos (de onde é aberta); o Perfil cobre tudo
   // o que está por baixo, inclusive sheets abertos antes dele.
   if (state.isB3ImportOpen) return 'close-b3-import';
+  if (state.isOpenFinanceOpen) return 'close-open-finance';
   if (state.isSettingsOpen) return 'close-settings';
   if (state.isIncomeHistoryOpen) return 'close-income-history';
   if (state.isFinanceOpen) return 'close-finance';

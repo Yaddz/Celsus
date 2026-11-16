@@ -7,10 +7,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **3 suítes** Sprint 64 (Fase A, Red) + **3 suítes** Sprint 62 (Fase A, Red) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **2 suítes** Sprint 63 (Fase A, Red) + **3 suítes** Sprint 64 (Fase A, Red) + **3 suítes** Sprint 62 (Fase A, Red) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **138 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **140 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 63 — Leitura de compras por foto (OCR) e QR da NFC-e (Fase A concluída — Red Phase)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`140` arquivos verificados via SHA-256):
+  - `apps/mobile/jest.setup.js`: mocks dos módulos nativos `expo-camera` (`CameraView`, `useCameraPermissions`), `expo-image-picker` e `expo-text-extractor` (`extractTextFromImage`).
+  - `apps/mobile/src/domain/receipt/__tests__/fixtures.ts`: 14 fixtures de cupons fiscais reais (supermercado, farmácia, posto, restaurante, cupom amassado com linhas quebradas, valores com ponto e vírgula, separador de milhar, ano curto, cabeçalho DANFE, CNPJ inválido e cupom ilegível) + 7 fixtures de QR da NFC-e (v2 online SP, v2 offline RJ com `vNF`, v1 MG, DV inválido, modelo 55, chave curta e URL comum).
+  - `apps/mobile/src/domain/receipt/__tests__/receiptParser.test.ts` (24 casos): `parseReceiptText` (priorização de total, descarte de troco/desconto/tributos, CNPJ validado por dígito verificador, estabelecimento, forma de pagamento e níveis de confiança `alta`/`baixa`/`ausente`), `parseNfceQr` (chave 44 dígitos módulo 11, UF, AAMM, CNPJ, modelo `65`, `vNF`) e `suggestCategoryFromRules` (`fin_category_rules`).
+  - `apps/mobile/src/screens/finance/__tests__/receiptFlow.test.tsx` (5 casos): menu do `+` no Resumo (`Lançar manualmente`, `Fotografar cupom`, `Ler QR da nota`), fluxo OCR com destaque de baixa confiança e campo não lido vazio (nunca zero), persistência com `source: 'OCR'` + `external_id` e bloqueio de NFC-e duplicada, leitura de QR via `CameraView`, e permissão de câmera negada com atalho para configurações e fallback manual.
 
 ## Sprint 62 — Importação de fatura/extrato e regras de categorização (Fase A concluída — Red Phase)
 

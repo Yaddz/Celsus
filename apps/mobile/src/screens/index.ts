@@ -9,4 +9,5 @@ export * from './AllTransactionsScreen';
 export * from './SearchAssetsScreen';
 export * from './AssetDetailScreen';
 export * from './LockScreen';
+export * from './OpenFinanceScreen';
 export * from './onboarding';

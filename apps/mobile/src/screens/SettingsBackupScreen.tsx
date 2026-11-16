@@ -45,6 +45,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
   onClose,
   onDataRestored,
   onOpenB3Import,
+  onOpenOpenFinance,
   themeMode,
   onThemeModeChange,
   userName,
@@ -108,6 +109,7 @@ export const SettingsBackupScreen: React.FC<SettingsBackupScreenProps> = ({
       onImport={p.importDossier}
       onImportSpreadsheet={p.importSpreadsheet}
       onImportB3={onOpenB3Import}
+      onOpenOpenFinance={onOpenOpenFinance}
       footer={<WipeDataRow isLight={p.isLight} />}
     />
   );

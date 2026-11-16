@@ -283,6 +283,58 @@ jest.mock('expo-file-system', () => ({
   cacheDirectory: 'file:///mock/cache/',
 }));
 
+jest.mock('expo-camera', () => {
+  const React = require('react');
+  const { View } = require('react-native');
+  const CameraView = React.forwardRef((props, ref) => {
+    React.useImperativeHandle(ref, () => ({
+      takePictureAsync: jest.fn(async () => ({ uri: 'file:///mock/camera-capture.jpg' })),
+    }));
+    return React.createElement(View, { testID: props.testID ?? 'expo-camera-view', ...props }, props.children);
+  });
+  return {
+    __esModule: true,
+    CameraView,
+    useCameraPermissions: jest.fn(() => [
+      { granted: true, canAskAgain: true, status: 'granted' },
+      jest.fn(async () => ({ granted: true, canAskAgain: true, status: 'granted' })),
+    ]),
+  };
+});
+
+jest.mock('expo-image-picker', () => ({
+  __esModule: true,
+  MediaTypeOptions: {
+    Images: 'Images',
+    Videos: 'Videos',
+    All: 'All',
+  },
+  requestMediaLibraryPermissionsAsync: jest.fn(async () => ({
+    granted: true,
+    canAskAgain: true,
+    status: 'granted',
+  })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({
+    granted: true,
+    canAskAgain: true,
+    status: 'granted',
+  })),
+  launchImageLibraryAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [{ uri: 'file:///mock/gallery-receipt.jpg', width: 1080, height: 1920, type: 'image' }],
+  })),
+  launchCameraAsync: jest.fn(async () => ({
+    canceled: false,
+    assets: [{ uri: 'file:///mock/camera-receipt.jpg', width: 1080, height: 1920, type: 'image' }],
+  })),
+}));
+
+jest.mock('expo-text-extractor', () => ({
+  __esModule: true,
+  isSupported: true,
+  extractTextFromImage: jest.fn(async () => []),
+}));
+
 const { toHaveTextContent: rntlToHaveTextContent } = require('@testing-library/react-native/dist/matchers/to-have-text-content');
 
 expect.extend({
