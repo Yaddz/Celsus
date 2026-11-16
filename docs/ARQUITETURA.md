@@ -180,6 +180,13 @@ movimentações e proventos).
 | `market_price_cache` | última cotação por ticker | `current_price`, `change_percent_24h`, `updated_at` (TTL 15 min) |
 | `historical_prices_local` | fechamento por ticker/data | PK `(ticker, price_date)` |
 | `asset_profile_cache` | perfil/indicadores do ativo | `profile_json`, `updated_at` (12 h) |
+| `fin_accounts` | contas do módulo Finanças | `name`, `type` (`cash \| checking \| card`), `initial_balance_cents`, `color`, `archived` |
+| `fin_categories` | categorias de receitas/despesas | `name`, `kind`, `icon`, `color`, `parent_id`, `archived` |
+| `fin_entries` | lançamentos pessoais | `kind`, `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id` |
+| `fin_recurrences` | recorrências e assinaturas | `kind`, `amount_cents`, `frequency`, `day_of_month`, `start_date`, `end_date`, `is_subscription`, `active`, `generated_until` |
+| `fin_recurrence_skips` | ocorrências ignoradas | PK `(recurrence_id, period)` — impede recriação após exclusão `"só esta"` |
+
+Operações em lote no módulo Finanças (`generateRecurrenceWindow`, `createInstallmentPurchase`, `updateInstallmentEntries`, `deleteInstallmentEntries`, `updateRecurrence`, `deleteRecurrenceOccurrence`, `pauseSubscription`, `resumeSubscription`, `cancelSubscription`) executam em transação via `runInTransaction` (`src/db/client.ts`). IDs do módulo Finanças são gerados com `expo-crypto` (`randomUUID`).
 
 **Migrações:** colunas novas entram em `SCHEMA_UPGRADES` (um `ALTER TABLE ADD COLUMN` aplicado só se
 `PRAGMA table_info` não mostrar a coluna). **Índices** (`SCHEMA_INDEXES_SQL`) são criados **depois** das migrações

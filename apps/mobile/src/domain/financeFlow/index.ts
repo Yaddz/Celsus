@@ -211,12 +211,16 @@ function isoToUtcMs(iso: string): number {
   return Date.UTC(year, month - 1, day);
 }
 
+export function resolveRecurrencePeriod(frequency: string, dueDate: string): string {
+  return frequency === 'weekly' ? dueDate.slice(0, 10) : dueDate.slice(0, 7);
+}
+
 export function generateRecurrenceOccurrences(
   recurrence: FinRecurrence,
   windowStart: string,
   windowEnd: string,
   existingEntries: Array<Pick<FinEntry, 'recurrence_id' | 'due_date' | 'recurrence_period'>> = [],
-  _skippedPeriods: Set<string> | string[] = []
+  skippedPeriods: Set<string> | string[] = []
 ): { occurrences: GeneratedOccurrence[]; generatedUntil: string | null } {
   const prevGeneratedUntil = recurrence.generated_until ?? null;
 
@@ -233,11 +237,13 @@ export function generateRecurrenceOccurrences(
     return { occurrences: [], generatedUntil: prevGeneratedUntil };
   }
 
-  const existingDates = new Set(
-    existingEntries
-      .filter((entry) => entry.recurrence_id === recurrence.id)
-      .map((entry) => entry.due_date)
-  );
+  const existingPeriods = new Set<string>();
+  for (const entry of existingEntries) {
+    if (entry.recurrence_id !== recurrence.id) continue;
+    const period = entry.recurrence_period ?? resolveRecurrencePeriod(recurrence.frequency, entry.due_date);
+    existingPeriods.add(period);
+  }
+  const skippedSet = skippedPeriods instanceof Set ? skippedPeriods : new Set(skippedPeriods);
 
   const candidateDates: string[] = [];
   const startParts = parseIsoDate(recurrence.start_date);
@@ -288,9 +294,13 @@ export function generateRecurrenceOccurrences(
   }
 
   const occurrences: GeneratedOccurrence[] = candidateDates
-    .filter((dueDate) => !existingDates.has(dueDate))
+    .filter((dueDate) => {
+      const period = resolveRecurrencePeriod(recurrence.frequency, dueDate);
+      return !existingPeriods.has(period) && !skippedSet.has(period);
+    })
     .map((dueDate) => ({
       recurrenceId: recurrence.id,
+      recurrencePeriod: resolveRecurrencePeriod(recurrence.frequency, dueDate),
       kind: recurrence.kind === 'income' ? 'income' : 'expense',
       amountCents: recurrence.amount_cents,
       dueDate,
@@ -539,18 +549,109 @@ export function calculateSubscriptionsSummary(recurrences: FinRecurrence[]): Sub
   };
 }
 
-export function brToIso(_text: string): string | null {
-  return null;
+/** Aceita "dd/mm/aaaa" ou ISO e devolve ISO válido ("AAAA-MM-DD"), ou null. */
+export function brToIso(text: string): string | null {
+  const t = (text || '').trim();
+  let y: number;
+  let mo: number;
+  let d: number;
+  let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
+  if (m) {
+    d = Number(m[1]);
+    mo = Number(m[2]);
+    y = Number(m[3]);
+  } else {
+    m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+    if (!m) return null;
+    y = Number(m[1]);
+    mo = Number(m[2]);
+    d = Number(m[3]);
+  }
+  const date = new Date(Date.UTC(y, mo - 1, d));
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) {
+    return null;
+  }
+  return formatIsoDate(y, mo, d);
 }
 
+/** "2026-11-14" → "14/11/2026"; textos que já não são ISO são mantidos. */
 export function isoToBr(iso: string): string {
-  return iso;
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso || '').trim());
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
 }
 
 export function nextOccurrenceIso(
-  _recurrence: FinRecurrence,
-  _todayIso: string,
-  _pendingEntries?: Array<Pick<FinEntry, 'recurrence_id' | 'status' | 'due_date'>>
+  recurrence: FinRecurrence,
+  todayIso: string,
+  pendingEntries?: Array<Pick<FinEntry, 'recurrence_id' | 'status' | 'due_date'>>
 ): string | null {
-  return null;
+  if (recurrence.active !== 1) return null;
+
+  if (pendingEntries && pendingEntries.length > 0) {
+    const upcomingPending = pendingEntries
+      .filter(
+        (e) =>
+          e.recurrence_id === recurrence.id &&
+          e.status === 'pending' &&
+          e.due_date >= todayIso &&
+          (!recurrence.end_date || e.due_date <= recurrence.end_date)
+      )
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    if (upcomingPending.length > 0) {
+      return upcomingPending[0].due_date;
+    }
+  }
+
+  const refIso = recurrence.start_date > todayIso ? recurrence.start_date : todayIso;
+  const startParts = parseIsoDate(recurrence.start_date);
+  const refParts = parseIsoDate(refIso);
+  let candidate: string;
+
+  if (recurrence.frequency === 'monthly') {
+    const anchorDay = recurrence.day_of_month > 0 ? recurrence.day_of_month : startParts.day;
+    const firstTry = formatIsoDate(
+      refParts.year,
+      refParts.month,
+      clampDayOfMonth(refParts.year, refParts.month, anchorDay)
+    );
+    if (firstTry >= refIso) {
+      candidate = firstTry;
+    } else {
+      const nextYm = addMonthsYearMonth(refIso.slice(0, 7), 1);
+      const nextParts = parseIsoDate(`${nextYm}-01`);
+      candidate = formatIsoDate(
+        nextParts.year,
+        nextParts.month,
+        clampDayOfMonth(nextParts.year, nextParts.month, anchorDay)
+      );
+    }
+  } else if (recurrence.frequency === 'yearly') {
+    const anchorMonth = startParts.month;
+    const anchorDay = recurrence.day_of_month > 0 ? recurrence.day_of_month : startParts.day;
+    const firstTry = formatIsoDate(
+      refParts.year,
+      anchorMonth,
+      clampDayOfMonth(refParts.year, anchorMonth, anchorDay)
+    );
+    if (firstTry >= refIso) {
+      candidate = firstTry;
+    } else {
+      const nextYear = refParts.year + 1;
+      candidate = formatIsoDate(
+        nextYear,
+        anchorMonth,
+        clampDayOfMonth(nextYear, anchorMonth, anchorDay)
+      );
+    }
+  } else {
+    const diffMs = isoToUtcMs(refIso) - isoToUtcMs(recurrence.start_date);
+    const diffDays = Math.floor(diffMs / 86_400_000);
+    const stepOffset = diffDays > 0 ? Math.ceil(diffDays / 7) * 7 : 0;
+    candidate = addDaysIso(recurrence.start_date, stepOffset);
+  }
+
+  if (recurrence.end_date && candidate > recurrence.end_date) {
+    return null;
+  }
+  return candidate;
 }

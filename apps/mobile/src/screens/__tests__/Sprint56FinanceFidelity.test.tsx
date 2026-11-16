@@ -268,6 +268,8 @@ describe('Sprint 56 — Fidelidade visual do módulo Finanças ao modelo aprovad
       fireEvent.press(screen.getByTestId(`entry-row-${upcoming.id}`));
       await waitFor(() => expect(screen.getByTestId(`entry-action-delete-${upcoming.id}`)).toBeTruthy());
       fireEvent.press(screen.getByTestId(`entry-action-delete-${upcoming.id}`));
+      await waitFor(() => expect(screen.getByText('Excluir lançamento?')).toBeTruthy());
+      fireEvent.press(screen.getByText('Excluir'));
 
       await waitFor(async () => {
         expect(await finRepository.getEntryById(upcoming.id)).toBeFalsy();

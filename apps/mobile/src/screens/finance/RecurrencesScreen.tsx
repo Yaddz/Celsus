@@ -17,9 +17,11 @@ import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinCategory, FinRecurrence } from '../../db/schema';
 import {
   addMonthsYearMonth,
+  brToIso,
   formatCentsBRL,
   getMonthDateRange,
   getTodayIsoLocal,
+  isoToBr,
   parseBRLToCents,
   type FinFrequency,
   type FinKind,
@@ -77,12 +79,13 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
   const [amountText, setAmountText] = useState('');
   const [frequency, setFrequency] = useState<FinFrequency>('monthly');
   const [dayText, setDayText] = useState('10');
-  const [startDate, setStartDate] = useState(getTodayIsoLocal());
+  const [startDate, setStartDate] = useState(isoToBr(getTodayIsoLocal()));
   const [endDate, setEndDate] = useState('');
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isSubscription, setIsSubscription] = useState(defaultIsSubscription);
   const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -102,8 +105,8 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
       );
       setFrequency((editingRecurrence?.frequency as FinFrequency) || 'monthly');
       setDayText(String(editingRecurrence?.day_of_month ?? 10));
-      setStartDate(editingRecurrence?.start_date ?? getTodayIsoLocal());
-      setEndDate(editingRecurrence?.end_date ?? '');
+      setStartDate(isoToBr(editingRecurrence?.start_date ?? getTodayIsoLocal()));
+      setEndDate(editingRecurrence?.end_date ? isoToBr(editingRecurrence.end_date) : '');
       setAccountId(editingRecurrence?.account_id ?? accs[0]?.id ?? '');
       const matchingCat =
         cats.find((cat) => cat.id === editingRecurrence?.category_id) ??
@@ -114,58 +117,94 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
         editingRecurrence ? editingRecurrence.is_subscription === 1 : defaultIsSubscription
       );
       setFormError(null);
+      setSaving(false);
     };
     void load();
   }, [visible, editingRecurrence, defaultIsSubscription]);
 
   const handleSave = async () => {
+    if (saving) return;
     const amountCents = parseBRLToCents(amountText);
     if (amountCents <= 0) {
       setFormError('Informe um valor maior que zero.');
       return;
     }
-    const day = Math.min(31, Math.max(1, Number.parseInt(dayText || '1', 10) || 1));
-    const resolvedAccountId = accountId || accounts[0]?.id || 'default-account';
+    const resolvedStart = startDate.trim() ? brToIso(startDate) : getTodayIsoLocal();
+    if (!resolvedStart) {
+      setFormError('Informe uma data válida (dd/mm/aaaa).');
+      return;
+    }
+    let resolvedEnd: string | null = null;
+    if (endDate.trim()) {
+      resolvedEnd = brToIso(endDate);
+      if (!resolvedEnd) {
+        setFormError('Informe uma data final válida (dd/mm/aaaa).');
+        return;
+      }
+      if (resolvedEnd < resolvedStart) {
+        setFormError('A data de fim deve ser posterior ou igual ao início.');
+        return;
+      }
+    }
+    const resolvedAccountId = accountId || accounts[0]?.id || '';
+    if (!resolvedAccountId || !accounts.some((a) => a.id === resolvedAccountId)) {
+      setFormError('Cadastre uma conta antes de lançar.');
+      return;
+    }
     const resolvedCategoryId =
-      categoryId || categories.find((cat) => cat.kind === kind)?.id || categories[0]?.id || 'cat-outros-despesa';
-
-    if (editingRecurrence) {
-      await finRepository.updateRecurrence(editingRecurrence.id, {
-        kind,
-        amount_cents: amountCents,
-        description: description.trim() || 'Recorrência',
-        account_id: resolvedAccountId,
-        category_id: resolvedCategoryId,
-        frequency,
-        day_of_month: day,
-        start_date: startDate.trim() || getTodayIsoLocal(),
-        end_date: endDate.trim() || null,
-        is_subscription: isSubscription ? 1 : 0,
-      });
-    } else {
-      await finRepository.createRecurrence({
-        kind,
-        amount_cents: amountCents,
-        description: description.trim() || (isSubscription ? 'Assinatura' : 'Recorrência'),
-        account_id: resolvedAccountId,
-        category_id: resolvedCategoryId,
-        frequency,
-        day_of_month: day,
-        start_date: startDate.trim() || getTodayIsoLocal(),
-        end_date: endDate.trim() || null,
-        is_subscription: isSubscription ? 1 : 0,
-        active: 1,
-        generated_until: null,
-      });
+      categoryId || categories.find((cat) => cat.kind === kind)?.id || categories[0]?.id || '';
+    if (!resolvedCategoryId || !categories.some((cat) => cat.id === resolvedCategoryId)) {
+      setFormError('Selecione uma categoria válida.');
+      return;
     }
 
-    const baseMonth = (startDate.trim() || getTodayIsoLocal()).slice(0, 7);
-    const windowStart = getMonthDateRange(baseMonth).start;
-    const windowEnd = getMonthDateRange(addMonthsYearMonth(baseMonth, 2)).end;
-    await finService.generateRecurrenceWindow(windowStart, windowEnd);
+    const day = Math.min(31, Math.max(1, Number.parseInt(dayText || '1', 10) || 1));
 
-    onSaved();
-    onClose();
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editingRecurrence) {
+        await finService.updateRecurrence(editingRecurrence.id, {
+          kind,
+          amount_cents: amountCents,
+          description: description.trim() || 'Recorrência',
+          account_id: resolvedAccountId,
+          category_id: resolvedCategoryId,
+          frequency,
+          day_of_month: day,
+          start_date: resolvedStart,
+          end_date: resolvedEnd,
+          is_subscription: isSubscription ? 1 : 0,
+        });
+      } else {
+        await finRepository.createRecurrence({
+          kind,
+          amount_cents: amountCents,
+          description: description.trim() || (isSubscription ? 'Assinatura' : 'Recorrência'),
+          account_id: resolvedAccountId,
+          category_id: resolvedCategoryId,
+          frequency,
+          day_of_month: day,
+          start_date: resolvedStart,
+          end_date: resolvedEnd,
+          is_subscription: isSubscription ? 1 : 0,
+          active: 1,
+          generated_until: null,
+        });
+      }
+
+      const baseMonth = resolvedStart.slice(0, 7);
+      const windowStart = getMonthDateRange(baseMonth).start;
+      const windowEnd = getMonthDateRange(addMonthsYearMonth(baseMonth, 2)).end;
+      await finService.generateRecurrenceWindow(windowStart, windowEnd);
+
+      onSaved();
+      onClose();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Erro ao salvar recorrência.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!visible) return null;
@@ -204,6 +243,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
         />
 
         <LedgerInput
+          testID="recurrence-form-amount-input"
           label="Valor (R$)"
           value={amountText}
           onChangeText={(txt) => {
@@ -234,16 +274,24 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
         />
 
         <TextField
-          label="Início (AAAA-MM-DD)"
+          testID="recurrence-form-start-date"
+          label="Início (dd/mm/aaaa)"
           value={startDate}
-          onChangeText={setStartDate}
+          onChangeText={(txt) => {
+            setStartDate(txt);
+            setFormError(null);
+          }}
           themeMode={themeMode}
         />
 
         <TextField
-          label="Fim opcional (AAAA-MM-DD)"
+          testID="recurrence-form-end-date"
+          label="Fim opcional (dd/mm/aaaa)"
           value={endDate}
-          onChangeText={setEndDate}
+          onChangeText={(txt) => {
+            setEndDate(txt);
+            setFormError(null);
+          }}
           placeholder="Opcional"
           themeMode={themeMode}
         />
@@ -258,11 +306,16 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
           <Text style={[sharedStyles.secondaryBtnText, { color: c.muted }]}>Cancelar</Text>
         </JellyPressable>
         <JellyPressable
+          testID="recurrence-form-save-btn"
           accessibilityRole="button"
+          disabled={saving}
           onPress={() => void handleSave()}
-          style={[sharedStyles.primaryBtn, { backgroundColor: c.primary, paddingHorizontal: 28 }]}
+          style={[
+            sharedStyles.primaryBtn,
+            { backgroundColor: c.primary, paddingHorizontal: 28, opacity: saving ? 0.6 : 1 },
+          ]}
         >
-          <Text style={sharedStyles.primaryBtnText}>Salvar</Text>
+          <Text style={sharedStyles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar'}</Text>
         </JellyPressable>
       </View>
     </AnimatedModalSheet>

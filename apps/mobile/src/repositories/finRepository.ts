@@ -1,20 +1,28 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
+import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
 import {
   finAccounts,
   finCategories,
   finEntries,
   finRecurrences,
+  finRecurrenceSkips,
   type FinAccount,
   type FinCategory,
   type FinEntry,
   type FinRecurrence,
+  type FinRecurrenceSkip,
   type NewFinAccount,
   type NewFinCategory,
   type NewFinEntry,
   type NewFinRecurrence,
 } from '../db/schema';
-import type { FinAccountType, FinEntryStatus, FinKind } from '../domain/financeFlow';
+import {
+  getMonthDateRange,
+  type FinAccountType,
+  type FinEntryStatus,
+  type FinKind,
+} from '../domain/financeFlow';
 import { appMetaRepository } from './appMetaRepository';
 
 export const FIN_CATEGORIES_SEED_META_KEY = 'fin:categories:seeded:v1';
@@ -40,11 +48,7 @@ export const DEFAULT_FIN_CATEGORIES: DefaultFinCategorySeed[] = [
 ];
 
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+  return Crypto.randomUUID();
 }
 
 export class FinRepository {
@@ -207,6 +211,7 @@ export class FinRepository {
       category_id: item.category_id,
       description: item.description ?? '',
       recurrence_id: item.recurrence_id ?? null,
+      recurrence_period: item.recurrence_period ?? null,
       installment_group_id: item.installment_group_id ?? null,
       installment_number: item.installment_number ?? null,
       installment_total: item.installment_total ?? null,
@@ -238,16 +243,42 @@ export class FinRepository {
   }
 
   async listEntriesByMonth(yearMonth: string): Promise<FinEntry[]> {
-    const all = await this.listAllEntries();
-    return all.filter((entry) => entry.due_date.startsWith(yearMonth));
+    const { start, end } = getMonthDateRange(yearMonth);
+    return this.listEntriesBetween(start, end);
   }
 
-  async listEntriesBetween(_startIso: string, _endIso: string): Promise<FinEntry[]> {
-    return [];
+  async listEntriesBetween(startIso: string, endIso: string): Promise<FinEntry[]> {
+    const db = getDatabase();
+    const rows = (await db
+      .select()
+      .from(finEntries)
+      .where(and(gte(finEntries.due_date, startIso), lte(finEntries.due_date, endIso)))) as FinEntry[];
+    return [...rows].sort((a, b) => {
+      const dateCmp = a.due_date.localeCompare(b.due_date);
+      if (dateCmp !== 0) return dateCmp;
+      return a.created_at.localeCompare(b.created_at);
+    });
   }
 
-  async listPendingEntriesUntil(_iso: string): Promise<FinEntry[]> {
-    return [];
+  async listPendingEntriesUntil(iso: string): Promise<FinEntry[]> {
+    const db = getDatabase();
+    const rows = (await db
+      .select()
+      .from(finEntries)
+      .where(and(eq(finEntries.status, 'pending'), lte(finEntries.due_date, iso)))) as FinEntry[];
+    return [...rows].sort((a, b) => {
+      const dateCmp = a.due_date.localeCompare(b.due_date);
+      if (dateCmp !== 0) return dateCmp;
+      return a.created_at.localeCompare(b.created_at);
+    });
+  }
+
+  async listEntriesWithRecurrence(): Promise<FinEntry[]> {
+    const db = getDatabase();
+    return (await db
+      .select()
+      .from(finEntries)
+      .where(isNotNull(finEntries.recurrence_id))) as FinEntry[];
   }
 
   async listAllEntries(): Promise<FinEntry[]> {
@@ -340,6 +371,24 @@ export class FinRepository {
         return true;
       })
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  }
+
+  async addRecurrenceSkip(recurrenceId: string, period: string): Promise<void> {
+    const existing = await this.listAllRecurrenceSkips(recurrenceId);
+    if (existing.some((s) => s.period === period)) return;
+    const db = getDatabase();
+    await db.insert(finRecurrenceSkips).values({ recurrence_id: recurrenceId, period });
+  }
+
+  async listAllRecurrenceSkips(recurrenceId?: string): Promise<FinRecurrenceSkip[]> {
+    const db = getDatabase();
+    if (recurrenceId) {
+      return (await db
+        .select()
+        .from(finRecurrenceSkips)
+        .where(eq(finRecurrenceSkips.recurrence_id, recurrenceId))) as FinRecurrenceSkip[];
+    }
+    return (await db.select().from(finRecurrenceSkips)) as FinRecurrenceSkip[];
   }
 }
 

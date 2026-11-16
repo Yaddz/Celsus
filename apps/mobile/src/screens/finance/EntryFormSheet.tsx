@@ -10,7 +10,11 @@ import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
 import {
+  addMonthsYearMonth,
+  brToIso,
+  getMonthDateRange,
   getTodayIsoLocal,
+  isoToBr,
   parseBRLToCents,
   type FinKind,
   type InstallmentScope,
@@ -30,6 +34,7 @@ export interface EntryFormSheetProps {
   visible: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  onRequestCreateAccount?: () => void;
   editingEntry?: FinEntry | null;
   installmentScope?: InstallmentScope;
   defaultDueDate?: string;
@@ -44,12 +49,6 @@ function extractDayLabel(isoDate: string): string {
   return m ? String(Number.parseInt(m[3], 10)) : '15';
 }
 
-/** "2026-11-14" → "14/11/2026"; textos que já não são ISO são mantidos. */
-function isoToBr(iso: string): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec((iso || '').trim());
-  return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
-}
-
 /** Máscara dd/mm/aaaa enquanto digita (só dígitos, no máximo 8). */
 function maskBrDate(text: string): string {
   const digits = text.replace(/\D/g, '').slice(0, 8);
@@ -58,27 +57,11 @@ function maskBrDate(text: string): string {
   return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
 }
 
-/** Aceita "dd/mm/aaaa" ou ISO e devolve ISO válido, ou null. */
-function brToIso(text: string): string | null {
-  const t = (text || '').trim();
-  let y: number, mo: number, d: number;
-  let m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t);
-  if (m) {
-    d = Number(m[1]); mo = Number(m[2]); y = Number(m[3]);
-  } else {
-    m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-    if (!m) return null;
-    y = Number(m[1]); mo = Number(m[2]); d = Number(m[3]);
-  }
-  const date = new Date(Date.UTC(y, mo - 1, d));
-  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== mo - 1 || date.getUTCDate() !== d) return null;
-  return `${String(y).padStart(4, '0')}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-}
-
 export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   visible,
   onClose,
   onSaved,
+  onRequestCreateAccount,
   editingEntry = null,
   installmentScope,
   defaultDueDate,
@@ -181,14 +164,23 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   };
 
   const handleSave = async () => {
+    if (saving) return;
     const amountCents = parseBRLToCents(amountText);
     if (amountCents <= 0) {
       setFormError('Informe um valor maior que zero.');
       return;
     }
-    const resolvedAccountId = accountId || accounts[0]?.id || 'default-account';
+    const resolvedAccountId = accountId || accounts[0]?.id || '';
+    if (!resolvedAccountId || !accounts.some((a) => a.id === resolvedAccountId)) {
+      setFormError('Cadastre uma conta antes de lançar.');
+      return;
+    }
     const resolvedCategoryId =
-      categoryId || categoriesForKind[0]?.id || categories[0]?.id || 'cat-outros-despesa';
+      categoryId || categoriesForKind[0]?.id || categories[0]?.id || '';
+    if (!resolvedCategoryId || !categories.some((cat) => cat.id === resolvedCategoryId)) {
+      setFormError('Selecione uma categoria válida.');
+      return;
+    }
     const trimmedDate = dueDate.trim() ? brToIso(dueDate) : getTodayIsoLocal();
     if (!trimmedDate) {
       setFormError('Informe uma data válida (dd/mm/aaaa).');
@@ -222,6 +214,26 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
             kind,
           });
         }
+      } else if (repeatMode === 'monthly') {
+        const dayOfMonth = Number.parseInt(trimmedDate.slice(8, 10), 10) || 1;
+        await finRepository.createRecurrence({
+          kind,
+          amount_cents: amountCents,
+          description: description.trim() || 'Recorrência',
+          account_id: resolvedAccountId,
+          category_id: resolvedCategoryId,
+          frequency: 'monthly',
+          day_of_month: dayOfMonth,
+          start_date: trimmedDate,
+          end_date: null,
+          is_subscription: 0,
+          active: 1,
+          generated_until: null,
+        });
+        const baseMonth = trimmedDate.slice(0, 7);
+        const windowStart = getMonthDateRange(baseMonth).start;
+        const windowEnd = getMonthDateRange(addMonthsYearMonth(baseMonth, 2)).end;
+        await finService.generateRecurrenceWindow(windowStart, windowEnd);
       } else if (installmentsCount > 1) {
         await finService.createInstallmentPurchase({
           kind,
@@ -398,9 +410,25 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                 </View>
 
                 {accounts.length === 0 ? (
-                  <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
-                    Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
-                  </Text>
+                  <View style={{ gap: 6, marginTop: 6 }}>
+                    <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
+                      Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
+                    </Text>
+                    {onRequestCreateAccount ? (
+                      <TouchableOpacity
+                        testID="entry-form-create-account-shortcut"
+                        accessibilityRole="button"
+                        onPress={() => {
+                          onClose();
+                          onRequestCreateAccount();
+                        }}
+                      >
+                        <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                          Criar conta agora ›
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
                 ) : null}
 
                 {accountPickerOpen ? (

@@ -8,6 +8,7 @@ import {
   FinCategory,
   FinEntry,
   FinRecurrence,
+  FinRecurrenceSkip,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -17,6 +18,7 @@ import {
   finCategories as finCategoriesTable,
   finEntries as finEntriesTable,
   finRecurrences as finRecurrencesTable,
+  finRecurrenceSkips as finRecurrenceSkipsTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
@@ -59,6 +61,7 @@ export interface BackupDatabaseSnapshot {
   finCategories?: FinCategory[];
   finEntries?: FinEntry[];
   finRecurrences?: FinRecurrence[];
+  finRecurrenceSkips?: FinRecurrenceSkip[];
 }
 
 export interface ExportArchiveResult {
@@ -565,6 +568,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'category_id',
   'description',
   'recurrence_id',
+  'recurrence_period',
   'installment_group_id',
   'installment_number',
   'installment_total',
@@ -586,6 +590,11 @@ const FIN_RECURRENCES_COLUMNS: (keyof FinRecurrence)[] = [
   'active',
   'generated_until',
   'created_at',
+];
+
+const FIN_RECURRENCE_SKIPS_COLUMNS: (keyof FinRecurrenceSkip)[] = [
+  'recurrence_id',
+  'period',
 ];
 
 function parseOptionalInt(raw?: string): number | null {
@@ -639,10 +648,19 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     category_id: r.category_id,
     description: r.description ?? '',
     recurrence_id: r.recurrence_id === '' ? null : r.recurrence_id ?? null,
+    recurrence_period: r.recurrence_period === '' ? null : r.recurrence_period ?? null,
     installment_group_id: r.installment_group_id === '' ? null : r.installment_group_id ?? null,
     installment_number: parseOptionalInt(r.installment_number),
     installment_total: parseOptionalInt(r.installment_total),
     created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseFinRecurrenceSkipsFromCsv(csvText?: string): FinRecurrenceSkip[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    recurrence_id: r.recurrence_id,
+    period: r.period,
   }));
 }
 
@@ -843,6 +861,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const finCategories = await finRepository.listCategories(true);
       const finEntries = await finRepository.listAllEntries();
       const finRecurrences = await finRepository.listRecurrences();
+      const finRecurrenceSkips = await finRepository.listAllRecurrenceSkips();
       return {
         portfolios,
         classTargets,
@@ -853,6 +872,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finCategories,
         finEntries,
         finRecurrences,
+        finRecurrenceSkips,
       };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
@@ -866,6 +886,9 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     const db = getDatabase();
     if (snapshot.finEntries) {
       await db.delete(finEntriesTable);
+    }
+    if (snapshot.finRecurrenceSkips) {
+      await db.delete(finRecurrenceSkipsTable);
     }
     if (snapshot.finRecurrences) {
       await db.delete(finRecurrencesTable);
@@ -919,6 +942,11 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.finEntries) {
       for (const entry of snapshot.finEntries) {
         await db.insert(finEntriesTable).values(entry);
+      }
+    }
+    if (snapshot.finRecurrenceSkips) {
+      for (const skip of snapshot.finRecurrenceSkips) {
+        await db.insert(finRecurrenceSkipsTable).values(skip);
       }
     }
   }
@@ -1017,6 +1045,19 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         incoming.finRecurrences || (current.finRecurrences?.length ?? 0) > 0
           ? mergeById(current.finRecurrences, incoming.finRecurrences)
           : undefined,
+      finRecurrenceSkips:
+        incoming.finRecurrenceSkips || (current.finRecurrenceSkips?.length ?? 0) > 0
+          ? (() => {
+              const map = new Map<string, FinRecurrenceSkip>();
+              for (const s of current.finRecurrenceSkips ?? []) {
+                map.set(`${s.recurrence_id}::${s.period}`, s);
+              }
+              for (const s of incoming.finRecurrenceSkips ?? []) {
+                map.set(`${s.recurrence_id}::${s.period}`, s);
+              }
+              return Array.from(map.values());
+            })()
+          : undefined,
     });
   }
 }
@@ -1092,6 +1133,9 @@ export class BackupService {
       snapshot.finEntries ?? (snapshotOverride ? [] : await finRepository.listAllEntries());
     const finRecurrences =
       snapshot.finRecurrences ?? (snapshotOverride ? [] : await finRepository.listRecurrences());
+    const finRecurrenceSkips =
+      snapshot.finRecurrenceSkips ??
+      (snapshotOverride ? [] : await finRepository.listAllRecurrenceSkips());
 
     const manifestFiles: Record<string, ManifestFileEntry> = {
       'portfolios.csv': {
@@ -1159,6 +1203,14 @@ export class BackupService {
         sha256: BackupService.computeSha256(csv),
       };
       files['fin_recurrences.csv'] = csv;
+    }
+    if (finRecurrenceSkips.length > 0) {
+      const csv = serializeToCsv(finRecurrenceSkips, FIN_RECURRENCE_SKIPS_COLUMNS);
+      manifestFiles['fin_recurrence_skips.csv'] = {
+        rows: finRecurrenceSkips.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_recurrence_skips.csv'] = csv;
     }
 
     const manifest: BackupManifest = {
@@ -1254,6 +1306,7 @@ export class BackupService {
       'fin_categories.csv',
       'fin_entries.csv',
       'fin_recurrences.csv',
+      'fin_recurrence_skips.csv',
     ] as const;
 
     for (const csvName of optionalCsvs) {
@@ -1288,6 +1341,9 @@ export class BackupService {
         : undefined,
       finRecurrences: extracted['fin_recurrences.csv']
         ? parseFinRecurrencesFromCsv(extracted['fin_recurrences.csv'])
+        : undefined,
+      finRecurrenceSkips: extracted['fin_recurrence_skips.csv']
+        ? parseFinRecurrenceSkipsFromCsv(extracted['fin_recurrence_skips.csv'])
         : undefined,
     };
 

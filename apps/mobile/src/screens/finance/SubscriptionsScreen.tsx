@@ -10,8 +10,14 @@ import {
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import { calculateSubscriptionsSummary, formatCentsBRL, type FinFrequency } from '../../domain/financeFlow';
-import type { FinCategory, FinRecurrence } from '../../db/schema';
+import {
+  calculateSubscriptionsSummary,
+  formatCentsBRL,
+  getTodayIsoLocal,
+  nextOccurrenceIso,
+  type FinFrequency,
+} from '../../domain/financeFlow';
+import type { FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
 import type { ThemeMode } from '../../theme/palettes';
@@ -89,6 +95,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [subscriptions, setSubscriptions] = useState<FinRecurrence[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
+  const [recEntries, setRecEntries] = useState<FinEntry[]>([]);
   const [filter, setFilter] = useState<SubscriptionFilter>('active');
 
   const [formVisible, setFormVisible] = useState(false);
@@ -99,12 +106,14 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [recs, cats] = await Promise.all([
+      const [recs, cats, entries] = await Promise.all([
         finRepository.listRecurrences({ onlySubscriptions: true }),
         finRepository.listCategories(true),
+        finRepository.listEntriesWithRecurrence(),
       ]);
       setSubscriptions(recs.filter((r) => r.is_subscription === 1));
       setCategories(cats);
+      setRecEntries(entries);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar assinaturas');
     } finally {
@@ -149,11 +158,13 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
     await loadData();
   };
 
+  const todayIso = getTodayIsoLocal();
+
   const renderSubscriptionRow = (sub: FinRecurrence, isLast: boolean, mode: SubscriptionFilter) => {
     const cat = catMap.get(sub.category_id);
     const visual = resolveCategoryVisual(cat);
     const freqLabel = FREQUENCY_LABELS[(sub.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
-    const nextIso = mode === 'active' ? computeNextBillingIso(sub) : null;
+    const nextIso = mode === 'active' ? nextOccurrenceIso(sub, todayIso, recEntries) : null;
     const daysAway = daysUntilIso(nextIso);
     const isSoon = daysAway !== null && daysAway <= 3 && daysAway >= 0;
 

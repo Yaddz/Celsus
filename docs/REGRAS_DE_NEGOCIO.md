@@ -287,3 +287,15 @@ inclusive depois de "Apagar todos os dados".
 - Moeda `R$ 1.234,56` (`toLocaleString('pt-BR')`, 2 casas); percentuais com vírgula (`+12,3%`).
 - Entrada numérica aceita vírgula ou ponto (`decimalInput`).
 - Datas gravadas como `AAAA-MM-DD`, exibidas como `DD/MM/AAAA`.
+
+---
+
+## 16. Módulo Finanças Pessoais (`domain/financeFlow`)
+
+- **Unidade monetária**: todos os valores do módulo são inteiros em **centavos** (`amount_cents`, `paid_amount_cents`, `initial_balance_cents`).
+- **Critério de competência e variação mensal da conta (F15)**: tanto o **Resumo mensal** (`calculateMonthlySummary`) quanto a **variação mensal da conta** (`AccountsScreen`) agrupam lançamentos pelo mês da data de vencimento/competência (`due_date`, formato `AAAA-MM`). Na variação mensal da conta entram apenas lançamentos com `status = 'paid'`, utilizando `paid_amount_cents ?? amount_cents` (positivo para `income`, negativo para `expense`).
+- **A vencer (7 dias) e Atrasadas (F6, F7)**: contagens e valores nos tiles de atenção consideram apenas **despesas** (`kind = 'expense'`) pendentes (`status = 'pending'`). Receitas atrasadas são apresentadas em linha separada (`"N a receber em atraso"`).
+- **Recorrências e Assinaturas (F2, F3, F8, F9, F10)**:
+  - Deduplicação por `recurrence_period` (`AAAA-MM` para mensal/anual e `AAAA-MM-DD` para semanal) e tabela `fin_recurrence_skips(recurrence_id, period)` para ocorrências excluídas no escopo `"só esta"`.
+  - `nextOccurrenceIso(recurrence, todayIso, pendingEntries)` retorna a menor `due_date` pendente `>= todayIso` ou projeta a próxima data pela frequência (`clampDayOfMonth` para dia 31 e 29/02).
+  - Geração sob demanda acompanha o mês exibido até o limite de **24 meses à frente**.

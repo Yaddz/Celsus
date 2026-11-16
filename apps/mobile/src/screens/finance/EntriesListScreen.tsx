@@ -4,6 +4,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
   BentoSheetHeader,
+  ConfirmDialog,
   FinListCard,
   FinListRow,
   formatTxDate,
@@ -15,9 +16,12 @@ import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
 import {
+  addDaysIso,
+  brToIso,
   classifyEntryDueStatus,
   formatYearMonthPtBr,
   getTodayIsoLocal,
+  isoToBr,
   parseBRLToCents,
   type FinKind,
   type InstallmentScope,
@@ -82,9 +86,11 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const [editingScope, setEditingScope] = useState<InstallmentScope | undefined>(undefined);
 
   const [actionEntry, setActionEntry] = useState<FinEntry | null>(null);
+  const [deleteConfirmEntry, setDeleteConfirmEntry] = useState<FinEntry | null>(null);
   const [payingEntry, setPayingEntry] = useState<FinEntry | null>(null);
   const [payAmountText, setPayAmountText] = useState('');
-  const [payDateText, setPayDateText] = useState(effectiveToday);
+  const [payDateText, setPayDateText] = useState(isoToBr(effectiveToday));
+  const [payDateError, setPayDateError] = useState<string | null>(null);
 
   const [scopePrompt, setScopePrompt] = useState<ScopePromptState | null>(null);
   const [pickerFilter, setPickerFilter] = useState<'category' | 'account' | null>(null);
@@ -103,8 +109,21 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     setLoading(true);
     setError(null);
     try {
+      let loadedEntriesPromise: Promise<FinEntry[]>;
+      if (filters.due === 'overdue') {
+        loadedEntriesPromise = finRepository.listPendingEntriesUntil(addDaysIso(effectiveToday, -1));
+      } else if (filters.due === 'soon') {
+        loadedEntriesPromise = finRepository.listEntriesBetween(
+          effectiveToday,
+          addDaysIso(effectiveToday, 7)
+        );
+      } else {
+        await finService.ensureMonthGenerated(selectedMonth, effectiveToday);
+        loadedEntriesPromise = finRepository.listEntriesByMonth(selectedMonth);
+      }
+
       const [monthEntries, accs, cats] = await Promise.all([
-        finRepository.listEntriesByMonth(selectedMonth),
+        loadedEntriesPromise,
         finRepository.listAccounts(true),
         finRepository.listCategories(true),
       ]);
@@ -120,7 +139,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         setLoading(false);
       }
     }
-  }, [selectedMonth]);
+  }, [selectedMonth, filters.due, effectiveToday]);
 
   useEffect(() => {
     void loadData();
@@ -139,14 +158,24 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   }, [categories]);
 
   const filteredEntries = useMemo(() => {
+    const horizonEnd = addDaysIso(effectiveToday, 7);
     return entries.filter((entry) => {
       if (filters.kind !== 'all' && entry.kind !== filters.kind) return false;
       if (filters.status !== 'all' && entry.status !== filters.status) return false;
+      if (filters.due === 'overdue' && (entry.status !== 'pending' || entry.due_date >= effectiveToday)) {
+        return false;
+      }
+      if (
+        filters.due === 'soon' &&
+        (entry.status !== 'pending' || entry.due_date < effectiveToday || entry.due_date > horizonEnd)
+      ) {
+        return false;
+      }
       if (filters.categoryId && entry.category_id !== filters.categoryId) return false;
       if (filters.accountId && entry.account_id !== filters.accountId) return false;
       return true;
     });
-  }, [entries, filters]);
+  }, [entries, filters, effectiveToday]);
 
   const pendingCount = useMemo(
     () => entries.filter((e) => e.status === 'pending').length,
@@ -176,14 +205,20 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const handleOpenPayModal = (entry: FinEntry) => {
     setPayingEntry(entry);
     setPayAmountText((entry.amount_cents / 100).toFixed(2).replace('.', ','));
-    setPayDateText(effectiveToday);
+    setPayDateText(isoToBr(effectiveToday));
+    setPayDateError(null);
   };
 
   const handleConfirmPay = async () => {
     if (!payingEntry) return;
+    const validDate = payDateText.trim() ? brToIso(payDateText) : effectiveToday;
+    if (!validDate) {
+      setPayDateError('Informe uma data válida (dd/mm/aaaa).');
+      return;
+    }
     const realCents = parseBRLToCents(payAmountText) || payingEntry.amount_cents;
     await finService.markEntryAsPaid(payingEntry.id, {
-      paidDate: payDateText.trim() || effectiveToday,
+      paidDate: validDate,
       paidAmountCents: realCents,
     });
     setPayingEntry(null);
@@ -195,12 +230,23 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     await loadData();
   };
 
-  const handleDeletePress = async (entry: FinEntry) => {
+  const handleDeletePress = (entry: FinEntry) => {
     if (entry.installment_group_id) {
       setScopePrompt({ action: 'delete', entry });
       return;
     }
-    await finRepository.deleteEntry(entry.id);
+    setDeleteConfirmEntry(entry);
+  };
+
+  const handleConfirmDeleteSingle = async () => {
+    if (!deleteConfirmEntry) return;
+    const target = deleteConfirmEntry;
+    setDeleteConfirmEntry(null);
+    if (target.recurrence_id) {
+      await finService.deleteRecurrenceOccurrence(target.id, 'only_this');
+    } else {
+      await finRepository.deleteEntry(target.id);
+    }
     await loadData();
   };
 
@@ -674,9 +720,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
           />
           <TextField
             testID="pay-entry-date-input"
-            label="Data efetiva (AAAA-MM-DD)"
+            label="Data efetiva (dd/mm/aaaa)"
             value={payDateText}
-            onChangeText={setPayDateText}
+            onChangeText={(txt) => {
+              setPayDateText(txt);
+              setPayDateError(null);
+            }}
+            error={payDateError}
             themeMode={themeMode}
           />
         </View>
@@ -745,6 +795,18 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
           </JellyPressable>
         </View>
       </AnimatedModalSheet>
+
+      <ConfirmDialog
+        visible={Boolean(deleteConfirmEntry)}
+        title="Excluir lançamento?"
+        message="Esta ação não pode ser desfeita."
+        confirmLabel="Excluir"
+        cancelLabel="Cancelar"
+        destructive={true}
+        themeMode={themeMode}
+        onCancel={() => setDeleteConfirmEntry(null)}
+        onConfirm={() => void handleConfirmDeleteSingle()}
+      />
     </View>
   );
 };

@@ -143,10 +143,16 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   category_id TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   recurrence_id TEXT,
+  recurrence_period TEXT,
   installment_group_id TEXT,
   installment_number INTEGER,
   installment_total INTEGER,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS fin_recurrence_skips (
+  recurrence_id TEXT NOT NULL,
+  period TEXT NOT NULL,
+  PRIMARY KEY (recurrence_id, period)
 );
 CREATE TABLE IF NOT EXISTS fin_recurrences (
   id TEXT PRIMARY KEY NOT NULL,
@@ -181,6 +187,7 @@ CREATE INDEX IF NOT EXISTS idx_transactions_external ON transactions(external_id
 CREATE INDEX IF NOT EXISTS idx_fin_entries_due_date ON fin_entries(due_date);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_status ON fin_entries(status);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence ON fin_entries(recurrence_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_recurrence_period ON fin_entries(recurrence_id, recurrence_period);
 CREATE INDEX IF NOT EXISTS idx_fin_entries_installment_group ON fin_entries(installment_group_id);
 `;
 
@@ -198,6 +205,7 @@ const inMemoryStore: Record<string, any[]> = {
   fin_categories: [],
   fin_entries: [],
   fin_recurrences: [],
+  fin_recurrence_skips: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {
@@ -206,22 +214,45 @@ function evalCondition(row: any, cond: any): boolean {
   if (chunks.length === 3 && chunks[0]?.value?.[0] === '(' && chunks[2]?.value?.[0] === ')') {
     return evalCondition(row, chunks[1]);
   }
-  const hasAnd = chunks.some((c: any) => c?.value?.[0]?.includes('and'));
+  const hasAnd = chunks.some((c: any) => typeof c?.value?.[0] === 'string' && c.value[0].includes('and'));
   if (hasAnd) {
-    const subConds = chunks.filter((c: any) => c?.constructor?.name === 'SQL');
+    const subConds = chunks.filter((c: any) => c?.queryChunks);
     return subConds.every((sub: any) => evalCondition(row, sub));
+  }
+  const hasOr = chunks.some((c: any) => typeof c?.value?.[0] === 'string' && c.value[0].includes(' or '));
+  if (hasOr) {
+    const subConds = chunks.filter((c: any) => c?.queryChunks);
+    return subConds.some((sub: any) => evalCondition(row, sub));
   }
   let colName: string | null = null;
   let val: any = undefined;
+  let op = '=';
   for (const c of chunks) {
     if (c?.name && typeof c.name === 'string') {
       colName = c.name;
     } else if (c?.constructor?.name === 'Param' || (c && 'value' in c && typeof c.value !== 'object')) {
       val = c.value;
+    } else if (Array.isArray(c?.value) && typeof c.value[0] === 'string') {
+      const s = c.value[0];
+      if (s.includes('>=')) op = '>=';
+      else if (s.includes('<=')) op = '<=';
+      else if (s.includes('<>') || s.includes('!=')) op = '!=';
+      else if (s.includes('>')) op = '>';
+      else if (s.includes('<')) op = '<';
+      else if (s.toLowerCase().includes('is null')) op = 'is_null';
+      else if (s.toLowerCase().includes('is not null')) op = 'is_not_null';
     }
   }
   if (colName !== null) {
-    return row[colName] === val;
+    const rowVal = row[colName];
+    if (op === 'is_null') return rowVal === null || rowVal === undefined;
+    if (op === 'is_not_null') return rowVal !== null && rowVal !== undefined;
+    if (op === '>=') return rowVal >= val;
+    if (op === '<=') return rowVal <= val;
+    if (op === '>') return rowVal > val;
+    if (op === '<') return rowVal < val;
+    if (op === '!=') return rowVal !== val;
+    return rowVal === val;
   }
   return true;
 }
@@ -315,6 +346,18 @@ function createInMemoryDatabase(): ReturnType<typeof drizzle> {
       };
       return delQuery;
     },
+    async transaction<T>(fn: (tx: any) => Promise<T>): Promise<T> {
+      const snapshot = JSON.parse(JSON.stringify(inMemoryStore));
+      try {
+        return await fn(this);
+      } catch (err) {
+        for (const k of Object.keys(inMemoryStore)) {
+          delete inMemoryStore[k];
+        }
+        Object.assign(inMemoryStore, snapshot);
+        throw err;
+      }
+    },
   } as any;
 }
 
@@ -357,6 +400,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'kind', ddl: 'ALTER TABLE income_events ADD COLUMN kind TEXT' },
   { table: 'income_events', column: 'quantity', ddl: 'ALTER TABLE income_events ADD COLUMN quantity TEXT' },
   { table: 'income_events', column: 'unit_amount', ddl: 'ALTER TABLE income_events ADD COLUMN unit_amount TEXT' },
+  { table: 'fin_entries', column: 'recurrence_period', ddl: 'ALTER TABLE fin_entries ADD COLUMN recurrence_period TEXT' },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {
@@ -458,6 +502,35 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
     }
   }
   return _rawSqliteDb!;
+}
+
+let _inTransaction = false;
+
+/**
+ * Executa `fn` dentro de uma transação SQLite (ou transação em memória no Jest/web `?memdb=1`).
+ * Chamadas aninhadas reutilizam a transação ativa para evitar erro de transação dupla no SQLite.
+ */
+export async function runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  if (_inTransaction) {
+    return fn();
+  }
+  _inTransaction = true;
+  try {
+    const db = getDatabase() as any;
+    if (_rawSqliteDb && !isTestEnvironment() && typeof _rawSqliteDb.withTransactionAsync === 'function') {
+      let result!: T;
+      await _rawSqliteDb.withTransactionAsync(async () => {
+        result = await fn();
+      });
+      return result;
+    }
+    if (typeof db.transaction === 'function') {
+      return await db.transaction(async () => fn());
+    }
+    return await fn();
+  } finally {
+    _inTransaction = false;
+  }
 }
 
 export default getDatabase;

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, XpMinimalHeader } from '../../components/ui';
@@ -105,14 +105,18 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    if (!hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
     setError(null);
     try {
       await finService.initializeFinanceModule(effectiveToday);
+      await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
       const [allEntries, allCategories, activeAccounts, allRecurrences] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
@@ -123,12 +127,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setCategories(allCategories);
       setAccounts(activeAccounts);
       setRecurrences(allRecurrences);
+      hasLoadedOnceRef.current = true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar módulo.');
     } finally {
       setLoading(false);
     }
-  }, [effectiveToday]);
+  }, [effectiveToday, effectiveMonth]);
 
   useEffect(() => {
     if (activeRoute === 'home') {
@@ -201,6 +206,18 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const dueAlerts = useMemo(
     () => detectOverdueAndDueSoon(entries, effectiveToday, 7),
     [entries, effectiveToday]
+  );
+  const dueSoonExpensesCount = useMemo(
+    () => dueAlerts.dueSoon.filter((e) => e.kind === 'expense').length,
+    [dueAlerts.dueSoon]
+  );
+  const overdueExpensesCount = useMemo(
+    () => dueAlerts.overdue.filter((e) => e.kind === 'expense').length,
+    [dueAlerts.overdue]
+  );
+  const overdueIncomeCount = useMemo(
+    () => dueAlerts.overdue.filter((e) => e.kind === 'income').length,
+    [dueAlerts.overdue]
   );
 
   const topCategories = useMemo(
@@ -343,7 +360,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             <FinLoadingView themeMode={themeMode} />
           ) : error ? (
             <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-          ) : entries.length === 0 ? (
+          ) : entries.length === 0 && accounts.length === 0 ? (
             <FinEmptyState
               testID="finance-empty-state"
               icon="account-balance"
@@ -405,7 +422,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="A vencer em 7 dias"
                   activeOpacity={0.7}
-                  onPress={() => openEntriesWith({ status: 'pending' })}
+                  onPress={() => openEntriesWith({ status: 'pending', due: 'soon' })}
                   style={styles.attentionCell}
                 >
                   <Text style={[styles.attentionLabel, { color: c.muted }]}>A VENCER · 7 DIAS</Text>
@@ -417,7 +434,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                     {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
                   </Text>
                   <Text style={[styles.pairCaption, { color: c.muted }]}>
-                    {dueAlerts.dueSoon.length} {dueAlerts.dueSoon.length === 1 ? 'conta' : 'contas'}
+                    {dueSoonExpensesCount} {dueSoonExpensesCount === 1 ? 'conta' : 'contas'}
                   </Text>
                 </TouchableOpacity>
                 <View style={[styles.attentionDivider, { backgroundColor: isLight ? '#ECE6DA' : '#2A2D30' }]} />
@@ -426,7 +443,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   accessibilityRole="button"
                   accessibilityLabel="Atrasadas"
                   activeOpacity={0.7}
-                  onPress={() => openEntriesWith({ status: 'pending' })}
+                  onPress={() => openEntriesWith({ status: 'pending', due: 'overdue' })}
                   style={styles.attentionCell}
                 >
                   <Text style={[styles.attentionLabel, { color: c.overdue }]}>ATRASADAS</Text>
@@ -434,10 +451,18 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                     {formatCentsBRL(dueAlerts.overduePayableCents, isPrivacyMode)}
                   </Text>
                   <Text style={[styles.pairCaption, { color: c.muted }]}>
-                    {dueAlerts.overdue.length} {dueAlerts.overdue.length === 1 ? 'conta' : 'contas'} · ver
+                    {overdueExpensesCount} {overdueExpensesCount === 1 ? 'conta' : 'contas'} · ver
                   </Text>
                 </TouchableOpacity>
               </View>
+              {overdueIncomeCount > 0 ? (
+                <Text
+                  testID="finance-overdue-income-line"
+                  style={[styles.pairCaption, { color: c.income, marginTop: 8 }]}
+                >
+                  {overdueIncomeCount} a receber em atraso
+                </Text>
+              ) : null}
             </BentoTile>
 
             {/* Gasto por categoria — Matriz de pontos (top 5) */}
@@ -510,6 +535,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           visible={isAddEntryOpen}
           onClose={() => setIsAddEntryOpen(false)}
           onSaved={() => void loadData()}
+          onRequestCreateAccount={() => navigateTo('accounts')}
           defaultDueDate={effectiveToday}
           themeMode={themeMode}
         />

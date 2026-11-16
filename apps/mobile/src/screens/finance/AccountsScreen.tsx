@@ -120,8 +120,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     }
     for (const entry of entries) {
       if (entry.status !== 'paid') continue;
-      const dateStr = entry.paid_date ?? entry.due_date;
-      if (!dateStr || !dateStr.startsWith(currentYm)) continue;
+      if (!entry.due_date || !entry.due_date.startsWith(currentYm)) continue;
       const cents = entry.paid_amount_cents ?? entry.amount_cents;
       const signed = entry.kind === 'income' ? cents : -cents;
       map.set(entry.account_id, (map.get(entry.account_id) ?? 0) + signed);
@@ -160,8 +159,8 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setEditingAccount(acc);
     setName(acc.name);
     setAccountType((acc.type as FinAccountType) || 'checking');
-    const abs = Math.abs(acc.initial_balance_cents);
-    setBalanceText((abs / 100).toFixed(2).replace('.', ','));
+    const absFormatted = (Math.abs(acc.initial_balance_cents) / 100).toFixed(2).replace('.', ',');
+    setBalanceText(acc.initial_balance_cents < 0 ? `-${absFormatted}` : absFormatted);
     setSelectedColor(resolveApprovedColor(acc.color, FIN_COLOR_SWATCHES[0]));
     setFormOpen(true);
   };

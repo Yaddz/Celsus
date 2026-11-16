@@ -7,17 +7,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **108 suítes**, **722 testes** passando (Sprints 54, 55 e 56) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **112 suítes**, **760 testes** passando (incluindo Sprint 59) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos stubs/testes da Sprint 55 e código de produção (restam erros preexistentes em 19 arquivos de teste antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **123 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 59 |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **128 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 59 — Integridade do módulo Finanças (Fase A — Red Phase & Lock)
+## Sprint 59 — Integridade do módulo Finanças (Fase B concluída)
 
-- Novos arquivos bloqueados em `tests.lock.json` (`128` arquivos verificados via SHA-256):
+- **Fase A:** bloqueada em `tests.lock.json` (`128` arquivos verificados via SHA-256):
   - `apps/mobile/src/domain/financeFlow/__tests__/Sprint59Recurrence.test.ts` (**S59-T01 a S59-T03**): deduplicação por `recurrence_period` e `skippedPeriods`, `nextOccurrenceIso(recurrence, todayIso)` (mensal dia 31 em fevereiro, anual 29/02, semanal e pendência >= hoje) e `brToIso` no domínio.
-  - `apps/mobile/src/screens/__tests__/Sprint59FinanceIntegrity.test.tsx` (**S59-T04 a S59-T17**): F1–F16 e F18 (recorrência mensal no formulário, skip de ocorrência e edição de vencimento, edição de recorrência em lote, saldo inicial negativo, validação/migração de contas órfãs `"Sem conta"`, filtros `due: 'overdue' | 'soon'`, separação de despesas/receitas atrasadas, pausar/retomar assinatura, geração ao trocar de mês até 24 meses, `ConfirmDialog` ao excluir avulso, validação de datas/duplo-toque em recorrências, transações SQLite atômicas, `listEntriesBetween`/`listPendingEntriesUntil` + critério `due_date` na variação mensal, resumo sem skeleton/empty state com contas, e IDs com `expo-crypto`).
-- Execução Fase A (Red Phase): `2 suítes falharam, 21/21 testes falharam` contra os stubs mínimos; `tsc --noEmit` com 0 erros nos arquivos da Sprint 59.
+  - `apps/mobile/src/screens/__tests__/Sprint59FinanceIntegrity.test.tsx` (**S59-T04 a S59-T17**): F1–F16 e F18.
+- **Teste da sprint 56 alterado com autorização explícita do usuário:** `Sprint56FinanceFidelity.test.tsx` (`S56-T04`, `"excluir pela folha remove o lançamento avulso"`) atualizado para confirmar o `ConfirmDialog` (`"Excluir lançamento?"` → `"Excluir"`) introduzido pelo requisito F11.
+- **Fase B:** correções F1–F16 e F18 implementadas em `src/db/schema.ts`, `src/db/client.ts` (`recurrence_period`, `fin_recurrence_skips`, `runInTransaction`), `src/services/backupService.ts`, `src/domain/financeFlow/index.ts`, `src/repositories/finRepository.ts`, `src/services/finService.ts`, `src/stores/finStore.ts` e `src/screens/finance/*`. **112/112 suítes (760/760 testes) passando**; `tsc --noEmit` com 0 erros em produção e na Sprint 59; `node scripts/test-lock.js verify` aprovado.
 
 ## Sprint 56 — Fidelidade visual do módulo Finanças (Fase B concluída)
 
