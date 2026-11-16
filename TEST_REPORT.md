@@ -7,10 +7,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **3 suítes** Sprint 64 (Fase A, Red) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **116 suítes** existentes + **3 suítes** Sprint 64 (Fase A, Red) + **3 suítes** Sprint 62 (Fase A, Red) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção e na Sprint 64 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **135 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **138 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 62 — Importação de fatura/extrato e regras de categorização (Fase A concluída — Red Phase)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`138` arquivos verificados via SHA-256):
+  - Fixtures anonimizadas em `apps/mobile/src/domain/statementImport/__tests__/fixtures/`: `nubank_card.ofx` (OFX SGML real), `nubank_card.csv` (CSV real), `nubank_checking.csv`, `inter.csv`, `c6.csv`, `itau.csv`, `checking_xml.ofx` e `generic_manual.csv`.
+  - `apps/mobile/src/domain/statementImport/__tests__/Sprint62StatementImport.test.ts` (**S62-T01 a S62-T09**, 9 casos): `parseOfx` (SGML/XML, latin1/UTF-8), `parseCsv` (detecção de separador e perfis Nubank cartão/conta, Inter, C6, Itaú e mapeamento manual), `normalizeStatementRow` (sinais, parcelas `PARC 03/12`, `03/12`, `3 de 12` e `externalId` por FITID ou hash estável com ordem), `applyCategoryRules` (normalização sem acento e especificidade `exact > starts_with > contains`) e `reconcileImportedRows` (`new`, `duplicate`, `settle_pending` em até 5 dias sem casar o mesmo pendente duas vezes).
+  - `apps/mobile/src/services/__tests__/Sprint62StatementImportService.test.ts` (**S62-T10 a S62-T15**, 6 casos): schema e migrações (`source`, `external_id`, `import_batch_id`, `fin_category_rules`, índice único por conta), importação em transação única com `bill_month` e parcelas, idempotência (reimportar não duplica), baixa de pendente, `undoImportBatch` reversível, CRUD/hits de regras e backup `.celsus.zip`.
+  - `apps/mobile/src/screens/__tests__/Sprint62StatementImportScreen.test.tsx` (**S62-T16 a S62-T20**, 5 casos): entradas em `FinanceMoreScreen` e `CardBillScreen`, fluxo completo da `StatementImportSheet` (arquivo → conta → prévia → `"Sempre usar esta categoria para <trecho>"` → resultado com `"Desfazer importação"`) e `CategoryRulesScreen` (listar, editar e excluir).
 
 ## Sprint 64 — Fundação do Open Finance com Pluggy / Meu Pluggy (Fase A concluída)
 
