@@ -242,6 +242,14 @@ export class FinRepository {
     return all.filter((entry) => entry.due_date.startsWith(yearMonth));
   }
 
+  async listEntriesBetween(_startIso: string, _endIso: string): Promise<FinEntry[]> {
+    return [];
+  }
+
+  async listPendingEntriesUntil(_iso: string): Promise<FinEntry[]> {
+    return [];
+  }
+
   async listAllEntries(): Promise<FinEntry[]> {
     const db = getDatabase();
     const rows = (await db.select().from(finEntries)) as FinEntry[];

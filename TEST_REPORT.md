@@ -12,6 +12,13 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos stubs/testes da Sprint 55 e código de produção (restam erros preexistentes em 19 arquivos de teste antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **123 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 59 — Integridade do módulo Finanças (Fase A — Red Phase & Lock)
+
+- Novos arquivos bloqueados em `tests.lock.json` (`128` arquivos verificados via SHA-256):
+  - `apps/mobile/src/domain/financeFlow/__tests__/Sprint59Recurrence.test.ts` (**S59-T01 a S59-T03**): deduplicação por `recurrence_period` e `skippedPeriods`, `nextOccurrenceIso(recurrence, todayIso)` (mensal dia 31 em fevereiro, anual 29/02, semanal e pendência >= hoje) e `brToIso` no domínio.
+  - `apps/mobile/src/screens/__tests__/Sprint59FinanceIntegrity.test.tsx` (**S59-T04 a S59-T17**): F1–F16 e F18 (recorrência mensal no formulário, skip de ocorrência e edição de vencimento, edição de recorrência em lote, saldo inicial negativo, validação/migração de contas órfãs `"Sem conta"`, filtros `due: 'overdue' | 'soon'`, separação de despesas/receitas atrasadas, pausar/retomar assinatura, geração ao trocar de mês até 24 meses, `ConfirmDialog` ao excluir avulso, validação de datas/duplo-toque em recorrências, transações SQLite atômicas, `listEntriesBetween`/`listPendingEntriesUntil` + critério `due_date` na variação mensal, resumo sem skeleton/empty state com contas, e IDs com `expo-crypto`).
+- Execução Fase A (Red Phase): `2 suítes falharam, 21/21 testes falharam` contra os stubs mínimos; `tsc --noEmit` com 0 erros nos arquivos da Sprint 59.
+
 ## Sprint 56 — Fidelidade visual do módulo Finanças (Fase B concluída)
 
 - Novo arquivo `apps/mobile/src/screens/__tests__/Sprint56FinanceFidelity.test.tsx` (S56-T01 a S56-T07): mês atual ao abrir o módulo (`finStore.resetMonthToCurrent`), fonte Space Mono registrada no `expo-font`, trilho do mês e matriz de pontos de uma linha, linhas de lançamentos sem selos/botões e folha de ações, formulário (data dd/mm/aaaa, Vencimento e Conta na mesma linha, aviso sem contas, rodapé fixo), Categorias (tile de edição por tema, sem ícone de arquivar nas linhas, campo com linha laranja, botões 48 px) e cor creme da categoria Mercado.

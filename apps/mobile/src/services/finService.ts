@@ -97,11 +97,11 @@ export class FinService {
     return createdAll;
   }
 
-  async pauseSubscription(recurrenceId: string): Promise<FinRecurrence> {
+  async pauseSubscription(recurrenceId: string, _referenceDateIso?: string): Promise<FinRecurrence> {
     return finRepository.updateRecurrence(recurrenceId, { active: 0 });
   }
 
-  async resumeSubscription(recurrenceId: string): Promise<FinRecurrence> {
+  async resumeSubscription(recurrenceId: string, _referenceDateIso?: string): Promise<FinRecurrence> {
     return finRepository.updateRecurrence(recurrenceId, { active: 1 });
   }
 
@@ -181,6 +181,22 @@ export class FinService {
     for (const item of targets) {
       await finRepository.updateEntry(item.id, patch);
     }
+  }
+
+  async deleteRecurrenceOccurrence(_entryId: string, _scope?: InstallmentScope): Promise<void> {
+    // Stub Fase A
+  }
+
+  async updateRecurrence(
+    recurrenceId: string,
+    _patch: Partial<Omit<FinRecurrence, 'id' | 'created_at'>>,
+    _referenceDateIso?: string
+  ): Promise<FinRecurrence> {
+    const existing = await finRepository.getRecurrenceById(recurrenceId);
+    if (!existing) {
+      throw new Error(`Recorrência não encontrada: ${recurrenceId}`);
+    }
+    return existing;
   }
 
   async deleteInstallmentEntries(entryId: string, scope: InstallmentScope): Promise<void> {

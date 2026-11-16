@@ -233,6 +233,7 @@ export const finEntries = sqliteTable('fin_entries', {
   category_id: text('category_id').notNull(),
   description: text('description').notNull(),
   recurrence_id: text('recurrence_id'),
+  recurrence_period: text('recurrence_period'),
   installment_group_id: text('installment_group_id'),
   installment_number: integer('installment_number'),
   installment_total: integer('installment_total'),
@@ -260,16 +261,32 @@ export const finRecurrences = sqliteTable('fin_recurrences', {
   created_at: text('created_at').notNull(),
 });
 
+export const finRecurrenceSkips = sqliteTable(
+  'fin_recurrence_skips',
+  {
+    recurrence_id: text('recurrence_id').notNull(),
+    period: text('period').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.recurrence_id, table.period] }),
+  ]
+);
+
 export type FinAccount = typeof finAccounts.$inferSelect;
 export type NewFinAccount = typeof finAccounts.$inferInsert;
 
 export type FinCategory = typeof finCategories.$inferSelect;
 export type NewFinCategory = typeof finCategories.$inferInsert;
 
-export type FinEntry = typeof finEntries.$inferSelect;
+export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period'> & {
+  recurrence_period?: string | null;
+};
 export type NewFinEntry = typeof finEntries.$inferInsert;
 
 export type FinRecurrence = typeof finRecurrences.$inferSelect;
 export type NewFinRecurrence = typeof finRecurrences.$inferInsert;
+
+export type FinRecurrenceSkip = typeof finRecurrenceSkips.$inferSelect;
+export type NewFinRecurrenceSkip = typeof finRecurrenceSkips.$inferInsert;
 
 

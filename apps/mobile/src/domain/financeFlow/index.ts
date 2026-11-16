@@ -9,6 +9,7 @@ export type DueClassification = 'paid' | 'overdue' | 'due_soon' | 'upcoming';
 
 export interface GeneratedOccurrence {
   recurrenceId: string;
+  recurrencePeriod?: string;
   kind: FinKind;
   amountCents: number;
   dueDate: string;
@@ -214,7 +215,8 @@ export function generateRecurrenceOccurrences(
   recurrence: FinRecurrence,
   windowStart: string,
   windowEnd: string,
-  existingEntries: Array<Pick<FinEntry, 'recurrence_id' | 'due_date'>> = []
+  existingEntries: Array<Pick<FinEntry, 'recurrence_id' | 'due_date' | 'recurrence_period'>> = [],
+  _skippedPeriods: Set<string> | string[] = []
 ): { occurrences: GeneratedOccurrence[]; generatedUntil: string | null } {
   const prevGeneratedUntil = recurrence.generated_until ?? null;
 
@@ -535,4 +537,20 @@ export function calculateSubscriptionsSummary(recurrences: FinRecurrence[]): Sub
     monthlyTotalCents,
     annualTotalCents,
   };
+}
+
+export function brToIso(_text: string): string | null {
+  return null;
+}
+
+export function isoToBr(iso: string): string {
+  return iso;
+}
+
+export function nextOccurrenceIso(
+  _recurrence: FinRecurrence,
+  _todayIso: string,
+  _pendingEntries?: Array<Pick<FinEntry, 'recurrence_id' | 'status' | 'due_date'>>
+): string | null {
+  return null;
 }

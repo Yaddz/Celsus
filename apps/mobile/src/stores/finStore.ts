@@ -2,11 +2,14 @@ import { useSyncExternalStore } from 'react';
 import { onDatabaseReset } from '../db/client';
 import { addMonthsYearMonth, getTodayIsoLocal, type FinEntryStatus, type FinKind } from '../domain/financeFlow';
 
+export type FinDueFilter = 'all' | 'overdue' | 'soon';
+
 export interface FinFilters {
   kind: 'all' | FinKind;
   categoryId: string | null;
   accountId: string | null;
   status: 'all' | FinEntryStatus;
+  due: FinDueFilter;
 }
 
 export interface FinStoreState {
@@ -19,6 +22,7 @@ const DEFAULT_FILTERS: FinFilters = {
   categoryId: null,
   accountId: null,
   status: 'all',
+  due: 'all',
 };
 
 function currentYearMonth(): string {
