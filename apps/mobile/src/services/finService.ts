@@ -424,6 +424,30 @@ export class FinService {
       }
     });
   }
+
+  async createTransfer(_params: {
+    fromAccountId: string;
+    toAccountId: string;
+    amountCents: number;
+    dateIso: string;
+    description?: string;
+  }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
+    throw new Error('Not implemented: createTransfer');
+  }
+
+  async payCardBill(_params: {
+    cardAccountId: string;
+    fromAccountId: string;
+    billMonth: string;
+    amountCents: number;
+    paidDateIso: string;
+  }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
+    throw new Error('Not implemented: payCardBill');
+  }
+
+  async deleteTransferGroup(_transferGroupId: string): Promise<void> {
+    throw new Error('Not implemented: deleteTransferGroup');
+  }
 }
 
 export const finService = new FinService();

@@ -1,6 +1,7 @@
 import type { FinEntry, FinRecurrence } from '../../db/schema';
 
 export type FinKind = 'income' | 'expense';
+export type FinEntryKind = 'income' | 'expense' | 'transfer_out' | 'transfer_in';
 export type FinEntryStatus = 'pending' | 'paid';
 export type FinAccountType = 'cash' | 'checking' | 'card';
 export type FinFrequency = 'weekly' | 'monthly' | 'yearly';
@@ -654,4 +655,20 @@ export function nextOccurrenceIso(
     return null;
   }
   return candidate;
+}
+
+export * from './cards';
+
+export interface OverdueAndDueSoonWithBillsResult extends OverdueAndDueSoonResult {
+  overdueBills: import('./cards').CardBillDueItem[];
+  dueSoonBills: import('./cards').CardBillDueItem[];
+}
+
+export function detectOverdueAndDueSoonWithBills(
+  _entries: FinEntry[],
+  _accounts: import('../../db/schema').FinAccount[],
+  _todayIso: string,
+  _horizonDays = 7
+): OverdueAndDueSoonWithBillsResult {
+  throw new Error('Not implemented: detectOverdueAndDueSoonWithBills');
 }
