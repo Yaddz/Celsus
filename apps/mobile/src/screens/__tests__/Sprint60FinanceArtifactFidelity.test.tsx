@@ -214,7 +214,7 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
         />
       );
 
-      await waitFor(() => expect(screen.getByTestId('finance-home-screen')).toBeTruthy());
+      await waitFor(() => expect(screen.getByTestId('finance-month-income')).toBeTruthy());
       const screenStyle = StyleSheet.flatten(
         screen.getByTestId('finance-home-screen').props.style
       );
@@ -419,6 +419,7 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
       expect(screen.getByText('Categoria ▾')).toBeTruthy();
       expect(screen.getByText('Conta ▾')).toBeTruthy();
       expect(screen.getByText('Ver tudo ›')).toBeTruthy();
+      fireEvent.press(screen.getByText('Ver tudo ›'));
 
       const overdueSub = screen.getByTestId(`entry-subtitle-${overdue.id}`);
       expect(overdueSub).toHaveTextContent('Venceu 08/11 • Moradia');
@@ -568,8 +569,8 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
       expect(screen.getByTestId('recurrences-monthly-expense')).toHaveTextContent('R$ 730,00');
       expect(screen.getByTestId('recurrences-monthly-income')).toHaveTextContent('R$ 1.000,00');
 
-      expect(screen.getByText(/Ativas · 3/)).toBeTruthy();
-      expect(screen.getByText(/Encerradas · 1/)).toBeTruthy();
+      expect(screen.getByText(/Ativas · 3/i)).toBeTruthy();
+      expect(screen.getByText(/Encerradas · 1/i)).toBeTruthy();
 
       const endedCard = screen.getByTestId('recurrences-section-ended');
       expect(StyleSheet.flatten(endedCard.props.style).opacity).toBeCloseTo(0.7, 1);
@@ -705,7 +706,7 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
       expect(screen.getByTestId(`account-row-${nubank.id}`)).toBeTruthy();
       expect(screen.getByText(/Conta corrente • \d+ lançamentos/)).toBeTruthy();
       expect(screen.getByText('Gasto no mês')).toBeTruthy();
-      expect(screen.getByText(/Arquivadas · 1/)).toBeTruthy();
+      expect(screen.getByText(/Arquivadas · 1/i)).toBeTruthy();
       expect(screen.getByText('Restaurar')).toBeTruthy();
     });
   });

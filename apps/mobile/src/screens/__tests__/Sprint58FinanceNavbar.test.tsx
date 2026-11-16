@@ -157,12 +157,12 @@ describe('Sprint 58 — Navbar do módulo Finanças, Home enxuta e voltar corret
       }
     });
 
-    it('A vencer e Atrasadas viram um único card de atenção', async () => {
+    it('A vencer e Atrasadas ficam em dois tiles separados na mesma linha (Sprint 60)', async () => {
       await openHome();
-      expect(screen.getByTestId('finance-attention-tile')).toBeTruthy();
+      expect(screen.queryByTestId('finance-attention-tile')).toBeNull();
+      expect(screen.getByTestId('finance-upcoming-tile')).toBeTruthy();
       expect(screen.getByTestId('finance-upcoming-7d')).toBeTruthy();
       expect(screen.getByTestId('finance-overdue-tile')).toBeTruthy();
-      expect(screen.queryByTestId('finance-upcoming-tile')).toBeNull();
     });
 
     it('tocar em Atrasadas dentro do card abre Lançamentos pendentes', async () => {
@@ -172,12 +172,13 @@ describe('Sprint 58 — Navbar do módulo Finanças, Home enxuta e voltar corret
       expect(finStore.getState().filters.status).toBe('pending');
     });
 
-    it('o gasto por categoria mostra só as 3 maiores', async () => {
+    it('o gasto por categoria mostra 4 maiores + Outros (5 linhas)', async () => {
       await openHome();
       expect(screen.getByTestId('finance-category-dot-row-cat-moradia')).toBeTruthy();
       expect(screen.getByTestId('finance-category-dot-row-cat-mercado')).toBeTruthy();
       expect(screen.getByTestId('finance-category-dot-row-cat-transporte')).toBeTruthy();
-      expect(screen.queryByTestId('finance-category-dot-row-cat-lazer')).toBeNull();
+      expect(screen.getByTestId('finance-category-dot-row-cat-lazer')).toBeTruthy();
+      expect(screen.getByTestId('finance-category-dot-row-cat-saude')).toBeTruthy();
     });
   });
 

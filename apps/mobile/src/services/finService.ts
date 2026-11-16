@@ -22,6 +22,7 @@ const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
     await finRepository.seedDefaultCategoriesIfNeeded();
+    await finRepository.migrateDefaultCategoryColors();
     await this.migrateOrphanRecordsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);

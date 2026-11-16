@@ -73,13 +73,14 @@ function computeNextBillingIso(sub: FinRecurrence): string | null {
   return `${yy}-${mm}-${dd}`;
 }
 
-function daysUntilIso(iso: string | null): number | null {
+function daysUntilIso(iso: string | null, todayIso: string): number | null {
   if (!iso) return null;
   const parts = iso.split('-').map(Number);
+  const tParts = todayIso.split('-').map(Number);
   if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
+  if (tParts.length !== 3 || tParts.some((n) => Number.isNaN(n))) return null;
   const target = new Date(parts[0], parts[1] - 1, parts[2]);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const today = new Date(tParts[0], tParts[1] - 1, tParts[2]);
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 }
 
@@ -88,6 +89,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
+  referenceDateIso,
   testID = 'subscriptions-screen',
 }) => {
   const ui = getFinUiColors(themeMode);
@@ -98,6 +100,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [recEntries, setRecEntries] = useState<FinEntry[]>([]);
   const [filter, setFilter] = useState<SubscriptionFilter>('active');
+  const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
 
   const [formVisible, setFormVisible] = useState(false);
   const [editingSub, setEditingSub] = useState<FinRecurrence | null>(null);
@@ -159,35 +162,43 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
     await loadData();
   };
 
-  const todayIso = getTodayIsoLocal();
+  const todayIso = referenceDateIso ?? getTodayIsoLocal();
 
   const renderSubscriptionRow = (sub: FinRecurrence, isLast: boolean, mode: SubscriptionFilter) => {
     const cat = catMap.get(sub.category_id);
     const visual = resolveCategoryVisual(cat);
     const freqLabel = FREQUENCY_LABELS[(sub.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
     const nextIso = mode === 'active' ? nextOccurrenceIso(sub, todayIso, recEntries) : null;
-    const daysAway = daysUntilIso(nextIso);
-    const isSoon = daysAway !== null && daysAway <= 3 && daysAway >= 0;
+    const daysAway = daysUntilIso(nextIso, todayIso);
+    const isSoon = daysAway !== null && daysAway <= 7 && daysAway >= 0;
+    const isExpanded = expandedSubId === sub.id;
 
     let subtitle = freqLabel;
     if (mode === 'active') {
-      subtitle = nextIso ? `${freqLabel} • Próxima: ${formatDateBR(nextIso)}` : freqLabel;
+      if (isSoon && nextIso) {
+        subtitle =
+          daysAway === 0
+            ? `Cobra hoje • ${formatDateBR(nextIso)}`
+            : `Cobra em ${daysAway} ${daysAway === 1 ? 'dia' : 'dias'} • ${formatDateBR(nextIso)}`;
+      } else {
+        subtitle = nextIso ? `${freqLabel} • próx. ${formatDateBR(nextIso)}` : freqLabel;
+      }
     } else if (mode === 'paused') {
-      subtitle = `Pausada • ${freqLabel}`;
+      subtitle = 'Pausada • sem cobranças futuras';
     } else {
       subtitle = sub.end_date ? `Cancelada em ${formatDateBR(sub.end_date)}` : `Cancelada • ${freqLabel}`;
     }
 
-    const actionBorder = ui.isLight ? '#E2DACB' : '#34383C';
+    const actionBorder = ui.actionBorder;
 
     let bottomContent: React.ReactNode = null;
-    if (mode === 'active') {
+    if (mode === 'active' && isExpanded) {
       bottomContent = (
         <View style={styles.actionsRow}>
           <JellyPressable
             testID={`subscription-pause-btn-${sub.id}`}
             onPress={() => void handleTogglePause(sub)}
-            containerStyle={[styles.actionBtn, { borderColor: actionBorder }]}
+            containerStyle={[styles.actionBtn, { borderColor: actionBorder, backgroundColor: ui.surfaceElevated }]}
             accessibilityLabel={`Pausar ${sub.description}`}
           >
             <Text style={[styles.actionBtnText, { color: ui.text }]}>Pausar</Text>
@@ -195,7 +206,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
           <JellyPressable
             testID={`subscription-cancel-btn-${sub.id}`}
             onPress={() => setCancelTarget(sub)}
-            containerStyle={[styles.actionBtn, { borderColor: actionBorder }]}
+            containerStyle={[styles.actionBtn, { borderColor: actionBorder, backgroundColor: ui.surfaceContainer }]}
             accessibilityLabel={`Cancelar ${sub.description}`}
           >
             <Text style={[styles.actionBtnText, { color: ui.expense }]}>Cancelar</Text>
@@ -221,9 +232,10 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
       <FinListRow
         key={sub.id}
         testID={`subscription-row-${sub.id}`}
+        subtitleTestID={`subscription-subtitle-${sub.id}`}
         icon={visual.icon}
-        avatarColor={visual.color}
-        iconColor={visual.iconColor}
+        avatarColor={mode === 'paused' ? ui.inactiveAvatarBg : visual.color}
+        iconColor={mode === 'paused' ? ui.avatarIconDark : visual.iconColor}
         title={sub.description}
         subtitle={subtitle}
         subtitleColor={isSoon ? ui.warning : ui.muted}
@@ -237,8 +249,12 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
         isLast={isLast}
         themeMode={themeMode}
         onPress={() => {
-          setEditingSub(sub);
-          setFormVisible(true);
+          if (mode === 'active') {
+            setExpandedSubId((prev) => (prev === sub.id ? null : sub.id));
+          } else {
+            setEditingSub(sub);
+            setFormVisible(true);
+          }
         }}
       />
     );
@@ -267,26 +283,42 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <BentoGrid>
-            <BentoTile
-              variant="forest"
-              title="GASTO COM ASSINATURAS"
-              testID="subscriptions-summary-tile"
+            <View
+              testID="subscriptions-hero-tile"
+              style={{ backgroundColor: ui.forestBg, borderRadius: 28 }}
             >
-              <View style={styles.summaryRow}>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryValue} testID="subscriptions-monthly-total">
-                    {formatCentsBRL(summary.monthlyTotalCents, isPrivacyMode)}
-                  </Text>
-                  <Text style={styles.summaryLabel}>por mês</Text>
+              <BentoTile
+                variant="forest"
+                title="GASTO COM ASSINATURAS"
+                testID="subscriptions-summary-tile"
+              >
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryCol}>
+                    <Text
+                      style={[styles.summaryValue, { color: ui.forestFg }]}
+                      testID="subscriptions-monthly-total"
+                    >
+                      {formatCentsBRL(summary.monthlyTotalCents, isPrivacyMode)}
+                    </Text>
+                    <Text style={[styles.summaryLabel, { color: ui.forestMuted }]}>por mês</Text>
+                  </View>
+                  <View style={styles.summaryCol}>
+                    <Text
+                      style={[styles.summaryValue, { color: ui.forestFg }]}
+                      testID="subscriptions-annual-total"
+                    >
+                      <Text
+                        style={[styles.summaryValue, { color: ui.forestFg }]}
+                        testID="subscriptions-yearly-total"
+                      >
+                        {formatCentsBRL(summary.annualTotalCents, isPrivacyMode)}
+                      </Text>
+                    </Text>
+                    <Text style={[styles.summaryLabel, { color: ui.forestMuted }]}>por ano</Text>
+                  </View>
                 </View>
-                <View style={styles.summaryCol}>
-                  <Text style={styles.summaryValue} testID="subscriptions-annual-total">
-                    {formatCentsBRL(summary.annualTotalCents, isPrivacyMode)}
-                  </Text>
-                  <Text style={styles.summaryLabel}>por ano</Text>
-                </View>
-              </View>
-            </BentoTile>
+              </BentoTile>
+            </View>
           </BentoGrid>
 
           <SegmentedControl

@@ -1,13 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BentoGrid, BentoRow, BentoTile, XpMinimalHeader } from '../../components/ui';
+import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
 import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
-import { calculateAllocationFill } from '../../domain/finance/allocationFill';
 import {
   addMonthsYearMonth,
   calculateMonthlySummary,
-  calculateSubscriptionsSummary,
   detectOverdueAndDueSoon,
   formatCentsBRL,
   formatYearMonthPtBr,
@@ -56,7 +54,7 @@ export interface FinanceHomeScreenProps {
   testID?: string;
 }
 
-const DOT_MATRIX_COUNT = 22;
+const TOP_CATEGORIES_MAX = 4;
 
 /** Aba da navbar que representa cada rota (rotas de "Mais" acendem a aba Mais). */
 const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
@@ -220,33 +218,44 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     [dueAlerts.overdue]
   );
 
-  const topCategories = useMemo(
-    () =>
-      monthlySummary.expenseByCategory.slice(0, 3).map((item) => {
-        const cat = categoryById.get(item.categoryId);
-        const visual = resolveCategoryVisual(cat);
-        const roundedPct = Math.round(item.percentage);
-        const fillRatio = calculateAllocationFill(item.percentage) / 100;
-        return {
-          categoryId: item.categoryId,
-          name: cat?.name ?? 'Outros',
-          amountCents: item.amountCents,
-          percentage: roundedPct,
-          filledDots: Math.round(fillRatio * DOT_MATRIX_COUNT),
-          color: visual.color,
-        };
-      }),
-    [monthlySummary.expenseByCategory, categoryById]
-  );
+  const topCategories = useMemo(() => {
+    const list = monthlySummary.expenseByCategory;
+    if (list.length === 0) return [];
 
-  const subsSummary = useMemo(
-    () => calculateSubscriptionsSummary(recurrences.filter((r) => r.is_subscription === 1)),
-    [recurrences]
-  );
-  const activeRecurrencesCount = useMemo(
-    () => recurrences.filter((r) => r.active === 1).length,
-    [recurrences]
-  );
+    const mapItem = (item: (typeof list)[number]) => {
+      const cat = categoryById.get(item.categoryId);
+      const visual = resolveCategoryVisual(cat);
+      return {
+        categoryId: item.categoryId,
+        name: cat?.name ?? 'Outros',
+        amountCents: item.amountCents,
+        percentage: Math.round(item.percentage),
+        color: visual.color,
+        isAggregatedOther: false,
+      };
+    };
+
+    if (list.length <= TOP_CATEGORIES_MAX + 1) {
+      return list.map(mapItem);
+    }
+
+    const head = list.slice(0, TOP_CATEGORIES_MAX).map(mapItem);
+    const tail = list.slice(TOP_CATEGORIES_MAX);
+    const tailCents = tail.reduce((s, item) => s + item.amountCents, 0);
+    const headPctSum = head.reduce((s, item) => s + item.percentage, 0);
+    const tailPct = Math.max(0, 100 - headPctSum);
+    return [
+      ...head,
+      {
+        categoryId: 'outros',
+        name: 'Outros',
+        amountCents: tailCents,
+        percentage: tailPct,
+        color: c.inactiveAvatarBg,
+        isAggregatedOther: true,
+      },
+    ];
+  }, [monthlySummary.expenseByCategory, categoryById, c.inactiveAvatarBg]);
 
   const renderBody = (): React.ReactElement => {
     if (activeRoute === 'entries') {
@@ -331,7 +340,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           {/* Seletor de mês */}
           <View
             testID="finance-home-month-rail"
-            style={[styles.monthRail, { backgroundColor: isLight ? '#F1ECE2' : '#141618' }]}
+            style={[styles.monthRail, { backgroundColor: c.surfaceContainer }]}
           >
             <TouchableOpacity
               testID="finance-home-month-prev"
@@ -372,10 +381,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             <BentoGrid>
               {/* Saldo do mês */}
               <BentoTile variant="primary" title="SALDO DO MÊS">
-                <Text testID="finance-month-balance" style={styles.heroValue}>
+                <Text testID="finance-month-balance" style={[styles.heroValue, { color: c.primaryFg }]}>
                   {formatCentsBRL(monthlySummary.balanceCents, isPrivacyMode)}
                 </Text>
-                <Text testID="finance-month-comparison" style={styles.heroSub}>
+                <Text testID="finance-month-comparison" style={[styles.heroSub, { color: c.primaryMuted }]}>
                   {isPrivacyMode
                     ? 'R$ •••••• em relação a ' + prevMonthName
                     : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
@@ -410,62 +419,66 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                 </BentoTile>
               </BentoRow>
 
-              {/* Atenção: a vencer (7 dias) e atrasadas num único card */}
-            <BentoTile
-              variant={tileVariant}
-              testID="finance-attention-tile"
-              title="ATENÇÃO"
-            >
-              <View style={styles.attentionRow}>
-                <TouchableOpacity
-                  testID="finance-upcoming-7d-btn"
-                  accessibilityRole="button"
-                  accessibilityLabel="A vencer em 7 dias"
-                  activeOpacity={0.7}
-                  onPress={() => openEntriesWith({ status: 'pending', due: 'soon' })}
-                  style={styles.attentionCell}
+              {/* A vencer (7 dias) em ouro + Atrasadas escuro com ícone warning */}
+              <BentoRow>
+                <BentoTile
+                  variant="gold"
+                  testID="finance-upcoming-tile"
+                  title="A VENCER · 7 DIAS"
                 >
-                  <Text style={[styles.attentionLabel, { color: c.muted }]}>A VENCER · 7 DIAS</Text>
-                  <Text
-                    testID="finance-upcoming-7d"
-                    style={[styles.pairValue, { color: c.text }]}
-                    numberOfLines={1}
+                  <TouchableOpacity
+                    testID="finance-upcoming-7d-btn"
+                    accessibilityRole="button"
+                    accessibilityLabel="A vencer em 7 dias"
+                    activeOpacity={0.7}
+                    onPress={() => openEntriesWith({ status: 'pending', due: 'soon' })}
                   >
-                    {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
-                  </Text>
-                  <Text style={[styles.pairCaption, { color: c.muted }]}>
-                    {dueSoonExpensesCount} {dueSoonExpensesCount === 1 ? 'conta' : 'contas'}
-                  </Text>
-                </TouchableOpacity>
-                <View style={[styles.attentionDivider, { backgroundColor: isLight ? '#ECE6DA' : '#2A2D30' }]} />
-                <TouchableOpacity
+                    <Text
+                      testID="finance-upcoming-7d"
+                      style={[styles.pairValue, { color: c.goldFg }]}
+                      numberOfLines={1}
+                    >
+                      {formatCentsBRL(dueAlerts.dueSoonPayableCents, isPrivacyMode)}
+                    </Text>
+                    <Text style={[styles.pairCaption, { color: c.goldMuted }]}>
+                      {dueSoonExpensesCount} {dueSoonExpensesCount === 1 ? 'conta' : 'contas'}
+                    </Text>
+                  </TouchableOpacity>
+                </BentoTile>
+
+                <BentoTile
+                  variant={tileVariant}
                   testID="finance-overdue-tile"
-                  accessibilityRole="button"
                   accessibilityLabel="Atrasadas"
-                  activeOpacity={0.7}
                   onPress={() => openEntriesWith({ status: 'pending', due: 'overdue' })}
-                  style={styles.attentionCell}
                 >
-                  <Text style={[styles.attentionLabel, { color: c.overdue }]}>ATRASADAS</Text>
+                  <View style={styles.overdueHeader}>
+                    <Text style={[styles.overdueTitle, { color: c.muted }]}>ATRASADAS</Text>
+                    <MaterialIcons
+                      testID="finance-overdue-warning-icon"
+                      name="warning"
+                      size={16}
+                      color={c.overdue}
+                    />
+                  </View>
                   <Text style={[styles.pairValue, { color: c.overdue }]} numberOfLines={1}>
                     {formatCentsBRL(dueAlerts.overduePayableCents, isPrivacyMode)}
                   </Text>
                   <Text style={[styles.pairCaption, { color: c.muted }]}>
                     {overdueExpensesCount} {overdueExpensesCount === 1 ? 'conta' : 'contas'} · ver
                   </Text>
-                </TouchableOpacity>
-              </View>
-              {overdueIncomeCount > 0 ? (
-                <Text
-                  testID="finance-overdue-income-line"
-                  style={[styles.pairCaption, { color: c.income, marginTop: 8 }]}
-                >
-                  {overdueIncomeCount} a receber em atraso
-                </Text>
-              ) : null}
-            </BentoTile>
+                  {overdueIncomeCount > 0 ? (
+                    <Text
+                      testID="finance-overdue-income-line"
+                      style={[styles.pairCaption, { color: c.income, marginTop: 4 }]}
+                    >
+                      {overdueIncomeCount} a receber em atraso
+                    </Text>
+                  ) : null}
+                </BentoTile>
+              </BentoRow>
 
-            {/* Gasto por categoria — Matriz de pontos (top 5) */}
+              {/* Gasto por categoria — Trilha de pontos (4 maiores + Outros) */}
               {topCategories.length > 0 ? (
                 <BentoTile
                   variant={tileVariant}
@@ -484,31 +497,23 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                         activeOpacity={0.7}
                         hitSlop={{ top: 6, bottom: 6, left: 0, right: 0 }}
                         onPress={() =>
-                          openEntriesWith({ kind: 'expense', categoryId: cat.categoryId })
+                          openEntriesWith(
+                            cat.isAggregatedOther
+                              ? { kind: 'expense' }
+                              : { kind: 'expense', categoryId: cat.categoryId }
+                          )
                         }
                         style={styles.dotRow}
                       >
                         <Text style={[styles.dotCatName, { color: c.text }]} numberOfLines={1}>
                           {cat.name}
                         </Text>
-                        <View style={styles.dotsTrack}>
-                          {Array.from({ length: DOT_MATRIX_COUNT }).map((_, idx) => (
-                            <View
-                              key={idx}
-                              style={[
-                                styles.dot,
-                                {
-                                  backgroundColor:
-                                    idx < cat.filledDots
-                                      ? cat.color
-                                      : isLight
-                                      ? '#ECE6DA'
-                                      : '#2A2D30',
-                                },
-                              ]}
-                            />
-                          ))}
-                        </View>
+                        <DotTrack
+                          testID={`finance-category-dot-track-${cat.categoryId}`}
+                          percentage={cat.percentage}
+                          color={cat.color}
+                          trackColor={c.trackBg}
+                        />
                         <Text
                           testID={`finance-category-pct-${cat.categoryId}`}
                           style={[styles.dotPct, { color: c.text }]}

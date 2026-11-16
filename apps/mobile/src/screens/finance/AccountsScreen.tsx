@@ -113,6 +113,28 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     return map;
   }, [accounts, entries]);
 
+  const entryCountByAccount = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of entries) {
+      map.set(entry.account_id, (map.get(entry.account_id) ?? 0) + 1);
+    }
+    return map;
+  }, [entries]);
+
+  const cardMonthSpendMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const entry of entries) {
+      if (entry.kind !== 'expense') continue;
+      if (!entry.due_date || !entry.due_date.startsWith(currentYm)) continue;
+      const cents =
+        entry.status === 'paid'
+          ? entry.paid_amount_cents ?? entry.amount_cents
+          : entry.amount_cents;
+      map.set(entry.account_id, (map.get(entry.account_id) ?? 0) + cents);
+    }
+    return map;
+  }, [entries, currentYm]);
+
   const monthDeltaMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const acc of accounts) {
@@ -204,16 +226,40 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   };
 
   const renderAccountRow = (acc: FinAccount, isLast: boolean, isArchived: boolean) => {
-    const balance = balanceMap.get(acc.id) ?? 0;
+    const isCard = acc.type === 'card';
+    const balance = isCard
+      ? cardMonthSpendMap.get(acc.id) ?? 0
+      : balanceMap.get(acc.id) ?? 0;
     const monthDelta = monthDeltaMap.get(acc.id) ?? 0;
-    const avatarColor = resolveApprovedColor(acc.color, '#D5CAA8');
-    const iconColor = avatarColor === '#2E4A44' ? '#E6DECA' : '#111315';
+    const entryCount = entryCountByAccount.get(acc.id) ?? 0;
+    const avatarColor = isArchived
+      ? ui.inactiveAvatarBg
+      : resolveApprovedColor(acc.color, ui.circleBtnIcon);
+    const iconColor = isArchived
+      ? ui.avatarIconDark
+      : avatarColor === ui.chipActiveBg
+      ? ui.chipActiveText
+      : ui.avatarIconDark;
     const typeLabel = ACCOUNT_TYPE_LABELS[(acc.type as FinAccountType) || 'checking'] ?? 'Conta';
-    const actionBorder = ui.isLight ? '#E2DACB' : '#34383C';
+    const actionBorder = ui.actionBorder;
 
-    const deltaText = isPrivacyMode
-      ? '•••• no mês'
-      : `${formatSignedCentsBRL(Math.abs(monthDelta), monthDelta >= 0 ? 'income' : 'expense', false)} no mês`;
+    const subtitle = isArchived
+      ? undefined
+      : isCard
+      ? 'Gasto no mês'
+      : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
+
+    const deltaText =
+      isCard || isArchived
+        ? undefined
+        : isPrivacyMode
+        ? '•••• no mês'
+        : monthDelta === 0
+        ? 'sem variação'
+        : `${formatSignedCentsBRL(Math.abs(monthDelta), monthDelta >= 0 ? 'income' : 'expense', false)} no mês`;
+
+    const deltaColor =
+      monthDelta === 0 ? ui.muted : monthDelta > 0 ? ui.income : ui.expense;
 
     return (
       <FinListRow
@@ -223,11 +269,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         avatarColor={avatarColor}
         iconColor={iconColor}
         title={acc.name}
-        subtitle={typeLabel}
-        amountText={formatCentsBRL(balance, isPrivacyMode)}
-        amountColor={balance < 0 ? ui.expense : ui.text}
+        subtitle={subtitle}
+        amountText={isArchived ? undefined : formatCentsBRL(balance, isPrivacyMode)}
+        amountColor={isCard || balance < 0 ? ui.expense : ui.text}
         rightSubtitle={deltaText}
-        rightSubtitleColor={monthDelta >= 0 ? ui.income : ui.expense}
+        rightSubtitleColor={deltaColor}
         isLast={isLast}
         themeMode={themeMode}
         onPress={() => openEditModal(acc)}
@@ -241,7 +287,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 onPress={() => void handleRestore(acc)}
                 style={[styles.actionBtn, { borderColor: actionBorder }]}
               >
-                <Text style={[styles.actionBtnText, { color: '#D5CAA8' }]}>Restaurar</Text>
+                <Text style={[styles.actionBtnText, { color: ui.circleBtnIcon }]}>Restaurar</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
@@ -281,16 +327,21 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           <BentoGrid>
-            <BentoTile
-              variant="primary"
-              title="SALDO TOTAL"
-              testID="accounts-total-balance-tile"
-            >
-              <Text style={styles.totalValue} testID="accounts-total-balance-value">
-                {formatCentsBRL(totalBalanceCents, isPrivacyMode)}
-              </Text>
-              <Text style={styles.totalCaption}>{totalCaption}</Text>
-            </BentoTile>
+            <View testID="accounts-total-tile">
+              <BentoTile
+                variant="primary"
+                title="SALDO TOTAL"
+                testID="accounts-total-balance-tile"
+              >
+                <Text
+                  style={[styles.totalValue, { color: ui.primaryFg }]}
+                  testID="accounts-total-balance-value"
+                >
+                  {formatCentsBRL(totalBalanceCents, isPrivacyMode)}
+                </Text>
+                <Text style={[styles.totalCaption, { color: ui.primaryMuted }]}>{totalCaption}</Text>
+              </BentoTile>
+            </View>
           </BentoGrid>
 
           {accounts.length === 0 ? (

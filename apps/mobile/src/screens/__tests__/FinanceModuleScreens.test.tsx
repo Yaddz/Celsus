@@ -389,7 +389,11 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
       expect(screen.getByTestId('subscriptions-monthly-total')).toHaveTextContent('R$ 50,00');
       expect(screen.getByTestId('subscriptions-annual-total')).toHaveTextContent('R$ 600,00');
 
-      // Pausar
+      // Pausar (toca na linha para expandir Pausar e Cancelar)
+      fireEvent.press(screen.getByTestId(`subscription-row-${sub.id}`));
+      await waitFor(() => {
+        expect(screen.getByTestId(`subscription-pause-btn-${sub.id}`)).toBeTruthy();
+      });
       fireEvent.press(screen.getByTestId(`subscription-pause-btn-${sub.id}`));
       await waitFor(() => {
         expect(screen.getByTestId(`subscription-resume-btn-${sub.id}`)).toBeTruthy();
@@ -397,6 +401,11 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
 
       // Retomar
       fireEvent.press(screen.getByTestId(`subscription-resume-btn-${sub.id}`));
+      await waitFor(() => {
+        expect(screen.getByTestId(`subscription-row-${sub.id}`)).toBeTruthy();
+      });
+      // Reexpande para verificar botões após retomar
+      fireEvent.press(screen.getByTestId(`subscription-row-${sub.id}`));
       await waitFor(() => {
         expect(screen.getByTestId(`subscription-pause-btn-${sub.id}`)).toBeTruthy();
       });
@@ -408,7 +417,7 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
         expect(screen.getByTestId('subscriptions-annual-total')).toHaveTextContent('R$ ••••••');
       });
 
-      // Cancelar com confirmação
+      // Cancelar com confirmação (linha já expandida; garante que botão cancelar está visível)
       fireEvent.press(screen.getByTestId(`subscription-cancel-btn-${sub.id}`));
       await waitFor(() => {
         expect(screen.getByTestId('confirm-dialog')).toBeTruthy();

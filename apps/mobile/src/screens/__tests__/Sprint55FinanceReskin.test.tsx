@@ -319,11 +319,10 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
       expect(screen.getByTestId('finance-upcoming-7d')).toBeTruthy();
       expect(screen.getByTestId('finance-overdue-tile')).toBeTruthy();
 
-      // Matriz de pontos com as 3 principais categorias e percentuais exatos (4ª fica de fora)
-      for (let i = 0; i < 3; i++) {
+      // Matriz de pontos com até 4 principais categorias + "Outros" (Sprint 60)
+      for (let i = 0; i < 4; i++) {
         expect(screen.getByTestId(`finance-category-dot-row-${catIds[i]}`)).toBeTruthy();
       }
-      expect(screen.queryByTestId(`finance-category-dot-row-${catIds[3]}`)).toBeNull();
       expect(screen.getByTestId(`finance-category-pct-${catIds[0]}`)).toHaveTextContent('50%');
       expect(screen.getByTestId(`finance-category-pct-${catIds[1]}`)).toHaveTextContent('20%');
 
@@ -599,6 +598,11 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
       expect(StyleSheet.flatten(screen.getByTestId('subscriptions-annual-total').props.style).fontSize).toBe(24);
 
       expect(screen.getByTestId('subscriptions-status-segmented')).toBeTruthy();
+
+      fireEvent.press(screen.getByTestId(`subscription-row-${activeSub.id}`));
+      await waitFor(() =>
+        expect(screen.getByTestId(`subscription-pause-btn-${activeSub.id}`)).toBeTruthy()
+      );
 
       const pauseBtnStyle = StyleSheet.flatten(screen.getByTestId(`subscription-pause-btn-${activeSub.id}`).props.style);
       const cancelBtnStyle = StyleSheet.flatten(screen.getByTestId(`subscription-cancel-btn-${activeSub.id}`).props.style);

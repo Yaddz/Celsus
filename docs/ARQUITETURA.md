@@ -183,7 +183,7 @@ movimentações e proventos).
 | `fin_accounts` | contas do módulo Finanças | `name`, `type` (`cash \| checking \| card`), `initial_balance_cents`, `color`, `archived` |
 | `fin_categories` | categorias de receitas/despesas | `name`, `kind`, `icon`, `color`, `parent_id`, `archived` |
 | `fin_entries` | lançamentos pessoais | `kind`, `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id` |
-| `fin_recurrences` | recorrências e assinaturas | `kind`, `amount_cents`, `frequency`, `day_of_month`, `start_date`, `end_date`, `is_subscription`, `active`, `generated_until` |
+| `fin_recurrences` | recorrências e assinaturas | `kind`, `amount_cents`, `frequency`, `day_of_month`, `start_date`, `end_date`, `is_subscription`, `active`, `variable_amount`, `generated_until` |
 | `fin_recurrence_skips` | ocorrências ignoradas | PK `(recurrence_id, period)` — impede recriação após exclusão `"só esta"` |
 
 Operações em lote no módulo Finanças (`generateRecurrenceWindow`, `createInstallmentPurchase`, `updateInstallmentEntries`, `deleteInstallmentEntries`, `updateRecurrence`, `deleteRecurrenceOccurrence`, `pauseSubscription`, `resumeSubscription`, `cancelSubscription`) executam em transação via `runInTransaction` (`src/db/client.ts`). IDs do módulo Finanças são gerados com `expo-crypto` (`randomUUID`).

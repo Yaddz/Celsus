@@ -7,10 +7,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **112 suítes**, **760 testes** passando (incluindo Sprint 59) |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **113 suítes**, **773 testes** passando (incluindo Sprint 60) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 59 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **128 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && ./node_modules/.bin/tsc --noEmit` | **0 erros** nos arquivos de produção e nos testes da Sprint 60 |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **129 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 60 — Fidelidade visual e funcional ao artifact (Fase B concluída)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`129` arquivos verificados via SHA-256):
+  - `apps/mobile/src/screens/__tests__/Sprint60FinanceArtifactFidelity.test.tsx` (**S60-T01 a S60-T08**, 13 casos): Resumo (dois tiles de atenção com `A vencer · 7 dias` gold `#D4A83B` + `Atrasadas` com ícone `warning`, 5 linhas em *Gasto por categoria* com `Outros` e `DotTrack`, tema claro `HomeLight`, modo privacidade, ausência dos 4 atalhos e presença da `FinanceDock`), Lançamentos (seções, chips e subtítulos exatos), Novo lançamento (tiles separados, chip `+ Nova` interativo criando e selecionando categoria, botão 56 px), Recorrências (normalização mensal semanal × 52/12 e anual ÷ 12, `Encerradas` 70% opacidade, `variable_amount = 1` com `-~R$`, `valor variável` em ouro e prompt de valor real na baixa), Assinaturas (herói verde-floresta, expansão sob toque, `Cobra em N dias • dd/mm`), Contas (herói laranja, contagem de lançamentos, `Cartões` com `Gasto no mês`, `Arquivadas` com `Restaurar`), Categorias (edição inline com 7 cores + migração segura das cores padrão antigas sem sobrescrever customizadas) e `DotTrack`.
+- **Testes antigos atualizados com autorização explícita do usuário:**
+  - `FinanceModuleScreens.test.tsx` (linhas 392–425), `Sprint55FinanceReskin.test.tsx` (top 4 categorias + expansão de assinatura ao tocar na linha), `Sprint58FinanceNavbar.test.tsx` (`S58-T02`: dois tiles separados + 4 maiores + `Outros`), `Sprint59FinanceIntegrity.test.tsx` (`waitFor` em `finance-upcoming-tile`).
+- **Fase B:** implementação concluída em `src/components/ui/DotTrack.tsx`, `src/components/ui/FinListCard.tsx`, `src/db/schema.ts`, `src/db/client.ts` (`fin_recurrences.variable_amount`), `src/services/backupService.ts`, `src/repositories/finRepository.ts` (`DEFAULT_FIN_CATEGORIES` + `migrateDefaultCategoryColors`), `src/services/finService.ts` e `src/screens/finance/*` (zero hexes soltos, tudo via `finTheme.tsx` / `tokens.ts`). **113/113 suítes (773/773 testes) passando**; `tsc --noEmit` com 0 erros em produção e na Sprint 60; `node scripts/test-lock.js verify` aprovado.
 
 ## Sprint 59 — Integridade do módulo Finanças (Fase B concluída)
 

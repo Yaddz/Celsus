@@ -3,8 +3,8 @@ import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
-  BentoSection,
   BentoSheetHeader,
+  BentoTile,
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
@@ -24,6 +24,7 @@ import { finService } from '../../services/finService';
 import { bento, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import {
+  APPROVED_FIN_PALETTE,
   FinLoadingView,
   getFinUiColors,
   resolveCategoryVisual,
@@ -69,6 +70,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   testID = 'entry-form-sheet',
 }) => {
   const c = getFinUiColors(themeMode);
+  const tileVariant = c.isLight ? 'light' : 'dark';
   const [optionsLoaded, setOptionsLoaded] = useState(false);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
@@ -85,6 +87,10 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   const [categoryId, setCategoryId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [quickCatOpen, setQuickCatOpen] = useState(false);
+  const [quickCatName, setQuickCatName] = useState('');
+  const [quickCatColor, setQuickCatColor] = useState<string>(APPROVED_FIN_PALETTE[0]);
+  const [savingQuickCat, setSavingQuickCat] = useState(false);
 
   useEffect(() => {
     if (!visible) {
@@ -160,6 +166,27 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       setInstallmentsText('1');
     } else if (mode === 'installment' && (Number.parseInt(installmentsText, 10) || 1) < 2) {
       setInstallmentsText('2');
+    }
+  };
+
+  const handleSaveQuickCategory = async () => {
+    const trimmed = quickCatName.trim();
+    if (!trimmed || savingQuickCat) return;
+    setSavingQuickCat(true);
+    try {
+      const created = await finRepository.createCategory({
+        name: trimmed,
+        kind,
+        icon: 'category',
+        color: quickCatColor,
+      });
+      const refreshed = await finRepository.listCategories(false);
+      setCategories(refreshed);
+      setCategoryId(created.id);
+      setQuickCatOpen(false);
+      setQuickCatName('');
+    } finally {
+      setSavingQuickCat(false);
     }
   };
 
@@ -322,210 +349,300 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                 themeMode={themeMode}
               />
 
-              <BentoSection title="VALOR" themeMode={themeMode} testID="entry-form-section-valor">
-                <View style={styles.amountRow}>
-                  <Text style={[styles.currencyPrefix, { color: c.muted }]}>R$</Text>
-                  <TextInput
-                    testID="entry-form-amount"
-                    value={amountText}
-                    onChangeText={(txt) => {
-                      setAmountText(txt);
-                      setFormError(null);
-                    }}
-                    placeholder="0,00"
-                    placeholderTextColor={c.muted}
-                    keyboardType="decimal-pad"
-                    style={[styles.amountInput, { color: c.text }]}
-                  />
-                </View>
-                {formError ? <Text style={[styles.errorText, { color: c.overdue }]}>{formError}</Text> : null}
-              </BentoSection>
-
-              <BentoSection title="DESCRIÇÃO" themeMode={themeMode} testID="entry-form-section-descricao">
-                <TextInput
-                  testID="entry-form-description"
-                  value={description}
-                  onChangeText={setDescription}
-                  onFocus={() => setDescFocused(true)}
-                  onBlur={() => setDescFocused(false)}
-                  placeholder="Ex.: Almoço, Salário, Mercado"
-                  placeholderTextColor={c.muted}
-                  style={[
-                    styles.descInput,
-                    {
-                      color: c.text,
-                      borderBottomColor: descFocused ? '#D96628' : c.border,
-                    },
-                  ]}
-                />
-
-                <View testID="entry-form-meta-row" style={styles.metaRow}>
-                  <View style={styles.metaField}>
-                    <View style={styles.metaLabelRow}>
-                      <MaterialIcons name="event" size={14} color={c.muted} />
-                      <Text style={[styles.metaLabel, { color: c.muted }]}>Vencimento</Text>
-                    </View>
+              <BentoTile variant={tileVariant} title="VALOR" testID="entry-form-tile-valor">
+                <View testID="entry-form-section-valor">
+                  <View style={styles.amountRow}>
+                    <Text style={[styles.currencyPrefix, { color: c.muted }]}>R$</Text>
                     <TextInput
-                      testID="entry-form-due-date"
-                      value={dueDate}
+                      testID="entry-form-amount"
+                      value={amountText}
                       onChangeText={(txt) => {
-                        setDueDate(maskBrDate(txt));
+                        setAmountText(txt);
                         setFormError(null);
                       }}
-                      keyboardType="number-pad"
-                      maxLength={10}
-                      placeholder="dd/mm/aaaa"
+                      placeholder="0,00"
                       placeholderTextColor={c.muted}
-                      style={[styles.metaValueInput, { color: c.text }]}
+                      keyboardType="decimal-pad"
+                      style={[styles.amountInput, { color: c.text }]}
                     />
                   </View>
-
-                  <View style={styles.metaField}>
-                    <View style={styles.metaLabelRow}>
-                      <MaterialIcons name="account-balance-wallet" size={14} color={c.muted} />
-                      <Text style={[styles.metaLabel, { color: c.muted }]}>Conta</Text>
-                    </View>
-                    <TouchableOpacity
-                      testID="entry-form-account-select"
-                      accessibilityRole="button"
-                      accessibilityLabel="Escolher conta"
-                      disabled={accounts.length === 0}
-                      onPress={() => setAccountPickerOpen((open) => !open)}
-                      style={styles.metaValueTouch}
-                    >
-                      <Text
-                        numberOfLines={1}
-                        style={[
-                          styles.metaValueText,
-                          { color: selectedAccount ? c.text : c.muted },
-                        ]}
-                      >
-                        {selectedAccount ? selectedAccount.name : '—'}
-                      </Text>
-                      {accounts.length > 0 ? (
-                        <MaterialIcons name="arrow-drop-down" size={18} color={c.muted} />
-                      ) : null}
-                    </TouchableOpacity>
-                  </View>
+                  {formError ? <Text style={[styles.errorText, { color: c.overdue }]}>{formError}</Text> : null}
                 </View>
+              </BentoTile>
 
-                {accounts.length === 0 ? (
-                  <View style={{ gap: 6, marginTop: 6 }}>
-                    <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
-                      Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
-                    </Text>
-                    {onRequestCreateAccount ? (
-                      <TouchableOpacity
-                        testID="entry-form-create-account-shortcut"
-                        accessibilityRole="button"
-                        onPress={() => {
-                          onClose();
-                          onRequestCreateAccount();
+              <BentoTile variant={tileVariant} title="DESCRIÇÃO" testID="entry-form-tile-descricao">
+                <View testID="entry-form-section-descricao">
+                  <TextInput
+                    testID="entry-form-description"
+                    value={description}
+                    onChangeText={setDescription}
+                    onFocus={() => setDescFocused(true)}
+                    onBlur={() => setDescFocused(false)}
+                    placeholder="Ex.: Almoço, Salário, Mercado"
+                    placeholderTextColor={c.muted}
+                    style={[
+                      styles.descInput,
+                      {
+                        color: c.text,
+                        borderBottomColor: descFocused ? c.primary : c.border,
+                      },
+                    ]}
+                  />
+
+                  <View testID="entry-form-meta-row" style={styles.metaRow}>
+                    <View style={styles.metaField}>
+                      <View style={styles.metaLabelRow}>
+                        <MaterialIcons name="event" size={14} color={c.muted} />
+                        <Text style={[styles.metaLabel, { color: c.muted }]}>Vencimento</Text>
+                      </View>
+                      <TextInput
+                        testID="entry-form-due-date"
+                        value={dueDate}
+                        onChangeText={(txt) => {
+                          setDueDate(maskBrDate(txt));
+                          setFormError(null);
                         }}
-                      >
-                        <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
-                          Criar conta agora ›
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                ) : null}
+                        keyboardType="number-pad"
+                        maxLength={10}
+                        placeholder="dd/mm/aaaa"
+                        placeholderTextColor={c.muted}
+                        style={[styles.metaValueInput, { color: c.text }]}
+                      />
+                    </View>
 
-                {accountPickerOpen ? (
-                  <View style={[sharedStyles.chipRow, { marginTop: 10 }]}>
-                    {accounts.map((acc) => {
-                      const selected = acc.id === accountId;
+                    <View style={styles.metaField}>
+                      <View style={styles.metaLabelRow}>
+                        <MaterialIcons name="account-balance-wallet" size={14} color={c.muted} />
+                        <Text style={[styles.metaLabel, { color: c.muted }]}>Conta</Text>
+                      </View>
+                      <TouchableOpacity
+                        testID="entry-form-account-select"
+                        accessibilityRole="button"
+                        accessibilityLabel="Escolher conta"
+                        disabled={accounts.length === 0}
+                        onPress={() => setAccountPickerOpen((open) => !open)}
+                        style={styles.metaValueTouch}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          style={[
+                            styles.metaValueText,
+                            { color: selectedAccount ? c.text : c.muted },
+                          ]}
+                        >
+                          {selectedAccount ? selectedAccount.name : '—'}
+                        </Text>
+                        {accounts.length > 0 ? (
+                          <MaterialIcons name="arrow-drop-down" size={18} color={c.muted} />
+                        ) : null}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {accounts.length === 0 ? (
+                    <View style={{ gap: 6, marginTop: 6 }}>
+                      <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
+                        Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
+                      </Text>
+                      {onRequestCreateAccount ? (
+                        <TouchableOpacity
+                          testID="entry-form-create-account-shortcut"
+                          accessibilityRole="button"
+                          onPress={() => {
+                            onClose();
+                            onRequestCreateAccount();
+                          }}
+                        >
+                          <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                            Criar conta agora ›
+                          </Text>
+                        </TouchableOpacity>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {accountPickerOpen ? (
+                    <View style={[sharedStyles.chipRow, { marginTop: 10 }]}>
+                      {accounts.map((acc) => {
+                        const selected = acc.id === accountId;
+                        return (
+                          <TouchableOpacity
+                            key={acc.id}
+                            testID={`entry-form-account-${acc.id}`}
+                            accessibilityRole="button"
+                            hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+                            onPress={() => {
+                              setAccountId(acc.id);
+                              setAccountPickerOpen(false);
+                            }}
+                            style={[
+                              sharedStyles.chip,
+                              {
+                                backgroundColor: selected ? c.chipActiveBg : c.surfaceContainer,
+                                borderWidth: 1,
+                                borderColor: selected ? c.chipActiveBg : c.border,
+                              },
+                            ]}
+                          >
+                            <Text style={[styles.chipText, { color: selected ? c.chipActiveText : c.text }]}>
+                              {acc.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : null}
+                </View>
+              </BentoTile>
+
+              <BentoTile variant={tileVariant} title="CATEGORIA" testID="entry-form-tile-categoria">
+                <View testID="entry-form-section-categoria">
+                  <View style={sharedStyles.chipRow}>
+                    {categoriesForKind.map((cat) => {
+                      const selected = cat.id === categoryId;
+                      const visual = resolveCategoryVisual(cat);
                       return (
                         <TouchableOpacity
-                          key={acc.id}
-                          testID={`entry-form-account-${acc.id}`}
+                          key={cat.id}
+                          testID={`entry-form-category-${cat.id}`}
                           accessibilityRole="button"
                           hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-                          onPress={() => {
-                            setAccountId(acc.id);
-                            setAccountPickerOpen(false);
-                          }}
+                          onPress={() => setCategoryId(cat.id)}
                           style={[
                             sharedStyles.chip,
                             {
-                              backgroundColor: selected ? '#2E4A44' : c.surfaceContainer,
+                              backgroundColor: selected ? c.surfaceElevated : c.surfaceContainer,
                               borderWidth: 1,
-                              borderColor: selected ? '#2E4A44' : c.border,
+                              borderColor: selected ? c.primary : c.border,
+                              paddingLeft: 8,
                             },
                           ]}
                         >
-                          <Text style={[styles.chipText, { color: selected ? '#E6DECA' : c.text }]}>
-                            {acc.name}
-                          </Text>
+                          <View style={[styles.miniAvatar, { backgroundColor: visual.color }]}>
+                            <MaterialIcons name={visual.icon} size={12} color={visual.iconColor} />
+                          </View>
+                          <Text style={[styles.chipText, { color: c.text }]}>{cat.name}</Text>
                         </TouchableOpacity>
                       );
                     })}
+                    <TouchableOpacity
+                      testID="entry-form-new-category-btn"
+                      accessibilityRole="button"
+                      accessibilityLabel="Nova categoria"
+                      hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
+                      onPress={() => {
+                        setQuickCatName('');
+                        setQuickCatColor(APPROVED_FIN_PALETTE[0]);
+                        setQuickCatOpen((prev) => !prev);
+                      }}
+                      style={[
+                        sharedStyles.chip,
+                        {
+                          backgroundColor: c.surfaceContainer,
+                          borderWidth: 1,
+                          borderColor: quickCatOpen ? c.primary : c.border,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons name="add" size={16} color={c.primary} />
+                      <Text style={[styles.chipText, { color: c.primary }]}>Nova</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : null}
-              </BentoSection>
 
-              <BentoSection title="CATEGORIA" themeMode={themeMode} testID="entry-form-section-categoria">
-                <View style={sharedStyles.chipRow}>
-                  {categoriesForKind.map((cat) => {
-                    const selected = cat.id === categoryId;
-                    const visual = resolveCategoryVisual(cat);
-                    return (
-                      <TouchableOpacity
-                        key={cat.id}
-                        testID={`entry-form-category-${cat.id}`}
-                        accessibilityRole="button"
-                        hitSlop={{ top: 4, bottom: 4, left: 2, right: 2 }}
-                        onPress={() => setCategoryId(cat.id)}
+                  {quickCatOpen ? (
+                    <View
+                      testID="quick-category-box"
+                      style={[
+                        styles.quickCatBox,
+                        { backgroundColor: c.surfaceContainer, borderColor: c.border },
+                      ]}
+                    >
+                      <TextInput
+                        testID="quick-category-name-input"
+                        value={quickCatName}
+                        onChangeText={setQuickCatName}
+                        placeholder="Nome da nova categoria"
+                        placeholderTextColor={c.muted}
                         style={[
-                          sharedStyles.chip,
-                          {
-                            backgroundColor: c.surfaceContainer,
-                            borderWidth: 1,
-                            borderColor: selected ? '#D96628' : c.border,
-                            paddingLeft: 8,
-                          },
+                          styles.descInput,
+                          { color: c.text, borderBottomColor: c.primary, marginBottom: 8 },
                         ]}
-                      >
-                        <View style={[styles.miniAvatar, { backgroundColor: visual.color }]}>
-                          <MaterialIcons name={visual.icon} size={12} color={visual.iconColor} />
-                        </View>
-                        <Text style={[styles.chipText, { color: c.text }]}>{cat.name}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  <View style={[sharedStyles.chip, { backgroundColor: c.surfaceContainer, borderWidth: 1, borderColor: c.border }]}>
-                    <Text style={[styles.chipText, { color: c.muted }]}>+ Nova</Text>
-                  </View>
+                      />
+                      <View style={styles.quickSwatchRow}>
+                        {APPROVED_FIN_PALETTE.map((hex) => {
+                          const active = quickCatColor === hex;
+                          return (
+                            <TouchableOpacity
+                              key={hex}
+                              accessibilityRole="button"
+                              accessibilityLabel={`Cor ${hex}`}
+                              onPress={() => setQuickCatColor(hex)}
+                              style={[
+                                styles.quickSwatch,
+                                {
+                                  backgroundColor: hex,
+                                  borderWidth: active ? 2 : 0,
+                                  borderColor: c.text,
+                                },
+                              ]}
+                            />
+                          );
+                        })}
+                      </View>
+                      <View style={styles.quickCatActions}>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          onPress={() => setQuickCatOpen(false)}
+                          style={[styles.quickCatBtn, { borderColor: c.border, borderWidth: 1 }]}
+                        >
+                          <Text style={[styles.chipText, { color: c.muted }]}>Cancelar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          testID="quick-category-save-btn"
+                          accessibilityRole="button"
+                          disabled={savingQuickCat}
+                          onPress={() => void handleSaveQuickCategory()}
+                          style={[styles.quickCatBtn, { backgroundColor: c.primary }]}
+                        >
+                          <Text style={[styles.chipText, { color: c.primaryFg }]}>
+                            {savingQuickCat ? 'Salvando...' : 'Criar categoria'}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : null}
                 </View>
-              </BentoSection>
+              </BentoTile>
 
-              <BentoSection title="REPETIÇÃO" themeMode={themeMode} testID="entry-form-section-repeticao">
-                <SegmentedControl<RepeatMode>
-                  testID="entry-form-repeat-segmented"
-                  value={repeatMode}
-                  onChange={handleRepeatChange}
-                  options={[
-                    { id: 'single', label: 'Única' },
-                    { id: 'monthly', label: 'Mensal' },
-                    { id: 'installment', label: 'Parcelada' },
-                  ]}
-                  themeMode={themeMode}
-                />
-                <Text testID="entry-form-repeat-helper" style={[styles.helperText, { color: c.muted }]}>
-                  {repeatHelper}
-                </Text>
-                {!editingEntry && repeatMode === 'installment' ? (
-                  <TextInput
-                    testID="entry-form-installments"
-                    value={installmentsText}
-                    onChangeText={setInstallmentsText}
-                    keyboardType="numeric"
-                    placeholder="Número de parcelas (ex.: 12)"
-                    placeholderTextColor={c.muted}
-                    style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: 6 }]}
+              <BentoTile variant={tileVariant} title="REPETIÇÃO" testID="entry-form-tile-repeticao">
+                <View testID="entry-form-section-repeticao">
+                  <SegmentedControl<RepeatMode>
+                    testID="entry-form-repeat-segmented"
+                    value={repeatMode}
+                    onChange={handleRepeatChange}
+                    options={[
+                      { id: 'single', label: 'Única' },
+                      { id: 'monthly', label: 'Mensal' },
+                      { id: 'installment', label: 'Parcelada' },
+                    ]}
+                    themeMode={themeMode}
                   />
-                ) : null}
-              </BentoSection>
+                  <Text testID="entry-form-repeat-helper" style={[styles.helperText, { color: c.muted }]}>
+                    {repeatHelper}
+                  </Text>
+                  {!editingEntry && repeatMode === 'installment' ? (
+                    <TextInput
+                      testID="entry-form-installments"
+                      value={installmentsText}
+                      onChangeText={setInstallmentsText}
+                      keyboardType="numeric"
+                      placeholder="Número de parcelas (ex.: 12)"
+                      placeholderTextColor={c.muted}
+                      style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: 6 }]}
+                    />
+                  ) : null}
+                </View>
+              </BentoTile>
             </ScrollView>
 
             <View testID="entry-form-footer" style={styles.footer}>
@@ -535,8 +652,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                 accessibilityLabel="Salvar lançamento"
                 disabled={saving}
                 onPress={() => void handleSave()}
-                containerStyle={styles.saveBtnContainer}
-                style={styles.saveBtnInner}
+                containerStyle={[styles.saveBtnContainer, { backgroundColor: c.primary }]}
+                style={[styles.saveBtnInner, { backgroundColor: c.primary }]}
               >
                 <Text style={sharedStyles.primaryBtnText}>
                   {saving ? 'Salvando...' : 'Salvar lançamento'}
@@ -661,14 +778,43 @@ const styles = StyleSheet.create({
   saveBtnContainer: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
   },
   saveBtnInner: {
-    flex: 1,
+    height: 56,
     width: '100%',
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickCatBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 10,
+  },
+  quickSwatchRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  quickSwatch: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  quickCatActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  quickCatBtn: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

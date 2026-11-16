@@ -14,11 +14,12 @@ import {
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
+import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
 import {
   addDaysIso,
   brToIso,
   classifyEntryDueStatus,
+  formatCentsBRL,
   formatYearMonthPtBr,
   getTodayIsoLocal,
   isoToBr,
@@ -77,6 +78,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
+  const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAllPaid, setShowAllPaid] = useState(false);
@@ -122,15 +124,17 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         loadedEntriesPromise = finRepository.listEntriesByMonth(selectedMonth);
       }
 
-      const [monthEntries, accs, cats] = await Promise.all([
+      const [monthEntries, accs, cats, recs] = await Promise.all([
         loadedEntriesPromise,
         finRepository.listAccounts(true),
         finRepository.listCategories(true),
+        finRepository.listRecurrences(),
       ]);
       if (!mountedRef.current || seq !== loadSeqRef.current) return;
       setEntries(monthEntries);
       setAccounts(accs);
       setCategories(cats);
+      setRecurrences(recs);
     } catch (err) {
       if (!mountedRef.current || seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : 'Erro ao carregar lançamentos.');
@@ -156,6 +160,12 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     for (const cat of categories) map.set(cat.id, cat);
     return map;
   }, [categories]);
+
+  const recurrenceById = useMemo(() => {
+    const map = new Map<string, FinRecurrence>();
+    for (const rec of recurrences) map.set(rec.id, rec);
+    return map;
+  }, [recurrences]);
 
   const filteredEntries = useMemo(() => {
     const horizonEnd = addDaysIso(effectiveToday, 7);
@@ -291,11 +301,14 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     const isInstallment =
       Boolean(entry.installment_total && entry.installment_total > 1 && entry.installment_number);
 
+    const rec = entry.recurrence_id ? recurrenceById.get(entry.recurrence_id) : undefined;
     let subtitle = `${formatTxDate(entry.due_date)} • ${category?.name ?? accountName}`;
     if (dueStatus === 'overdue') {
       subtitle = `Venceu ${formatDayMonth(entry.due_date)} • ${category?.name ?? accountName}`;
     } else if (isInstallment) {
       subtitle = `${formatTxDate(entry.due_date)} • Parcela ${entry.installment_number}/${entry.installment_total}`;
+    } else if (rec?.is_subscription === 1) {
+      subtitle = `${formatTxDate(entry.due_date)} • Assinatura`;
     } else if (entry.status === 'paid') {
       subtitle = `${formatTxDate(entry.paid_date ?? entry.due_date)} • ${
         entry.kind === 'income' ? 'Recebido' : 'Pago'
@@ -317,7 +330,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         iconColor={visual.iconColor}
         title={entry.description || category?.name || 'Lançamento'}
         subtitle={subtitle}
-        subtitleColor={dueStatus === 'overdue' ? '#D96628' : c.muted}
+        subtitleColor={dueStatus === 'overdue' ? c.overdue : c.muted}
         amountText={formatSignedCentsBRL(displayCents, kind, isPrivacyMode)}
         amountColor={amountColor}
         isLast={index === total - 1}
@@ -349,12 +362,12 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
               style={[
                 styles.headerCircleBtn,
                 {
-                  backgroundColor: isLight ? '#FFFFFF' : '#191B1D',
-                  borderColor: isLight ? '#EAE4D7' : '#26292C',
+                  backgroundColor: c.circleBtnBg,
+                  borderColor: c.border,
                 },
               ]}
             >
-              <MaterialIcons name="chevron-left" size={20} color={isLight ? '#111315' : '#D5CAA8'} />
+              <MaterialIcons name="chevron-left" size={20} color={c.circleBtnIcon} />
             </TouchableOpacity>
             <TouchableOpacity
               testID="entries-month-next"
@@ -364,12 +377,12 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
               style={[
                 styles.headerCircleBtn,
                 {
-                  backgroundColor: isLight ? '#FFFFFF' : '#191B1D',
-                  borderColor: isLight ? '#EAE4D7' : '#26292C',
+                  backgroundColor: c.circleBtnBg,
+                  borderColor: c.border,
                 },
               ]}
             >
-              <MaterialIcons name="chevron-right" size={20} color={isLight ? '#111315' : '#D5CAA8'} />
+              <MaterialIcons name="chevron-right" size={20} color={c.circleBtnIcon} />
             </TouchableOpacity>
           </View>
         }
@@ -399,13 +412,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             }
             style={[
               sharedStyles.chip,
-              { backgroundColor: filters.status === 'pending' ? '#2E4A44' : c.surface },
+              { backgroundColor: filters.status === 'pending' ? c.chipActiveBg : c.surface },
             ]}
           >
             <Text
               style={[
                 styles.chipLabel,
-                { color: filters.status === 'pending' ? '#E6DECA' : c.text },
+                { color: filters.status === 'pending' ? c.chipActiveText : c.text },
               ]}
             >
               Pendentes · {pendingCount}
@@ -421,13 +434,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             }
             style={[
               sharedStyles.chip,
-              { backgroundColor: filters.status === 'paid' ? '#2E4A44' : c.surface },
+              { backgroundColor: filters.status === 'paid' ? c.chipActiveBg : c.surface },
             ]}
           >
             <Text
               style={[
                 styles.chipLabel,
-                { color: filters.status === 'paid' ? '#E6DECA' : c.text },
+                { color: filters.status === 'paid' ? c.chipActiveText : c.text },
               ]}
             >
               Pagos
@@ -441,13 +454,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             onPress={() => setPickerFilter(pickerFilter === 'category' ? null : 'category')}
             style={[
               sharedStyles.chip,
-              { backgroundColor: filters.categoryId ? '#2E4A44' : c.surface },
+              { backgroundColor: filters.categoryId ? c.chipActiveBg : c.surface },
             ]}
           >
             <Text
               style={[
                 styles.chipLabel,
-                { color: filters.categoryId ? '#E6DECA' : c.muted },
+                { color: filters.categoryId ? c.chipActiveText : c.muted },
               ]}
             >
               {selectedCategoryName ? `${selectedCategoryName} ▾` : 'Categoria ▾'}
@@ -461,13 +474,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             onPress={() => setPickerFilter(pickerFilter === 'account' ? null : 'account')}
             style={[
               sharedStyles.chip,
-              { backgroundColor: filters.accountId ? '#2E4A44' : c.surface },
+              { backgroundColor: filters.accountId ? c.chipActiveBg : c.surface },
             ]}
           >
             <Text
               style={[
                 styles.chipLabel,
-                { color: filters.accountId ? '#E6DECA' : c.muted },
+                { color: filters.accountId ? c.chipActiveText : c.muted },
               ]}
             >
               {selectedAccountName ? `${selectedAccountName} ▾` : 'Conta ▾'}
@@ -482,9 +495,9 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 finStore.setFilters({ categoryId: null });
                 setPickerFilter(null);
               }}
-              style={[sharedStyles.chip, { backgroundColor: !filters.categoryId ? '#2E4A44' : c.surface }]}
+              style={[sharedStyles.chip, { backgroundColor: !filters.categoryId ? c.chipActiveBg : c.surface }]}
             >
-              <Text style={[styles.chipLabel, { color: !filters.categoryId ? '#E6DECA' : c.text }]}>
+              <Text style={[styles.chipLabel, { color: !filters.categoryId ? c.chipActiveText : c.text }]}>
                 Todas
               </Text>
             </TouchableOpacity>
@@ -497,13 +510,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 }}
                 style={[
                   sharedStyles.chip,
-                  { backgroundColor: filters.categoryId === cat.id ? '#2E4A44' : c.surface },
+                  { backgroundColor: filters.categoryId === cat.id ? c.chipActiveBg : c.surface },
                 ]}
               >
                 <Text
                   style={[
                     styles.chipLabel,
-                    { color: filters.categoryId === cat.id ? '#E6DECA' : c.text },
+                    { color: filters.categoryId === cat.id ? c.chipActiveText : c.text },
                   ]}
                 >
                   {cat.name}
@@ -520,9 +533,9 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 finStore.setFilters({ accountId: null });
                 setPickerFilter(null);
               }}
-              style={[sharedStyles.chip, { backgroundColor: !filters.accountId ? '#2E4A44' : c.surface }]}
+              style={[sharedStyles.chip, { backgroundColor: !filters.accountId ? c.chipActiveBg : c.surface }]}
             >
-              <Text style={[styles.chipLabel, { color: !filters.accountId ? '#E6DECA' : c.text }]}>
+              <Text style={[styles.chipLabel, { color: !filters.accountId ? c.chipActiveText : c.text }]}>
                 Todas
               </Text>
             </TouchableOpacity>
@@ -535,13 +548,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 }}
                 style={[
                   sharedStyles.chip,
-                  { backgroundColor: filters.accountId === acc.id ? '#2E4A44' : c.surface },
+                  { backgroundColor: filters.accountId === acc.id ? c.chipActiveBg : c.surface },
                 ]}
               >
                 <Text
                   style={[
                     styles.chipLabel,
-                    { color: filters.accountId === acc.id ? '#E6DECA' : c.text },
+                    { color: filters.accountId === acc.id ? c.chipActiveText : c.text },
                   ]}
                 >
                   {acc.name}
@@ -711,9 +724,28 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
           themeMode={themeMode}
         />
         <View style={{ gap: space.md }}>
+          {payingEntry?.recurrence_id &&
+          recurrenceById.get(payingEntry.recurrence_id)?.variable_amount === 1 ? (
+            <Text
+              testID="entry-pay-variable-hint"
+              style={{
+                fontFamily: typography.fontFamily,
+                fontSize: 11,
+                color: c.warning,
+              }}
+            >
+              Valor variável — informe o valor real pago (estimativa:{' '}
+              {formatCentsBRL(payingEntry.amount_cents, isPrivacyMode)})
+            </Text>
+          ) : null}
           <LedgerInput
             testID="pay-entry-amount-input"
-            label="Valor pago (R$)"
+            label={
+              payingEntry?.recurrence_id &&
+              recurrenceById.get(payingEntry.recurrence_id)?.variable_amount === 1
+                ? 'Valor real pago (R$)'
+                : 'Valor pago (R$)'
+            }
             value={payAmountText}
             onChangeText={setPayAmountText}
             themeMode={themeMode}

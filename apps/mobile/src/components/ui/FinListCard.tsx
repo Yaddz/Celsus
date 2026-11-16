@@ -21,6 +21,7 @@ export interface FinListRowProps {
   testID?: string;
   avatarTestID?: string;
   subtitleTestID?: string;
+  amountTestID?: string;
   icon: keyof typeof MaterialIcons.glyphMap;
   avatarColor: string;
   avatarSize?: number;
@@ -116,6 +117,7 @@ export const FinListRow: React.FC<FinListRowProps> = ({
   title,
   subtitle,
   subtitleColor,
+  amountTestID,
   amountText,
   amountColor,
   rightSubtitle,
@@ -183,6 +185,7 @@ export const FinListRow: React.FC<FinListRowProps> = ({
           <View style={styles.rightCol}>
             {amountText ? (
               <Text
+                testID={amountTestID}
                 style={[
                   styles.amount,
                   { color: amountColor ?? (isLight ? '#111315' : '#E6DECA') },

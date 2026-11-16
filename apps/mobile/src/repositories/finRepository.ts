@@ -38,14 +38,24 @@ export interface DefaultFinCategorySeed {
 export const DEFAULT_FIN_CATEGORIES: DefaultFinCategorySeed[] = [
   { id: 'cat-moradia', name: 'Moradia', kind: 'expense', icon: 'home', color: '#D96628' },
   { id: 'cat-mercado', name: 'Mercado', kind: 'expense', icon: 'shopping-cart', color: '#D5CAA8' },
-  { id: 'cat-transporte', name: 'Transporte', kind: 'expense', icon: 'directions-car', color: '#3386B0' },
-  { id: 'cat-saude', name: 'Saúde', kind: 'expense', icon: 'local-hospital', color: '#CD528F' },
-  { id: 'cat-lazer', name: 'Lazer', kind: 'expense', icon: 'movie', color: '#A958E4' },
-  { id: 'cat-assinaturas', name: 'Assinaturas', kind: 'expense', icon: 'autorenew', color: '#D4A83B' },
+  { id: 'cat-transporte', name: 'Transporte', kind: 'expense', icon: 'directions-car', color: '#C49A45' },
+  { id: 'cat-saude', name: 'Saúde', kind: 'expense', icon: 'local-hospital', color: '#AECDC5' },
+  { id: 'cat-lazer', name: 'Lazer', kind: 'expense', icon: 'movie', color: '#B8B2A6' },
+  { id: 'cat-assinaturas', name: 'Assinaturas', kind: 'expense', icon: 'autorenew', color: '#E6DECA' },
   { id: 'cat-outros-despesa', name: 'Outros', kind: 'expense', icon: 'category', color: '#8A8A8E' },
-  { id: 'cat-salario', name: 'Salário', kind: 'income', icon: 'payments', color: '#2A904C' },
-  { id: 'cat-outros-receita', name: 'Outros recebimentos', kind: 'income', icon: 'attach-money', color: '#178D84' },
+  { id: 'cat-salario', name: 'Salário', kind: 'income', icon: 'payments', color: '#AECDC5' },
+  { id: 'cat-outros-receita', name: 'Outros recebimentos', kind: 'income', icon: 'attach-money', color: '#2E4A44' },
 ];
+
+const LEGACY_DEFAULT_CATEGORY_COLORS: Record<string, { legacy: string[]; target: string }> = {
+  'cat-mercado': { legacy: ['#2E4A44'], target: '#D5CAA8' },
+  'cat-transporte': { legacy: ['#3386B0'], target: '#C49A45' },
+  'cat-saude': { legacy: ['#CD528F'], target: '#AECDC5' },
+  'cat-lazer': { legacy: ['#A958E4'], target: '#B8B2A6' },
+  'cat-assinaturas': { legacy: ['#D4A83B'], target: '#E6DECA' },
+  'cat-salario': { legacy: ['#2A904C'], target: '#AECDC5' },
+  'cat-outros-receita': { legacy: ['#178D84'], target: '#2E4A44' },
+};
 
 function generateUUID(): string {
   return Crypto.randomUUID();
@@ -330,11 +340,28 @@ export class FinRepository {
       end_date: params.end_date ?? null,
       is_subscription: params.is_subscription ?? 0,
       active: params.active ?? 1,
+      variable_amount: params.variable_amount ?? 0,
       generated_until: params.generated_until ?? null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finRecurrences).values(record);
     return record as FinRecurrence;
+  }
+
+  /**
+   * Atualiza categorias padrão cuja cor ainda é a original pré-Sprint 60 para a paleta do artifact,
+   * preservando qualquer categoria cuja cor já tenha sido customizada pelo usuário.
+   */
+  async migrateDefaultCategoryColors(): Promise<void> {
+    const existing = await this.listCategories(true);
+    for (const cat of existing) {
+      const rule = LEGACY_DEFAULT_CATEGORY_COLORS[cat.id];
+      if (!rule) continue;
+      const upper = (cat.color ?? '').trim().toUpperCase();
+      if (rule.legacy.includes(upper)) {
+        await this.updateCategory(cat.id, { color: rule.target });
+      }
+    }
   }
 
   async updateRecurrence(

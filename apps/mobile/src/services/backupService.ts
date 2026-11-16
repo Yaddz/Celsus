@@ -588,6 +588,7 @@ const FIN_RECURRENCES_COLUMNS: (keyof FinRecurrence)[] = [
   'end_date',
   'is_subscription',
   'active',
+  'variable_amount',
   'generated_until',
   'created_at',
 ];
@@ -679,6 +680,7 @@ function parseFinRecurrencesFromCsv(csvText?: string): FinRecurrence[] {
     end_date: r.end_date === '' ? null : r.end_date ?? null,
     is_subscription: parseRequiredInt(r.is_subscription, 0),
     active: parseRequiredInt(r.active, 1),
+    variable_amount: parseRequiredInt(r.variable_amount, 0),
     generated_until: r.generated_until === '' ? null : r.generated_until ?? null,
     created_at: r.created_at || new Date().toISOString(),
   }));

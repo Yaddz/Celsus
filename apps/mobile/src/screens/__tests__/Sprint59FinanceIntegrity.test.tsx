@@ -397,7 +397,7 @@ describe('Sprint 59 — Integridade do módulo Finanças (Fase A)', () => {
     finStore.setSelectedMonth('2026-11');
     render(<FinanceHomeScreen onBack={jest.fn()} referenceDateIso="2026-11-13" themeMode="dark" />);
 
-    await waitFor(() => expect(screen.getByTestId('finance-attention-tile')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('finance-upcoming-tile')).toBeTruthy());
     expect(screen.getByTestId('finance-overdue-tile')).toHaveTextContent('R$ 200,00');
     expect(screen.getByTestId('finance-overdue-tile')).toHaveTextContent('1 conta');
     expect(screen.getByTestId('finance-upcoming-7d-btn')).toHaveTextContent('R$ 100,00');

@@ -167,6 +167,7 @@ CREATE TABLE IF NOT EXISTS fin_recurrences (
   end_date TEXT,
   is_subscription INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
+  variable_amount INTEGER NOT NULL DEFAULT 0,
   generated_until TEXT,
   created_at TEXT NOT NULL
 );
@@ -401,6 +402,11 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'quantity', ddl: 'ALTER TABLE income_events ADD COLUMN quantity TEXT' },
   { table: 'income_events', column: 'unit_amount', ddl: 'ALTER TABLE income_events ADD COLUMN unit_amount TEXT' },
   { table: 'fin_entries', column: 'recurrence_period', ddl: 'ALTER TABLE fin_entries ADD COLUMN recurrence_period TEXT' },
+  {
+    table: 'fin_recurrences',
+    column: 'variable_amount',
+    ddl: 'ALTER TABLE fin_recurrences ADD COLUMN variable_amount INTEGER NOT NULL DEFAULT 0',
+  },
 ];
 
 function applySchemaUpgrades(raw: SQLiteDatabase) {

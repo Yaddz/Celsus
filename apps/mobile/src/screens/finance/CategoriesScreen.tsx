@@ -162,7 +162,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
     setCreateOpen(true);
   };
 
-  const actionBorder = ui.isLight ? '#E2DACB' : '#34383C';
+  const actionBorder = ui.actionBorder;
 
   return (
     <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
@@ -222,7 +222,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                       testID={`category-row-${cat.id}`}
                       avatarTestID={`category-avatar-${cat.id}`}
                       avatarSize={40}
-                      avatarRingColor={isSelected ? '#E6DECA' : undefined}
+                      avatarRingColor={isSelected ? ui.text : undefined}
                       icon={visual.icon}
                       avatarColor={visual.color}
                       iconColor={visual.iconColor}
@@ -236,7 +236,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                           <MaterialIcons
                             name={isSelected ? 'edit' : 'chevron-right'}
                             size={18}
-                            color={isSelected ? '#D96628' : ui.muted}
+                            color={isSelected ? ui.primary : ui.muted}
                           />
                         </View>
                       }
@@ -279,7 +279,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                               { backgroundColor: swatch },
                               active && {
                                 borderWidth: 2,
-                                borderColor: ui.isLight ? '#111315' : '#E6DECA',
+                                borderColor: ui.text,
                               },
                             ]}
                           />
@@ -367,15 +367,15 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                     style={[
                       styles.iconChip,
                       {
-                        backgroundColor: selected ? '#2E4A44' : ui.surfaceContainer,
-                        borderColor: selected ? '#AECDC5' : actionBorder,
+                        backgroundColor: selected ? ui.chipActiveBg : ui.surfaceContainer,
+                        borderColor: selected ? ui.income : actionBorder,
                       },
                     ]}
                   >
                     <MaterialIcons
                       name={ic as keyof typeof MaterialIcons.glyphMap}
                       size={18}
-                      color={selected ? '#E6DECA' : ui.text}
+                      color={selected ? ui.chipActiveText : ui.text}
                     />
                   </TouchableOpacity>
                 );

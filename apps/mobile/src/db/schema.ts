@@ -257,6 +257,7 @@ export const finRecurrences = sqliteTable('fin_recurrences', {
   end_date: text('end_date'), // YYYY-MM-DD
   is_subscription: integer('is_subscription').notNull().default(0),
   active: integer('active').notNull().default(1),
+  variable_amount: integer('variable_amount').notNull().default(0),
   generated_until: text('generated_until'), // YYYY-MM-DD
   created_at: text('created_at').notNull(),
 });
@@ -283,12 +284,8 @@ export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period'>
 };
 export type NewFinEntry = typeof finEntries.$inferInsert;
 
-export type FinRecurrence = typeof finRecurrences.$inferSelect & {
-  variable_amount?: number;
-};
-export type NewFinRecurrence = typeof finRecurrences.$inferInsert & {
-  variable_amount?: number;
-};
+export type FinRecurrence = typeof finRecurrences.$inferSelect;
+export type NewFinRecurrence = typeof finRecurrences.$inferInsert;
 
 export type FinRecurrenceSkip = typeof finRecurrenceSkips.$inferSelect;
 export type NewFinRecurrenceSkip = typeof finRecurrenceSkips.$inferInsert;

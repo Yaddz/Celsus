@@ -52,6 +52,12 @@ function formatMonthYearShort(isoDate: string): string {
   return m ? `${m[2]}/${m[1]}` : isoDate;
 }
 
+function monthlyNormalizedCents(rec: FinRecurrence): number {
+  if (rec.frequency === 'weekly') return Math.round((rec.amount_cents * 52) / 12);
+  if (rec.frequency === 'yearly') return Math.round(rec.amount_cents / 12);
+  return rec.amount_cents;
+}
+
 export interface RecurrenceFormSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -84,6 +90,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [isSubscription, setIsSubscription] = useState(defaultIsSubscription);
+  const [variableAmount, setVariableAmount] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -116,6 +123,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
       setIsSubscription(
         editingRecurrence ? editingRecurrence.is_subscription === 1 : defaultIsSubscription
       );
+      setVariableAmount(editingRecurrence ? editingRecurrence.variable_amount === 1 : false);
       setFormError(null);
       setSaving(false);
     };
@@ -175,6 +183,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
           start_date: resolvedStart,
           end_date: resolvedEnd,
           is_subscription: isSubscription ? 1 : 0,
+          variable_amount: variableAmount ? 1 : 0,
         });
       } else {
         await finRepository.createRecurrence({
@@ -188,6 +197,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
           start_date: resolvedStart,
           end_date: resolvedEnd,
           is_subscription: isSubscription ? 1 : 0,
+          variable_amount: variableAmount ? 1 : 0,
           active: 1,
           generated_until: null,
         });
@@ -244,7 +254,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
 
         <LedgerInput
           testID="recurrence-form-amount-input"
-          label="Valor (R$)"
+          label={variableAmount ? 'Estimativa (R$)' : 'Valor (R$)'}
           value={amountText}
           onChangeText={(txt) => {
             setAmountText(txt);
@@ -253,6 +263,27 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
           error={formError}
           themeMode={themeMode}
         />
+
+        <TouchableOpacity
+          testID="recurrence-form-variable-toggle"
+          accessibilityRole="switch"
+          accessibilityState={{ checked: variableAmount }}
+          onPress={() => setVariableAmount((prev) => !prev)}
+          style={[
+            styles.variableToggle,
+            {
+              backgroundColor: variableAmount ? c.surfaceElevated : c.surfaceContainer,
+              borderColor: variableAmount ? c.warning : c.border,
+            },
+          ]}
+        >
+          <Text style={[styles.variableToggleLabel, { color: c.text }]}>
+            Valor variável (estimativa)
+          </Text>
+          <Text style={[styles.variableToggleState, { color: variableAmount ? c.warning : c.muted }]}>
+            {variableAmount ? 'Sim' : 'Não'}
+          </Text>
+        </TouchableOpacity>
 
         <SegmentedControl<FinFrequency>
           value={frequency}
@@ -386,14 +417,14 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
     () =>
       activeList
         .filter((r) => r.kind === 'expense')
-        .reduce((acc, r) => acc + r.amount_cents, 0),
+        .reduce((acc, r) => acc + monthlyNormalizedCents(r), 0),
     [activeList]
   );
   const fixedIncomeCents = useMemo(
     () =>
       activeList
         .filter((r) => r.kind === 'income')
-        .reduce((acc, r) => acc + r.amount_cents, 0),
+        .reduce((acc, r) => acc + monthlyNormalizedCents(r), 0),
     [activeList]
   );
 
@@ -406,25 +437,48 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
     await loadData();
   };
 
-  const renderRecurrenceRow = (rec: FinRecurrence, index: number, total: number) => {
+  const renderRecurrenceRow = (
+    rec: FinRecurrence,
+    index: number,
+    total: number,
+    isEnded = false
+  ) => {
     const cat = categoryById.get(rec.category_id);
     const visual = resolveCategoryVisual(cat);
     const freqLabel = FREQUENCY_LABELS[(rec.frequency as FinFrequency) || 'monthly'] ?? 'Mensal';
+    const isVariable = rec.variable_amount === 1;
     const endLabel = rec.end_date ? ` • até ${formatMonthYearShort(rec.end_date)}` : '';
-    const subtitle = `${freqLabel} • dia ${rec.day_of_month}${endLabel}`;
+
+    let subtitle = `${freqLabel} • dia ${rec.day_of_month}${endLabel}`;
+    let subtitleColor = c.muted;
+    if (isEnded) {
+      subtitle = rec.end_date ? `Encerrada em ${isoToBr(rec.end_date)}` : 'Encerrada';
+    } else if (isVariable) {
+      subtitle = `${freqLabel} • dia ${rec.day_of_month} • valor variável`;
+      subtitleColor = c.warning;
+    }
+
     const kind: FinKind = rec.kind === 'income' ? 'income' : 'expense';
+    const amountText = isPrivacyMode
+      ? 'R$ ••••••'
+      : isVariable
+      ? `${kind === 'income' ? '+' : '-'}~${formatCentsBRL(rec.amount_cents, false)}`
+      : formatSignedCentsBRL(rec.amount_cents, kind, false);
 
     return (
       <FinListRow
         key={rec.id}
         testID={`recurrence-row-${rec.id}`}
+        subtitleTestID={`recurrence-subtitle-${rec.id}`}
+        amountTestID={`recurrence-amount-${rec.id}`}
         icon={visual.icon}
-        avatarColor={visual.color}
-        iconColor={visual.iconColor}
+        avatarColor={isEnded ? c.inactiveAvatarBg : visual.color}
+        iconColor={isEnded ? c.avatarIconDark : visual.iconColor}
         title={rec.description}
         subtitle={subtitle}
-        amountText={formatSignedCentsBRL(rec.amount_cents, kind, isPrivacyMode)}
-        amountColor={kind === 'income' ? c.income : c.expense}
+        subtitleColor={subtitleColor}
+        amountText={amountText}
+        amountColor={isEnded ? c.muted : kind === 'income' ? c.income : c.expense}
         isLast={index === total - 1}
         themeMode={themeMode}
         onPress={() => {
@@ -473,7 +527,10 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                 title="FIXO · SAÍDAS"
                 testID="recurrences-fixed-expense-tile"
               >
-                <Text style={[styles.summaryValue, { color: c.expense }]}>
+                <Text
+                  testID="recurrences-monthly-expense"
+                  style={[styles.summaryValue, { color: c.expense }]}
+                >
                   {isPrivacyMode
                     ? 'R$ ••••••'
                     : formatCentsBRL(fixedExpenseCents, false)}
@@ -486,7 +543,10 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                 title="FIXO · ENTRADAS"
                 testID="recurrences-fixed-income-tile"
               >
-                <Text style={[styles.summaryValue, { color: c.income }]}>
+                <Text
+                  testID="recurrences-monthly-income"
+                  style={[styles.summaryValue, { color: c.income }]}
+                >
                   {isPrivacyMode
                     ? 'R$ ••••••'
                     : formatCentsBRL(fixedIncomeCents, false)}
@@ -516,14 +576,16 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                 ) : null}
 
                 {endedList.length > 0 ? (
-                  <FinListCard
-                    testID="recurrences-ended-list"
-                    title={`ENCERRADAS · ${endedList.length}`}
-                    cardStyle={{ opacity: 0.7 }}
-                    themeMode={themeMode}
-                  >
-                    {endedList.map((rec, idx) => renderRecurrenceRow(rec, idx, endedList.length))}
-                  </FinListCard>
+                  <View testID="recurrences-section-ended" style={{ opacity: 0.7 }}>
+                    <FinListCard
+                      testID="recurrences-ended-list"
+                      title={`ENCERRADAS · ${endedList.length}`}
+                      cardStyle={{ opacity: 0.7 }}
+                      themeMode={themeMode}
+                    >
+                      {endedList.map((rec, idx) => renderRecurrenceRow(rec, idx, endedList.length, true))}
+                    </FinListCard>
+                  </View>
                 ) : null}
               </View>
             )}
@@ -579,5 +641,24 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 11,
     fontWeight: '600',
+  },
+  variableToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  variableToggleLabel: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  variableToggleState: {
+    fontFamily: typography.fontFamily,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
