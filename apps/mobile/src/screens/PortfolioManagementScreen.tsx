@@ -23,7 +23,9 @@ import {
   normalizeTargetsToHundred,
 } from '../domain/finance';
 import { parseDecimalInput, formatDecimalInput } from '../utils/decimalInput';
-import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP, AnimatedModalSheet, GoalProgressTile, GoalEditorSheet, BentoGrid, BentoRow, BentoSection, BentoSheetHeader, ConfirmDialog, TransactionRow, LedgerInput, TextField, Skeleton, SkeletonSwap } from '../components/ui';
+import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP, AnimatedModalSheet, GoalProgressTile, GoalEditorSheet, BentoGrid, BentoRow, BentoSection, BentoSheetHeader, ConfirmDialog, TransactionRow, LedgerInput, TextField, Skeleton, SkeletonSwap, type LinkedGoalSummary } from '../components/ui';
+import { finGoalsService } from '../services/finGoalsService';
+import { formatCentsBRL } from '../domain/financeFlow';
 import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { waitRemaining } from '../utils/minLoading';
 import { buildClassSummary } from '../domain/finance/classSummary';
@@ -387,6 +389,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const { scrollY, scrollProps } = useHeaderScrollFade();
   const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
   const [goalInfo, setGoalInfo] = useState<{ goal: string | null; monthly: string | null }>({ goal: null, monthly: null });
+  const [linkedPortfolioGoals, setLinkedPortfolioGoals] = useState<LinkedGoalSummary[]>([]);
   const [isGoalEditorOpen, setIsGoalEditorOpen] = useState(false);
   const [isWeightHelpOpen, setIsWeightHelpOpen] = useState(false);
   // Esqueletos ao trocar de carteira (não aparecem na 1ª montagem, que usa os dados iniciais).
@@ -562,17 +565,26 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       try {
         const wantAssets = !initialAssets || initialAssets.length === 0;
         const wantTargets = !initialClassTargets || initialClassTargets.length === 0;
-        const [portfolio, dbAssets, dbTargets, txs] = await Promise.all([
+        const [portfolio, dbAssets, dbTargets, txs, linkedGoals] = await Promise.all([
           safe(() => portfolioRepository.getPortfolioById(activePortfolioId), null),
           wantAssets ? safe(() => assetRepository.getAssetsByPortfolio(activePortfolioId), null) : Promise.resolve(null),
           wantTargets ? safe(() => portfolioRepository.getClassTargets(activePortfolioId), null) : Promise.resolve(null),
           safe(() => transactionRepository.getTransactionsByPortfolio(activePortfolioId), []),
+          safe(() => finGoalsService.listGoalsForPortfolio(activePortfolioId), []),
         ]);
         if (cancelled) return;
 
-        apply.push(() =>
-          setGoalInfo({ goal: portfolio?.patrimony_goal ?? null, monthly: portfolio?.monthly_contribution ?? null })
-        );
+        apply.push(() => {
+          setGoalInfo({ goal: portfolio?.patrimony_goal ?? null, monthly: portfolio?.monthly_contribution ?? null });
+          setLinkedPortfolioGoals(
+            linkedGoals.map((item) => ({
+              id: item.goal.id,
+              name: item.goal.name,
+              progressPercent: item.evaluation.progressPercent,
+              targetLabel: formatCentsBRL(item.evaluation.targetCents),
+            }))
+          );
+        });
 
         const mappedAssets: AssetItem[] | null = dbAssets
           ? dbAssets.map((a) => ({
@@ -1426,6 +1438,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             currentValue={assets.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0) * (parseFloat(a.price) || 0), 0)}
             patrimonyGoal={goalInfo.goal}
             monthlyContribution={goalInfo.monthly}
+            linkedGoals={linkedPortfolioGoals}
             isPrivacyMode={privacyMode}
             loading={isPortfolioLoading}
             onPress={() => setIsGoalEditorOpen(true)}

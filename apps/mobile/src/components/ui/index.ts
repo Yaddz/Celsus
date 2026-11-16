@@ -11,6 +11,7 @@ export * from './PatrimonyLineChartCard';
 export * from './AnimatedModalSheet';
 export * from './BentoGrid';
 export * from './GoalProgressTile';
+export * from './NetWorthTile';
 export * from './Skeleton';
 export * from './ConfirmDialog';
 export * from './TransactionRow';

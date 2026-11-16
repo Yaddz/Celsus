@@ -49,11 +49,13 @@ const GoalProgressTileContent: React.FC<GoalProgressTileProps> = ({
   currentValue,
   patrimonyGoal,
   monthlyContribution,
+  linkedGoals,
   isPrivacyMode = false,
   onPress,
   testID = 'home-goal-tile',
 }) => {
-  const hasGoal = !!patrimonyGoal && Number(patrimonyGoal) > 0;
+  const hasLinked = !!linkedGoals && linkedGoals.length > 0;
+  const hasGoal = (!!patrimonyGoal && Number(patrimonyGoal) > 0) || hasLinked;
   const v = bento.variants.forest;
 
   if (!hasGoal) {
@@ -69,40 +71,66 @@ const GoalProgressTileContent: React.FC<GoalProgressTileProps> = ({
     );
   }
 
-  const progress = calculateGoalProgress(currentValue, patrimonyGoal);
-  const months = projectMonthsToGoal(currentValue, patrimonyGoal!, monthlyContribution || 0);
+  const effectiveGoal = patrimonyGoal && Number(patrimonyGoal) > 0 ? patrimonyGoal : '0';
+  const progress = calculateGoalProgress(currentValue, effectiveGoal);
+  const months = projectMonthsToGoal(currentValue, effectiveGoal, monthlyContribution || 0);
   const pct = Number(progress.progressPercent);
   const show = (x: string | number) => (isPrivacyMode ? MASK : brl(x));
 
   return (
-    <BentoTile variant="forest" title="Meta de patrimônio" onPress={onPress} testID={testID} height={GOAL_TILE_HEIGHT}>
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <Text
-          testID={`${testID}-percent`}
-          style={{ fontFamily: typography.fontFamily, fontSize: 36, fontWeight: '700', color: v.foreground }}
-        >
-          {pct.toFixed(0)}%
-        </Text>
-        <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.muted, marginBottom: 6 }}>
-          de {show(patrimonyGoal!)}
-        </Text>
-      </View>
-      <View
-        testID={`${testID}-bar`}
-        style={{ height: 10, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 10, overflow: 'hidden' }}
-      >
-        <View style={{ width: `${pct}%`, height: '100%', borderRadius: 5, backgroundColor: colors.primary }} />
-      </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-        <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.foreground }}>
-          {progress.reached ? 'Meta atingida 🎉' : `faltam ${show(progress.remaining)}`}
-        </Text>
-        {!progress.reached && months !== null && Number(monthlyContribution || 0) > 0 ? (
-          <Text testID={`${testID}-eta`} style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.muted }}>
-            {formatMonthsPtBr(months)}
-          </Text>
-        ) : null}
-      </View>
+    <BentoTile
+      variant="forest"
+      title="Meta de patrimônio"
+      onPress={onPress}
+      testID={testID}
+      height={hasLinked ? undefined : GOAL_TILE_HEIGHT}
+    >
+      {Number(effectiveGoal) > 0 ? (
+        <>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+            <Text
+              testID={`${testID}-percent`}
+              style={{ fontFamily: typography.fontFamily, fontSize: 36, fontWeight: '700', color: v.foreground }}
+            >
+              {pct.toFixed(0)}%
+            </Text>
+            <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.muted, marginBottom: 6 }}>
+              de {show(effectiveGoal)}
+            </Text>
+          </View>
+          <View
+            testID={`${testID}-bar`}
+            style={{ height: 10, borderRadius: 5, backgroundColor: 'rgba(0,0,0,0.3)', marginTop: 10, overflow: 'hidden' }}
+          >
+            <View style={{ width: `${pct}%`, height: '100%', borderRadius: 5, backgroundColor: colors.primary }} />
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+            <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.foreground }}>
+              {progress.reached ? 'Meta atingida 🎉' : `faltam ${show(progress.remaining)}`}
+            </Text>
+            {!progress.reached && months !== null && Number(monthlyContribution || 0) > 0 ? (
+              <Text testID={`${testID}-eta`} style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.muted }}>
+                {formatMonthsPtBr(months)}
+              </Text>
+            ) : null}
+          </View>
+        </>
+      ) : null}
+
+      {hasLinked ? (
+        <View testID={`${testID}-linked-list`} style={{ marginTop: Number(effectiveGoal) > 0 ? 10 : 2, gap: 4 }}>
+          {linkedGoals!.map((g) => (
+            <View key={g.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={{ fontFamily: typography.fontFamily, fontSize: 12, color: v.foreground, fontWeight: '600' }}>
+                {g.name}
+              </Text>
+              <Text style={{ fontFamily: typography.fontFamily, fontSize: 11, color: v.muted }}>
+                {Math.round(g.progressPercent)}% · {isPrivacyMode ? MASK : g.targetLabel}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
     </BentoTile>
   );
 };

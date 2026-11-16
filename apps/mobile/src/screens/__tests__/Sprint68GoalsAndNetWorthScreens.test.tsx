@@ -153,7 +153,7 @@ describe('Sprint 68 — Telas: Metas, Patrimônio, Mais, Home e Carteiras', () =
     render(<GoalsScreen onBack={jest.fn()} referenceDateIso="2026-11-16" />);
 
     await waitFor(() => {
-      expect(screen.getByText(/atingida/i)).toBeTruthy();
+      expect(screen.getByText(/atingida em/i)).toBeTruthy();
     });
   });
 

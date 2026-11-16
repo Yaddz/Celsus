@@ -1,46 +1,274 @@
-import type { FinGoal, NetWorthSnapshot } from '../db/schema';
-import type { GoalEvaluation, NetWorthResult } from '../domain/finance/goal';
-import type { SaveGoalInput } from '../repositories/finGoalsRepository';
+import Decimal from 'decimal.js';
+import { getDatabase } from '../db/client';
+import {
+  assets,
+  finAccounts,
+  finEntries,
+  marketPriceCache,
+  portfolios,
+  type FinGoal,
+  type NetWorthSnapshot,
+} from '../db/schema';
+import {
+  calculateNetWorth,
+  decimalReaisToCents,
+  evaluateGoal,
+  validatePortfolioShareSlices,
+  type FinGoalSourceInput,
+  type GoalAccountContext,
+  type GoalEvaluation,
+  type GoalPortfolioContext,
+  type NetWorthResult,
+} from '../domain/finance/goal';
+import {
+  calculateAccountBalance,
+  getTodayIsoLocal,
+  summarizeBill,
+} from '../domain/financeFlow';
+
+type DomainFinEntry = Parameters<typeof summarizeBill>[0][number];
+import { finGoalsRepository, type SaveGoalInput } from '../repositories/finGoalsRepository';
 
 export interface EvaluatedGoalItem {
   goal: FinGoal;
   evaluation: GoalEvaluation;
 }
 
+async function buildGoalsContext(referenceDateIso?: string): Promise<{
+  accounts: GoalAccountContext[];
+  portfolios: GoalPortfolioContext[];
+  contributions: Awaited<ReturnType<typeof finGoalsRepository.listContributions>>;
+  netWorth: NetWorthResult;
+}> {
+  const db = getDatabase();
+  const refIso = referenceDateIso ?? getTodayIsoLocal();
+
+  const [allAccounts, allEntries, allPortfolios, allAssets, allPrices, contributions] =
+    await Promise.all([
+      db.select().from(finAccounts),
+      db.select().from(finEntries),
+      db.select().from(portfolios),
+      db.select().from(assets),
+      db.select().from(marketPriceCache),
+      finGoalsRepository.listContributions(),
+    ]);
+
+  const priceMap = new Map(allPrices.map((p) => [p.ticker, p.current_price]));
+  const normalizedEntries = allEntries.map((e) => ({
+    ...e,
+    kind: e.kind as DomainFinEntry['kind'],
+    status: e.status as DomainFinEntry['status'],
+  })) as DomainFinEntry[];
+
+  const accountContexts: GoalAccountContext[] = allAccounts
+    .filter((a) => !a.archived)
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      type: a.type,
+      balance_cents: calculateAccountBalance(a.initial_balance_cents, normalizedEntries, a.id),
+    }));
+
+  // Dívida de cartão: soma do saldo em aberto de todas as faturas não quitadas
+  let openCardBillsCents = 0;
+  const cardAccounts = allAccounts.filter((a) => !a.archived && a.type === 'card');
+  for (const card of cardAccounts) {
+    const cardEntries = normalizedEntries.filter((e) => e.account_id === card.id);
+    const months = new Set(
+      cardEntries.map((e) => e.bill_month).filter((m): m is string => Boolean(m))
+    );
+    for (const bm of months) {
+      const summary = summarizeBill(cardEntries, bm, {
+        closingDay: card.closing_day ?? 1,
+        todayIso: refIso,
+      });
+      if (summary.status !== 'paga' && summary.openCents > 0) {
+        openCardBillsCents += summary.openCents;
+      }
+    }
+  }
+
+  const portfolioContexts: GoalPortfolioContext[] = [];
+  const nwPortfolios: Array<{ id: string; totalValueReais: Decimal; is_archived: number }> = [];
+
+  for (const p of allPortfolios) {
+    if (p.is_archived) continue;
+    const pAssets = allAssets.filter((a) => a.portfolio_id === p.id);
+    let totalReais = new Decimal(0);
+    let totalCostReais = new Decimal(0);
+    const byClass: Record<string, number> = {};
+
+    for (const a of pAssets) {
+      const qty = new Decimal(a.quantity || 0);
+      const unitPrice = new Decimal(
+        a.manual_price_override ?? priceMap.get(a.ticker) ?? a.average_price ?? 0
+      );
+      const valReais = qty.mul(unitPrice);
+      const costReais = qty.mul(new Decimal(a.average_price || 0));
+      totalReais = totalReais.plus(valReais);
+      totalCostReais = totalCostReais.plus(costReais);
+      const clsCents = decimalReaisToCents(valReais);
+      byClass[a.asset_class] = (byClass[a.asset_class] ?? 0) + clsCents;
+    }
+
+    const totalCents = decimalReaisToCents(totalReais);
+    const annualReturnPercent = totalCostReais.gt(0)
+      ? totalReais.minus(totalCostReais).div(totalCostReais).mul(100).toNumber()
+      : 0;
+
+    portfolioContexts.push({
+      id: p.id,
+      name: p.name,
+      total_cents: totalCents,
+      by_class_cents: byClass,
+      annual_return_percent: annualReturnPercent,
+    });
+    nwPortfolios.push({ id: p.id, totalValueReais: totalReais, is_archived: p.is_archived });
+  }
+
+  const netWorth = calculateNetWorth(
+    accountContexts.map((a) => ({
+      id: a.id,
+      type: a.type ?? 'checking',
+      balance_cents: a.balance_cents,
+      archived: 0,
+    })),
+    nwPortfolios,
+    openCardBillsCents
+  );
+
+  return {
+    accounts: accountContexts,
+    portfolios: portfolioContexts,
+    contributions,
+    netWorth,
+  };
+}
+
 export const finGoalsService = {
-  async listEvaluatedGoals(_options?: {
+  async listEvaluatedGoals(options?: {
     includeArchived?: boolean;
     referenceDateIso?: string;
   }): Promise<EvaluatedGoalItem[]> {
-    throw new Error('Not implemented: finGoalsService.listEvaluatedGoals');
+    const [goals, allSources, ctx] = await Promise.all([
+      finGoalsRepository.listGoals(options?.includeArchived ?? false),
+      finGoalsRepository.listGoalSources(),
+      buildGoalsContext(options?.referenceDateIso),
+    ]);
+
+    return goals.map((goal) => ({
+      goal,
+      evaluation: evaluateGoal(
+        {
+          ...goal,
+          source_type: goal.source_type as FinGoal['source_type'] & ('manual' | 'account' | 'portfolio' | 'net_worth'),
+        },
+        allSources.map((s) => ({
+          ...s,
+          ref_type: s.ref_type as 'account' | 'portfolio',
+        })),
+        {
+          accounts: ctx.accounts,
+          portfolios: ctx.portfolios,
+          contributions: ctx.contributions,
+          netWorthCents: ctx.netWorth.totalCents,
+        },
+        { referenceDateIso: options?.referenceDateIso }
+      ),
+    }));
   },
+
   async listGoalsForPortfolio(
-    _portfolioId: string,
-    _referenceDateIso?: string
+    portfolioId: string,
+    referenceDateIso?: string
   ): Promise<EvaluatedGoalItem[]> {
-    throw new Error('Not implemented: finGoalsService.listGoalsForPortfolio');
+    const [allEvaluated, portSources] = await Promise.all([
+      this.listEvaluatedGoals({ referenceDateIso }),
+      finGoalsRepository.listPortfolioGoalSources(portfolioId),
+    ]);
+    const linkedGoalIds = new Set(portSources.map((s) => s.goal_id));
+    return allEvaluated.filter((item) => linkedGoalIds.has(item.goal.id));
   },
-  async saveGoalWithSources(_input: SaveGoalInput): Promise<FinGoal> {
-    throw new Error('Not implemented: finGoalsService.saveGoalWithSources');
+
+  async saveGoalWithSources(input: SaveGoalInput): Promise<FinGoal> {
+    if (input.source_type === 'portfolio' && input.sources && input.sources.length > 0) {
+      const [allGoals, allSources] = await Promise.all([
+        finGoalsRepository.listGoals(true),
+        finGoalsRepository.listGoalSources(),
+      ]);
+      const archivedIds = new Set(allGoals.filter((g) => g.archived).map((g) => g.id));
+      const targetId = input.id ?? '__new_goal__';
+
+      const remainingSources: FinGoalSourceInput[] = allSources
+        .filter((s) => s.goal_id !== targetId)
+        .map((s) => ({
+          goal_id: s.goal_id,
+          ref_type: s.ref_type as 'account' | 'portfolio',
+          ref_id: s.ref_id,
+          asset_class: s.asset_class,
+          share_percent: s.share_percent,
+        }));
+
+      const newSources: FinGoalSourceInput[] = input.sources.map((s) => ({
+        goal_id: targetId,
+        ref_type: s.ref_type,
+        ref_id: s.ref_id,
+        asset_class: s.asset_class ?? null,
+        share_percent: s.share_percent,
+      }));
+
+      const validation = validatePortfolioShareSlices(
+        [...remainingSources, ...newSources],
+        archivedIds
+      );
+      if (!validation.valid) {
+        throw new Error(
+          'A soma das fatias de uma carteira não pode ultrapassar 100%.'
+        );
+      }
+    }
+
+    return finGoalsRepository.saveGoal(input);
   },
-  async addManualContribution(_input: {
+
+  async addManualContribution(input: {
     goalId: string;
     amountCents: number;
     date?: string;
     notes?: string | null;
   }): Promise<void> {
-    throw new Error('Not implemented: finGoalsService.addManualContribution');
+    await finGoalsRepository.addContribution({
+      goal_id: input.goalId,
+      amount_cents: input.amountCents,
+      date: input.date ?? getTodayIsoLocal(),
+      notes: input.notes ?? null,
+    });
   },
-  async computeCurrentNetWorth(_referenceDateIso?: string): Promise<NetWorthResult> {
-    throw new Error('Not implemented: finGoalsService.computeCurrentNetWorth');
+
+  async computeCurrentNetWorth(referenceDateIso?: string): Promise<NetWorthResult> {
+    const ctx = await buildGoalsContext(referenceDateIso);
+    return ctx.netWorth;
   },
-  async captureMonthlySnapshot(_options?: {
+
+  async captureMonthlySnapshot(options?: {
     yearMonth?: string;
     forceUpdate?: boolean;
   }): Promise<NetWorthSnapshot> {
-    throw new Error('Not implemented: finGoalsService.captureMonthlySnapshot');
+    const yearMonth = options?.yearMonth ?? getTodayIsoLocal().slice(0, 7);
+    const nw = await this.computeCurrentNetWorth();
+    return finGoalsRepository.recordMonthlySnapshot(
+      {
+        year_month: yearMonth,
+        accounts_cents: nw.accountsCents,
+        investments_cents: nw.investmentsCents,
+        card_debt_cents: nw.cardDebtCents,
+        total_cents: nw.totalCents,
+      },
+      { forceUpdate: options?.forceUpdate }
+    );
   },
+
   async migrateLegacyGoalsIfNeeded(): Promise<number> {
-    throw new Error('Not implemented: finGoalsService.migrateLegacyGoalsIfNeeded');
+    return finGoalsRepository.migrateLegacyPortfolioGoals();
   },
 };

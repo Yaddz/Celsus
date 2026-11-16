@@ -9,5 +9,7 @@ export * from './CategoriesScreen';
 export * from './CategoryRulesScreen';
 export * from './FinanceDock';
 export * from './FinanceMoreScreen';
+export * from './GoalsScreen';
+export * from './NetWorthScreen';
 export * from './ReceiptScannerSheet';
 export * from './BudgetScreen';

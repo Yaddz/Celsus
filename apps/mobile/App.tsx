@@ -27,8 +27,13 @@ import {
   GoalProgressTile,
   GoalEditorSheet,
   HomeIncomeTile,
+  NetWorthTile,
   BentoRow,
 } from './src/components/ui';
+import { finGoalsService } from './src/services/finGoalsService';
+import { finGoalsRepository } from './src/repositories/finGoalsRepository';
+import type { NetWorthResult } from './src/domain/finance/goal';
+import type { NetWorthSnapshot } from './src/db/schema';
 import { AssetClass } from './src/components/ui/AttributeStatBar';
 import { walletStore } from './src/stores/walletStore';
 import { walletsStore, useWallets } from './src/stores/walletsStore';
@@ -263,6 +268,13 @@ function AppContent(props: {
   const { name: profileName, initials: profileInitials } = useProfile();
   const [activeTab, setActiveTab] = useState<DockTab>('home');
   const [isPrivacyMode, setIsPrivacyMode] = useState(false);
+  const [homeNetWorth, setHomeNetWorth] = useState<NetWorthResult>({
+    accountsCents: 0,
+    investmentsCents: 0,
+    cardDebtCents: 0,
+    totalCents: 0,
+  });
+  const [homeSnapshots, setHomeSnapshots] = useState<NetWorthSnapshot[]>([]);
   const [themeMode, setThemeMode] = useState<ThemeMode>(themeModeService.getThemeMode());
   // O tema salvo é lido no início (hydrate) e pode mudar fora daqui: acompanha o serviço.
   useEffect(() => themeModeService.subscribe(setThemeMode), []);
@@ -550,6 +562,20 @@ function AppContent(props: {
         setHomeIncomeTotal(incSummary.totalYear);
       } catch {
         setHomeIncomeTotal('0.00');
+      }
+
+      // Migra metas legadas e grava foto mensal idempotente do patrimônio líquido
+      try {
+        await finGoalsService.migrateLegacyGoalsIfNeeded();
+        const [nw, snaps] = await Promise.all([
+          finGoalsService.computeCurrentNetWorth(),
+          finGoalsRepository.listNetWorthSnapshots(),
+        ]);
+        setHomeNetWorth(nw);
+        setHomeSnapshots(snaps);
+        await finGoalsService.captureMonthlySnapshot();
+      } catch {
+        // Falha silenciosa na inicialização do snapshot
       }
     } catch (err) {
       console.error('[App] Failed to refresh app data:', err);
@@ -1926,6 +1952,18 @@ function AppContent(props: {
             themeMode={themeMode}
             testID="home-dot-matrix-card"
           />
+          {/* 2.0 Tile Bento Patrimônio Líquido na Home */}
+          <View style={{ marginTop: 10 }}>
+            <NetWorthTile
+              netWorth={homeNetWorth}
+              snapshots={homeSnapshots}
+              isPrivacyMode={isPrivacyMode}
+              loading={isWalletLoading}
+              themeMode={themeMode}
+              testID="home-net-worth-tile"
+            />
+          </View>
+
           {/* 2.1 Tile Bento da Meta de Patrimônio + Proventos lado a lado */}
           <View style={{ marginTop: 10 }}>
             <BentoRow>

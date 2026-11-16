@@ -37,6 +37,9 @@ import { SubscriptionsScreen } from './SubscriptionsScreen';
 import { FinanceDock, type FinanceTab } from './FinanceDock';
 import { FinanceMoreScreen } from './FinanceMoreScreen';
 import { BudgetScreen } from './BudgetScreen';
+import { GoalsScreen } from './GoalsScreen';
+import { NetWorthScreen } from './NetWorthScreen';
+import { finGoalsService } from '../../services/finGoalsService';
 import {
   FinEmptyState,
   FinErrorView,
@@ -54,6 +57,8 @@ export type FinanceRoute =
   | 'recurrences'
   | 'subscriptions'
   | 'budgets'
+  | 'goals'
+  | 'netWorth'
   | 'accounts'
   | 'cardBill'
   | 'categories'
@@ -62,6 +67,7 @@ export type FinanceRoute =
 
 export interface FinanceHomeScreenProps {
   onBack: () => void;
+  onOpenPortfolioTransaction?: (portfolioId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -81,6 +87,8 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   cardBill: 'accounts',
   more: 'more',
   budgets: 'more',
+  goals: 'more',
+  netWorth: 'more',
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
@@ -95,6 +103,8 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   cardBill: 'accounts',
   more: 'home',
   budgets: 'more',
+  goals: 'more',
+  netWorth: 'more',
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
@@ -103,6 +113,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
 
 export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onBack,
+  onOpenPortfolioTransaction,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -403,6 +414,29 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'goals') {
+      return (
+        <GoalsScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          onOpenPortfolioTransaction={onOpenPortfolioTransaction}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+          referenceDateIso={effectiveToday}
+        />
+      );
+    }
+    if (activeRoute === 'netWorth') {
+      return (
+        <NetWorthScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+          referenceDateIso={effectiveToday}
         />
       );
     }
