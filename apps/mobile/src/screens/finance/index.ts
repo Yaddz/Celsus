@@ -6,6 +6,7 @@ export * from './SubscriptionsScreen';
 export * from './AccountsScreen';
 export * from './CardBillScreen';
 export * from './CategoriesScreen';
+export * from './CategoryRulesScreen';
 export * from './FinanceDock';
 export * from './FinanceMoreScreen';
 export * from './ReceiptScannerSheet';

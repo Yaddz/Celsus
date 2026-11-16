@@ -7,10 +7,19 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **121 suítes** passando (**840 testes**, incluindo **3 suítes / 16 testes** da Sprint 64); 5 suítes em Fase A (Red) das Sprints 62/63 |
+| App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **140 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 62 — Importação de fatura/extrato e regras de categorização (Fase B concluída)
+
+- **Fase A:** bloqueada em `tests.lock.json` (`138` arquivos na Fase A; `140` arquivos verificados via SHA-256 na Fase B):
+  - Fixtures anonimizadas em `apps/mobile/src/domain/statementImport/__tests__/fixtures/`: `nubank_card.ofx`, `nubank_card.csv`, `nubank_checking.csv`, `inter.csv`, `c6.csv`, `itau.csv`, `checking_xml.ofx` e `generic_manual.csv`.
+  - `apps/mobile/src/domain/statementImport/__tests__/Sprint62StatementImport.test.ts` (**S62-T01 a S62-T09**, 9 casos).
+  - `apps/mobile/src/services/__tests__/Sprint62StatementImportService.test.ts` (**S62-T10 a S62-T15**, 6 casos).
+  - `apps/mobile/src/screens/__tests__/Sprint62StatementImportScreen.test.tsx` (**S62-T16 a S62-T20**, 5 casos).
+- **Fase B:** implementação concluída em `src/domain/statementImport/index.ts`, `src/db/schema.ts`, `src/db/client.ts`, `src/services/backupService.ts`, `src/services/statementImportService.ts`, `src/components/StatementImportSheet.tsx`, `src/screens/finance/CategoryRulesScreen.tsx`, `src/screens/finance/FinanceMoreScreen.tsx`, `src/screens/finance/CardBillScreen.tsx`, `src/screens/finance/FinanceHomeScreen.tsx` e `src/screens/finance/index.ts`. **3/3 suítes (20/20 testes)** passando em 2,714 s; `tsc --noEmit` com **0 erros** nos arquivos de produção da Sprint 62; `node scripts/test-lock.js verify` aprovado (`140` arquivos íntegros).
 
 ## Sprint 64 — Fundação do Open Finance com Pluggy / Meu Pluggy (Fase B concluída)
 

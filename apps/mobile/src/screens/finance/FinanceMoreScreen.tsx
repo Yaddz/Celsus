@@ -6,9 +6,16 @@ import { FinListCard, FinListRow } from '../../components/ui/FinListCard';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
 
+export type FinanceMoreRoute =
+  | 'subscriptions'
+  | 'recurrences'
+  | 'categories'
+  | 'categoryRules'
+  | 'statementImport';
+
 export interface FinanceMoreScreenProps {
   onBack: () => void;
-  onOpen: (route: 'subscriptions' | 'recurrences' | 'categories') => void;
+  onOpen: (route: FinanceMoreRoute) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -64,10 +71,30 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
             avatarColor="#AECDC5"
             title="Categorias"
             subtitle="Organize seus lançamentos"
-            isLast
             themeMode={themeMode}
             rightAccessory={chevron}
             onPress={() => onOpen('categories')}
+          />
+          <FinListRow
+            testID="finance-more-category-rules"
+            icon="rule"
+            avatarColor="#D4A83B"
+            title="Regras de categoria"
+            subtitle="Categorização automática"
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('categoryRules')}
+          />
+          <FinListRow
+            testID="finance-more-statement-import"
+            icon="upload-file"
+            avatarColor="#D96628"
+            title="Importar fatura ou extrato"
+            subtitle="Arquivos OFX e CSV"
+            isLast
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('statementImport')}
           />
         </FinListCard>
       </ScrollView>

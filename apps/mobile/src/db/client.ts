@@ -208,6 +208,8 @@ CREATE TABLE IF NOT EXISTS of_sync_runs (
 );
 `;
 
+export const SCHEMA_SQL = INITIAL_SCHEMA_SQL;
+
 /**
  * Índices das consultas quentes (por carteira, por ativo, por data e deduplicação por external_id).
  * Rodam DEPOIS das migrações de coluna: em bancos antigos `income_events.external_id` só existe após

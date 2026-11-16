@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Modal, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
 import type { FinAccount, FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
+import type { ReceiptDraft } from '../../domain/receipt';
 import {
   addMonthsYearMonth,
   calculateMonthlySummary,
@@ -19,8 +20,11 @@ import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
 import { CardBillScreen } from './CardBillScreen';
 import { CategoriesScreen } from './CategoriesScreen';
+import { CategoryRulesScreen } from './CategoryRulesScreen';
+import { StatementImportSheet } from '../../components/StatementImportSheet';
 import { EntriesListScreen } from './EntriesListScreen';
 import { EntryFormSheet } from './EntryFormSheet';
+import { ReceiptScannerSheet, type ReceiptScannerMode } from './ReceiptScannerSheet';
 import { RecurrencesScreen } from './RecurrencesScreen';
 import { SubscriptionsScreen } from './SubscriptionsScreen';
 import { FinanceDock, type FinanceTab } from './FinanceDock';
@@ -44,6 +48,7 @@ export type FinanceRoute =
   | 'accounts'
   | 'cardBill'
   | 'categories'
+  | 'categoryRules'
   | 'more';
 
 export interface FinanceHomeScreenProps {
@@ -68,6 +73,7 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
+  categoryRules: 'more',
 };
 
 /** Para onde o voltar leva a partir de cada rota (home = sair do módulo). */
@@ -80,6 +86,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   subscriptions: 'more',
   recurrences: 'more',
   categories: 'more',
+  categoryRules: 'more',
 };
 
 export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
@@ -111,6 +118,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const hasLoadedOnceRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
+  const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
+  const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!hasLoadedOnceRef.current) {
@@ -278,7 +289,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <FinanceMoreScreen
           onBack={() => setActiveRoute('home')}
-          onOpen={(route) => navigateTo(route)}
+          onOpen={(route) => {
+            if (route === 'statementImport') {
+              setIsStatementImportOpen(true);
+            } else {
+              navigateTo(route);
+            }
+          }}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -334,6 +351,16 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <CategoriesScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          isPrivacyMode={isPrivacyMode}
+          onTogglePrivacy={onTogglePrivacy}
+          themeMode={themeMode}
+        />
+      );
+    }
+    if (activeRoute === 'categoryRules') {
+      return (
+        <CategoryRulesScreen
+          onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -553,14 +580,98 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         <FinFloatingAddButton
           testID="finance-add-entry-btn"
           accessibilityLabel="Novo lançamento"
-          onPress={() => setIsAddEntryOpen(true)}
+          onPress={() => setIsAddMenuOpen(true)}
+        />
+
+        <Modal
+          visible={isAddMenuOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsAddMenuOpen(false)}
+        >
+          <Pressable
+            style={styles.addMenuBackdrop}
+            onPress={() => setIsAddMenuOpen(false)}
+          >
+            <View
+              testID="finance-add-menu"
+              style={[
+                styles.addMenuCard,
+                { backgroundColor: c.surface, borderColor: c.border },
+              ]}
+            >
+              <TouchableOpacity
+                testID="add-menu-manual"
+                style={styles.addMenuOption}
+                onPress={() => {
+                  setIsAddMenuOpen(false);
+                  setReceiptDraft(null);
+                  setIsAddEntryOpen(true);
+                }}
+              >
+                <MaterialIcons name="edit" size={20} color={c.text} />
+                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
+                  Lançar manualmente
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="add-menu-ocr"
+                style={styles.addMenuOption}
+                onPress={() => {
+                  setIsAddMenuOpen(false);
+                  setScannerMode('ocr');
+                }}
+              >
+                <MaterialIcons name="photo-camera" size={20} color={c.primary} />
+                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
+                  Fotografar cupom
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="add-menu-qr"
+                style={styles.addMenuOption}
+                onPress={() => {
+                  setIsAddMenuOpen(false);
+                  setScannerMode('qr');
+                }}
+              >
+                <MaterialIcons name="qr-code-scanner" size={20} color={c.primary} />
+                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
+                  Ler QR da nota
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+
+        <ReceiptScannerSheet
+          visible={scannerMode !== null}
+          mode={scannerMode ?? 'ocr'}
+          onClose={() => setScannerMode(null)}
+          onResult={(draft) => {
+            setScannerMode(null);
+            setReceiptDraft(draft);
+            setIsAddEntryOpen(true);
+          }}
+          onFallbackManual={() => {
+            setScannerMode(null);
+            setReceiptDraft(null);
+            setIsAddEntryOpen(true);
+          }}
+          themeMode={themeMode}
         />
 
         <EntryFormSheet
           visible={isAddEntryOpen}
-          onClose={() => setIsAddEntryOpen(false)}
+          onClose={() => {
+            setIsAddEntryOpen(false);
+            setReceiptDraft(null);
+          }}
           onSaved={() => void loadData()}
           onRequestCreateAccount={() => navigateTo('accounts')}
+          receiptDraft={receiptDraft}
           defaultDueDate={effectiveToday}
           themeMode={themeMode}
         />
@@ -577,11 +688,42 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         onTabChange={(tab) => navigateTo(tab)}
         themeMode={themeMode}
       />
+      <StatementImportSheet
+        visible={isStatementImportOpen}
+        onClose={() => setIsStatementImportOpen(false)}
+        onCompleted={() => void loadData()}
+        themeMode={themeMode}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  addMenuBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 16,
+    paddingBottom: 96,
+  },
+  addMenuCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingVertical: 6,
+    overflow: 'hidden',
+  },
+  addMenuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  addMenuOptionText: {
+    fontFamily: typography.fontFamily,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   attentionRow: {
     flexDirection: 'row',
     alignItems: 'stretch',

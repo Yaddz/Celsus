@@ -14,6 +14,7 @@ import {
   XpMinimalHeader,
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
+import { StatementImportSheet } from '../../components/StatementImportSheet';
 import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
 import {
   addMonthsYearMonth,
@@ -88,6 +89,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   const [payDateText, setPayDateText] = useState(isoToBr(todayIso));
   const [payError, setPayError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
+  const [importSheetOpen, setImportSheetOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -323,6 +325,19 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
             <Text style={[styles.payButtonText, { color: ui.primaryFg }]}>Pagar fatura</Text>
           </JellyPressable>
 
+          <JellyPressable
+            testID="card-bill-import-btn"
+            onPress={() => setImportSheetOpen(true)}
+            containerStyle={[
+              styles.payButton,
+              { backgroundColor: ui.surface, borderWidth: 1, borderColor: ui.border },
+            ]}
+          >
+            <Text style={[styles.payButtonText, { color: ui.text }]}>
+              Importar fatura ou extrato
+            </Text>
+          </JellyPressable>
+
           <BentoSection title={`COMPRAS DA FATURA (${billEntries.length})`} themeMode={themeMode}>
             {billEntries.length === 0 ? (
               <FinEmptyState
@@ -462,6 +477,16 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
           </JellyPressable>
         </View>
       </AnimatedModalSheet>
+
+      <StatementImportSheet
+        visible={importSheetOpen}
+        onClose={() => setImportSheetOpen(false)}
+        initialAccountId={accountId}
+        onCompleted={() => {
+          void loadData();
+        }}
+        themeMode={themeMode}
+      />
     </View>
   );
 };
