@@ -429,3 +429,11 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Testes antigos alterados COM autorização do usuário (16/11/2026): `Sprint57FinanceHomePolish.test.tsx` (S57-T03, linha 145) e `Sprint60FinanceArtifactFidelity.test.tsx` (S60-T01, linha 173): `paddingBottom >= 120` → `>= 112`, porque o Resumo passa a usar o mesmo cálculo da Home de Investimentos (16 + 96).
   - Resultado: Sprint 80 — 2 suítes / 32 testes PASS. Suíte geral: 160 suítes / 1070 testes PASS; 7 testes falhando em 4 suítes que JÁ falhavam antes da sprint (`receiptFlow.test.tsx`, `Sprint17HeaderDonutAndRoutes`, `Sprint34XpHeaderStandardAndE2E`, `Sprint39GeneralBugsAndHardening`), mais 2 arquivos de fixtures sem testes. `tsc --noEmit`: nenhum erro novo (2 erros de produção pré-existentes). `node scripts/test-lock.js verify` OK (180 arquivos).
   - Não validado: conferência visual no navegador/aparelho (360 px, tablet, dois temas).
+
+
+## Sprint 81 — Alinhamento visual de Finanças ao design de Investimentos
+- Fase A (Red Phase & Lock), sem parada entre fases:
+  - `apps/mobile/src/__tests__/Sprint81TypographyTokens.test.ts` — `S81-T01` variantes intactas; `S81-T02` tamanhos novos `typography.sizes.lead/display/hero`; `S81-T03` inventário da pasta; `S81-T04`/`T05`/`T06` nenhum `fontSize`, `fontWeight`, `lineHeight` literal em `src/screens/finance` (exceção: `// fora da escala:`); `S81-T07` nenhuma máscara de privacidade própria; `S81-T08` sem `Modal` próprio nem `Alert.alert`; `S81-T09` `finTheme.tsx` só com o que é de Finanças; `S81-T10` `DESIGN_SYSTEM.md` atualizado.
+  - `apps/mobile/src/components/ui/__tests__/Sprint81FinHeroTile.test.tsx` — `S81-T11` a `S81-T17` `FinHeroTile` (anatomia, tokens, variantes, tema, privacidade, ação, valor secundário); `S81-T18` `SectionHeader`; `S81-T19` `EmptyState`; `S81-T20` `ErrorState` e `LoadingState`.
+  - `apps/mobile/src/screens/__tests__/Sprint81FinanceVisualParity.test.tsx` — `S81-T21` heróis de Contas, Assinaturas e Patrimônio usam `FinHeroTile`; `S81-T22` estados vêm de `src/components/ui`; `S81-T23` a `S81-T27` regressão dos números exibidos (Contas R$ 1.484,56, Patrimônio R$ 1.484,56, Assinaturas R$ 0,00/R$ 0,00) e privacidade, para um banco de exemplo.
+  - Execução Fase A: 3 suítes / 53 testes falhando e 30 passando (Red Phase esperado; stubs em `src/components/ui`).

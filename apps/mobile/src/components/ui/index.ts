@@ -21,3 +21,6 @@ export * from './PinKeypad';
 export * from './HomeIncomeTile';
 export * from './FinListCard';
 export * from './DotTrack';
+export * from './FinHeroTile';
+export * from './SectionHeader';
+export * from './ScreenStates';
