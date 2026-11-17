@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **174 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 75 — Leitor de cupom: valor total e chave de 44 dígitos (Fase A travada)
+## Sprint 75 — Leitor de cupom: valor total e chave de 44 dígitos (Fase B concluída)
 
 Parser de chave de acesso de 44 dígitos (`parseAccessKey`, modelos 65/55/59), extração de total por pontuação (colunas, troco, confirmação), código de barras `code128`, entrada manual de chave, consulta opcional à SEFAZ (`nfceLookupService`), captura de total por OCR após QR/chave e diagnóstico de texto lido.
 
@@ -20,10 +20,17 @@ Parser de chave de acesso de 44 dígitos (`parseAccessKey`, modelos 65/55/59), e
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/domain/receipt/__tests__/Sprint75AccessKey.test.ts` | S75-T01…T02 | `d1f618ae1f42ce0f58b119409c529ffd29b3ebf883189d6755f2b2a363dffc6d` | 2 FAIL |
 | `apps/mobile/src/domain/receipt/__tests__/Sprint75TotalExtraction.test.ts` | S75-T03…T05 | `84cbb9795e41ae9c04722f01e5e58ed8b519d5cff4f065cab37c89d89dea3fa9` | 2 FAIL / 1 PASS |
-| `apps/mobile/src/services/__tests__/Sprint75ReceiptFlows.test.ts` | S75-T06…T08 | `bcfc2936508faf61febfe5260a5c70450b159dfcf9dcd7bd4108b47c2f69626c` | 3 FAIL |
+| `apps/mobile/src/services/__tests__/Sprint75ReceiptFlows.test.ts` | S75-T06…T08 | `369d76ff01d1fb8aff83a99bf047c2dbb5eaccb1f1a1649b9eeca8874e3d19f3` | 3 FAIL |
 | `apps/mobile/src/screens/__tests__/Sprint75ReceiptScannerModes.test.tsx` | S75-T09…T11 | `823cdd3447f44ba17d5ec57e0fbe18c205d6b6e9182bb7365a8373333b962cd1` | 3 FAIL |
 
-Execução da Fase A: `npx jest --no-coverage Sprint75AccessKey Sprint75TotalExtraction Sprint75ReceiptFlows Sprint75ReceiptScannerModes` → 10 falhando, 1 passando (11 testes, 4 suítes). 174 arquivos travados em `tests.lock.json`.
+**Testes atualizados com autorização explícita do usuário:**
+- `receiptParser.test.ts`: `parseNfceQr` agora aceita modelo 55 (e 59) e rejeita modelos fora de `{55, 59, 65}` (ex.: modelo 57).
+- `Sprint75ReceiptFlows.test.ts` (`S75-T06`): cria conta via `finRepository.createAccount` antes de criar o lançamento de duplicidade.
+
+Execução da Fase B:
+- `npx jest --no-coverage Sprint75 receiptParser`: **5/5 suítes PASS** (**35/35 testes PASS**)
+- `npx tsc --noEmit`: **0 erros** nos arquivos de produção e nos testes da Sprint 75
+- `node scripts/test-lock.js verify`: **174 arquivos íntegros**
 
 ## Sprint 74 — Cartão de crédito: compra sem vencimento próprio e extrato por fatura (Fase B concluída)
 

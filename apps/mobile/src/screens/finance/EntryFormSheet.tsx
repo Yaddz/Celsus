@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
   AnimatedModalSheet,
@@ -102,6 +102,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   const [toAccountId, setToAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [showReceiptRawText, setShowReceiptRawText] = useState(false);
   const [saving, setSaving] = useState(false);
   const [quickCatOpen, setQuickCatOpen] = useState(false);
   const [quickCatName, setQuickCatName] = useState('');
@@ -349,7 +350,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
         if (receiptDraft?.externalId) {
           const existing = await finRepository.findEntryByExternalId(receiptDraft.externalId);
           if (existing) {
-            setFormError('Esta NFC-e já foi lançada anteriormente.');
+            setFormError('Esta nota já foi lançada anteriormente.');
             setSaving(false);
             return;
           }
@@ -469,14 +470,64 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
               />
 
               {receiptDraft ? (
-                <View
-                  testID="entry-form-ocr-review-banner"
-                  style={[styles.ocrBanner, { borderColor: c.warning, backgroundColor: `${c.warning}18` }]}
-                >
-                  <MaterialIcons name="document-scanner" size={16} color={c.warning} />
-                  <Text style={[styles.ocrBannerText, { color: c.text }]}>
-                    Confira os dados lidos do cupom antes de salvar.
-                  </Text>
+                <View style={{ gap: 8 }}>
+                  <View
+                    testID="entry-form-ocr-review-banner"
+                    style={[styles.ocrBanner, { borderColor: c.warning, backgroundColor: `${c.warning}18` }]}
+                  >
+                    <MaterialIcons name="document-scanner" size={16} color={c.warning} />
+                    <Text style={[styles.ocrBannerText, { color: c.text }]}>
+                      Confira os dados lidos do cupom antes de salvar.
+                    </Text>
+                  </View>
+                  {receiptDraft.rawLines?.length &&
+                  (receiptDraft.amountCents === null ||
+                    receiptDraft.lowConfidenceFields.includes('amount')) ? (
+                    <View style={{ gap: 6 }}>
+                      <TouchableOpacity
+                        testID="entry-form-receipt-raw-text"
+                        accessibilityRole="button"
+                        onPress={() => setShowReceiptRawText((v) => !v)}
+                      >
+                        <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                          {showReceiptRawText ? 'Ocultar texto lido' : 'Ver texto lido'}
+                        </Text>
+                      </TouchableOpacity>
+                      {showReceiptRawText ? (
+                        <View
+                          style={{
+                            borderWidth: 1,
+                            borderColor: c.border,
+                            borderRadius: 10,
+                            padding: 10,
+                            gap: 8,
+                            backgroundColor: c.surface,
+                          }}
+                        >
+                          <Text style={[styles.helperText, { color: c.text }]}>
+                            {receiptDraft.rawLines.join('\n')}
+                          </Text>
+                          <TouchableOpacity
+                            testID="entry-form-receipt-copy-btn"
+                            accessibilityRole="button"
+                            onPress={() => {
+                              const raw = receiptDraft.rawLines?.join('\n') ?? '';
+                              const nav = (globalThis as any)?.navigator;
+                              if (nav?.clipboard?.writeText) {
+                                void nav.clipboard.writeText(raw);
+                              } else {
+                                void Share.share({ message: raw });
+                              }
+                            }}
+                          >
+                            <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                              Copiar texto
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 

@@ -58,59 +58,209 @@ function parseMoneyToCents(raw: string): number | null {
 
 function extractTotal(lines: string[]): ParsedField<number> {
   const moneyRe = /(?:R\$\s*)?(\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2})|\d+[.,]\d{2})/i;
-  const ignoreRe = /\b(TROCO|DESCONTO|TRIBUT|TRIB\.?\s*APROX|SUBTOTAL|VALOR\s+PAGO|QTD\.?\s*TOTAL)\b/i;
+  const pureValueRe = /^\s*(?:R\$\s*)?(\d+(?:[.,]\d{3})*(?:[.,]\d{2})?)\s*$/i;
+  const ignoreRe = /\b(TROCO|DESCONTO|TRIBUT|TRIB\.?\s*APROX|SUBTOTAL|QTD\.?\s*TOTAL)\b/i;
+  const primaryLabelRe =
+    /\b(VALOR\s+TOTAL\s+DA\s+NOTA|VALOR\s+A\s+PAGAR|TOTAL\s+A\s+PAGAR|VALOR\s+TOTAL|TOTAL\s+R\$)\b/i;
+  const paidLabelRe = /\bVALOR\s+PAGO\b/i;
+  const trocoLabelRe = /\bTROCO\b/i;
+  const paymentLabelRe =
+    /\b(PIX|CARTAO(?:\s+DE)?\s*(?:CREDITO|DEBITO)?|CREDITO|DEBITO|DINHEIRO|VALE\s+(?:ALIMENTACAO|REFEICAO)|VALE)\b/i;
+  const columnLabelRe =
+    /\b(QTD\.?\s*TOTAL|SUBTOTAL|DESCONTO|VALOR\s+TOTAL(?:\s+DA\s+NOTA)?|VALOR\s+A\s+PAGAR|TOTAL\s+A\s+PAGAR|TOTAL\s+R\$|VALOR\s+PAGO|TROCO|PIX|CARTAO(?:\s+DE)?\s*(?:CREDITO|DEBITO)?|CREDITO|DEBITO|DINHEIRO|VALE)\b/i;
 
-  const priorityPatterns: Array<{ re: RegExp; confidence: 'alta' | 'baixa' }> = [
-    { re: /\bVALOR\s+TOTAL\b/i, confidence: 'alta' },
-    { re: /\bVALOR\s+A\s+PAGAR\b/i, confidence: 'alta' },
-    { re: /\bTOTAL\s+A\s+PAGAR\b/i, confidence: 'alta' },
-    { re: /\bTOTAL\s+R\$/i, confidence: 'alta' },
-    { re: /\bTOTAL\b/i, confidence: 'baixa' },
-  ];
+  const candidates = new Map<number, { score: number; signals: Set<string> }>();
+  const addCandidate = (cents: number | null, weight: number, signal: string) => {
+    if (cents == null || cents <= 0) return;
+    const existing = candidates.get(cents);
+    if (existing) {
+      existing.score += weight;
+      existing.signals.add(signal);
+    } else {
+      candidates.set(cents, { score: weight, signals: new Set([signal]) });
+    }
+  };
 
-  // 1) Busca em linha única por ordem de prioridade
-  for (const { re, confidence } of priorityPatterns) {
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (ignoreRe.test(line)) continue;
-      if (!re.test(line)) continue;
+  let paidCents: number | null = null;
+  let changeCents: number | null = null;
+
+  const extractMoneyFromLineOrNext = (idx: number, allowIgnore = false): number | null => {
+    const m = moneyRe.exec(lines[idx]);
+    if (m) return parseMoneyToCents(m[1]);
+    if (idx + 1 < lines.length && (allowIgnore || !ignoreRe.test(lines[idx + 1]))) {
+      const mNext = moneyRe.exec(lines[idx + 1]);
+      if (mNext) return parseMoneyToCents(mNext[1]);
+    }
+    return null;
+  };
+
+  // a) Rótulos em linha única ou linha seguinte + leitura de VALOR PAGO / TROCO / forma de pagamento
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    if (trocoLabelRe.test(line)) {
+      const c = extractMoneyFromLineOrNext(i, true);
+      if (c != null) changeCents = c;
+      continue;
+    }
+
+    if (paidLabelRe.test(line)) {
+      const p = extractMoneyFromLineOrNext(i);
+      if (p != null) paidCents = p;
+      continue;
+    }
+
+    if (ignoreRe.test(line)) continue;
+
+    if (primaryLabelRe.test(line)) {
+      const cents = extractMoneyFromLineOrNext(i);
+      if (cents != null) {
+        addCandidate(cents, 100, 'primary_label');
+      }
+      continue;
+    }
+
+    if (/\bTOTAL\b/i.test(line)) {
+      const cents = extractMoneyFromLineOrNext(i);
+      if (cents != null) {
+        addCandidate(cents, 40, 'generic_total');
+      }
+      continue;
+    }
+
+    if (paymentLabelRe.test(line)) {
       const m = moneyRe.exec(line);
       if (m) {
         const cents = parseMoneyToCents(m[1]);
-        if (cents !== null) return { value: cents, confidence };
-      }
-      // Valor na linha imediatamente seguinte (ex: "VALOR A PAGAR\n159,90")
-      if (i + 1 < lines.length && !ignoreRe.test(lines[i + 1])) {
-        const nextMatch = moneyRe.exec(lines[i + 1]);
-        if (nextMatch) {
-          const cents = parseMoneyToCents(nextMatch[1]);
-          if (cents !== null) return { value: cents, confidence };
+        if (cents != null) {
+          addCandidate(cents, 45, 'payment_confirm');
+          if (paidCents == null) paidCents = cents;
         }
       }
     }
   }
 
-  // 2) Cupom amassado com rótulo quebrado em 2-3 linhas ("VALOR\nTOTAL\nR$ 89,30")
+  // Cupom amassado com rótulo quebrado em 2-3 linhas ("VALOR\nTOTAL\nR$ 89,30")
   for (let i = 0; i < lines.length - 1; i++) {
     const pair = `${lines[i]} ${lines[i + 1]}`;
-    if (ignoreRe.test(pair)) continue;
+    if (ignoreRe.test(pair) || paidLabelRe.test(pair)) continue;
     if (/\b(VALOR\s+TOTAL|VALOR\s+A\s+PAGAR|TOTAL\s+A\s+PAGAR)\b/i.test(pair)) {
       const mSame = moneyRe.exec(pair);
       if (mSame) {
-        const cents = parseMoneyToCents(mSame[1]);
-        if (cents !== null) return { value: cents, confidence: 'baixa' };
-      }
-      if (i + 2 < lines.length) {
+        addCandidate(parseMoneyToCents(mSame[1]), 60, 'broken_label');
+      } else if (i + 2 < lines.length && !ignoreRe.test(lines[i + 2])) {
         const mNext = moneyRe.exec(lines[i + 2]);
         if (mNext) {
-          const cents = parseMoneyToCents(mNext[1]);
-          if (cents !== null) return { value: cents, confidence: 'baixa' };
+          addCandidate(parseMoneyToCents(mNext[1]), 60, 'broken_label');
         }
       }
     }
   }
 
-  return absent();
+  // b) Leitura em colunas: bloco de rótulos seguido por bloco de valores de mesmo tamanho
+  for (let i = 0; i < lines.length; i++) {
+    if (!columnLabelRe.test(lines[i]) || moneyRe.test(lines[i])) continue;
+    let labelEnd = i;
+    while (
+      labelEnd + 1 < lines.length &&
+      columnLabelRe.test(lines[labelEnd + 1]) &&
+      !moneyRe.test(lines[labelEnd + 1])
+    ) {
+      labelEnd++;
+    }
+    const blockLen = labelEnd - i + 1;
+    if (blockLen < 2 || labelEnd + blockLen >= lines.length) {
+      i = labelEnd;
+      continue;
+    }
+
+    let allValues = true;
+    for (let k = 1; k <= blockLen; k++) {
+      if (!pureValueRe.test(lines[labelEnd + k])) {
+        allValues = false;
+        break;
+      }
+    }
+    if (allValues) {
+      for (let k = 0; k < blockLen; k++) {
+        const label = lines[i + k];
+        const rawVal = lines[labelEnd + 1 + k];
+        const cents = parseMoneyToCents(rawVal);
+        if (trocoLabelRe.test(label)) {
+          if (cents != null) changeCents = cents;
+        } else if (paidLabelRe.test(label)) {
+          if (cents != null) paidCents = cents;
+        } else if (ignoreRe.test(label)) {
+          continue;
+        } else if (primaryLabelRe.test(label)) {
+          addCandidate(cents, 100, 'column_primary');
+        } else if (paymentLabelRe.test(label)) {
+          addCandidate(cents, 45, 'payment_confirm');
+          if (paidCents == null && cents != null) paidCents = cents;
+        }
+      }
+    }
+    i = labelEnd;
+  }
+
+  // c) Confirmação por VALOR PAGO e cálculo pago - troco
+  if (changeCents != null && paidCents != null && paidCents > changeCents) {
+    const netTotal = paidCents - changeCents;
+    addCandidate(netTotal, 95, 'valor_pago');
+    addCandidate(netTotal, 20, 'troco_diff');
+  } else if (changeCents == null && paidCents != null) {
+    addCandidate(paidCents, 55, 'valor_pago');
+  }
+
+  // d) Desempate por soma dos itens do cupom
+  let itemSumCents = 0;
+  for (const line of lines) {
+    if (
+      ignoreRe.test(line) ||
+      primaryLabelRe.test(line) ||
+      paidLabelRe.test(line) ||
+      paymentLabelRe.test(line) ||
+      /\bTOTAL\b/i.test(line)
+    ) {
+      continue;
+    }
+    const m = moneyRe.exec(line);
+    if (m && /[A-Za-zÀ-ÿ]{2,}/.test(line)) {
+      const c = parseMoneyToCents(m[1]);
+      if (c != null) itemSumCents += c;
+    }
+  }
+  if (itemSumCents > 0 && candidates.has(itemSumCents)) {
+    addCandidate(itemSumCents, 25, 'item_sum');
+  }
+
+  if (candidates.size === 0) {
+    return absent();
+  }
+
+  let bestCents = 0;
+  let bestScore = -1;
+  let bestSignals = 0;
+  let bestHasPrimary = false;
+  for (const [cents, entry] of candidates.entries()) {
+    const hasPrimary =
+      entry.signals.has('primary_label') || entry.signals.has('column_primary');
+    if (
+      entry.score > bestScore ||
+      (entry.score === bestScore && entry.signals.size > bestSignals) ||
+      (entry.score === bestScore && entry.signals.size === bestSignals && cents > bestCents)
+    ) {
+      bestCents = cents;
+      bestScore = entry.score;
+      bestSignals = entry.signals.size;
+      bestHasPrimary = hasPrimary;
+    }
+  }
+
+  const confidence: 'alta' | 'baixa' =
+    bestSignals >= 2 || bestHasPrimary ? 'alta' : 'baixa';
+
+  return { value: bestCents, confidence };
 }
 
 function extractCnpj(lines: string[]): ParsedField<string> {

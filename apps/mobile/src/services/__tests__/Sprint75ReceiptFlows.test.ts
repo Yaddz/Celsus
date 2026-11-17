@@ -25,13 +25,16 @@ describe('Sprint 75 — Fluxos de leitura de cupom, chave por foto e SEFAZ (Fase
     const draft59 = await receiptService.processAccessCode(ACCESS_KEY_S75_FIXTURES.sat59);
     expect(draft59.externalId).toBe(ACCESS_KEY_S75_FIXTURES.sat59);
 
-    const accounts = await finRepository.listAccounts(false);
+    const account = await finRepository.createAccount({
+      name: 'Conta Teste',
+      type: 'checking',
+    });
     const categories = await finRepository.listCategories(false);
     const created = await finRepository.createEntry({
       kind: 'expense',
       amount_cents: 31000,
       due_date: '2026-11-16',
-      account_id: accounts[0].id,
+      account_id: account.id,
       category_id: categories[0].id,
       description: 'DANFE',
       external_id: ACCESS_KEY_S75_FIXTURES.nfe55,

@@ -164,10 +164,14 @@ describe('parseNfceQr — validação módulo 11 e extração da chave NFC-e', (
     expect(qr.accessKey).toBeNull();
   });
 
-  it('rejeita chave cujo modelo não é 65 (ex: NF-e modelo 55)', () => {
+  it('aceita NF-e modelo 55 e rejeita modelo fora de {55, 59, 65}', () => {
     const qr = parseNfceQr(NFCE_QR_FIXTURES.wrongModel55);
-    expect(qr.valid).toBe(false);
+    expect(qr.valid).toBe(true);
     expect(qr.model).toBe('55');
+
+    const unsupported = parseNfceQr('35261147508411000156570010001234561876543212');
+    expect(unsupported.valid).toBe(false);
+    expect(unsupported.model).toBe('57');
   });
 
   it('rejeita chave com menos de 44 dígitos e URL comum', () => {
