@@ -14,6 +14,9 @@ import {
   type ReconcilableExistingEntry,
 } from '../statementImport';
 import { buildAccountName, cleanTransactionDescription } from './naming';
+import { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory } from './classification';
+
+export { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory };
 
 export interface MappedPluggyAccount {
   ofAccountId: string;
@@ -37,7 +40,7 @@ export interface MappedPluggyTransaction {
   externalId: string;
   source: 'OPEN_FINANCE';
   accountId: string;
-  kind: FinKind | 'transfer_in';
+  kind: FinKind | 'transfer_in' | 'transfer_out';
   status: FinEntryStatus;
   amountCents: number;
   dueDate: string;
@@ -47,6 +50,9 @@ export interface MappedPluggyTransaction {
   descriptionRaw: string | null;
   categoryId: string;
   matchedRuleId?: string;
+  /** categoryId hierárquico da Pluggy (Sprint 91) e motivo da classificação (R18). */
+  ofCategoryId?: string | null;
+  classReason?: string | null;
   installmentNumber: number | null;
   installmentTotal: number | null;
   billId: string | null;
@@ -61,6 +67,8 @@ export interface MapPluggyTransactionOptions {
   bills?: PluggyBill[];
   rules?: CategoryRuleLike[];
   externalIdOverride?: string;
+  /** Crédito já reconhecido como provento (R9/R15). */
+  isIncomeLinked?: boolean;
 }
 
 export interface ReconcilableOpenFinanceEntry {
@@ -181,54 +189,6 @@ export function deduplicatePluggyAccountTransactions(
   return result;
 }
 
-const PLUGGY_L1_EXPENSE_CATEGORY_MAP: Record<string, string> = {
-  groceries: 'cat-mercado',
-  supermarket: 'cat-mercado',
-  supermercado: 'cat-mercado',
-  'food and beverage': 'cat-mercado',
-  alimentacao: 'cat-mercado',
-  restaurants: 'cat-lazer',
-  transportation: 'cat-transporte',
-  transporte: 'cat-transporte',
-  automotive: 'cat-transporte',
-  health: 'cat-saude',
-  healthcare: 'cat-saude',
-  saude: 'cat-saude',
-  pharmacy: 'cat-saude',
-  entertainment: 'cat-lazer',
-  leisure: 'cat-lazer',
-  lazer: 'cat-lazer',
-  travel: 'cat-lazer',
-  shopping: 'cat-lazer',
-  compras: 'cat-lazer',
-  housing: 'cat-moradia',
-  home: 'cat-moradia',
-  moradia: 'cat-moradia',
-  utilities: 'cat-moradia',
-  bills: 'cat-moradia',
-  contas: 'cat-moradia',
-  subscriptions: 'cat-assinaturas',
-  assinaturas: 'cat-assinaturas',
-  telecom: 'cat-assinaturas',
-  telecommunications: 'cat-assinaturas',
-};
-
-const PLUGGY_L1_INCOME_CATEGORY_MAP: Record<string, string> = {
-  salary: 'cat-salario',
-  salario: 'cat-salario',
-  payroll: 'cat-salario',
-  income: 'cat-outros-receita',
-  receitas: 'cat-outros-receita',
-};
-
-function normalizeKey(raw: string): string {
-  return raw
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
-}
-
 function parseIsoDay(iso: string | null | undefined): number | null {
   if (!iso) return null;
   const match = /^\d{4}-\d{2}-(\d{2})/.exec(iso);
@@ -302,58 +262,6 @@ export function mapPluggyAccount(
   };
 }
 
-export function mapPluggyCategory(
-  pluggyCategory: string | null | undefined,
-  kind: 'income' | 'expense',
-  rules: CategoryRuleLike[],
-  description: string
-): { categoryId: string; matchedRuleId?: string } {
-  const [ruleResult] = applyCategoryRules(
-    [
-      {
-        date: '2026-01-01',
-        description,
-        amountCents: 100,
-        direction: kind === 'income' ? 'in' : 'out',
-        externalId: 'rule-probe',
-      },
-    ],
-    rules
-  );
-
-  if (ruleResult?.matchedRuleId) {
-    return {
-      categoryId: ruleResult.categoryId,
-      matchedRuleId: ruleResult.matchedRuleId,
-    };
-  }
-
-  if (pluggyCategory && pluggyCategory.trim()) {
-    const key = normalizeKey(pluggyCategory);
-    const map =
-      kind === 'income'
-        ? PLUGGY_L1_INCOME_CATEGORY_MAP
-        : PLUGGY_L1_EXPENSE_CATEGORY_MAP;
-    if (map[key]) {
-      return { categoryId: map[key] };
-    }
-  }
-
-  return {
-    categoryId: kind === 'income' ? 'cat-outros-receita' : 'cat-outros-despesa',
-  };
-}
-
-const CARD_PAYMENT_DESCRIPTION_RE =
-  /\bpag(amento|to|mto)?\b.*\b(fatura|recebido|efetuado|realizado)\b|\bpayment received\b/;
-const CARD_PAYMENT_CATEGORY_RE = /credit card payment|pagamento de cartao/;
-
-/** Lançamento de crédito no cartão que representa o pagamento da fatura (e não um estorno). */
-export function isCardBillPayment(tx: Pick<PluggyTransaction, 'description' | 'category'>): boolean {
-  if (tx.category && CARD_PAYMENT_CATEGORY_RE.test(normalizeKey(tx.category))) return true;
-  return CARD_PAYMENT_DESCRIPTION_RE.test(normalizeKey(tx.description ?? ''));
-}
-
 export function mapPluggyTransaction(
   tx: PluggyTransaction,
   options: MapPluggyTransactionOptions
@@ -362,7 +270,8 @@ export function mapPluggyTransaction(
   const amountCents = Math.abs(toCentsDecimal(rawAmount));
   const rawStatus: FinEntryStatus = tx.status === 'POSTED' ? 'paid' : 'pending';
 
-  let kind: FinKind | 'transfer_in';
+  let kind: FinKind | 'transfer_in' | 'transfer_out';
+  let bankClass: ReturnType<typeof classifyOpenFinanceBankEntry> | null = null;
   if (options.accountType === 'card') {
     if (rawAmount >= 0) {
       kind = 'expense';
@@ -371,7 +280,11 @@ export function mapPluggyTransaction(
       kind = isCardBillPayment(tx) ? 'transfer_in' : 'income';
     }
   } else {
-    kind = tx.type === 'DEBIT' || rawAmount < 0 ? 'expense' : 'income';
+    bankClass = classifyOpenFinanceBankEntry(tx, {
+      rules: options.rules ?? [],
+      isIncomeLinked: options.isIncomeLinked,
+    });
+    kind = bankClass.kind;
   }
 
   const dueDate = tx.date.slice(0, 10);
@@ -407,14 +320,16 @@ export function mapPluggyTransaction(
   const billMonth = normalized.bill_month;
 
   const rawOriginal = tx.descriptionRaw ?? tx.description ?? null;
-  const { categoryId, matchedRuleId } =
-    kind === 'transfer_in'
+  const { categoryId, matchedRuleId } = bankClass
+    ? { categoryId: bankClass.categoryId, matchedRuleId: bankClass.matchedRuleId }
+    : kind === 'transfer_in'
       ? { categoryId: 'cat-outros-receita', matchedRuleId: undefined }
       : mapPluggyCategory(
           tx.category,
           kind === 'income' ? 'income' : 'expense',
           options.rules ?? [],
-          rawOriginal || tx.description
+          rawOriginal || tx.description,
+          tx.categoryId
         );
 
   return {
@@ -431,6 +346,8 @@ export function mapPluggyTransaction(
     descriptionRaw: rawOriginal,
     categoryId,
     ...(matchedRuleId ? { matchedRuleId } : {}),
+    ofCategoryId: tx.categoryId ?? null,
+    classReason: bankClass?.reason ?? null,
     installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
     installmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
     billId,
@@ -482,7 +399,7 @@ export function reconcilePluggyTransactions(
           date: row.dueDate,
           description: row.description,
           amountCents: row.amountCents,
-          direction: row.kind === 'expense' ? 'out' : 'in',
+          direction: row.kind === 'expense' || row.kind === 'transfer_out' ? 'out' : 'in',
           externalId: row.externalId,
           categoryId: row.categoryId,
         },

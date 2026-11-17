@@ -376,3 +376,9 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/openFinance/income.ts` (`detectBankIncomeCandidate`): aceita `KnownIncomeAsset[]` (`{ ticker, name, status }`), executando busca por ticker → nome do fundo (após `"s/"` ou `"FII"`, normalizado sem stopwords) → raiz de 4 letras do ticker (`R15`), extração de `quantity`/`unitAmount` em `"S/ <n>"` (8 casas) e redirecionamento de recibos `TOTAL_WITHDRAWAL` para o ativo-base `ACTIVE` sufixo `11` (`R16`).
 - `services/pluggy/pluggySyncService.ts` + `domain/openFinance/index.ts`: detecção de proventos executada antes de `reconcilePluggyTransactions` (inclusive para `categoryId 04000000`), excluindo proventos do pareamento de transferências e contabilizando `counts.ambiguousIncomeCount`.
 - `domain/openFinance/diagnostics.ts` (`redactDiagnosticDescription`) + `services/pluggy/pluggyDiagnosticsService.ts`: redação de PII em `sampleTransactions[].description`, inclusão de `name` e bloco `app` por investimento e `entriesLast90d` por conta (`R21`).
+
+## Classificação de Lançamentos Open Finance (Sprint 91)
+
+- `domain/openFinance/classification.ts`: `classifyOpenFinanceBankEntry` (R17/R18), `mapPluggyCategory`/`resolveCategoryByPluggyId` (R20, prefixo do `categoryId`), `findOwnTransferPairs` (R18) e `findCardTopupPairs` (R19), todas puras. `stalePending.ts` guarda `isStaleOpenFinancePending` (janela de 40 dias), usado por `financeFlow`.
+- `services/pluggy/pluggyClassificationService.ts`: `pairOwnTransfersAcrossItems()` (chamado dentro da transação de `syncFinance`, depois de gravar os lançamentos) e `reclassifyOpenFinanceEntries()` (passada única).
+- Schema: `fin_entries.of_category_id` e `of_class_reason` (DDL, ALTER idempotente, backup). Diagnóstico: `entriesLast90d.transfersByReason` e `stalePendingCount` por conta.

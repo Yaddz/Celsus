@@ -1,4 +1,5 @@
 import type { FinAccount, FinEntry, FinRecurrence } from '../../db/schema';
+import { isStaleOpenFinancePending } from '../openFinance/stalePending';
 import {
   billDueDate,
   resolveBillMonth,
@@ -418,7 +419,8 @@ export function resolveAccountBalance(
   return calculateAccountBalance(account.initial_balance_cents, entries, account.id);
 }
 
-export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, _todayIso?: string): MonthlySummary {
+/** `todayIso` (opcional): PENDING do Open Finance com mais de 40 dias fica fora de "a pagar"/"a receber" (R17). */
+export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, todayIso?: string): MonthlySummary {
   let paidIncomeCents = 0;
   let paidExpenseCents = 0;
   let pendingIncomeCents = 0;
@@ -429,6 +431,7 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, 
     if (entry.of_removed_at) continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
+    if (todayIso && isStaleOpenFinancePending(entry, todayIso)) continue;
 
     if (entry.status === 'paid') {
       const realCents = entry.paid_amount_cents ?? entry.amount_cents;
@@ -510,6 +513,7 @@ export function detectOverdueAndDueSoon(
 
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
+    if (isStaleOpenFinancePending(entry, todayIso)) continue;
     const status = classifyEntryDueStatus(entry, todayIso, horizonDays);
     if (status === 'overdue') {
       overdue.push(entry);

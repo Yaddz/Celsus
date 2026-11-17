@@ -32,6 +32,9 @@ import {
 import { appMetaRepository } from './appMetaRepository';
 
 export const FIN_CATEGORIES_SEED_META_KEY = 'fin:categories:seeded:v1';
+/** Sprint 91: Alimentação, Educação, Serviços e Compras entram uma única vez em bases já semeadas. */
+export const FIN_CATEGORIES_SEED_S91_META_KEY = 'fin:categories:seeded:s91';
+const SPRINT91_CATEGORY_IDS = ['cat-alimentacao', 'cat-educacao', 'cat-servicos', 'cat-compras'];
 
 export interface DefaultFinCategorySeed {
   id: string;
@@ -48,6 +51,10 @@ export const DEFAULT_FIN_CATEGORIES: DefaultFinCategorySeed[] = [
   { id: 'cat-saude', name: 'Saúde', kind: 'expense', icon: 'local-hospital', color: '#AECDC5' },
   { id: 'cat-lazer', name: 'Lazer', kind: 'expense', icon: 'movie', color: '#B8B2A6' },
   { id: 'cat-assinaturas', name: 'Assinaturas', kind: 'expense', icon: 'autorenew', color: '#E6DECA' },
+  { id: 'cat-alimentacao', name: 'Alimentação', kind: 'expense', icon: 'restaurant', color: '#C8794A' },
+  { id: 'cat-educacao', name: 'Educação', kind: 'expense', icon: 'school', color: '#7E9CB0' },
+  { id: 'cat-servicos', name: 'Serviços', kind: 'expense', icon: 'build', color: '#9A8FB0' },
+  { id: 'cat-compras', name: 'Compras', kind: 'expense', icon: 'shopping-bag', color: '#B07A8E' },
   { id: 'cat-outros-despesa', name: 'Outros', kind: 'expense', icon: 'category', color: '#8A8A8E' },
   { id: 'cat-salario', name: 'Salário', kind: 'income', icon: 'payments', color: '#AECDC5' },
   { id: 'cat-outros-receita', name: 'Outros recebimentos', kind: 'income', icon: 'attach-money', color: '#2E4A44' },
@@ -224,7 +231,10 @@ export class FinRepository {
     const alreadySeeded = await appMetaRepository.get(FIN_CATEGORIES_SEED_META_KEY);
     const existing = await this.listCategories(true);
 
-    if (alreadySeeded === '1' && existing.length > 0) {
+    const s91Done = await appMetaRepository.get(FIN_CATEGORIES_SEED_S91_META_KEY);
+    const previouslySeeded = alreadySeeded === '1' && existing.length > 0;
+
+    if (previouslySeeded && s91Done === '1') {
       return existing;
     }
 
@@ -232,7 +242,10 @@ export class FinRepository {
     const existingKeys = new Set(existing.map((c) => `${c.kind}:${c.name.trim().toLowerCase()}`));
 
     const toInsert: NewFinCategory[] = DEFAULT_FIN_CATEGORIES.filter(
-      (cat) => !existingIds.has(cat.id) && !existingKeys.has(`${cat.kind}:${cat.name.trim().toLowerCase()}`)
+      (cat) =>
+        (!previouslySeeded || SPRINT91_CATEGORY_IDS.includes(cat.id)) &&
+        !existingIds.has(cat.id) &&
+        !existingKeys.has(`${cat.kind}:${cat.name.trim().toLowerCase()}`)
     ).map((cat) => ({
       id: cat.id,
       name: cat.name,
@@ -249,6 +262,7 @@ export class FinRepository {
     }
 
     await appMetaRepository.set(FIN_CATEGORIES_SEED_META_KEY, '1');
+    await appMetaRepository.set(FIN_CATEGORIES_SEED_S91_META_KEY, '1');
     return this.listCategories(true);
   }
 

@@ -1,4 +1,5 @@
 import type { FinAccount, FinBudget, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
+import { isStaleOpenFinancePending } from '../openFinance/stalePending';
 import { billDueDate, resolveBillMonth, summarizeBill } from './cards';
 
 export type BudgetStatus = 'ok' | 'atencao' | 'estourado';
@@ -314,6 +315,7 @@ export function projectCashflow(
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
     if (entry.status !== 'pending') continue;
+    if (isStaleOpenFinancePending(entry, todayIso)) continue;
     if (cardAccountIds.has(entry.account_id)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
     if (entry.due_date > untilIso) continue;

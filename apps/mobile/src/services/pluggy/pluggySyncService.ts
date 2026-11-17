@@ -23,6 +23,7 @@ import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { finRepository } from '../../repositories/finRepository';
 import { incomeRepository } from '../../repositories/incomeRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
+import { pluggyClassificationService } from './pluggyClassificationService';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from './types';
 
@@ -37,6 +38,10 @@ export interface PluggySyncCounts {
   entriesRemoved?: number;
   removalConflicts?: number;
   ambiguousIncomeCount?: number;
+  ownTransfersPaired?: number;
+  cardTopupsPaired?: number;
+  reclassified?: number;
+  reclassifiedByReason?: Record<string, number>;
 }
 
 export interface PluggySyncResult {
@@ -269,6 +274,7 @@ export const pluggySyncService = {
         }
 
         const allMapped: MappedPluggyTransaction[] = [];
+        const mapOptionsByExternalId = new Map<string, Parameters<typeof mapPluggyTransaction>[1]>();
         const fetchedExternalIds = new Set<string>();
         const rawTxByExternalId = new Map<string, PluggyTransaction>();
         for (const pgAcc of pluggyAccounts) {
@@ -279,17 +285,17 @@ export const pluggySyncService = {
           for (const { tx, externalId } of txs) {
             fetchedExternalIds.add(externalId);
             rawTxByExternalId.set(externalId, tx);
-            allMapped.push(
-              mapPluggyTransaction(tx, {
-                accountId: localAcc.id,
-                accountType: localAcc.type === 'card' ? 'card' : 'checking',
-                closingDay: localAcc.closing_day,
-                dueDay: localAcc.due_day,
-                bills,
-                rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
-                externalIdOverride: externalId,
-              })
-            );
+            const mapOptions = {
+              accountId: localAcc.id,
+              accountType: (localAcc.type === 'card' ? 'card' : 'checking') as 'card' | 'checking',
+              closingDay: localAcc.closing_day,
+              dueDay: localAcc.due_day,
+              bills,
+              rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
+              externalIdOverride: externalId,
+            };
+            mapOptionsByExternalId.set(externalId, mapOptions);
+            allMapped.push(mapPluggyTransaction(tx, mapOptions));
           }
         }
 
@@ -332,6 +338,18 @@ export const pluggySyncService = {
             });
             if (candidate) {
               detectedIncomeByExternalId.set(extId, candidate);
+            }
+          }
+        }
+
+        // R18: provento tem precedência sobre conta própria/investimento (a categoria 04 vem errada em proventos)
+        if (detectedIncomeByExternalId.size > 0) {
+          for (let i = 0; i < allMapped.length; i += 1) {
+            const extId = allMapped[i].externalId;
+            const rawTx = rawTxByExternalId.get(extId);
+            const opts = mapOptionsByExternalId.get(extId);
+            if (rawTx && opts && detectedIncomeByExternalId.has(extId)) {
+              allMapped[i] = mapPluggyTransaction(rawTx, { ...opts, isIncomeLinked: true });
             }
           }
         }
@@ -381,9 +399,20 @@ export const pluggySyncService = {
               }
             );
 
-            const nextKind = row.transferRole ?? row.kind;
+            // Par global (of-tr-/of-topup-) já gravado em outra sincronização: mantém a transferência
+            const keepsGlobalPair =
+              !!existing.transfer_group_id &&
+              existing.transfer_group_id.startsWith('of-') &&
+              (existing.kind === 'transfer_out' || existing.kind === 'transfer_in') &&
+              (row.classReason ?? 'SIGN') === 'SIGN' &&
+              (row.kind === 'expense' || row.kind === 'income');
+            const nextKind = row.transferRole ?? (keepsGlobalPair ? existing.kind : row.kind);
             const nextTransferGroupId =
               row.transferGroupId ?? existing.transfer_group_id ?? null;
+            const nextClassReason = keepsGlobalPair
+              ? existing.of_class_reason ?? null
+              : row.classReason ?? null;
+            const nextOfCategoryId = row.ofCategoryId ?? existing.of_category_id ?? null;
 
             const hasChanges =
               existing.status !== row.status ||
@@ -394,7 +423,9 @@ export const pluggySyncService = {
               existing.category_id !== preserved.category_id ||
               existing.description !== preserved.description ||
               existing.kind !== nextKind ||
-              existing.transfer_group_id !== nextTransferGroupId;
+              existing.transfer_group_id !== nextTransferGroupId ||
+              (existing.of_class_reason ?? null) !== nextClassReason ||
+              (existing.of_category_id ?? null) !== nextOfCategoryId;
 
             if (hasChanges) {
               await finRepository.updateEntry(existing.id, {
@@ -411,6 +442,8 @@ export const pluggySyncService = {
                 installment_number: row.installmentNumber,
                 installment_total: row.installmentTotal,
                 transfer_group_id: nextTransferGroupId,
+                of_category_id: nextOfCategoryId,
+                of_class_reason: nextClassReason,
               });
               counts.transactionsUpdated += 1;
             }
@@ -427,6 +460,8 @@ export const pluggySyncService = {
               external_id: row.externalId,
               source: 'OPEN_FINANCE',
               description_raw: row.descriptionRaw,
+              of_category_id: row.ofCategoryId ?? null,
+              of_class_reason: row.classReason ?? null,
             });
             counts.transactionsSettled += 1;
           } else {
@@ -447,6 +482,8 @@ export const pluggySyncService = {
               transfer_group_id: row.transferGroupId ?? null,
               source: 'OPEN_FINANCE',
               external_id: row.externalId,
+              of_category_id: row.ofCategoryId ?? null,
+              of_class_reason: row.classReason ?? null,
             });
           }
         }
@@ -541,6 +578,16 @@ export const pluggySyncService = {
             await finRepository.updateEntry(rem.entryId, { of_removed_at: nowIso });
             counts.entriesRemoved = (counts.entriesRemoved ?? 0) + 1;
           }
+        }
+
+        // R17–R20: pareamento global entre todas as contas Open Finance e reclassificação única dos já gravados
+        const globalPairing = await pluggyClassificationService.pairOwnTransfersAcrossItems();
+        counts.ownTransfersPaired = globalPairing.paired;
+        counts.cardTopupsPaired = globalPairing.topups;
+        const reclassification = await pluggyClassificationService.reclassifyOpenFinanceEntries();
+        if (reclassification.ran) {
+          counts.reclassified = reclassification.changed;
+          counts.reclassifiedByReason = reclassification.byReason;
         }
 
         // Conta corrente recém-criada ou recém-vinculada (R11): o saldo do banco já contém o histórico

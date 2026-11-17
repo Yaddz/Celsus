@@ -9,6 +9,7 @@ import {
   transactions,
 } from '../../db/schema';
 import { isUnknownCost } from '../../domain/finance/averagePrice';
+import { isStaleOpenFinancePending } from '../../domain/openFinance/stalePending';
 import { redactDiagnosticDescription } from '../../domain/openFinance/diagnostics';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { PluggyClient } from './pluggyClient';
@@ -36,7 +37,9 @@ export interface AnonymizedAccountSummary {
     byKind: Record<string, number>;
     outrosCount: number;
     outrosPct: number;
+    transfersByReason: Record<string, number>;
   };
+  stalePendingCount: number;
   sampleTransactions: Array<{
     type: string;
     status: string;
@@ -197,6 +200,7 @@ export const pluggyDiagnosticsService = {
     const priceByTicker = new Map(priceCache.map((p) => [p.ticker, p.current_price]));
 
     const cutoff90d = daysAgoIso(90);
+    const todayIsoDiag = daysAgoIso(0);
     const cutoff12m = daysAgoIso(365);
 
     const items: AnonymizedItemDiagnostics[] = [];
@@ -232,13 +236,26 @@ export const pluggyDiagnosticsService = {
         const byKind: Record<string, number> = {};
         let total90d = 0;
         let outrosCount = 0;
+        let stalePendingCount = 0;
+        const transfersByReason: Record<string, number> = {};
         if (localAcc) {
           for (const e of localFinEntries) {
             if (e.account_id !== localAcc.id) continue;
             if (e.of_removed_at) continue;
+            if (isStaleOpenFinancePending(e, todayIsoDiag)) stalePendingCount += 1;
             if (e.due_date < cutoff90d) continue;
             total90d += 1;
             byKind[e.kind] = (byKind[e.kind] ?? 0) + 1;
+            if (e.kind === 'transfer_out' || e.kind === 'transfer_in') {
+              const reason =
+                e.of_class_reason ??
+                (e.transfer_group_id?.startsWith('of-topup-')
+                  ? 'CARD_TOPUP'
+                  : e.transfer_group_id
+                    ? 'PAIRED'
+                    : 'UNKNOWN');
+              transfersByReason[reason] = (transfersByReason[reason] ?? 0) + 1;
+            }
             if (e.category_id.startsWith('cat-outros-')) {
               outrosCount += 1;
             }
@@ -262,7 +279,9 @@ export const pluggyDiagnosticsService = {
             byKind,
             outrosCount,
             outrosPct,
+            transfersByReason,
           },
+          stalePendingCount,
           sampleTransactions: txs.slice(0, 20).map((t) => ({
             type: t.type,
             status: t.status,

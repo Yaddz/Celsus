@@ -322,9 +322,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
   const getMonthSummary = useCallback(
     (yearMonth: string): MonthBalanceSummary => {
-      const summary = calculateMonthlySummary(entries, yearMonth);
+      const summary = calculateMonthlySummary(entries, yearMonth, effectiveToday);
       const prev = addMonthsYearMonth(yearMonth, -1);
-      const prevSum = calculateMonthlySummary(entries, prev);
+      const prevSum = calculateMonthlySummary(entries, prev, effectiveToday);
       const { start, end } = getMonthDateRange(yearMonth);
       const fromIso = effectiveToday > start && effectiveToday <= end ? effectiveToday : start;
       const projection = projectCashflow(accounts, entries, fromIso, end, {
@@ -353,14 +353,14 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   }, [categories]);
 
   const monthlySummary = useMemo(
-    () => calculateMonthlySummary(entries, effectiveMonth),
-    [entries, effectiveMonth]
+    () => calculateMonthlySummary(entries, effectiveMonth, effectiveToday),
+    [entries, effectiveMonth, effectiveToday]
   );
 
   const prevMonth = useMemo(() => addMonthsYearMonth(effectiveMonth, -1), [effectiveMonth]);
   const prevSummary = useMemo(
-    () => calculateMonthlySummary(entries, prevMonth),
-    [entries, prevMonth]
+    () => calculateMonthlySummary(entries, prevMonth, effectiveToday),
+    [entries, prevMonth, effectiveToday]
   );
 
   const balanceDelta = monthlySummary.balanceCents - prevSummary.balanceCents;
