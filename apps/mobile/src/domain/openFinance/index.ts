@@ -20,6 +20,7 @@ import {
   isTransferCompatibleCategoryId,
   mapPluggyCategory,
 } from './classification';
+import { matchFetchedToExisting, type MatchMethod } from './identity';
 
 export { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory };
 
@@ -79,6 +80,7 @@ export interface MappedPluggyTransaction {
   ofInstallmentNumber: number | null;
   ofInstallmentTotal: number | null;
   ofBillMonthSource: string | null;
+  ofOrder?: number | null;
 }
 
 export interface MapPluggyTransactionOptions {
@@ -107,6 +109,10 @@ export interface ReconcilableOpenFinanceEntry {
   recurrence_id?: string | null;
   variable_amount?: number | null;
   transfer_group_id?: string | null;
+  description_raw?: string | null;
+  of_provider_id?: string | null;
+  of_raw_amount_cents?: number | null;
+  of_removed_at?: string | null;
 }
 
 export type OpenFinanceReconcileAction = 'create' | 'update' | 'settle_pending';
@@ -114,6 +120,7 @@ export type OpenFinanceReconcileAction = 'create' | 'update' | 'settle_pending';
 export interface ReconciledPluggyTransaction extends MappedPluggyTransaction {
   action: OpenFinanceReconcileAction;
   matchedEntryId?: string;
+  matchedBy?: MatchMethod | null;
   transferGroupId?: string;
   transferPairExternalId?: string;
   transferRole?: 'transfer_out' | 'transfer_in';
@@ -422,6 +429,7 @@ export function mapPluggyTransaction(
     ofInstallmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
     ofInstallmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
     ofBillMonthSource: null,
+    ofOrder: tx.order ?? null,
   };
 }
 
@@ -433,22 +441,41 @@ export function reconcilePluggyTransactions(
   const usedPendingIds = new Set<string>();
   const transactions: ReconciledPluggyTransaction[] = [];
 
-  for (const row of mapped) {
-    const accountEntries = existingEntries.filter(
-      (e) => e.account_id === row.accountId
-    );
-    const byExternal = accountEntries.find(
-      (e) => e.external_id && e.external_id === row.externalId
-    );
+  const identityMatches = matchFetchedToExisting(
+    mapped.map((row) => ({
+      externalId: row.externalId,
+      accountId: row.accountId,
+      date: row.dueDate,
+      absAmountCents: Math.abs(row.ofRawAmountCents ?? row.amountCents),
+      description: row.descriptionRaw ?? row.description,
+      ofProviderId: row.ofProviderId ?? null,
+      order: row.ofOrder ?? null,
+    })),
+    existingEntries
+  );
 
-    if (byExternal) {
+  for (const m of identityMatches) {
+    if (m.action === 'update' && m.existingId) {
+      usedPendingIds.add(m.existingId);
+    }
+  }
+
+  for (let i = 0; i < mapped.length; i += 1) {
+    const row = mapped[i];
+    const idMatch = identityMatches[i];
+    if (idMatch.action === 'update' && idMatch.existingId) {
       transactions.push({
         ...row,
         action: 'update',
-        matchedEntryId: byExternal.id,
+        matchedEntryId: idMatch.existingId,
+        matchedBy: idMatch.matchedBy,
       });
       continue;
     }
+
+    const accountEntries = existingEntries.filter(
+      (e) => e.account_id === row.accountId
+    );
 
     // Reaproveita reconcileImportedRows da Sprint 62 para match exato de pendente
     const availableExactCandidates: ReconcilableExistingEntry[] = accountEntries

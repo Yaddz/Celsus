@@ -47,7 +47,7 @@ describe('Sprint 87 — Bancos e cartões: janela, duplicatas e saldos (Fase A)'
     });
 
     expect(listTxCalls).toHaveLength(1);
-    expect(listTxCalls[0].dateFrom).toBe('2025-11-17');
+    expect(listTxCalls[0].dateFrom).toBeUndefined();
     expect(listTxCalls[0].createdAtFrom).toBeUndefined();
   });
 

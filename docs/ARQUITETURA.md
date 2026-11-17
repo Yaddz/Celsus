@@ -399,3 +399,9 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/financeFlow/cards.ts`: `summarizeCardAccountForScreen` extraída de `AccountsScreen.tsx` sem alterar resultados.
 - `db/schema.ts`, `db/client.ts` e `services/backupService.ts`: persistência e backup das colunas `of_*` em `fin_entries`, `fin_bills`, `fin_accounts` e `of_items`.
 - `services/pluggy/pluggyDiagnosticsService.ts`: export v3 com `fieldPresence`, `txCountByYear`, `localEntriesSummary`, `bills`, `forecastVsBill`, `categoryMap`, `item` e `reconciliation` anonimizados.
+
+## Identidade Estável, R32, R33 e Histórico Completo (Sprint 98)
+
+- `domain/openFinance/identity.ts`: `transactionFingerprint`, `transactionBaseFingerprint`, `computeFetchedFingerprints` e `matchFetchedToExisting` (matching em 3 passos: `EXTERNAL_ID` → `PROVIDER_ID` → `FINGERPRINT` com fallback para lançamentos pré-Sprint 97).
+- `domain/openFinance/index.ts` (`reconcilePluggyTransactions`): delega a `matchFetchedToExisting` antes do `settle_pending` manual.
+- `services/pluggy/pluggySyncService.ts`: contadores `matchedByProviderId`, `matchedByFingerprint`, `restored`, `removalSkippedReason`, `dedupeConflicts`; filtro R32 por `statusDetail.<produto>.isUpdated`; limpeza única `fin:of:dedupe:s98`; reconexão R33 em `previewAccountReconciliation`; busca inicial e migração única `fin:of:fullhistory:s98:<itemId>` sem `dateFrom` (R37).

@@ -191,7 +191,7 @@ describe('Sprint 65 — Serviço pluggySyncService e Banco (Fase A)', () => {
     expect(res1.counts.transactionsCreated).toBe(2);
     expect(res1.counts.billsSynced).toBe(1);
     expect(res1.accountsNeedingClosingDay).toHaveLength(1);
-    expect(seenDateFrom[0]).toBe('2025-11-16');
+    expect(seenDateFrom).toEqual([]);
 
     const localAccounts = await finRepository.listAccounts(true);
     const syncedCard = localAccounts.find((a: any) => a.of_account_id === 'pg-crd-1') as any;

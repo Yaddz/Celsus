@@ -14,6 +14,7 @@ import {
   type MappedPluggyTransaction,
   type ReconcilableOpenFinanceEntry,
 } from '../../domain/openFinance';
+import { transactionBaseFingerprint } from '../../domain/openFinance/identity';
 import {
   detectBankIncomeCandidate,
   type BankIncomeCandidate,
@@ -25,7 +26,11 @@ import { incomeRepository } from '../../repositories/incomeRepository';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { pluggyClassificationService } from './pluggyClassificationService';
-import { resolveInstitutionName } from '../../domain/openFinance/institutions';
+import {
+  institutionFromCompe,
+  parseTransferNumberCompe,
+  resolveInstitutionName,
+} from '../../domain/openFinance/institutions';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from './types';
 
@@ -44,6 +49,11 @@ export interface PluggySyncCounts {
   cardTopupsPaired?: number;
   reclassified?: number;
   reclassifiedByReason?: Record<string, number>;
+  matchedByProviderId?: number;
+  matchedByFingerprint?: number;
+  restored?: number;
+  removalSkippedReason?: string;
+  dedupeConflicts?: number;
 }
 
 /**
@@ -52,6 +62,9 @@ export interface PluggySyncCounts {
  * conseguia corrigir.
  */
 export const OF_HISTORY_BACKFILL_META_PREFIX = 'fin:of:backfill:s92:';
+export const OF_FULL_HISTORY_S98_META_PREFIX = 'fin:of:fullhistory:s98:';
+export const OF_DEDUPE_S98_META_KEY = 'fin:of:dedupe:s98';
+export const OF_DEDUPE_S98_LOG_KEY = 'fin:of:dedupe:s98:log';
 
 export interface PluggySyncResult {
   runId: string;
@@ -127,9 +140,13 @@ export const pluggySyncService = {
         : new Date(nowDate.getTime() - 40 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
       const backfillMetaKey = `${OF_HISTORY_BACKFILL_META_PREFIX}${itemId}`;
+      const fullHistoryMetaKey = `${OF_FULL_HISTORY_S98_META_PREFIX}${itemId}`;
       const needsHistoryBackfill =
         !isFirstFinanceSync && (await appMetaRepository.get(backfillMetaKey)) !== '1';
-      const fetchedFullHistory = isFirstFinanceSync || needsHistoryBackfill;
+      const needsFullHistoryS98 =
+        !isFirstFinanceSync && (await appMetaRepository.get(fullHistoryMetaKey)) !== '1';
+      const fetchedFullHistory =
+        isFirstFinanceSync || needsHistoryBackfill || needsFullHistoryS98;
 
       const item = await client.getItem(itemId);
       assertItemConsentActive(item, nowDate.getTime());
@@ -141,16 +158,20 @@ export const pluggySyncService = {
       for (const acc of pluggyAccounts) {
         let rawTxs: PluggyTransaction[];
         if (isFirstFinanceSync || !createdAtFrom) {
-          rawTxs = await client.listTransactions(acc.id, { dateFrom: firstDateFrom });
+          // R37: 1ª sincronização busca sem dateFrom para trazer todo o histórico da Pluggy
+          rawTxs = await client.listTransactions(acc.id);
         } else {
-          const [incTxs, recTxs, historyTxs] = await Promise.all([
+          const [incTxs, recTxs, historyTxs, fullHistoryS98Txs] = await Promise.all([
             client.listTransactions(acc.id, { createdAtFrom }),
             client.listTransactions(acc.id, { dateFrom: reconcileWindowStart }),
             needsHistoryBackfill
               ? client.listTransactions(acc.id, { dateFrom: firstDateFrom })
               : Promise.resolve([] as PluggyTransaction[]),
+            needsFullHistoryS98
+              ? client.listTransactions(acc.id)
+              : Promise.resolve([] as PluggyTransaction[]),
           ]);
-          rawTxs = [...incTxs, ...recTxs, ...historyTxs];
+          rawTxs = [...incTxs, ...recTxs, ...historyTxs, ...fullHistoryS98Txs];
         }
         const deduped = deduplicatePluggyAccountTransactions(rawTxs);
         txsByAccount.set(acc.id, deduped);
@@ -405,6 +426,10 @@ export const pluggySyncService = {
             ? recurrenceVariableMap.get(e.recurrence_id) ?? 0
             : 0,
           transfer_group_id: e.transfer_group_id,
+          description_raw: e.description_raw,
+          of_provider_id: e.of_provider_id,
+          of_raw_amount_cents: e.of_raw_amount_cents,
+          of_removed_at: e.of_removed_at,
         }));
 
         const reconciled = reconcilePluggyTransactions(allMapped, reconcilable, {
@@ -421,6 +446,17 @@ export const pluggySyncService = {
           if (row.action === 'update' && row.matchedEntryId) {
             const existing = existingById.get(row.matchedEntryId);
             if (!existing) continue;
+
+            if (row.matchedBy === 'PROVIDER_ID') {
+              counts.matchedByProviderId = (counts.matchedByProviderId ?? 0) + 1;
+            } else if (row.matchedBy === 'FINGERPRINT') {
+              counts.matchedByFingerprint = (counts.matchedByFingerprint ?? 0) + 1;
+            }
+            const isRestored = Boolean(existing.of_removed_at);
+            if (isRestored) {
+              counts.restored = (counts.restored ?? 0) + 1;
+            }
+            const externalIdChanged = existing.external_id !== row.externalId;
 
             const preserved = applyUserEditedPreservation(
               {
@@ -450,6 +486,8 @@ export const pluggySyncService = {
             const nextOfCategoryId = row.ofCategoryId ?? existing.of_category_id ?? null;
 
             const hasChanges =
+              externalIdChanged ||
+              isRestored ||
               existing.status !== row.status ||
               existing.amount_cents !== row.amountCents ||
               existing.due_date !== row.dueDate ||
@@ -473,6 +511,8 @@ export const pluggySyncService = {
 
             if (hasChanges) {
               await finRepository.updateEntry(existing.id, {
+                external_id: row.externalId,
+                of_removed_at: null,
                 kind: nextKind,
                 status: row.status,
                 amount_cents: row.amountCents,
@@ -635,14 +675,35 @@ export const pluggySyncService = {
           }
         }
 
-        // R10: Detectar lançamentos Open Finance removidos pela instituição dentro da janela de 40 dias
+        // R32: Detectar lançamentos Open Finance removidos apenas quando o produto veio atualizado
+        const execStatusOk =
+          item.executionStatus === 'SUCCESS' || item.executionStatus === 'PARTIAL_SUCCESS';
+        const eligibleRemovalAccountIds = new Set<string>();
+        if (!execStatusOk) {
+          counts.removalSkippedReason = 'EXECUTION_STATUS_ERROR';
+        } else {
+          for (const pgAcc of pluggyAccounts) {
+            const localAcc = localAccountByPgId.get(pgAcc.id);
+            if (!localAcc || !syncedAccountIds.has(localAcc.id)) continue;
+            const productStatus =
+              pgAcc.type === 'CREDIT'
+                ? item.statusDetail?.creditCards
+                : item.statusDetail?.transactions;
+            if (productStatus?.isUpdated === false) {
+              counts.removalSkippedReason = 'PRODUCT_NOT_UPDATED';
+              continue;
+            }
+            eligibleRemovalAccountIds.add(localAcc.id);
+          }
+        }
+
         const settledEntryIds = new Set(
           reconciled.transactions
             .filter((r) => r.action === 'settle_pending' && r.matchedEntryId)
             .map((r) => r.matchedEntryId!)
         );
         const candidatesForRemoval = existingEntries.filter(
-          (e) => syncedAccountIds.has(e.account_id) && !settledEntryIds.has(e.id)
+          (e) => eligibleRemovalAccountIds.has(e.account_id) && !settledEntryIds.has(e.id)
         );
         const removals = detectRemovedOpenFinanceEntries(
           candidatesForRemoval,
@@ -656,6 +717,96 @@ export const pluggySyncService = {
             await finRepository.updateEntry(rem.entryId, { of_removed_at: nowIso });
             counts.entriesRemoved = (counts.entriesRemoved ?? 0) + 1;
           }
+        }
+
+        // Sprint 98: limpeza única de duplicatas já gravadas (fin:of:dedupe:s98)
+        if ((await appMetaRepository.get(OF_DEDUPE_S98_META_KEY)) !== '1') {
+          const entriesForDedupe = await finRepository.listAllEntries();
+          const hasEditedFields = (raw: string | null | undefined): boolean => {
+            if (!raw) return false;
+            const trimmed = raw.trim();
+            return trimmed !== '' && trimmed !== '[]' && trimmed !== 'null';
+          };
+          const groups = new Map<string, typeof entriesForDedupe>();
+          for (const e of entriesForDedupe) {
+            if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) continue;
+            if (!syncedAccountIds.has(e.account_id)) continue;
+            const absCents =
+              e.of_raw_amount_cents != null
+                ? Math.abs(e.of_raw_amount_cents)
+                : Math.abs(e.amount_cents);
+            const base = transactionBaseFingerprint(
+              e.account_id,
+              e.due_date,
+              absCents,
+              e.description_raw ?? e.description
+            );
+            const key = `${e.kind}|${base}`;
+            const list = groups.get(key) ?? [];
+            list.push(e);
+            groups.set(key, list);
+          }
+
+          let dedupeMerged = 0;
+          let dedupeConflicts = 0;
+          for (const group of groups.values()) {
+            if (group.length < 2) continue;
+            const distinctExtIds = new Set(group.map((g) => g.external_id).filter(Boolean));
+            if (distinctExtIds.size < 2) continue;
+            const inFetch = group.filter(
+              (g) => g.external_id && fetchedExternalIds.has(g.external_id)
+            );
+            const notInFetch = group.filter(
+              (g) => !g.external_id || !fetchedExternalIds.has(g.external_id)
+            );
+            if (inFetch.length !== 1 || notInFetch.length === 0) continue;
+
+            const kept = inFetch[0];
+            for (const other of notInFetch) {
+              const keptEdited = hasEditedFields(kept.user_edited_fields);
+              const otherEdited = hasEditedFields(other.user_edited_fields);
+              if (keptEdited && otherEdited) {
+                dedupeConflicts += 1;
+                continue;
+              }
+              if (!keptEdited && otherEdited) {
+                let fields: string[] = [];
+                try {
+                  fields = JSON.parse(other.user_edited_fields || '[]');
+                } catch {
+                  fields = [];
+                }
+                const patch: Record<string, unknown> = {
+                  user_edited_fields: other.user_edited_fields,
+                };
+                if (fields.includes('category_id')) patch.category_id = other.category_id;
+                if (fields.includes('description')) patch.description = other.description;
+                if (fields.includes('bill_month')) patch.bill_month = other.bill_month;
+                if (fields.includes('kind')) patch.kind = other.kind;
+                if (other.linked_income_id && !kept.linked_income_id) {
+                  patch.linked_income_id = other.linked_income_id;
+                }
+                if (other.transfer_group_id && !kept.transfer_group_id) {
+                  patch.transfer_group_id = other.transfer_group_id;
+                }
+                await finRepository.updateEntry(kept.id, patch);
+              }
+              await finRepository.updateEntry(other.id, {
+                of_removed_at: nowIso,
+                of_class_reason: 'DUPLICATE_MERGED',
+              });
+              dedupeMerged += 1;
+            }
+          }
+
+          if (dedupeConflicts > 0) {
+            counts.dedupeConflicts = dedupeConflicts;
+          }
+          await appMetaRepository.set(OF_DEDUPE_S98_META_KEY, '1');
+          await appMetaRepository.set(
+            OF_DEDUPE_S98_LOG_KEY,
+            JSON.stringify({ merged: dedupeMerged, conflicts: dedupeConflicts, at: nowIso })
+          );
         }
 
         // R17–R20: pareamento global entre todas as contas Open Finance e reclassificação única dos já gravados
@@ -690,6 +841,7 @@ export const pluggySyncService = {
 
         if (fetchedFullHistory) {
           await appMetaRepository.set(backfillMetaKey, '1');
+          await appMetaRepository.set(fullHistoryMetaKey, '1');
         }
 
         await openFinanceRepository.upsertItem({
@@ -754,10 +906,25 @@ export const pluggySyncService = {
     itemId: string,
     client: PluggyClient = new PluggyClient()
   ): Promise<AccountReconciliationProposal[]> {
-    const [pluggyAccounts, localAccounts] = await Promise.all([
+    const [item, pluggyAccounts, localAccounts] = await Promise.all([
+      typeof (client as unknown as Record<string, unknown>).getItem === 'function'
+        ? client.getItem(itemId).catch(() => null)
+        : Promise.resolve(null),
       client.listAccounts(itemId),
       finRepository.listAccounts(true),
     ]);
+
+    const itemInstitution = resolveInstitutionName({
+      connectorName: item?.connector?.name,
+      accounts: pluggyAccounts,
+    });
+
+    const normalizeInst = (val: string | null | undefined): string =>
+      (val ?? '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .trim();
 
     return pluggyAccounts.map((pgAcc) => {
       const targetType = pgAcc.type === 'CREDIT' ? 'card' : 'checking';
@@ -765,6 +932,42 @@ export const pluggySyncService = {
       if (byOfId) {
         return { pluggyAccount: pgAcc, suggestedLocalAccountId: byOfId.id };
       }
+
+      // R33: reconexão sem duplicar por (COMPE/instituição, subtype/tipo, últimos 4 dígitos)
+      const digits = (pgAcc.number || '').replace(/\D/g, '');
+      const last4 = digits.length >= 4 ? digits.slice(-4) : null;
+      const accCompe = parseTransferNumberCompe(pgAcc.bankData?.transferNumber);
+      const pgInstitution = (accCompe ? institutionFromCompe(accCompe) : null) ?? itemInstitution;
+      const normInst = normalizeInst(pgInstitution);
+
+      if (last4) {
+        const accountCompeInstitutions = pluggyAccounts
+          .map((a) => {
+            const c = parseTransferNumberCompe(a.bankData?.transferNumber);
+            return c ? normalizeInst(institutionFromCompe(c)) : '';
+          })
+          .filter(Boolean);
+        const byReconnectKey = localAccounts.find((a) => {
+          if (a.source !== 'OPEN_FINANCE' || a.type !== targetType) return false;
+          if (a.masked_number !== last4) return false;
+          const normAccName = normalizeInst(a.name);
+          const normAutoName = normalizeInst(a.auto_name);
+          if (!normInst) return true;
+          if (normAccName.includes(normInst) || normAutoName.includes(normInst)) {
+            return true;
+          }
+          // Se o conector não for genérico mas as contas têm COMPE (ex.: MeuPluggy/XP), aceita o COMPE da conta
+          return accountCompeInstitutions.some(
+            (ci) =>
+              (normAccName.includes(ci) || normAutoName.includes(ci)) &&
+              normalizeInst(pgAcc.name).includes(ci)
+          );
+        });
+        if (byReconnectKey) {
+          return { pluggyAccount: pgAcc, suggestedLocalAccountId: byReconnectKey.id };
+        }
+      }
+
       const normPgName = (pgAcc.marketingName || pgAcc.name).toLowerCase().trim();
       const byName = localAccounts.find(
         (a) =>
