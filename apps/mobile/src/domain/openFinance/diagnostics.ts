@@ -407,3 +407,58 @@ export function formatDiagnosticsReportText(report: SyncDiagnosticsReport): stri
 
   return lines.join('\n');
 }
+
+export type OutlierAlertKind =
+  | 'EXTREME_PROFITABILITY'
+  | 'MARKET_VALUE_DIVERGENCE'
+  | 'MISSING_COST_BASIS'
+  | 'RF_RATE_OUT_OF_RANGE'
+  | 'INVALID_QUOTE_TICKER'
+  | 'DUPLICATE_FIN_ENTRY'
+  | 'ACCOUNT_BALANCE_DIVERGENCE';
+
+export interface OutlierAlert {
+  id: string;
+  kind: OutlierAlertKind;
+  severity: 'high' | 'medium';
+  title: string;
+  detail: string;
+}
+
+export interface OutlierAuditInput {
+  assets?: Array<{
+    id: string;
+    ticker: string;
+    name: string;
+    quantity: string;
+    average_price: string | null;
+    marketValue?: string | number | null;
+    of_reported_value?: string | null;
+    value_source?: string | null;
+    rf_indexer?: string | null;
+    rf_rate?: number | null;
+    source?: string | null;
+  }>;
+  accounts?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    source?: string | null;
+    reported_balance_cents?: number | null;
+    calculated_balance_cents?: number | null;
+  }>;
+  entries?: Array<{
+    id: string;
+    account_id: string;
+    kind: string;
+    amount_cents: number;
+    due_date: string;
+    source?: string | null;
+    external_id?: string | null;
+    of_removed_at?: string | null;
+  }>;
+}
+
+export function auditOpenFinanceOutliers(_input: OutlierAuditInput): OutlierAlert[] {
+  return [];
+}
