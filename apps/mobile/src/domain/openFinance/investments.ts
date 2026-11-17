@@ -104,6 +104,17 @@ export interface ClassCoverageStatus {
   sourceHint: string;
 }
 
+export type ValueSource = 'QUOTE' | 'INSTITUTION' | 'MANUAL';
+
+export function resolveVariableIncomeValueSource(_params: {
+  ticker: string | null | undefined;
+  quantity: string | number | null | undefined;
+  balance: string | number | null | undefined;
+  quote: string | number | null | undefined;
+}): ValueSource {
+  return 'QUOTE';
+}
+
 export function normalizeInvestmentTicker(ticker: string | null | undefined): string {
   const cleaned = (ticker || '').trim().toUpperCase();
   if (!cleaned) return '';

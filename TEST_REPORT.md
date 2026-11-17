@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **193 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 85 — Investimentos: valor de mercado, identidade e histórico (Fase A concluída)
+
+Especificação dos diagnósticos D1, D2, D6, D7 e D8 e regras R4 (`OPENING_BALANCE`), R5, R6 e R7.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint85MarketValueIdentity.test.ts` | S85-T01…T07, S85-T10 | `67a8a08214f527d2b06adcce2e4f73cd118d494b8da5df35160d8264611ee814` | 8 FAIL |
+| `apps/mobile/src/domain/finance/__tests__/Sprint85PortfolioHistory.test.ts` | S85-T08…T09 | `2aeba4e73e73d470c2466116cbfa833a0386280efc46465035a1ee8e01702431` | 2 FAIL |
+
 ## Sprint 84 — Investimentos: números corretos (Fase B concluída)
 
 Precisão de 8 casas decimais em `unit_price` e `average_price` (`R1`), validação de `tx.value` e exclusão de `incomeTax`/`iofProvision` em `fees` (`R2`), mapeamento de taxas de Renda Fixa com `assets.rf_indexer_pct` e faixa plausível (`R3`), custo `'UNKNOWN'` quando sem `amountOriginal` (`R4`), reprocessamento idempotente por `external_id` e formatação `formatUnitPriceBRL` (2 ou 6 casas para cotas `< R$ 1,00`).
