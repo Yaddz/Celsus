@@ -39,6 +39,7 @@ export class PortfolioRepository {
     name: string;
     description?: string;
     docket_code: string;
+    of_item_id?: string | null;
     classTargets?: Array<{ asset_class: string; target_percentage: number }>;
   }): Promise<Portfolio> {
     const now = new Date().toISOString();
@@ -51,7 +52,7 @@ export class PortfolioRepository {
       docket_code: params.docket_code,
       patrimony_goal: null,
       monthly_contribution: null,
-      of_item_id: null,
+      of_item_id: params.of_item_id ?? null,
       is_archived: 0,
       created_at: now,
       updated_at: now,
@@ -118,6 +119,7 @@ export class PortfolioRepository {
       name: string;
       description: string;
       docket_code: string;
+      of_item_id: string | null;
       is_archived: number;
       patrimony_goal: string | null;
       monthly_contribution: string | null;

@@ -12,17 +12,18 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **170 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 73 — Pluggy: botão único "Sincronizar" e carteira automática por corretora (Fase A concluída)
+## Sprint 73 — Pluggy: botão único "Sincronizar" e carteira automática por corretora (Fase B concluída)
 
-Vínculo `portfolios.of_item_id`, serviço `ensurePortfolioForItem` (reaproveitamento/vinculação por nome/criação automática, proteção de nome renomeado), roteamento em `syncInvestments`, botão único `"Sincronizar"` com progresso por conexão, resumo final, isolamento de erros e reload de `walletsStore`.
+Vínculo `portfolios.of_item_id` (coluna + índice único condicional + upgrade de schema), serviço `ensurePortfolioForItem` em `pluggyPortfolioService.ts` (reaproveitamento por `of_item_id`, vinculação por nome, criação automática, proteção contra renomeio de carteira já vinculada), roteamento em `pluggyInvestmentsSyncService.syncInvestments` para criar/reaproveitar a carteira por conexão, botão único `"Sincronizar"` em `OpenFinanceScreen` substituindo os botões separados (Contas/Cartões/Investimentos), com progresso por conexão (`syncProgressLabel`), resumo final consolidado, isolamento de erro por conexão (uma falha não interrompe as demais) e reload de `walletsStore` ao final. Correção lateral em `ReceiptScannerSheet.tsx` (cores `surfaceElevated`/`primary` no lugar de `accent` inexistente, `absoluteFill` no lugar de `absoluteFillObject`).
 
-| Arquivo de teste | Casos | SHA-256 | Fase A |
-| :--- | :--- | :--- | :--- |
-| `apps/mobile/src/services/pluggy/__tests__/Sprint73PortfolioPerBroker.test.ts` | S73-T01…T06 | `c02651d33d3ba1dedea62bf7287db72dd1789bccc45a476b34c26f4114ec99c9` | 6 FAIL |
-| `apps/mobile/src/db/__tests__/Sprint73PortfolioItemLinkMigration.test.ts` | S73-T07…T08 | `33fccf7fa5f52049705e6c04d671d607378f5224cce34572ccf7581f1553eca8` | 2 FAIL |
-| `apps/mobile/src/screens/__tests__/Sprint73UnifiedSync.test.tsx` | S73-T09…T10 | `46980d5e0de181f70c519f03c31534a1e4f0c87c2d85dde2074c11df710b6387` | 2 FAIL |
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint73PortfolioPerBroker.test.ts` | S73-T01…T06 | `c02651d33d3ba1dedea62bf7287db72dd1789bccc45a476b34c26f4114ec99c9` | 6 FAIL | 6 PASS |
+| `apps/mobile/src/db/__tests__/Sprint73PortfolioItemLinkMigration.test.ts` | S73-T07…T08 | `33fccf7fa5f52049705e6c04d671d607378f5224cce34572ccf7581f1553eca8` | 2 FAIL | 2 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint73UnifiedSync.test.tsx` | S73-T09…T10 | `46980d5e0de181f70c519f03c31534a1e4f0c87c2d85dde2074c11df710b6387` | 2 FAIL | 2 PASS |
 
 Execução da Fase A: `npx jest Sprint73 --no-coverage` → 10 falhando, 0 passando (10 testes, 3 suítes). 170 arquivos travados.
+Execução da Fase B: `npx jest Sprint73 --no-coverage` → 10/10 passando. Suítes dependentes (`Sprint69OpenFinanceInvestmentsUI`, `Sprint71OpenFinanceSyncFlow`) → 7/7 passando. `tsc --noEmit`: 0 erros de produção introduzidos (branch isolada da sprint-73, criada antes das sprints 74–81; os 2 erros de produção remanescentes — `DotMatrixAllocationCard` variante `obsidian`, `PortfolioManagementScreen` cor de classe — e as 4 falhas de suíte remanescentes — `fixtures.ts`/testMatch do jest, labels do menu em `receiptFlow`, `getAllByText` em `Sprint39` — já existiam na Fase A isolada (13 falhas) e são resolvidas pelo merge com as sprints 74–81, não pertencem ao escopo da 73). `test-lock verify`: 170 arquivos íntegros.
 
 ## Sprint 72 — Pluggy: sincronizar proventos (Fase B concluída)
 

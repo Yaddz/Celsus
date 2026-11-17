@@ -157,7 +157,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
               <View style={styles.actionStack}>
                 <TouchableOpacity
                   testID="receipt-open-settings-btn"
-                  style={[styles.primaryBtn, { backgroundColor: c.accent }]}
+                  style={[styles.primaryBtn, { backgroundColor: c.primary }]}
                   onPress={() => void Linking.openSettings()}
                 >
                   <MaterialIcons name="settings" size={18} color="#0C0F0D" />
@@ -201,7 +201,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
               />
               {processing ? (
                 <View style={styles.processingOverlay}>
-                  <ActivityIndicator color={c.accent} size="large" />
+                  <ActivityIndicator color={c.primary} size="large" />
                   <Text style={styles.processingText}>Lendo dados no aparelho...</Text>
                 </View>
               ) : null}
@@ -220,7 +220,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                 <>
                   <TouchableOpacity
                     testID="receipt-capture-btn"
-                    style={[styles.primaryBtn, styles.flexBtn, { backgroundColor: c.accent }]}
+                    style={[styles.primaryBtn, styles.flexBtn, { backgroundColor: c.primary }]}
                     onPress={() => void handleCapturePhoto()}
                     disabled={processing}
                   >
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   processingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.65)',
     alignItems: 'center',
     justifyContent: 'center',

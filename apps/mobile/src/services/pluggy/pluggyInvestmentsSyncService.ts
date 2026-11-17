@@ -23,6 +23,7 @@ import {
   type MappedPluggyInvestmentTransaction,
 } from '../../domain/openFinance/investments';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
+import { ensurePortfolioForItem } from './pluggyPortfolioService';
 import type { PluggyInvestment, PluggyInvestmentTransaction, PluggyItem } from './types';
 
 export interface InvestmentReconciliationProposal {
@@ -69,6 +70,9 @@ export interface SyncInvestmentsResult {
   coverageByClass: ClassCoverageStatus[];
   needsReconciliation: boolean;
   interestTransactions?: ReturnType<typeof mapPluggyInvestmentTransaction>[];
+  portfolioId?: string | null;
+  portfolioName?: string | null;
+  portfolioCreated?: boolean;
   error?: string;
 }
 
@@ -244,8 +248,23 @@ export const pluggyInvestmentsSyncService = {
       const choicesByInvId = new Map<string, InvestmentReconciliationChoice>(
         (options?.reconciliationChoices ?? []).map((c) => [c.pluggyInvestmentId, c])
       );
-      const defaultPortId =
+      let defaultPortId =
         options?.portfolioByItemId?.[itemId] ?? options?.defaultPortfolioId ?? null;
+      let brokerPortfolioName: string | null = null;
+      let brokerPortfolioCreated = false;
+
+      if (!defaultPortId && pluggyInvs.length > 0) {
+        const storedItems = await openFinanceRepository.listItems();
+        const storedItem = storedItems.find((it) => it.id === itemId);
+        const ensured = await ensurePortfolioForItem(
+          itemId,
+          item?.connector?.name ?? storedItem?.connector_name ?? null,
+          pluggyInvs[0]
+        );
+        defaultPortId = ensured.portfolio.id;
+        brokerPortfolioName = ensured.portfolio.name;
+        brokerPortfolioCreated = ensured.created;
+      }
 
       let needsReconciliation = false;
 
@@ -255,6 +274,19 @@ export const pluggyInvestmentsSyncService = {
         const workingIncomes = [...(await db.select().from(incomeEvents))];
         const syncedExternalIds = new Set<string>();
         const usedTickers = new Set<string>();
+        const matchCandidates: InvestmentMatchCandidate[] = allAssets.map((a) => ({
+          id: a.id,
+          portfolioId: a.portfolio_id,
+          ticker: a.ticker,
+          name: a.name,
+          assetClass: a.asset_class as any,
+          isin: a.isin,
+          rfIssuer: a.rf_issuer,
+          rfMaturityDate: a.rf_maturity_date,
+          rfRate: a.rf_rate,
+          externalId: a.external_id,
+          source: a.source,
+        }));
 
         for (const inv of pluggyInvs) {
           syncedExternalIds.add(inv.id);
@@ -268,13 +300,25 @@ export const pluggyInvestmentsSyncService = {
 
           let targetAssetId: string | null = existingByExt?.id ?? null;
           let targetPortfolioId: string | null =
-            choice?.targetPortfolioId ?? existingByExt?.portfolio_id ?? defaultPortId;
+            existingByExt?.portfolio_id ?? choice?.targetPortfolioId ?? defaultPortId;
 
           if (!existingByExt && choice?.action === 'MATCH' && choice.targetAssetId) {
             targetAssetId = choice.targetAssetId;
-          } else if (!existingByExt && !choice && !defaultPortId) {
-            needsReconciliation = true;
-            continue;
+            const matchedAsset = allAssets.find((a) => a.id === choice.targetAssetId);
+            if (matchedAsset) targetPortfolioId = matchedAsset.portfolio_id;
+          } else if (!existingByExt && !choice) {
+            const match = matchInvestmentToAsset(inv, matchCandidates);
+            if (match.matchedAssetId && match.confidence === 'HIGH') {
+              targetAssetId = match.matchedAssetId;
+              const matchedAsset = allAssets.find((a) => a.id === match.matchedAssetId);
+              if (matchedAsset) targetPortfolioId = matchedAsset.portfolio_id;
+            } else if (match.matchedAssetId && match.confidence === 'MEDIUM') {
+              needsReconciliation = true;
+              continue;
+            } else if (!defaultPortId) {
+              needsReconciliation = true;
+              continue;
+            }
           }
 
           const isWithdrawn = mapped.status === 'TOTAL_WITHDRAWAL';
@@ -538,6 +582,9 @@ export const pluggyInvestmentsSyncService = {
         coverageByClass,
         needsReconciliation,
         interestTransactions,
+        portfolioId: defaultPortId,
+        portfolioName: brokerPortfolioName,
+        portfolioCreated: brokerPortfolioCreated,
       };
     } catch (err) {
       const message =

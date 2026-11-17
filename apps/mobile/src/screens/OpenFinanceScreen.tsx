@@ -45,6 +45,7 @@ import {
 } from '../domain/openFinance/diagnostics';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
+import { walletsStore } from '../stores/walletsStore';
 import { ThemeMode } from '../theme/palettes';
 import { bento, BentoVariant, colors, layout, typography } from '../theme/tokens';
 
@@ -103,6 +104,10 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isTesting, setIsTesting] = useState(false);
   const [isSyncingFinance, setIsSyncingFinance] = useState(false);
+  const [isUnifiedSyncing, setIsUnifiedSyncing] = useState(false);
+  const [showAdvancedSync, setShowAdvancedSync] = useState(false);
+  const [syncProgressLabel, setSyncProgressLabel] = useState<string | null>(null);
+  const [afterReconcileSyncInvestments, setAfterReconcileSyncInvestments] = useState(false);
   const [reconcileItemId, setReconcileItemId] = useState<string | null>(null);
   const [reconcileProposals, setReconcileProposals] = useState<AccountReconciliationProposal[]>([]);
   const [reconcileChoices, setReconcileChoices] = useState<Record<string, string | 'CREATE_NEW'>>({});
@@ -388,6 +393,16 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
       setReconcileItemId(null);
       setReconcileProposals([]);
       setPendingFinanceQueue([]);
+
+      if (afterReconcileSyncInvestments) {
+        setAfterReconcileSyncInvestments(false);
+        await runUnifiedInvestmentsPass(items, {
+          accounts: nextTotals.accounts,
+          transactions: nextTotals.created + nextTotals.updated,
+        });
+        return;
+      }
+
       await loadState();
       setStatusMessage(
         `Primeira sincronização concluída: ${nextTotals.accounts} contas, ${nextTotals.created} lançamentos.`
@@ -396,6 +411,123 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
       setErrorMessage(err instanceof Error ? err.message : 'Erro na conciliação inicial.');
     } finally {
       setIsSyncingFinance(false);
+    }
+  };
+
+  const runUnifiedInvestmentsPass = async (
+    targetItems: OfItemRecord[],
+    finTotals: { accounts: number; transactions: number },
+    initialFailures: Array<{ label: string; error: string }> = []
+  ) => {
+    let assetsCount = 0;
+    let incomesCount = 0;
+    const portfolioNames = new Set<string>();
+    const failures = [...initialFailures];
+
+    for (let i = 0; i < targetItems.length; i += 1) {
+      const it = targetItems[i];
+      const label = it.connector_name || it.id;
+      setSyncProgressLabel(`${i + 1} de ${targetItems.length} · ${label}`);
+      try {
+        const invRes = await pluggyInvestmentsSyncService.syncInvestments(it.id, {
+          client: pluggyClient,
+        });
+        assetsCount += invRes.counts.assetsCreated + invRes.counts.assetsUpdated;
+        incomesCount += invRes.counts.incomesCreated ?? 0;
+        if (invRes.portfolioName) {
+          portfolioNames.add(invRes.portfolioName);
+        }
+      } catch (err) {
+        failures.push({
+          label,
+          error: err instanceof Error ? err.message : 'Erro ao sincronizar investimentos.',
+        });
+      }
+    }
+
+    await walletsStore.requestRefresh();
+    await loadState();
+    setSyncProgressLabel(null);
+
+    const portsText =
+      portfolioNames.size > 0 ? ` · Carteiras: ${Array.from(portfolioNames).join(', ')}` : '';
+    const summary = `Sincronização concluída: ${finTotals.accounts} contas, ${finTotals.transactions} lançamentos, ${assetsCount} ativos, ${incomesCount} proventos${portsText}.`;
+    setStatusMessage(summary);
+    if (failures.length > 0) {
+      setErrorMessage(
+        failures.map((f) => `${f.label}: ${f.error}`).join(' | ')
+      );
+    }
+  };
+
+  const handleUnifiedSync = async () => {
+    setErrorMessage(null);
+    setStatusMessage(null);
+    const currentItems = items.length > 0 ? items : await openFinanceRepository.listItems();
+    if (currentItems.length === 0) {
+      setErrorMessage('Adicione pelo menos um Item ID antes de sincronizar.');
+      return;
+    }
+
+    setIsUnifiedSyncing(true);
+    try {
+      const unsynced = currentItems.filter((it) => !it.last_synced_at);
+      if (unsynced.length > 0) {
+        setAfterReconcileSyncInvestments(true);
+        setFinanceTotals({ created: 0, updated: 0, accounts: 0 });
+        await openFinanceReconciliationFor(
+          unsynced[0].id,
+          unsynced.slice(1).map((u) => u.id)
+        );
+        return;
+      }
+
+      let finAccountsCount = 0;
+      let finTxCount = 0;
+      let assetsCount = 0;
+      let incomesCount = 0;
+      const portfolioNames = new Set<string>();
+      const failures: Array<{ label: string; error: string }> = [];
+
+      for (let i = 0; i < currentItems.length; i += 1) {
+        const it = currentItems[i];
+        const label = it.connector_name || it.id;
+        setSyncProgressLabel(`${i + 1} de ${currentItems.length} · ${label}`);
+        try {
+          const finRes = await pluggySyncService.syncFinance(it.id, { client: pluggyClient });
+          finAccountsCount += finRes.counts.accountsSynced;
+          finTxCount += finRes.counts.transactionsCreated + finRes.counts.transactionsUpdated;
+
+          const invRes = await pluggyInvestmentsSyncService.syncInvestments(it.id, {
+            client: pluggyClient,
+          });
+          assetsCount += invRes.counts.assetsCreated + invRes.counts.assetsUpdated;
+          incomesCount += invRes.counts.incomesCreated ?? 0;
+          if (invRes.portfolioName) {
+            portfolioNames.add(invRes.portfolioName);
+          }
+        } catch (err) {
+          failures.push({
+            label,
+            error: err instanceof Error ? err.message : 'Erro ao sincronizar conexão.',
+          });
+        }
+      }
+
+      await walletsStore.requestRefresh();
+      await loadState();
+      setSyncProgressLabel(null);
+
+      const portsText =
+        portfolioNames.size > 0 ? ` · Carteiras: ${Array.from(portfolioNames).join(', ')}` : '';
+      setStatusMessage(
+        `Sincronização concluída: ${finAccountsCount} contas, ${finTxCount} lançamentos, ${assetsCount} ativos, ${incomesCount} proventos${portsText}.`
+      );
+      if (failures.length > 0) {
+        setErrorMessage(failures.map((f) => `${f.label}: ${f.error}`).join(' | '));
+      }
+    } finally {
+      setIsUnifiedSyncing(false);
     }
   };
 
@@ -755,26 +887,57 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
               </TouchableOpacity>
 
               <TouchableOpacity
-                testID="open-finance-sync-finance-btn"
-                onPress={handleStartFinanceSync}
-                disabled={isSyncingFinance}
+                testID="open-finance-sync-btn"
+                onPress={() => void handleUnifiedSync()}
+                disabled={isUnifiedSyncing || isSyncingFinance || isSyncingInvestments}
                 style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
               >
                 <Text style={styles.primaryBtnText}>
-                  {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
+                  {isUnifiedSyncing
+                    ? syncProgressLabel
+                      ? `Sincronizando (${syncProgressLabel})...`
+                      : 'Sincronizando...'
+                    : 'Sincronizar'}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                testID="open-finance-sync-investments-btn"
-                onPress={handleStartInvestmentsSync}
-                disabled={isSyncingInvestments}
-                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+                testID="open-finance-advanced-toggle"
+                onPress={() => setShowAdvancedSync((prev) => !prev)}
+                style={[styles.secondaryBtn, { borderColor: border, marginTop: 4 }]}
               >
-                <Text style={styles.primaryBtnText}>
-                  {isSyncingInvestments ? 'Sincronizando investimentos...' : 'Sincronizar investimentos'}
+                <Text style={[styles.secondaryBtnText, { color: muted }]}>
+                  {showAdvancedSync ? 'Ocultar opções avançadas' : 'Opções avançadas'}
                 </Text>
               </TouchableOpacity>
+
+              {showAdvancedSync ? (
+                <>
+                  <TouchableOpacity
+                    testID="open-finance-sync-finance-btn"
+                    onPress={handleStartFinanceSync}
+                    disabled={isSyncingFinance}
+                    style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+                  >
+                    <Text style={styles.primaryBtnText}>
+                      {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    testID="open-finance-sync-investments-btn"
+                    onPress={handleStartInvestmentsSync}
+                    disabled={isSyncingInvestments}
+                    style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+                  >
+                    <Text style={styles.primaryBtnText}>
+                      {isSyncingInvestments
+                        ? 'Sincronizando investimentos...'
+                        : 'Sincronizar investimentos'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : null}
             </BentoTile>
 
             {reconcileItemId && reconcileProposals.length > 0 ? (
