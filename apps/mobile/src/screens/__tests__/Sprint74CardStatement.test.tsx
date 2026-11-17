@@ -57,9 +57,9 @@ describe('Sprint 74 — Formulário, Lista e Extrato do Cartão (Fase A)', () =>
     // Seleciona o cartão
     fireEvent.press(screen.getByTestId('entry-form-account-select'));
     await waitFor(() => {
-      expect(screen.getByText('Cartão Nubank')).toBeTruthy();
+      expect(screen.getAllByText('Cartão Nubank').length).toBeGreaterThanOrEqual(2);
     });
-    fireEvent.press(screen.getByText('Cartão Nubank'));
+    fireEvent.press(screen.getAllByText('Cartão Nubank').at(-1)!);
 
     // Rótulo vira "Data da compra" e aparece o hint da fatura de dezembro/2026
     await waitFor(() => {
@@ -119,8 +119,8 @@ describe('Sprint 74 — Formulário, Lista e Extrato do Cartão (Fase A)', () =>
       expect(screen.getByTestId('entry-form-account-select')).toBeTruthy();
     });
     fireEvent.press(screen.getByTestId('entry-form-account-select'));
-    await waitFor(() => expect(screen.getByText('Cartão Sem Datas')).toBeTruthy());
-    fireEvent.press(screen.getByText('Cartão Sem Datas'));
+    await waitFor(() => expect(screen.getAllByText('Cartão Sem Datas').length).toBeGreaterThanOrEqual(2));
+    fireEvent.press(screen.getAllByText('Cartão Sem Datas').at(-1)!);
 
     await waitFor(() => {
       expect(screen.getByTestId('entry-form-estimated-dates-warning')).toBeTruthy();

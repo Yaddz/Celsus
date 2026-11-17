@@ -181,10 +181,10 @@ describe('Sprint 65 — Domínio Open Finance (Fase A)', () => {
     expect(mappedRefund).toMatchObject({
       externalId: 'tx-card-2',
       kind: 'income',
-      status: 'pending',
+      status: 'paid',
       amountCents: 5025,
-      paidDate: null,
-      paidAmountCents: null,
+      paidDate: '2026-11-16',
+      paidAmountCents: 5025,
       description: 'Estorno Amazon',
       descriptionRaw: 'ESTORNO AMAZON.COM.BR',
     });

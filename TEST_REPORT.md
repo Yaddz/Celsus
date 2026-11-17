@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **170 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 74 — Cartão de crédito: compra sem vencimento próprio e extrato por fatura (Fase A travada)
+## Sprint 74 — Cartão de crédito: compra sem vencimento próprio e extrato por fatura (Fase B concluída)
 
 Regra centralizada (`normalizeCardEntry`) em cartão (`due_date` = data da compra, `status = 'paid'`, `paid_date = due_date`, `bill_month` obrigatório), migração idempotente, fontes (formulário, parcelamento, Pluggy, arquivo, cupom), lista de lançamentos por fatura e evolução de `CardBillScreen` para extrato completo.
 
@@ -20,9 +20,17 @@ Regra centralizada (`normalizeCardEntry`) em cartão (`due_date` = data da compr
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/domain/financeFlow/__tests__/Sprint74CardEntryRule.test.ts` | S74-T01…T05 | `b2547fe1fe11846859410ed1f48f909015686e9512f61ac05b55a30018762ead` | 4 FAIL / 1 PASS |
 | `apps/mobile/src/services/__tests__/Sprint74CardMigrationAndSources.test.ts` | S74-T06…T09 | `f7c9c5ece736f76cc23752fa2445a4b9d2cf395aebe2748f77069a6db9a21d47` | 3 FAIL / 1 PASS |
-| `apps/mobile/src/screens/__tests__/Sprint74CardStatement.test.tsx` | S74-T10…T13 | `328a4e83900fcbd4e6e6721438d423bb3a8e01a18da8d54b287f08a75972129a` | 4 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint74CardStatement.test.tsx` | S74-T10…T13 | `87a5ec7c9e520125307c81ae390786ccd546bc6e1f9a1b59f00d4ba8b2177bc6` | 4 FAIL |
 
-Execução da Fase A: `npx jest --no-coverage Sprint74CardEntryRule Sprint74CardMigrationAndSources Sprint74CardStatement` → 11 falhando, 2 passando (13 testes, 3 suítes). 170 arquivos travados em `tests.lock.json`.
+**Testes atualizados com autorização explícita do usuário:**
+- `Sprint65OpenFinanceDomain.test.ts` (`S65-D03`): `mappedRefund` em cartão `PENDING` agora espera `status: 'paid'`, `paidDate: '2026-11-16'`, `paidAmountCents: 5025`.
+- `Sprint65PluggySyncService.test.ts` (`S65-S03`): `created.status` em conta `CREDIT_CARD` `PENDING` agora espera `'paid'`.
+- `Sprint74CardStatement.test.tsx` (`S74-T10`, `S74-T11`): seleção do chip do cartão via `getAllByText(...).at(-1)!`.
+
+Execução da Fase B:
+- `npx jest --no-coverage Sprint74 Sprint65OpenFinanceDomain Sprint65PluggySyncService`: **5/5 suítes PASS** (**26/26 testes PASS**)
+- `npx tsc --noEmit`: **0 erros** nos arquivos de produção e nos testes da Sprint 74
+- `node scripts/test-lock.js verify`: **170 arquivos íntegros**
 
 ## Sprint 73 — Pluggy: botão único "Sincronizar" e carteira automática por corretora (Fase B concluída)
 

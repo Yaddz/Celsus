@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { getDatabase, runInTransaction } from '../db/client';
 import { finCategoryRules, finEntries, type FinCategoryRule } from '../db/schema';
-import { resolveBillMonth, type FinKind } from '../domain/financeFlow';
+import { normalizeCardEntry, type FinKind } from '../domain/financeFlow';
 import {
   applyCategoryRules,
   decodeStatementBytes,
@@ -201,21 +201,31 @@ export class StatementImportService {
         }
 
         const kind: FinKind = row.direction === 'in' ? 'income' : 'expense';
-        const billMonth = isCard ? resolveBillMonth(row.date, closingDay, account?.due_day) : null;
+        const normalized = normalizeCardEntry(
+          {
+            kind,
+            dueDate: row.date,
+            amountCents: row.amountCents,
+            status: 'paid',
+            paidDate: row.date,
+            paidAmountCents: row.amountCents,
+          },
+          account
+        );
 
         entriesToCreate.push({
           kind,
           amount_cents: row.amountCents,
-          due_date: row.date,
-          paid_date: row.date,
-          paid_amount_cents: row.amountCents,
-          status: 'paid',
+          due_date: normalized.due_date,
+          paid_date: normalized.paid_date,
+          paid_amount_cents: normalized.paid_amount_cents,
+          status: normalized.status,
           account_id: params.accountId,
           category_id: row.categoryId,
           description: row.description,
           installment_number: row.installment?.number ?? null,
           installment_total: row.installment?.total ?? null,
-          bill_month: billMonth,
+          bill_month: normalized.bill_month,
           source: 'FILE_IMPORT',
           external_id: row.externalId,
           import_batch_id: batchId,

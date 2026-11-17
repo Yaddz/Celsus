@@ -134,6 +134,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
   const [activeRoute, setActiveRoute] = useState<FinanceRoute>(initialRoute);
   const [selectedCardAccountId, setSelectedCardAccountId] = useState<string | null>(null);
+  const [selectedCardBillMonth, setSelectedCardBillMonth] = useState<string | undefined>(undefined);
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
@@ -393,6 +394,11 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <EntriesListScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onOpenCardBill={(accId, billMonth) => {
+            setSelectedCardAccountId(accId);
+            setSelectedCardBillMonth(billMonth);
+            navigateTo('cardBill');
+          }}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -476,6 +482,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
           onOpenCardBill={(accId) => {
             setSelectedCardAccountId(accId);
+            setSelectedCardBillMonth(undefined);
             navigateTo('cardBill');
           }}
           isPrivacyMode={isPrivacyMode}
@@ -488,7 +495,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <CardBillScreen
           accountId={selectedCardAccountId}
+          initialBillMonth={selectedCardBillMonth}
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'accounts')}
+          onEditCardAccount={() => navigateTo('accounts')}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}

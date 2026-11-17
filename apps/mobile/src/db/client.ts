@@ -3,6 +3,7 @@ import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { getTableName } from 'drizzle-orm';
 import * as schema from './schema';
 import { findEquivalentIncome } from '../domain/finance/incomeDedup';
+import { normalizeCardEntry } from '../domain/financeFlow/cards';
 
 export const DATABASE_NAME = 'celsus.db';
 
@@ -592,6 +593,109 @@ export function applySchemaUpgrades(raw: SQLiteDatabase) {
   }
   deduplicateIncomeEventsInMemory();
   deduplicateIncomeEventsSqlite(raw);
+  migrateCardEntriesInMemory();
+  migrateCardEntriesSqlite(raw);
+}
+
+function migrateCardEntriesInMemory() {
+  const entries = inMemoryStore.fin_entries;
+  const accounts = inMemoryStore.fin_accounts;
+  if (!Array.isArray(entries) || !Array.isArray(accounts)) return;
+  const cardById = new Map<string, any>();
+  for (const acc of accounts) {
+    if (acc && acc.type === 'card') {
+      cardById.set(acc.id, acc);
+    }
+  }
+  if (cardById.size === 0) return;
+
+  for (const entry of entries) {
+    if (!entry) continue;
+    const card = cardById.get(entry.account_id);
+    if (!card) continue;
+    if (entry.kind !== 'expense' && entry.kind !== 'income') continue;
+    if (entry.status !== 'pending' && entry.bill_month != null) continue;
+
+    const normalized = normalizeCardEntry(
+      {
+        kind: entry.kind,
+        dueDate: entry.due_date,
+        amountCents: entry.amount_cents,
+        status: entry.status,
+        paidDate: entry.paid_date,
+        paidAmountCents: entry.paid_amount_cents,
+        billMonth: entry.bill_month,
+      },
+      card
+    );
+    entry.status = normalized.status;
+    entry.paid_date = entry.paid_date ?? normalized.paid_date;
+    entry.paid_amount_cents = entry.paid_amount_cents ?? normalized.paid_amount_cents;
+    entry.bill_month = normalized.bill_month;
+  }
+}
+
+function migrateCardEntriesSqlite(raw: SQLiteDatabase) {
+  if (isTestEnvironment() || isWebMemoryDbOptIn()) return;
+  try {
+    const rows = raw.getAllSync<{
+      id: string;
+      kind: 'expense' | 'income';
+      due_date: string;
+      amount_cents: number;
+      status: 'pending' | 'paid';
+      paid_date: string | null;
+      paid_amount_cents: number | null;
+      bill_month: string | null;
+      closing_day: number | null;
+      due_day: number | null;
+    }>(
+      `SELECT e.id, e.kind, e.due_date, e.amount_cents, e.status, e.paid_date, e.paid_amount_cents, e.bill_month, a.closing_day, a.due_day
+       FROM fin_entries e
+       JOIN fin_accounts a ON a.id = e.account_id
+       WHERE a.type = 'card' AND e.kind IN ('expense', 'income') AND (e.status = 'pending' OR e.bill_month IS NULL)`
+    );
+    if (!rows || rows.length === 0) return;
+
+    raw.execSync('BEGIN IMMEDIATE;');
+    try {
+      for (const row of rows) {
+        const normalized = normalizeCardEntry(
+          {
+            kind: row.kind,
+            dueDate: row.due_date,
+            amountCents: row.amount_cents,
+            status: row.status,
+            paidDate: row.paid_date,
+            paidAmountCents: row.paid_amount_cents,
+            billMonth: row.bill_month,
+          },
+          { type: 'card', closing_day: row.closing_day, due_day: row.due_day }
+        );
+        raw.runSync(
+          `UPDATE fin_entries
+           SET status = ?,
+               paid_date = COALESCE(paid_date, ?),
+               paid_amount_cents = COALESCE(paid_amount_cents, ?),
+               bill_month = ?
+           WHERE id = ?`,
+          [
+            normalized.status,
+            normalized.paid_date,
+            normalized.paid_amount_cents,
+            normalized.bill_month,
+            row.id,
+          ]
+        );
+      }
+      raw.execSync('COMMIT;');
+    } catch (err) {
+      raw.execSync('ROLLBACK;');
+      throw err;
+    }
+  } catch {
+    // Tabela pode ainda não existir em bancos parciais de teste
+  }
 }
 
 function deduplicateIncomeEventsInMemory() {

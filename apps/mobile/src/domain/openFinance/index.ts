@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from '../../services/pluggy/types';
 import {
+  normalizeCardEntry,
   parseIsoDate,
   resolveBillMonth,
   type FinEntryStatus,
@@ -262,7 +263,7 @@ export function mapPluggyTransaction(
 ): MappedPluggyTransaction {
   const rawAmount = tx.amountInAccountCurrency ?? tx.amount;
   const amountCents = Math.abs(toCentsDecimal(rawAmount));
-  const status: FinEntryStatus = tx.status === 'POSTED' ? 'paid' : 'pending';
+  const rawStatus: FinEntryStatus = tx.status === 'POSTED' ? 'paid' : 'pending';
 
   let kind: FinKind | 'transfer_in';
   if (options.accountType === 'card') {
@@ -277,23 +278,36 @@ export function mapPluggyTransaction(
   }
 
   const dueDate = tx.date.slice(0, 10);
-  const paidDate = status === 'paid' ? dueDate : null;
-  const paidAmountCents = status === 'paid' ? amountCents : null;
+  const rawPaidDate = rawStatus === 'paid' ? dueDate : null;
+  const rawPaidAmountCents = rawStatus === 'paid' ? amountCents : null;
 
   const billId = tx.creditCardMetadata?.billId ?? null;
-  let billMonth: string | null = null;
-  if (options.accountType === 'card') {
-    const matchingBill = billId
+  const matchingBill =
+    options.accountType === 'card' && billId
       ? options.bills?.find((b) => b.id === billId)
       : undefined;
-    if (matchingBill?.dueDate) {
-      billMonth = matchingBill.dueDate.slice(0, 7);
-    } else if (options.closingDay != null) {
-      billMonth = resolveBillMonth(dueDate, options.closingDay, options.dueDay);
-    } else {
-      billMonth = dueDate.slice(0, 7);
+  const explicitBillMonth = matchingBill?.dueDate ? matchingBill.dueDate.slice(0, 7) : undefined;
+
+  const normalized = normalizeCardEntry(
+    {
+      kind,
+      dueDate,
+      amountCents,
+      status: rawStatus,
+      paidDate: rawPaidDate,
+      paidAmountCents: rawPaidAmountCents,
+      billMonth: explicitBillMonth,
+    },
+    {
+      type: options.accountType,
+      closing_day: options.closingDay ?? null,
+      due_day: options.dueDay ?? null,
     }
-  }
+  );
+  const status = normalized.status;
+  const paidDate = normalized.paid_date;
+  const paidAmountCents = normalized.paid_amount_cents;
+  const billMonth = normalized.bill_month;
 
   const rawOriginal = tx.descriptionRaw ?? tx.description ?? null;
   const { categoryId, matchedRuleId } =

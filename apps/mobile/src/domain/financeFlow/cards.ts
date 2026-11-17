@@ -171,21 +171,45 @@ export interface NormalizedCardEntryFields {
 }
 
 export function hasEstimatedBillDates(
-  _account: Pick<FinAccount, 'closing_day' | 'due_day'> | null | undefined
+  account: Pick<FinAccount, 'closing_day' | 'due_day'> | null | undefined
 ): boolean {
-  return false;
+  return account?.closing_day == null || account?.due_day == null;
 }
 
 export function normalizeCardEntry(
   input: NormalizeCardEntryInput,
-  _account: NormalizeCardEntryAccount | null | undefined
+  account: NormalizeCardEntryAccount | null | undefined
 ): NormalizedCardEntryFields {
+  if (!account || account.type !== 'card') {
+    return {
+      due_date: input.dueDate,
+      status: input.status ?? 'pending',
+      paid_date: input.paidDate ?? null,
+      paid_amount_cents: input.paidAmountCents ?? null,
+      bill_month: null,
+    };
+  }
+
+  if (input.kind === 'transfer_in' || input.kind === 'transfer_out') {
+    return {
+      due_date: input.dueDate,
+      status: input.status ?? 'paid',
+      paid_date: input.paidDate ?? null,
+      paid_amount_cents: input.paidAmountCents ?? null,
+      bill_month: input.billMonth ?? null,
+    };
+  }
+
+  const closingDay = account.closing_day ?? DEFAULT_CARD_CLOSING_DAY;
+  const dueDay = account.due_day ?? DEFAULT_CARD_DUE_DAY;
+  const billMonth = input.billMonth ?? resolveBillMonth(input.dueDate, closingDay, dueDay);
+
   return {
     due_date: input.dueDate,
-    status: input.status ?? 'pending',
-    paid_date: input.paidDate ?? null,
-    paid_amount_cents: input.paidAmountCents ?? null,
-    bill_month: input.billMonth ?? null,
+    status: 'paid',
+    paid_date: input.dueDate,
+    paid_amount_cents: input.amountCents,
+    bill_month: billMonth,
   };
 }
 
@@ -196,16 +220,32 @@ export interface BillPeriodInfo {
   dueIso: string;
 }
 
+function addDaysIsoUtc(iso: string, deltaDays: number): string {
+  const [yStr, mStr, dStr] = iso.split('-');
+  const d = new Date(
+    Date.UTC(Number.parseInt(yStr, 10), Number.parseInt(mStr, 10) - 1, Number.parseInt(dStr, 10) + deltaDays)
+  );
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`;
+}
+
 export function getBillPeriod(
   billMonth: string,
-  _closingDay: number,
-  _dueDay?: number | null
+  closingDay: number,
+  dueDay?: number | null
 ): BillPeriodInfo {
+  const effectiveDueDay = dueDay ?? DEFAULT_CARD_DUE_DAY;
+  const dueIso = billDueDate(billMonth, effectiveDueDay);
+  const closingYm = closesAfterDueDay(closingDay, effectiveDueDay)
+    ? addMonthsYm(billMonth, -1)
+    : billMonth;
+  const closingIso = billDueDate(closingYm, closingDay);
+  const startIso = billDueDate(addMonthsYm(closingYm, -1), closingDay);
+  const endIso = addDaysIsoUtc(closingIso, -1);
   return {
-    startIso: `${billMonth}-01`,
-    endIso: `${billMonth}-01`,
-    closingIso: `${billMonth}-01`,
-    dueIso: `${billMonth}-10`,
+    startIso,
+    endIso,
+    closingIso,
+    dueIso,
   };
 }
 
@@ -214,6 +254,18 @@ export interface BillDayGroup {
   entries: FinEntry[];
 }
 
-export function groupBillEntriesByDay(_entries: FinEntry[]): BillDayGroup[] {
-  return [];
+export function groupBillEntriesByDay(entries: FinEntry[]): BillDayGroup[] {
+  const byDate = new Map<string, FinEntry[]>();
+  for (const entry of entries) {
+    const key = entry.due_date.slice(0, 10);
+    const list = byDate.get(key);
+    if (list) {
+      list.push(entry);
+    } else {
+      byDate.set(key, [entry]);
+    }
+  }
+  return Array.from(byDate.entries())
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([dateIso, dayEntries]) => ({ dateIso, entries: dayEntries }));
 }

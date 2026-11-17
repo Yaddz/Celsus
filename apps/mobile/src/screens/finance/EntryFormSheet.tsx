@@ -12,9 +12,15 @@ import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
 import {
   addMonthsYearMonth,
   brToIso,
+  DEFAULT_CARD_CLOSING_DAY,
+  DEFAULT_CARD_DUE_DAY,
+  formatYearMonthPtBr,
+  getBillPeriod,
   getMonthDateRange,
   getTodayIsoLocal,
+  hasEstimatedBillDates,
   isoToBr,
+  normalizeCardEntry,
   parseBRLToCents,
   resolveBillMonth,
   type FinKind,
@@ -69,6 +75,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   onClose,
   onSaved,
   onRequestCreateAccount,
+  onEditCardAccount,
   editingEntry = null,
   receiptDraft = null,
   installmentScope,
@@ -348,17 +355,22 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           }
         }
         const selectedAcc = accounts.find((a) => a.id === resolvedAccountId);
-        const billMonth =
-          selectedAcc?.type === 'card'
-            ? resolveBillMonth(trimmedDate, selectedAcc.closing_day ?? 1, selectedAcc.due_day)
-            : null;
+        const normalized = normalizeCardEntry(
+          {
+            kind,
+            dueDate: trimmedDate,
+            amountCents,
+            status: 'pending',
+          },
+          selectedAcc
+        );
         await finRepository.createEntry({
           kind,
           amount_cents: amountCents,
-          due_date: trimmedDate,
-          paid_date: null,
-          paid_amount_cents: null,
-          status: 'pending',
+          due_date: normalized.due_date,
+          paid_date: normalized.paid_date,
+          paid_amount_cents: normalized.paid_amount_cents,
+          status: normalized.status,
           account_id: resolvedAccountId,
           category_id: resolvedCategoryId,
           description: description.trim() || 'Lançamento',
@@ -366,7 +378,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
           installment_group_id: null,
           installment_number: null,
           installment_total: null,
-          bill_month: billMonth,
+          bill_month: normalized.bill_month,
           source: receiptDraft ? receiptDraft.source : 'MANUAL',
           external_id: receiptDraft?.externalId ?? null,
         });
@@ -392,6 +404,22 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       : 'Lançamento único neste vencimento';
 
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
+  const isCardSelected = selectedAccount?.type === 'card';
+  const cardBillHint = useMemo(() => {
+    if (!selectedAccount || selectedAccount.type !== 'card') return null;
+    const purchaseIso = brToIso(dueDate) ?? getTodayIsoLocal();
+    const closingDay = selectedAccount.closing_day ?? DEFAULT_CARD_CLOSING_DAY;
+    const dueDay = selectedAccount.due_day ?? DEFAULT_CARD_DUE_DAY;
+    const billMonth = resolveBillMonth(purchaseIso, closingDay, dueDay);
+    const period = getBillPeriod(billMonth, closingDay, dueDay);
+    const billLabel = formatYearMonthPtBr(billMonth).replace(' ', '/').toLowerCase();
+    const closingDdMm = isoToBr(period.closingIso).slice(0, 5);
+    const dueDdMm = isoToBr(period.dueIso).slice(0, 5);
+    const estimatedSuffix = hasEstimatedBillDates(selectedAccount) ? ' · datas estimadas' : '';
+    const prefix =
+      repeatMode === 'installment' ? '1ª parcela na fatura de ' : 'Fatura de ';
+    return `${prefix}${billLabel} · fecha ${closingDdMm} · vence ${dueDdMm}${estimatedSuffix}`;
+  }, [selectedAccount, dueDate, repeatMode]);
 
   return (
     <AnimatedModalSheet
@@ -512,7 +540,9 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                     <View style={styles.metaField}>
                       <View style={styles.metaLabelRow}>
                         <MaterialIcons name="event" size={14} color={c.muted} />
-                        <Text style={[styles.metaLabel, { color: c.muted }]}>Vencimento</Text>
+                        <Text style={[styles.metaLabel, { color: c.muted }]}>
+                          {isCardSelected ? 'Data da compra' : 'Vencimento'}
+                        </Text>
                       </View>
                       <TextInput
                         testID="entry-form-due-date"
@@ -565,6 +595,38 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                       </TouchableOpacity>
                     </View>
                   </View>
+
+                  {isCardSelected && formKind !== 'transfer' && cardBillHint ? (
+                    <View style={{ gap: 6, marginTop: 8 }}>
+                      <Text testID="entry-form-bill-hint" style={[styles.helperText, { color: c.muted }]}>
+                        {cardBillHint}
+                      </Text>
+                      {selectedAccount && hasEstimatedBillDates(selectedAccount) ? (
+                        <View
+                          testID="entry-form-estimated-dates-warning"
+                          style={{ gap: 4 }}
+                        >
+                          <Text style={[styles.helperText, { color: c.warning }]}>
+                            Cartão sem fechamento/vencimento definido — usando datas estimadas (fecha 1, vence 10).
+                          </Text>
+                          {onEditCardAccount ? (
+                            <TouchableOpacity
+                              testID="entry-form-edit-card-shortcut"
+                              accessibilityRole="button"
+                              onPress={() => {
+                                onClose();
+                                onEditCardAccount(selectedAccount.id);
+                              }}
+                            >
+                              <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                                Configurar datas do cartão em Contas ›
+                              </Text>
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
 
                   {accounts.length === 0 ? (
                     <View style={{ gap: 6, marginTop: 6 }}>

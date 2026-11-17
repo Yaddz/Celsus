@@ -19,11 +19,15 @@ import {
   addDaysIso,
   brToIso,
   classifyEntryDueStatus,
+  DEFAULT_CARD_CLOSING_DAY,
+  detectOverdueAndDueSoonWithBills,
   formatCentsBRL,
   formatYearMonthPtBr,
   getTodayIsoLocal,
   isoToBr,
   parseBRLToCents,
+  resolveBillMonth,
+  type CardBillDueItem,
   type FinKind,
   type InstallmentScope,
 } from '../../domain/financeFlow';
@@ -63,8 +67,31 @@ function formatDayMonth(isoDate: string): string {
   return m ? `${m[3]}/${m[2]}` : isoDate;
 }
 
+const SHORT_PT_BR_MONTHS = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
+
+function formatShortBillMonth(yearMonth: string): string {
+  const [yStr, mStr] = yearMonth.split('-');
+  const idx = Number.parseInt(mStr, 10) - 1;
+  const mon = SHORT_PT_BR_MONTHS[idx] ?? mStr;
+  return `${mon}/${yStr.slice(2)}`;
+}
+
 export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   onBack,
+  onOpenCardBill,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -77,6 +104,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   const effectiveToday = referenceDateIso ?? getTodayIsoLocal();
 
   const [entries, setEntries] = useState<FinEntry[]>([]);
+  const [allEntries, setAllEntries] = useState<FinEntry[]>([]);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
@@ -125,14 +153,16 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         loadedEntriesPromise = finRepository.listEntriesByMonth(selectedMonth);
       }
 
-      const [monthEntries, accs, cats, recs] = await Promise.all([
+      const [monthEntries, everyEntry, accs, cats, recs] = await Promise.all([
         loadedEntriesPromise,
+        finRepository.listAllEntries(),
         finRepository.listAccounts(true),
         finRepository.listCategories(true),
         finRepository.listRecurrences(),
       ]);
       if (!mountedRef.current || seq !== loadSeqRef.current) return;
       setEntries(monthEntries);
+      setAllEntries(everyEntry);
       setAccounts(accs);
       setCategories(cats);
       setRecurrences(recs);
@@ -149,6 +179,12 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const accountById = useMemo(() => {
+    const map = new Map<string, FinAccount>();
+    for (const acc of accounts) map.set(acc.id, acc);
+    return map;
+  }, [accounts]);
 
   const accountNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -199,7 +235,11 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     const paidList: FinEntry[] = [];
 
     for (const entry of filteredEntries) {
-      if (entry.status === 'paid') {
+      const acc = accountById.get(entry.account_id);
+      const isCardPurchase =
+        acc?.type === 'card' && (entry.kind === 'expense' || entry.kind === 'income');
+
+      if (entry.status === 'paid' || isCardPurchase) {
         paidList.push(entry);
         continue;
       }
@@ -210,8 +250,29 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         upcomingList.push(entry);
       }
     }
-    return { overdueList, upcomingList, paidList };
-  }, [filteredEntries, effectiveToday]);
+
+    let overdueBills: CardBillDueItem[] = [];
+    let upcomingBills: CardBillDueItem[] = [];
+    if (filters.status !== 'paid' && filters.kind !== 'income' && !filters.categoryId) {
+      const horizon = filters.due === 'soon' ? 7 : 31;
+      const withBills = detectOverdueAndDueSoonWithBills(
+        allEntries,
+        accounts,
+        effectiveToday,
+        horizon
+      );
+      const matchesAccount = (b: CardBillDueItem) =>
+        !filters.accountId || b.account.id === filters.accountId;
+      if (filters.due !== 'soon') {
+        overdueBills = withBills.overdueBills.filter(matchesAccount);
+      }
+      if (filters.due !== 'overdue') {
+        upcomingBills = withBills.dueSoonBills.filter(matchesAccount);
+      }
+    }
+
+    return { overdueList, upcomingList, paidList, overdueBills, upcomingBills };
+  }, [filteredEntries, accountById, effectiveToday, filters, allEntries, accounts]);
 
   const handleOpenPayModal = (entry: FinEntry) => {
     setPayingEntry(entry);
@@ -310,8 +371,24 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
       Boolean(entry.installment_total && entry.installment_total > 1 && entry.installment_number);
 
     const rec = entry.recurrence_id ? recurrenceById.get(entry.recurrence_id) : undefined;
+    const account = accountById.get(entry.account_id);
+    const isCardPurchase =
+      account?.type === 'card' && (entry.kind === 'expense' || entry.kind === 'income');
+
     let subtitle = `${formatTxDate(entry.due_date)} • ${category?.name ?? accountName}`;
-    if (dueStatus === 'overdue') {
+    if (isCardPurchase && account) {
+      const billMonth =
+        entry.bill_month ??
+        resolveBillMonth(
+          entry.due_date,
+          account.closing_day ?? DEFAULT_CARD_CLOSING_DAY,
+          account.due_day
+        );
+      subtitle = `${formatTxDate(entry.due_date)} • ${account.name} • Fatura ${formatShortBillMonth(billMonth)}`;
+      if (isInstallment) {
+        subtitle += ` • Parcela ${entry.installment_number}/${entry.installment_total}`;
+      }
+    } else if (dueStatus === 'overdue') {
       subtitle = `Venceu ${formatDayMonth(entry.due_date)} • ${category?.name ?? accountName}`;
     } else if (isInstallment) {
       subtitle = `${formatTxDate(entry.due_date)} • Parcela ${entry.installment_number}/${entry.installment_total}`;
@@ -603,7 +680,9 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
           <FinLoadingView themeMode={themeMode} />
         ) : error ? (
           <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
-        ) : filteredEntries.length === 0 ? (
+        ) : filteredEntries.length === 0 &&
+          grouped.overdueBills.length === 0 &&
+          grouped.upcomingBills.length === 0 ? (
           <FinEmptyState
             testID="entries-empty-state"
             icon="receipt-long"
@@ -613,24 +692,58 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
           />
         ) : (
           <View style={{ gap: bento.gap + 6 }}>
-            {grouped.overdueList.length > 0 ? (
+            {grouped.overdueBills.length > 0 || grouped.overdueList.length > 0 ? (
               <FinListCard
                 testID="entries-section-overdue"
                 title="EM ATRASO"
                 themeMode={themeMode}
               >
+                {grouped.overdueBills.map((bill, idx) => (
+                  <FinListRow
+                    key={`bill-${bill.account.id}-${bill.billMonth}`}
+                    testID={`entry-bill-row-${bill.account.id}-${bill.billMonth}`}
+                    icon="credit-card"
+                    avatarColor={bill.account.color || c.primary}
+                    iconColor="#ffffff"
+                    title={`Fatura ${bill.account.name} · ${formatShortBillMonth(bill.billMonth)}`}
+                    subtitle={`Venceu ${formatDayMonth(bill.dueDate)}`}
+                    subtitleColor={c.overdue}
+                    amountText={formatSignedCentsBRL(bill.openCents, 'expense', isPrivacyMode)}
+                    amountColor={c.overdue}
+                    isLast={idx === grouped.overdueBills.length - 1 && grouped.overdueList.length === 0}
+                    themeMode={themeMode}
+                    onPress={() => onOpenCardBill?.(bill.account.id, bill.billMonth)}
+                  />
+                ))}
                 {grouped.overdueList.map((entry, idx) =>
                   renderEntryRow(entry, idx, grouped.overdueList.length)
                 )}
               </FinListCard>
             ) : null}
 
-            {grouped.upcomingList.length > 0 ? (
+            {grouped.upcomingBills.length > 0 || grouped.upcomingList.length > 0 ? (
               <FinListCard
                 testID="entries-section-upcoming"
                 title="PRÓXIMOS DIAS"
                 themeMode={themeMode}
               >
+                {grouped.upcomingBills.map((bill, idx) => (
+                  <FinListRow
+                    key={`bill-${bill.account.id}-${bill.billMonth}`}
+                    testID={`entry-bill-row-${bill.account.id}-${bill.billMonth}`}
+                    icon="credit-card"
+                    avatarColor={bill.account.color || c.primary}
+                    iconColor="#ffffff"
+                    title={`Fatura ${bill.account.name} · ${formatShortBillMonth(bill.billMonth)}`}
+                    subtitle={`Vence ${formatDayMonth(bill.dueDate)}`}
+                    subtitleColor={c.muted}
+                    amountText={formatSignedCentsBRL(bill.openCents, 'expense', isPrivacyMode)}
+                    amountColor={c.expense}
+                    isLast={idx === grouped.upcomingBills.length - 1 && grouped.upcomingList.length === 0}
+                    themeMode={themeMode}
+                    onPress={() => onOpenCardBill?.(bill.account.id, bill.billMonth)}
+                  />
+                ))}
                 {grouped.upcomingList.map((entry, idx) =>
                   renderEntryRow(entry, idx, grouped.upcomingList.length)
                 )}
@@ -689,7 +802,9 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         />
         {actionEntry ? (
           <View style={styles.scopeList}>
-            {actionIsTransfer ? null : actionEntry.status === 'pending' ? (
+            {actionIsTransfer ||
+            (accountById.get(actionEntry.account_id)?.type === 'card' &&
+              (actionEntry.kind === 'expense' || actionEntry.kind === 'income')) ? null : actionEntry.status === 'pending' ? (
               <JellyPressable
                 testID={`entry-action-pay-${actionEntry.id}`}
                 accessibilityRole="button"

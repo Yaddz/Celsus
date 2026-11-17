@@ -21,9 +21,14 @@ import {
   availableLimit,
   billDueDate,
   brToIso,
+  DEFAULT_CARD_CLOSING_DAY,
+  DEFAULT_CARD_DUE_DAY,
   formatCentsBRL,
   formatYearMonthPtBr,
+  getBillPeriod,
   getTodayIsoLocal,
+  groupBillEntriesByDay,
+  hasEstimatedBillDates,
   isoToBr,
   parseBRLToCents,
   resolveBillMonth,
@@ -65,6 +70,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   accountId,
   initialBillMonth,
   onBack,
+  onEditCardAccount,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -83,6 +89,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   const [billMonth, setBillMonth] = useState(
     initialBillMonth ?? todayIso.slice(0, 7)
   );
+  const [hasUserSelectedMonth, setHasUserSelectedMonth] = useState(Boolean(initialBillMonth));
 
   const [paySheetOpen, setPaySheetOpen] = useState(false);
   const [payFromAccountId, setPayFromAccountId] = useState('');
@@ -122,16 +129,43 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
     void loadData();
   }, [loadData]);
 
+  const closingDay = card?.closing_day ?? DEFAULT_CARD_CLOSING_DAY;
+  const dueDay = card?.due_day ?? DEFAULT_CARD_DUE_DAY;
+  const isEstimatedDates = hasEstimatedBillDates(card);
+
+  const currentBillMonth = useMemo(
+    () => resolveBillMonth(todayIso, closingDay, dueDay),
+    [todayIso, closingDay, dueDay]
+  );
+
+  useEffect(() => {
+    if (!hasUserSelectedMonth && card) {
+      setBillMonth(currentBillMonth);
+    }
+  }, [hasUserSelectedMonth, card, currentBillMonth]);
+
   const normalizedEntries = useMemo(() => {
-    const closingDay = card?.closing_day ?? 1;
     return entries.map((e) =>
-      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, closingDay, card?.due_day) }
+      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, closingDay, dueDay) }
     );
-  }, [entries, card]);
+  }, [entries, closingDay, dueDay]);
+
+  const availableBillMonths = useMemo(() => {
+    const months = new Set<string>([currentBillMonth, billMonth]);
+    for (const e of normalizedEntries) {
+      if (e.bill_month) months.add(e.bill_month);
+    }
+    return Array.from(months).sort((a, b) => a.localeCompare(b));
+  }, [normalizedEntries, currentBillMonth, billMonth]);
+
+  const period = useMemo(
+    () => getBillPeriod(billMonth, closingDay, dueDay),
+    [billMonth, closingDay, dueDay]
+  );
 
   const dueDate = useMemo(
-    () => billDueDate(billMonth, card?.due_day ?? 10),
-    [billMonth, card]
+    () => billDueDate(billMonth, dueDay),
+    [billMonth, dueDay]
   );
 
   const summary = useMemo(
@@ -165,6 +199,21 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
         .filter((e) => e.bill_month === billMonth && (e.kind === 'expense' || e.kind === 'income'))
         .sort((a, b) => a.due_date.localeCompare(b.due_date)),
     [normalizedEntries, billMonth]
+  );
+
+  const billEntryDayGroups = useMemo(
+    () => groupBillEntriesByDay(billEntries),
+    [billEntries]
+  );
+
+  const currentBillSummary = useMemo(
+    () =>
+      summarizeBill(normalizedEntries, currentBillMonth, {
+        dueDate: billDueDate(currentBillMonth, dueDay),
+        todayIso,
+        closingDay,
+      }),
+    [normalizedEntries, currentBillMonth, dueDay, todayIso, closingDay]
   );
 
   const billPayments = useMemo(
@@ -260,7 +309,10 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
         <View style={styles.monthRail}>
           <TouchableOpacity
             testID="card-bill-prev-month"
-            onPress={() => setBillMonth((m) => addMonthsYearMonth(m, -1))}
+            onPress={() => {
+              setHasUserSelectedMonth(true);
+              setBillMonth((m) => addMonthsYearMonth(m, -1));
+            }}
             style={styles.monthArrow}
           >
             <MaterialIcons name="chevron-left" size={22} color={ui.text} />
@@ -270,7 +322,10 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
           </Text>
           <TouchableOpacity
             testID="card-bill-next-month"
-            onPress={() => setBillMonth((m) => addMonthsYearMonth(m, 1))}
+            onPress={() => {
+              setHasUserSelectedMonth(true);
+              setBillMonth((m) => addMonthsYearMonth(m, 1));
+            }}
             style={styles.monthArrow}
           >
             <MaterialIcons name="chevron-right" size={22} color={ui.text} />
@@ -278,6 +333,85 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
         </View>
 
         <BentoGrid>
+          <BentoTile variant={tileVariant} title="RESUMO DO CARTÃO">
+            <View style={{ gap: 4 }}>
+              <Text style={[styles.subText, { color: ui.muted }]}>
+                Limite total:{' '}
+                {card?.credit_limit_cents != null
+                  ? formatCentsBRL(card.credit_limit_cents, isPrivacyMode)
+                  : '—'}
+                {' • '}Disponível:{' '}
+                {limitAvailableCents !== null
+                  ? formatCentsBRL(limitAvailableCents, isPrivacyMode)
+                  : '—'}
+              </Text>
+              <Text style={[styles.subText, { color: ui.muted }]}>
+                Fatura atual ({formatYearMonthPtBr(currentBillMonth)}):{' '}
+                {formatCentsBRL(currentBillSummary.totalCents, isPrivacyMode)}
+              </Text>
+            </View>
+            {isEstimatedDates && card ? (
+              <View
+                testID="card-statement-estimated-warning"
+                style={{ marginTop: 8, gap: 4 }}
+              >
+                <Text style={[styles.subText, { color: ui.warning }]}>
+                  Datas estimadas (fecha dia 1, vence dia 10). Configure as datas reais do cartão.
+                </Text>
+                {onEditCardAccount ? (
+                  <TouchableOpacity
+                    testID="card-statement-edit-card-shortcut"
+                    accessibilityRole="button"
+                    onPress={() => onEditCardAccount(card.id)}
+                  >
+                    <Text style={[styles.subText, { color: ui.primary, fontWeight: '700' }]}>
+                      Editar cartão em Contas ›
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            ) : null}
+          </BentoTile>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            testID="card-statement-bill-selector"
+            contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+          >
+            {availableBillMonths.map((ym) => {
+              const active = ym === billMonth;
+              return (
+                <TouchableOpacity
+                  key={ym}
+                  testID={`card-statement-bill-pill-${ym}`}
+                  onPress={() => {
+                    setHasUserSelectedMonth(true);
+                    setBillMonth(ym);
+                  }}
+                  style={[
+                    sharedStyles.chip,
+                    {
+                      backgroundColor: active ? ui.primary : ui.surface,
+                      borderWidth: 1,
+                      borderColor: active ? ui.primary : ui.border,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: active ? ui.primaryFg : ui.text,
+                      fontWeight: active ? '700' : '600',
+                      fontSize: 12,
+                    }}
+                  >
+                    {formatYearMonthPtBr(ym)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
           <BentoTile variant={tileVariant} title="FATURA DO MÊS">
             <View style={styles.heroHeader}>
               <Text testID="card-bill-total" style={[styles.heroValue, { color: ui.text }]}>
@@ -289,16 +423,15 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                 </Text>
               </View>
             </View>
+            <Text testID="card-statement-period" style={[styles.subText, { color: ui.muted }]}>
+              Período de compras: {isoToBr(period.startIso).slice(0, 5)} a{' '}
+              {isoToBr(period.endIso).slice(0, 5)} • Fecha {isoToBr(period.closingIso).slice(0, 5)} • Vence{' '}
+              {isoToBr(period.dueIso).slice(0, 5)}
+              {isEstimatedDates ? ' (datas estimadas)' : ''}
+            </Text>
             <Text style={[styles.subText, { color: ui.muted }]}>
               Vencimento: {isoToBr(dueDate)} • Em aberto: {formatCentsBRL(summary.openCents, isPrivacyMode)}
             </Text>
-            {limitAvailableCents !== null ? (
-              <Text style={[styles.subText, { color: ui.muted }]}>
-                Limite disponível: {formatCentsBRL(limitAvailableCents, isPrivacyMode)}
-              </Text>
-            ) : (
-              <Text style={[styles.subText, { color: ui.muted }]}>Limite disponível: —</Text>
-            )}
           </BentoTile>
 
           <BentoRow>
@@ -349,37 +482,52 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                 themeMode={themeMode}
               />
             ) : (
-              <FinListCard themeMode={themeMode}>
-                {billEntries.map((entry, idx) => {
-                  const cat = categoryMap.get(entry.category_id);
-                  const visual = resolveCategoryVisual(cat);
-                  const subtitle = `${isoToBr(entry.due_date)}${
-                    entry.installment_number && entry.installment_total
-                      ? ` • Parcela ${entry.installment_number}/${entry.installment_total}`
-                      : ''
-                  }${entry.kind === 'income' ? ' • Estorno' : ''}`;
-                  const amountStr =
-                    entry.kind === 'income'
-                      ? `+${formatCentsBRL(entry.amount_cents, isPrivacyMode)}`
-                      : `-${formatCentsBRL(entry.amount_cents, isPrivacyMode)}`;
+              <View style={{ gap: space.sm }}>
+                {billEntryDayGroups.map((group) => (
+                  <View
+                    key={group.dateIso}
+                    testID={`card-statement-day-${group.dateIso}`}
+                    style={{ gap: 6 }}
+                  >
+                    <Text style={[styles.subText, { color: ui.muted, fontWeight: '700' }]}>
+                      {isoToBr(group.dateIso)}
+                    </Text>
+                    <FinListCard themeMode={themeMode}>
+                      {group.entries.map((entry, idx) => {
+                        const cat = categoryMap.get(entry.category_id);
+                        const visual = resolveCategoryVisual(cat);
+                        const subtitleParts = [cat?.name ?? 'Sem categoria'];
+                        if (entry.installment_number && entry.installment_total) {
+                          subtitleParts.push(`Parcela ${entry.installment_number}/${entry.installment_total}`);
+                        }
+                        if (entry.kind === 'income') {
+                          subtitleParts.push('Estorno');
+                        }
+                        const amountStr =
+                          entry.kind === 'income'
+                            ? `+${formatCentsBRL(entry.amount_cents, isPrivacyMode)}`
+                            : `-${formatCentsBRL(entry.amount_cents, isPrivacyMode)}`;
 
-                  return (
-                    <FinListRow
-                      key={entry.id}
-                      testID={`card-bill-entry-${entry.id}`}
-                      themeMode={themeMode}
-                      isLast={idx === billEntries.length - 1}
-                      icon={visual.icon as any}
-                      avatarColor={visual.color}
-                      iconColor={visual.iconColor}
-                      title={entry.description || cat?.name || 'Compra'}
-                      subtitle={subtitle}
-                      amountText={amountStr}
-                      amountColor={entry.kind === 'income' ? ui.income : ui.text}
-                    />
-                  );
-                })}
-              </FinListCard>
+                        return (
+                          <FinListRow
+                            key={entry.id}
+                            testID={`card-bill-entry-${entry.id}`}
+                            themeMode={themeMode}
+                            isLast={idx === group.entries.length - 1}
+                            icon={visual.icon as any}
+                            avatarColor={visual.color}
+                            iconColor={visual.iconColor}
+                            title={entry.description || cat?.name || 'Compra'}
+                            subtitle={subtitleParts.join(' • ')}
+                            amountText={amountStr}
+                            amountColor={entry.kind === 'income' ? ui.income : ui.text}
+                          />
+                        );
+                      })}
+                    </FinListCard>
+                  </View>
+                ))}
+              </View>
             )}
           </BentoSection>
 

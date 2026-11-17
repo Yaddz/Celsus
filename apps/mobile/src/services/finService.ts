@@ -11,6 +11,7 @@ import {
   generateRecurrenceOccurrences,
   getMonthDateRange,
   getTodayIsoLocal,
+  normalizeCardEntry,
   parseIsoDate,
   resolveBillMonth,
   resolveRecurrencePeriod,
@@ -335,27 +336,37 @@ export class FinService {
 
     return runInTransaction(async () => {
       const account = await finRepository.getAccountById(params.accountId);
-      const isCard = account?.type === 'card';
-      const closingDay = account?.closing_day ?? 1;
+      const kind = params.kind ?? 'expense';
 
       return finRepository.createEntriesBatch(
-        schedule.map((part) => ({
-          kind: params.kind ?? 'expense',
-          amount_cents: part.amountCents,
-          due_date: part.dueDate,
-          paid_date: null,
-          paid_amount_cents: null,
-          status: 'pending',
-          account_id: params.accountId,
-          category_id: params.categoryId,
-          description: params.description,
-          recurrence_id: null,
-          recurrence_period: null,
-          installment_group_id: groupId,
-          installment_number: part.installmentNumber,
-          installment_total: part.installmentTotal,
-          bill_month: isCard ? resolveBillMonth(part.dueDate, closingDay, account?.due_day) : null,
-        }))
+        schedule.map((part) => {
+          const normalized = normalizeCardEntry(
+            {
+              kind,
+              dueDate: part.dueDate,
+              amountCents: part.amountCents,
+              status: 'pending',
+            },
+            account
+          );
+          return {
+            kind,
+            amount_cents: part.amountCents,
+            due_date: normalized.due_date,
+            paid_date: normalized.paid_date,
+            paid_amount_cents: normalized.paid_amount_cents,
+            status: normalized.status,
+            account_id: params.accountId,
+            category_id: params.categoryId,
+            description: params.description,
+            recurrence_id: null,
+            recurrence_period: null,
+            installment_group_id: groupId,
+            installment_number: part.installmentNumber,
+            installment_total: part.installmentTotal,
+            bill_month: normalized.bill_month,
+          };
+        })
       );
     });
   }
@@ -431,10 +442,23 @@ export class FinService {
 
     if (changedPlacement && current.source !== 'OPEN_FINANCE' && patch.bill_month === undefined) {
       const account = await finRepository.getAccountById(nextAccountId);
-      nextPatch.bill_month =
-        account?.type === 'card'
-          ? resolveBillMonth(nextDueDate, account.closing_day ?? 1, account.due_day)
-          : null;
+      if (account?.type === 'card' && (current.kind === 'expense' || current.kind === 'income')) {
+        const normalized = normalizeCardEntry(
+          {
+            kind: current.kind,
+            dueDate: nextDueDate,
+            amountCents: patch.amount_cents ?? current.amount_cents,
+            status: (patch.status ?? current.status) as 'pending' | 'paid',
+          },
+          account
+        );
+        nextPatch.bill_month = normalized.bill_month;
+        nextPatch.status = normalized.status;
+        nextPatch.paid_date = normalized.paid_date;
+        nextPatch.paid_amount_cents = normalized.paid_amount_cents;
+      } else {
+        nextPatch.bill_month = null;
+      }
     }
     return finRepository.updateEntry(entryId, nextPatch);
   }

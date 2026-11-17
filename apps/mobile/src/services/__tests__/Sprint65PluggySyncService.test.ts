@@ -264,7 +264,7 @@ describe('Sprint 65 — Serviço pluggySyncService e Banco (Fase A)', () => {
 
     let entries = await finRepository.listAllEntries();
     const created = entries.find((e: any) => e.external_id === 'tx-pending-1') as any;
-    expect(created.status).toBe('pending');
+    expect(created.status).toBe('paid');
 
     // Usuário edita categoria e descrição manualmente
     await finRepository.updateEntry(created.id, {
