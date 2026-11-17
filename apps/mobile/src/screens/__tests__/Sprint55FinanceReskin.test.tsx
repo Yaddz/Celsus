@@ -18,13 +18,15 @@ import {
 import {
   APPROVED_FIN_PALETTE,
   FIN_COLOR_SWATCHES,
-  FinEmptyState,
-  FinErrorView,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   resolveCategoryVisual,
 } from '../finance/finTheme';
+import {
+  EmptyState as FinEmptyState,
+  ErrorState as FinErrorView,
+  LoadingState as FinLoadingView,
+} from '../../components/ui/ScreenStates';
 
 jest.mock('react-native-safe-area-context', () => {
   const insets = { top: 0, right: 0, bottom: 0, left: 0 };

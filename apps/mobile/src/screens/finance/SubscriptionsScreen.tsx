@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,15 +26,14 @@ import { finService } from '../../services/finService';
 import type { ThemeMode } from '../../theme/palettes';
 import { layout, space, typography } from '../../theme/tokens';
 import {
-  FinEmptyState,
-  FinErrorView,
   FinFloatingAddButton,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   sharedStyles,
   resolveCategoryVisual,
 } from './finTheme';
+import { FinHeroTile } from '../../components/ui/FinHeroTile';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 import { FREQUENCY_LABELS, RecurrenceFormSheet } from './RecurrencesScreen';
 
 export interface SubscriptionsScreenProps {
@@ -285,9 +285,9 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
       />
 
       {loading ? (
-        <FinLoadingView themeMode={themeMode} />
+        <LoadingState themeMode={themeMode} />
       ) : error ? (
-        <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+        <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
         <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <BentoGrid>
@@ -295,37 +295,25 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
               testID="subscriptions-hero-tile"
               style={{ backgroundColor: ui.forestBg, borderRadius: 28 }}
             >
-              <BentoTile
+              <FinHeroTile
                 variant="forest"
-                title="GASTO COM ASSINATURAS"
+                label="GASTO COM ASSINATURAS"
                 testID="subscriptions-summary-tile"
-              >
-                <View style={styles.summaryRow}>
-                  <View style={styles.summaryCol}>
-                    <Text
-                      style={[styles.summaryValue, { color: ui.forestFg }]}
-                      testID="subscriptions-monthly-total"
-                    >
-                      {formatCentsBRL(summary.monthlyTotalCents, isPrivacyMode)}
+                value={formatCentsBRL(summary.monthlyTotalCents, false)}
+                valueTestID="subscriptions-monthly-total"
+                support="por mês"
+                secondary={{
+                  value: (
+                    <Text testID="subscriptions-yearly-total">
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(summary.annualTotalCents, false)}
                     </Text>
-                    <Text style={[styles.summaryLabel, { color: ui.forestMuted }]}>por mês</Text>
-                  </View>
-                  <View style={styles.summaryCol}>
-                    <Text
-                      style={[styles.summaryValue, { color: ui.forestFg }]}
-                      testID="subscriptions-annual-total"
-                    >
-                      <Text
-                        style={[styles.summaryValue, { color: ui.forestFg }]}
-                        testID="subscriptions-yearly-total"
-                      >
-                        {formatCentsBRL(summary.annualTotalCents, isPrivacyMode)}
-                      </Text>
-                    </Text>
-                    <Text style={[styles.summaryLabel, { color: ui.forestMuted }]}>por ano</Text>
-                  </View>
-                </View>
-              </BentoTile>
+                  ),
+                  support: 'por ano',
+                  valueTestID: 'subscriptions-annual-total',
+                }}
+                isPrivacyMode={isPrivacyMode}
+                themeMode={themeMode}
+              />
             </View>
           </BentoGrid>
 
@@ -342,7 +330,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
           />
 
           {showEmpty ? (
-            <FinEmptyState
+            <EmptyState
               testID="subscriptions-empty-state"
               icon="autorenew"
               title="Nenhuma assinatura"
@@ -442,27 +430,6 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: space.lg,
-    marginTop: space.sm,
-  },
-  summaryCol: {
-    flex: 1,
-    gap: space.xs,
-  },
-  summaryValue: {
-    fontFamily: typography.fontFamily,
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#E6DECA',
-    fontVariant: ['tabular-nums'],
-  },
-  summaryLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#AECDC5',
-  },
   actionsRow: {
     flexDirection: 'row',
     gap: space.sm,
@@ -479,8 +446,8 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.bold,
   },
   resumeBtn: {
     height: 36,
@@ -492,8 +459,8 @@ const styles = StyleSheet.create({
   },
   resumeBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
   canceledCard: {

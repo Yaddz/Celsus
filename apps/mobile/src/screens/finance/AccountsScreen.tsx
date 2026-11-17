@@ -37,15 +37,14 @@ import type { ThemeMode } from '../../theme/palettes';
 import { layout, space, typography } from '../../theme/tokens';
 import {
   FIN_COLOR_SWATCHES,
-  FinEmptyState,
-  FinErrorView,
   FinFloatingAddButton,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   sharedStyles,
   resolveApprovedColor,
 } from './finTheme';
+import { FinHeroTile } from '../../components/ui/FinHeroTile';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export interface AccountsScreenProps {
   onBack: () => void;
@@ -466,31 +465,28 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       />
 
       {loading ? (
-        <FinLoadingView themeMode={themeMode} />
+        <LoadingState themeMode={themeMode} />
       ) : error ? (
-        <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+        <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
         <ScrollView testID="accounts-scroll" contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <BentoGrid>
             <View testID="accounts-total-tile">
-              <BentoTile
+              <FinHeroTile
                 variant="primary"
-                title="SALDO TOTAL"
+                label="SALDO TOTAL"
                 testID="accounts-total-balance-tile"
-              >
-                <Text
-                  style={[styles.totalValue, { color: ui.primaryFg }]}
-                  testID="accounts-total-balance-value"
-                >
-                  {formatCentsBRL(totalBalanceCents, isPrivacyMode)}
-                </Text>
-                <Text style={[styles.totalCaption, { color: ui.primaryMuted }]}>{totalCaption}</Text>
-              </BentoTile>
+                value={formatCentsBRL(totalBalanceCents, false)}
+                valueTestID="accounts-total-balance-value"
+                support={totalCaption}
+                isPrivacyMode={isPrivacyMode}
+                themeMode={themeMode}
+              />
             </View>
           </BentoGrid>
 
           {accounts.length === 0 ? (
-            <FinEmptyState
+            <EmptyState
               testID="accounts-empty-state"
               icon="account-balance-wallet"
               title="Nenhuma conta cadastrada"
@@ -670,21 +666,6 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  totalValue: {
-    fontFamily: typography.fontFamily,
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#1A0E08',
-    fontVariant: ['tabular-nums'],
-    marginTop: space.xs,
-  },
-  totalCaption: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    color: '#1A0E08',
-    opacity: 0.78,
-    marginTop: space.xs,
-  },
   rowActions: {
     flexDirection: 'row',
     gap: space.sm,
@@ -699,8 +680,8 @@ const styles = StyleSheet.create({
   },
   actionBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.bold,
   },
   archivedCard: {
     opacity: 0.7,
@@ -729,8 +710,8 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.labelLg.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
 });

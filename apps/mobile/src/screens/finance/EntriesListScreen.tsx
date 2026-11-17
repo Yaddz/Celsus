@@ -40,15 +40,13 @@ import { bento, borders, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { EntryFormSheet } from './EntryFormSheet';
 import {
-  FinEmptyState,
-  FinErrorView,
   FinFloatingAddButton,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export interface EntriesListScreenProps {
   onBack: () => void;
@@ -453,7 +451,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 marginTop: space.xs,
               }}
             >
-              <Text style={{ fontSize: 10, fontWeight: '600', color: c.income }}>
+              <Text style={{ fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: c.income }}>
                 Open Finance
               </Text>
             </View>
@@ -693,13 +691,13 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         ) : null}
 
         {loading ? (
-          <FinLoadingView themeMode={themeMode} />
+          <LoadingState themeMode={themeMode} />
         ) : error ? (
-          <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+          <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
         ) : filteredEntries.length === 0 &&
           grouped.overdueBills.length === 0 &&
           grouped.upcomingBills.length === 0 ? (
-          <FinEmptyState
+          <EmptyState
             testID="entries-empty-state"
             icon="receipt-long"
             title="Nenhum lançamento neste mês"
@@ -898,7 +896,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
               testID="entry-pay-variable-hint"
               style={{
                 fontFamily: typography.fontFamily,
-                fontSize: 11,
+                fontSize: typography.sizes.subtitle,
                 color: c.warning,
               }}
             >
@@ -1032,8 +1030,8 @@ const styles = StyleSheet.create({
   },
   chipLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.semibold,
   },
   rowActionsLine: {
     flexDirection: 'row',
@@ -1052,8 +1050,8 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: typography.sizes.caption,
+    fontWeight: typography.weights.bold,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -1070,8 +1068,8 @@ const styles = StyleSheet.create({
   },
   miniChipText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.bold,
   },
   scopeList: {
     gap: space.sm,

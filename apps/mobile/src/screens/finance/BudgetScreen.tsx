@@ -25,7 +25,7 @@ import { finReminderService } from '../../services/finReminderService';
 import { useFinStore } from '../../stores/finStore';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
-import { space } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 
 export interface BudgetScreenProps {
   onBack: () => void;
@@ -209,7 +209,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
                         { borderColor: c.border, backgroundColor: onlyThisMonth ? c.primary : 'transparent' },
                       ]}
                     >
-                      <Text style={{ color: onlyThisMonth ? '#FFFFFF' : c.text, fontSize: 12 }}>
+                      <Text style={{ color: onlyThisMonth ? '#FFFFFF' : c.text, fontSize: typography.labelMd.fontSize }}>
                         {onlyThisMonth ? 'Só este mês' : 'Todo mês'}
                       </Text>
                     </TouchableOpacity>
@@ -242,12 +242,12 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   catName: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.bold,
   },
   editAction: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
   },
   amountsRow: {
     flexDirection: 'row',
@@ -256,18 +256,18 @@ const styles = StyleSheet.create({
     marginBottom: space.sm,
   },
   amountsText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
   },
   pctText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
   },
   track: {
     marginBottom: space.sm,
   },
   metaText: {
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     marginTop: space.xs,
   },
   editorBox: {
@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   suggestionText: {
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     marginBottom: space.sm,
   },
   input: {
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
-    fontSize: 14,
+    fontSize: typography.labelLg.fontSize,
     marginBottom: space.sm,
   },
   editorActions: {
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 13,
+    fontWeight: typography.weights.bold,
+    fontSize: typography.sizes.body,
   },
 });

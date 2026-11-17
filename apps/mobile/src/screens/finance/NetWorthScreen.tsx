@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -12,6 +13,7 @@ import { finGoalsService } from '../../services/finGoalsService';
 import type { ThemeMode } from '../../theme/palettes';
 import { bento, space, typography } from '../../theme/tokens';
 import { getFinUiColors, sharedStyles } from './finTheme';
+import { FinHeroTile } from '../../components/ui/FinHeroTile';
 
 export interface NetWorthScreenProps {
   onBack: () => void;
@@ -23,7 +25,7 @@ export interface NetWorthScreenProps {
   testID?: string;
 }
 
-const MASK = 'R$ ••••••';
+const MASK = PRIVACY_CURRENCY_MASK;
 
 export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   onBack,
@@ -74,14 +76,15 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
       />
 
       <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}>
-        <FinListCard themeMode={themeMode} style={{ marginBottom: space.lg }}>
-          <View style={styles.heroWrap}>
-            <Text style={[styles.heroLabel, { color: c.muted }]}>PATRIMÔNIO LÍQUIDO</Text>
-            <Text testID="net-worth-total" style={[styles.heroValue, { color: c.text }]}>
-              {showCents(netWorth.totalCents)}
-            </Text>
-          </View>
-        </FinListCard>
+        <FinHeroTile
+          testID="net-worth-hero"
+          label="PATRIMÔNIO LÍQUIDO"
+          value={formatCentsBRL(netWorth.totalCents)}
+          valueTestID="net-worth-total"
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+          style={styles.heroSpacing}
+        />
 
         <FinListCard title="COMPOSIÇÃO" themeMode={themeMode} style={{ marginBottom: space.lg }}>
           <FinListRow
@@ -139,23 +142,12 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  heroWrap: {
-    padding: bento.tilePadding,
-  },
-  heroLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  heroValue: {
-    fontFamily: typography.fontFamily,
-    fontSize: 28,
-    fontWeight: '700',
-    marginTop: space.xs,
+  heroSpacing: {
+    marginBottom: space.lg,
   },
   emptyText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
     padding: space.lg,
     textAlign: 'center',
   },

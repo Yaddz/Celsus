@@ -17,7 +17,8 @@ import { finRepository } from '../../repositories/finRepository';
 import { statementImportService } from '../../services/statementImportService';
 import type { ThemeMode } from '../../theme/palettes';
 import { space, typography } from '../../theme/tokens';
-import { FinEmptyState, getFinUiColors, sharedStyles } from './finTheme';
+import { getFinUiColors, sharedStyles } from './finTheme';
+import { EmptyState } from '../../components/ui/ScreenStates';
 
 export interface CategoryRulesScreenProps {
   onBack: () => void;
@@ -153,7 +154,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                   <Text
                     style={{
                       color: matchTypeInput === mt ? '#111315' : c.text,
-                      fontSize: 12,
+                      fontSize: typography.labelMd.fontSize,
                     }}
                   >
                     {MATCH_TYPE_LABELS[mt]}
@@ -181,7 +182,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                     <Text
                       style={{
                         color: categoryIdInput === cat.id ? '#111315' : c.text,
-                        fontSize: 12,
+                        fontSize: typography.labelMd.fontSize,
                       }}
                     >
                       {cat.name}
@@ -202,7 +203,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                 onPress={handleSaveEdit}
                 style={[styles.btn, { backgroundColor: c.primary }]}
               >
-                <Text style={{ color: '#111315', fontWeight: '700' }}>
+                <Text style={{ color: '#111315', fontWeight: typography.weights.bold }}>
                   Salvar
                 </Text>
               </TouchableOpacity>
@@ -211,7 +212,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
         ) : null}
 
         {rules.length === 0 ? (
-          <FinEmptyState
+          <EmptyState
             testID="category-rules-empty-state"
             icon="rule"
             title="Nenhuma regra salva"
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
     marginBottom: space.md,
     gap: space.sm,
   },
-  editTitle: { fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '700' },
+  editTitle: { fontFamily: typography.fontFamily, fontSize: typography.sizes.lead, fontWeight: typography.weights.bold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: {
     paddingHorizontal: space.md,
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
     gap: space.sm,
   },
-  patternText: { fontSize: 14, fontWeight: '600' },
-  metaText: { fontSize: 12, marginTop: space.xs },
+  patternText: { fontSize: typography.labelLg.fontSize, fontWeight: typography.weights.semibold },
+  metaText: { fontSize: typography.labelMd.fontSize, marginTop: space.xs },
   iconBtn: { padding: space.sm },
 });

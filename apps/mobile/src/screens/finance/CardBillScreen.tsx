@@ -42,13 +42,11 @@ import { finService } from '../../services/finService';
 import type { ThemeMode } from '../../theme/palettes';
 import { layout, space, typography } from '../../theme/tokens';
 import {
-  FinEmptyState,
-  FinErrorView,
-  FinLoadingView,
   getFinUiColors,
   resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export interface CardBillScreenProps {
   accountId: string;
@@ -283,10 +281,10 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   };
 
   if (loading) {
-    return <FinLoadingView themeMode={themeMode} />;
+    return <LoadingState themeMode={themeMode} />;
   }
   if (error) {
-    return <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />;
+    return <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />;
   }
 
   const statusTone =
@@ -371,7 +369,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                     accessibilityRole="button"
                     onPress={() => onEditCardAccount(card.id)}
                   >
-                    <Text style={[styles.subText, { color: ui.primary, fontWeight: '700' }]}>
+                    <Text style={[styles.subText, { color: ui.primary, fontWeight: typography.weights.bold }]}>
                       Editar cartão em Contas ›
                     </Text>
                   </TouchableOpacity>
@@ -409,7 +407,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                     style={{
                       color: active ? ui.primaryFg : ui.text,
                       fontWeight: active ? '700' : '600',
-                      fontSize: 12,
+                      fontSize: typography.labelMd.fontSize,
                     }}
                   >
                     {formatYearMonthPtBr(ym)}
@@ -481,7 +479,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
 
           <BentoSection title={`COMPRAS DA FATURA (${billEntries.length})`} themeMode={themeMode}>
             {billEntries.length === 0 ? (
-              <FinEmptyState
+              <EmptyState
                 testID="card-bill-empty-state"
                 icon="credit-card"
                 title="Sem compras nesta fatura"
@@ -496,7 +494,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                     testID={`card-statement-day-${group.dateIso}`}
                     style={{ gap: space.sm }}
                   >
-                    <Text style={[styles.subText, { color: ui.muted, fontWeight: '700' }]}>
+                    <Text style={[styles.subText, { color: ui.muted, fontWeight: typography.weights.bold }]}>
                       {isoToBr(group.dateIso)}
                     </Text>
                     <FinListCard themeMode={themeMode}>
@@ -591,7 +589,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                     },
                   ]}
                 >
-                  <Text style={{ color: selected ? ui.primaryFg : ui.text, fontFamily: typography.fontFamily, fontSize: 12 }}>
+                  <Text style={{ color: selected ? ui.primaryFg : ui.text, fontFamily: typography.fontFamily, fontSize: typography.labelMd.fontSize }}>
                     {acc.name}
                   </Text>
                 </TouchableOpacity>
@@ -662,8 +660,8 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
     textTransform: 'capitalize',
   },
   heroHeader: {
@@ -674,8 +672,8 @@ const styles = StyleSheet.create({
   },
   heroValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.sizes.hero,
+    fontWeight: typography.weights.bold,
   },
   statusBadge: {
     paddingHorizontal: space.md,
@@ -684,18 +682,18 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.bold,
   },
   subText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     marginTop: space.xs,
   },
   metricValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.headlineSm.fontSize,
+    fontWeight: typography.weights.bold,
   },
   payButton: {
     height: 52,
@@ -706,8 +704,8 @@ const styles = StyleSheet.create({
   },
   payButtonText: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.labelLg.fontSize,
+    fontWeight: typography.weights.bold,
   },
   sheetBody: {
     padding: space.lg,
@@ -715,8 +713,8 @@ const styles = StyleSheet.create({
   },
   fieldLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.bold,
   },
   chipsRow: {
     flexDirection: 'row',
@@ -731,6 +729,6 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
   },
 });

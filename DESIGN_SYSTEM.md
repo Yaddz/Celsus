@@ -58,3 +58,33 @@ O texto da aba ativa do dock aparece imediatamente ao toque; a troca de tela rod
 ## Camadas (Android)
 Elevação vem antes de `zIndex` e `Animated.View` cria contexto de empilhamento: elementos que precisam ficar acima das
 demais seções (cartão da carteira) definem `zIndex` e `elevation` no próprio wrapper animado.
+
+## Biblioteca única dos dois módulos (Sprint 81)
+
+**Regra: Finanças e Investimentos usam a mesma biblioteca.** Nenhuma tela define estilo que já exista em
+`src/components/ui` ou em `src/theme/tokens.ts`. `src/screens/finance/finTheme.tsx` guarda só o que é específico de
+Finanças: paleta e ícones de categoria (`getFinUiColors`, `resolveCategoryVisual`, `APPROVED_FIN_PALETTE`), a formatação
+com sinal (`formatSignedCentsBRL`) e os estilos de botão/chip ainda locais (`sharedStyles`).
+
+### Componentes promovidos
+- **`FinHeroTile`** (`src/components/ui/FinHeroTile.tsx`) — destaque numérico de uma tela: rótulo em caixa alta, valor
+  (`typography.sizes.hero`, 28), linha de apoio, valor secundário opcional (`typography.sizes.display`, 24) e ação
+  opcional. É um `BentoTile` (raio `bento.tileRadius`, padding `bento.tilePadding`); a cor vem da variante do bento ou,
+  sem variante, do tema (escuro → `dark`, claro → `light`). Com `isPrivacyMode` o valor vira `PRIVACY_CURRENCY_MASK`.
+  O valor nunca quebra linha: encolhe até 60% (`adjustsFontSizeToFit`). Em uso: Saldo total (Contas), Gasto com
+  assinaturas (Assinaturas) e Patrimônio líquido (Patrimônio).
+- **`SectionHeader`** (`src/components/ui/SectionHeader.tsx`) — cabeçalho de seção: título em caixa alta
+  (`typography.labelMd`, negrito) e ação "Ver tudo ›" opcional à direita.
+- **`LoadingState`, `ErrorState`, `EmptyState`** (`src/components/ui/ScreenStates.tsx`) — estados de tela.
+  Carregando = `Skeleton` com a forma do conteúdo (herói + lista); erro = mensagem + "Tentar novamente"; vazio = ícone
+  24, título, frase e ação opcional. Substituem `FinLoadingView`, `FinErrorView` e `FinEmptyState`.
+
+### Tipografia
+- Nenhum `fontSize`, `fontWeight` ou `lineHeight` literal em `src/screens/finance` (teste `Sprint81TypographyTokens`).
+- Tamanhos: 10 `sizes.caption` · 11 `sizes.subtitle` · 12 `labelMd` · 13 `sizes.body` · 14 `labelLg` · 15 `sizes.title` ·
+  16 `sizes.lead` · 18 `headlineSm` · 24 `sizes.display` · 28 `sizes.hero` · 32 `headlineLg`.
+- Pesos: `typography.weights.semibold` (600) e `typography.weights.bold` (700).
+
+### Privacidade, folhas e confirmações
+- Valor oculto usa sempre `PRIVACY_CURRENCY_MASK` (`src/services/privacyAndAuth.ts`); nenhuma tela declara a própria máscara.
+- Toda folha é `AnimatedModalSheet`; nenhuma tela de Finanças usa `Modal` próprio nem `Alert.alert` para confirmar.

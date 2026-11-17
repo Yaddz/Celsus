@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -33,15 +34,13 @@ import { finService } from '../../services/finService';
 import { space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import {
-  FinEmptyState,
-  FinErrorView,
   FinFloatingAddButton,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export const FREQUENCY_LABELS: Record<FinFrequency, string> = {
   weekly: 'Semanal',
@@ -465,7 +464,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
 
     const kind: FinKind = rec.kind === 'income' ? 'income' : 'expense';
     const amountText = isPrivacyMode
-      ? 'R$ ••••••'
+      ? PRIVACY_CURRENCY_MASK
       : isVariable
       ? `${kind === 'income' ? '+' : '-'}~${formatCentsBRL(rec.amount_cents, false)}`
       : formatSignedCentsBRL(rec.amount_cents, kind, false);
@@ -523,9 +522,9 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
 
       <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]}>
         {loading ? (
-          <FinLoadingView themeMode={themeMode} />
+          <LoadingState themeMode={themeMode} />
         ) : error ? (
-          <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+          <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
         ) : (
           <>
             <BentoRow>
@@ -539,7 +538,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                   style={[styles.summaryValue, { color: c.expense }]}
                 >
                   {isPrivacyMode
-                    ? 'R$ ••••••'
+                    ? PRIVACY_CURRENCY_MASK
                     : formatCentsBRL(fixedExpenseCents, false)}
                 </Text>
                 <Text style={[styles.summarySub, { color: c.muted }]}>por mês</Text>
@@ -555,7 +554,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                   style={[styles.summaryValue, { color: c.income }]}
                 >
                   {isPrivacyMode
-                    ? 'R$ ••••••'
+                    ? PRIVACY_CURRENCY_MASK
                     : formatCentsBRL(fixedIncomeCents, false)}
                 </Text>
                 <Text style={[styles.summarySub, { color: c.muted }]}>por mês</Text>
@@ -563,7 +562,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
             </BentoRow>
 
             {recurrences.length === 0 ? (
-              <FinEmptyState
+              <EmptyState
                 testID="recurrences-empty-state"
                 icon="repeat"
                 title="Nenhuma recorrência cadastrada"
@@ -623,12 +622,12 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
 const styles = StyleSheet.create({
   summaryValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
   },
   summarySub: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     marginTop: space.xs,
   },
   actionsRow: {
@@ -646,8 +645,8 @@ const styles = StyleSheet.create({
   },
   miniBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.semibold,
   },
   variableToggle: {
     flexDirection: 'row',
@@ -660,12 +659,12 @@ const styles = StyleSheet.create({
   },
   variableToggleLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.semibold,
   },
   variableToggleState: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.bold,
   },
 });

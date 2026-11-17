@@ -515,18 +515,18 @@ const styles = StyleSheet.create({
   processingText: {
     color: '#FFFFFF',
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
   },
   infoText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: typography.sizes.body,
+    lineHeight: typography.bodySm.lineHeight,
     marginBottom: space.md,
   },
   helperText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: typography.labelMd.fontSize,
+    lineHeight: typography.bodySm.lineHeight,
   },
   keyInput: {
     borderWidth: 1,
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     padding: space.sm,
     minHeight: 72,
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: typography.labelLg.fontSize,
     textAlignVertical: 'top',
   },
   sefazRow: {
@@ -548,8 +548,8 @@ const styles = StyleSheet.create({
   },
   sefazTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
   },
   actionStack: {
     gap: space.sm,
@@ -572,8 +572,8 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
   },
   secondaryBtn: {
     height: 48,
@@ -587,12 +587,12 @@ const styles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
   },
   errorText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     textAlign: 'center',
   },
 });

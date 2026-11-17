@@ -1,7 +1,7 @@
 import React from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Skeleton, SkeletonTile } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { formatCentsBRL } from '../../domain/financeFlow';
 import { bento, borders, colors, dock, layout, space, typography } from '../../theme/tokens';
@@ -130,7 +130,7 @@ export function formatSignedCentsBRL(
   kind: 'income' | 'expense',
   isPrivacyMode = false
 ): string {
-  if (isPrivacyMode) return 'R$ ••••••';
+  if (isPrivacyMode) return PRIVACY_CURRENCY_MASK;
   const prefix = kind === 'income' ? '+' : '-';
   return `${prefix}${formatCentsBRL(Math.abs(cents), false)}`;
 }
@@ -153,100 +153,6 @@ export const FinFloatingAddButton: React.FC<{
   </JellyPressable>
 );
 
-export const FinLoadingView: React.FC<{ themeMode?: ThemeMode; testID?: string }> = ({
-  themeMode = 'dark',
-  testID = 'fin-loading-state',
-}) => {
-  const isLight = themeMode === 'light';
-  const cardBg = isLight ? '#FFFFFF' : '#1C1E20';
-  return (
-    <View testID={testID} style={sharedStyles.stateContainer}>
-      <SkeletonTile height={108} themeMode={themeMode} lines={2} />
-      <View style={[sharedStyles.skeletonListCard, { backgroundColor: cardBg }]}>
-        {[0, 1, 2].map((i) => (
-          <View key={i} style={sharedStyles.skeletonRow}>
-            <Skeleton width={44} height={44} radius={22} themeMode={themeMode} />
-            <View style={{ flex: 1, gap: space.sm }}>
-              <Skeleton width="48%" height={13} themeMode={themeMode} />
-              <Skeleton width="32%" height={10} themeMode={themeMode} />
-            </View>
-            <Skeleton width={76} height={13} themeMode={themeMode} />
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-};
-
-export const FinErrorView: React.FC<{
-  message: string;
-  onRetry: () => void;
-  themeMode?: ThemeMode;
-  testID?: string;
-}> = ({ message, onRetry, themeMode = 'dark', testID = 'fin-error-state' }) => {
-  const c = getFinUiColors(themeMode);
-  return (
-    <View
-      testID={testID}
-      style={[sharedStyles.emptyBox, { backgroundColor: c.surface }]}
-    >
-      <MaterialIcons name="error-outline" size={28} color={c.overdue} />
-      <Text style={[sharedStyles.emptyTitle, { color: c.text }]}>Não foi possível carregar</Text>
-      <Text style={[sharedStyles.emptySubtitle, { color: c.muted }]}>{message}</Text>
-      <JellyPressable
-        accessibilityRole="button"
-        accessibilityLabel="Tentar novamente"
-        onPress={onRetry}
-        style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
-      >
-        <Text style={sharedStyles.primaryBtnText}>Tentar novamente</Text>
-      </JellyPressable>
-    </View>
-  );
-};
-
-export const FinEmptyState: React.FC<{
-  testID: string;
-  icon: keyof typeof MaterialIcons.glyphMap;
-  title: string;
-  subtitle: string;
-  actionLabel?: string;
-  onAction?: () => void;
-  actionTestID?: string;
-  themeMode?: ThemeMode;
-}> = ({
-  testID,
-  icon,
-  title,
-  subtitle,
-  actionLabel,
-  onAction,
-  actionTestID,
-  themeMode = 'dark',
-}) => {
-  const c = getFinUiColors(themeMode);
-  return (
-    <View
-      testID={testID}
-      style={[sharedStyles.emptyBox, { backgroundColor: c.surface }]}
-    >
-      <MaterialIcons name={icon} size={32} color={c.muted} />
-      <Text style={[sharedStyles.emptyTitle, { color: c.text }]}>{title}</Text>
-      <Text style={[sharedStyles.emptySubtitle, { color: c.muted }]}>{subtitle}</Text>
-      {actionLabel && onAction ? (
-        <JellyPressable
-          testID={actionTestID}
-          accessibilityRole="button"
-          onPress={onAction}
-          style={[sharedStyles.primaryBtn, { backgroundColor: c.primary }]}
-        >
-          <Text style={sharedStyles.primaryBtnText}>{actionLabel}</Text>
-        </JellyPressable>
-      ) : null}
-    </View>
-  );
-};
-
 export const sharedStyles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -256,39 +162,6 @@ export const sharedStyles = StyleSheet.create({
     paddingTop: layout.tabScreenPaddingTop,
     paddingBottom: dockContentPaddingBottom(),
     gap: bento.gap,
-  },
-  stateContainer: {
-    gap: bento.gap,
-  },
-  skeletonListCard: {
-    borderRadius: bento.tileRadius,
-    paddingHorizontal: bento.tilePadding,
-    paddingVertical: space.sm,
-  },
-  skeletonRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-  },
-  emptyBox: {
-    borderRadius: bento.tileRadius,
-    padding: space.xl,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: space.sm,
-  },
-  emptyTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 16,
   },
   primaryBtn: {
     height: 56,
@@ -301,8 +174,8 @@ export const sharedStyles = StyleSheet.create({
   },
   primaryBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
   secondaryBtn: {
@@ -317,8 +190,8 @@ export const sharedStyles = StyleSheet.create({
   },
   secondaryBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
   },
   iconBtn: {
     minWidth: 40,
@@ -342,17 +215,10 @@ export const sharedStyles = StyleSheet.create({
     flexDirection: 'row',
     gap: space.sm,
   },
-  sectionLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-  },
   modalTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
     marginBottom: space.md,
   },
   modalActions: {

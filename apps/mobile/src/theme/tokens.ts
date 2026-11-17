@@ -128,6 +128,12 @@ export const typography: TypographyTokens = {
     subtitle: 11,
     body: 13,
     caption: 10,
+    /** Texto de destaque em linhas e títulos de folha. */
+    lead: 16,
+    /** Número grande secundário (dois valores lado a lado). */
+    display: 24,
+    /** Valor herói dos tiles de destaque (FinHeroTile). */
+    hero: 28,
   },
   weights: {
     regular: '400',

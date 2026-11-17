@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
-import { BackHandler, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
+import { AnimatedModalSheet, BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
 import {
   FloatingBottomDock,
   type DockActionItem,
@@ -47,14 +47,12 @@ import { GoalsScreen } from './GoalsScreen';
 import { NetWorthScreen } from './NetWorthScreen';
 import { finGoalsService } from '../../services/finGoalsService';
 import {
-  FinEmptyState,
-  FinErrorView,
-  FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
   resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export type FinanceRoute =
   | 'home'
@@ -599,7 +597,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             <View style={{ marginBottom: space.sm }}>
               <Text
                 testID="finance-of-updated-ago"
-                style={{ fontSize: 12, color: c.muted, textAlign: 'right' }}
+                style={{ fontSize: typography.labelMd.fontSize, color: c.muted, textAlign: 'right' }}
               >
                 {formatUpdatedAgo(ofLastSyncedAt, Date.now())}
               </Text>
@@ -619,7 +617,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   }}
                 >
                   <Text
-                    style={{ flex: 1, fontSize: 12, color: c.muted }}
+                    style={{ flex: 1, fontSize: typography.labelMd.fontSize, color: c.muted }}
                     numberOfLines={2}
                   >
                     Não foi possível atualizar o Open Finance: {ofSyncError}
@@ -629,7 +627,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                     accessibilityRole="button"
                     onPress={() => void runOpenFinanceSync(true)}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: c.income }}>
+                    <Text style={{ fontSize: typography.labelMd.fontSize, fontWeight: typography.weights.semibold, color: c.income }}>
                       Tentar de novo
                     </Text>
                   </TouchableOpacity>
@@ -666,11 +664,11 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           </View>
 
           {loading ? (
-            <FinLoadingView themeMode={themeMode} />
+            <LoadingState themeMode={themeMode} />
           ) : error ? (
-            <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+            <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
           ) : entries.length === 0 && accounts.length === 0 ? (
-            <FinEmptyState
+            <EmptyState
               testID="finance-empty-state"
               icon="account-balance"
               title="Nenhum lançamento registrado"
@@ -706,7 +704,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       {cashflowProjection.isNegativeAlert ? (
                         <Text
                           testID="finance-cashflow-negative-warning"
-                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: '700', marginTop: space.xs }]}
+                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: typography.weights.bold, marginTop: space.xs }]}
                         >
                           Aviso: menor saldo previsto negativo
                         </Text>
@@ -866,7 +864,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                             {hasBudget && budgetUsage?.percentage !== null ? (
                               <Text
                                 testID={`finance-category-budget-pct-${cat.categoryId}`}
-                                style={{ fontSize: 10, fontWeight: '700', color: budgetColor }}
+                                style={{ fontSize: typography.sizes.caption, fontWeight: typography.weights.bold, color: budgetColor }}
                               >
                                 {Math.round(budgetUsage.percentage)}% do limite
                               </Text>
@@ -990,41 +988,30 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         onCompleted={() => void loadData()}
         themeMode={themeMode}
       />
-      <Modal
+      <AnimatedModalSheet
         visible={isCashflowModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsCashflowModalOpen(false)}
+        onClose={() => setIsCashflowModalOpen(false)}
+        testID="finance-cashflow-chart-modal"
+        themeMode={themeMode}
       >
-        <Pressable
-          testID="finance-cashflow-chart-modal"
-          style={styles.addMenuBackdrop}
-          onPress={() => setIsCashflowModalOpen(false)}
-        >
-          <Pressable
-            onPress={(e) => e.stopPropagation()}
-            style={[
-              styles.addMenuCard,
-              { backgroundColor: c.surface, borderColor: c.border, padding: space.lg, width: '100%' },
-            ]}
-          >
-            <Text style={[styles.addMenuOptionText, { color: c.text, marginBottom: space.sm }]}>
-              Previsão de saldo · {formatYearMonthPtBr(effectiveMonth)}
-            </Text>
-            <PriceAreaChart
-              points={cashflowChartPoints}
-              activeRange="30D"
-              themeMode={themeMode}
-              accentColor={cashflowProjection.isNegativeAlert ? '#D96628' : '#2E7D5B'}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
+        <Text style={[styles.addMenuOptionText, styles.cashflowSheetTitle, { color: c.text }]}>
+          Previsão de saldo · {formatYearMonthPtBr(effectiveMonth)}
+        </Text>
+        <PriceAreaChart
+          points={cashflowChartPoints}
+          activeRange="30D"
+          themeMode={themeMode}
+          accentColor={cashflowProjection.isNegativeAlert ? '#D96628' : '#2E7D5B'}
+        />
+      </AnimatedModalSheet>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  cashflowSheetTitle: {
+    marginBottom: space.sm,
+  },
   addMenuBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1047,8 +1034,8 @@ const styles = StyleSheet.create({
   },
   addMenuOptionText: {
     fontFamily: typography.fontFamily,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.semibold,
   },
   attentionRow: {
     flexDirection: 'row',
@@ -1064,7 +1051,7 @@ const styles = StyleSheet.create({
   },
   attentionLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
+    fontSize: typography.sizes.caption,
     letterSpacing: 1.0,
     marginBottom: space.sm,
   },
@@ -1087,29 +1074,29 @@ const styles = StyleSheet.create({
   },
   monthLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
   },
   heroValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.headlineLg.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
   heroSub: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     color: '#1A0E08',
     marginTop: space.xs,
   },
   pairValue: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
   },
   pairCaption: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     marginTop: space.xs,
   },
   overdueHeader: {
@@ -1121,7 +1108,7 @@ const styles = StyleSheet.create({
   },
   overdueTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
+    fontSize: typography.sizes.caption,
     letterSpacing: 1.2,
     textTransform: 'uppercase',
   },
@@ -1135,12 +1122,12 @@ const styles = StyleSheet.create({
   },
   dotCatName: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     width: 82,
   },
   dotPct: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     width: 36,
     textAlign: 'right',
   },
@@ -1169,12 +1156,12 @@ const styles = StyleSheet.create({
   },
   shortcutTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.bold,
   },
   shortcutSub: {
     fontFamily: typography.fontFamily,
-    fontSize: 10,
+    fontSize: typography.sizes.caption,
     marginTop: 1, // fora da escala: alinhamento óptico de 1 px entre título e subtítulo do atalho
   },
   entriesShortcutRow: {

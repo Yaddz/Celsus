@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -29,7 +30,7 @@ export interface GoalsScreenProps {
   testID?: string;
 }
 
-const MASK = 'R$ ••••••';
+const MASK = PRIVACY_CURRENCY_MASK;
 
 const SOURCE_OPTIONS: Array<{ type: FinGoalSourceType; label: string }> = [
   { type: 'manual', label: 'Manual' },
@@ -386,8 +387,8 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                 <Text
                   style={{
                     fontFamily: typography.fontFamily,
-                    fontSize: 12,
-                    fontWeight: '600',
+                    fontSize: typography.labelMd.fontSize,
+                    fontWeight: typography.weights.semibold,
                     color: active ? '#1A0E08' : c.text,
                   }}
                 >
@@ -419,7 +420,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                       },
                     ]}
                   >
-                    <Text style={{ fontSize: 12, color: active ? '#1A0E08' : c.text }}>
+                    <Text style={{ fontSize: typography.labelMd.fontSize, color: active ? '#1A0E08' : c.text }}>
                       {p.name}
                     </Text>
                   </TouchableOpacity>
@@ -490,13 +491,13 @@ const styles = StyleSheet.create({
   },
   addBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.labelLg.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
   emptyText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
     padding: space.lg,
     textAlign: 'center',
   },
@@ -510,18 +511,18 @@ const styles = StyleSheet.create({
   titleWrap: { flex: 1, marginRight: space.sm },
   goalName: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
   },
   sourceText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     marginTop: space.xs,
   },
   pctText: {
     fontFamily: typography.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.headlineSm.fontSize,
+    fontWeight: typography.weights.bold,
   },
   valuesRow: {
     flexDirection: 'row',
@@ -532,12 +533,12 @@ const styles = StyleSheet.create({
   },
   valueMain: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
   },
   valueTarget: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
   },
   metaRow: {
     paddingHorizontal: space.lg,
@@ -556,17 +557,17 @@ const styles = StyleSheet.create({
   },
   reachedText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.semibold,
     color: '#4F9A65',
   },
   etaText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
   },
   reqText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
   },
   contributeBtn: {
     flexDirection: 'row',
@@ -581,19 +582,19 @@ const styles = StyleSheet.create({
   },
   contributeBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.semibold,
   },
   sheetTitle: {
     fontFamily: typography.fontFamily,
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: typography.headlineSm.fontSize,
+    fontWeight: typography.weights.bold,
     marginBottom: space.lg,
   },
   label: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.semibold,
     marginBottom: space.sm,
   },
   chipRow: {
@@ -608,7 +609,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     color: '#D96628',
     marginTop: space.md,
   },
@@ -620,8 +621,8 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.labelLg.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
 });

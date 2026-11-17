@@ -1,4 +1,5 @@
 import React from 'react';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, View } from 'react-native';
@@ -54,7 +55,7 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
     netWorthTotalCents === null || netWorthTotalCents === undefined
       ? 'Contas + investimentos − cartão'
       : isPrivacyMode
-      ? 'R$ ••••••'
+      ? PRIVACY_CURRENCY_MASK
       : formatCentsBRL(netWorthTotalCents);
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>

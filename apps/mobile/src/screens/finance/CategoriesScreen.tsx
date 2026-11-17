@@ -23,15 +23,13 @@ import { layout, space, typography } from '../../theme/tokens';
 import {
   FIN_CATEGORY_ICONS,
   FIN_COLOR_SWATCHES,
-  FinEmptyState,
-  FinErrorView,
   FinFloatingAddButton,
-  FinLoadingView,
   getFinUiColors,
   sharedStyles,
   resolveApprovedColor,
   resolveCategoryVisual,
 } from './finTheme';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/ScreenStates';
 
 export interface CategoriesScreenProps {
   onBack: () => void;
@@ -184,9 +182,9 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
       />
 
       {loading ? (
-        <FinLoadingView themeMode={themeMode} />
+        <LoadingState themeMode={themeMode} />
       ) : error ? (
-        <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
+        <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
         <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <SegmentedControl
@@ -204,7 +202,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
           />
 
           {filteredCategories.length === 0 ? (
-            <FinEmptyState
+            <EmptyState
               testID="categories-empty-state"
               icon="category"
               title="Nenhuma categoria"
@@ -447,7 +445,7 @@ const styles = StyleSheet.create({
   },
   editInput: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
+    fontSize: typography.labelLg.fontSize,
     paddingHorizontal: 0,
     paddingVertical: space.sm,
     borderBottomWidth: 1,
@@ -478,8 +476,8 @@ const styles = StyleSheet.create({
   },
   editArchiveText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
   },
   editSaveBtn: {
     flex: 1,
@@ -491,8 +489,8 @@ const styles = StyleSheet.create({
   },
   editSaveText: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
   sheetBody: {
@@ -522,8 +520,8 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.labelLg.fontSize,
+    fontWeight: typography.weights.bold,
     color: '#1A0E08',
   },
 });

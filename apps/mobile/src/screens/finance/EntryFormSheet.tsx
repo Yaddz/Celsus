@@ -34,11 +34,11 @@ import { bento, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import {
   APPROVED_FIN_PALETTE,
-  FinLoadingView,
   getFinUiColors,
   resolveCategoryVisual,
   sharedStyles,
 } from './finTheme';
+import { LoadingState } from '../../components/ui/ScreenStates';
 
 export interface EntryFormSheetProps {
   visible: boolean;
@@ -447,7 +447,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
         />
 
         {!optionsLoaded ? (
-          <FinLoadingView themeMode={themeMode} />
+          <LoadingState themeMode={themeMode} />
         ) : (
           <>
             <ScrollView
@@ -495,7 +495,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                         accessibilityRole="button"
                         onPress={() => setShowReceiptRawText((v) => !v)}
                       >
-                        <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                        <Text style={[styles.helperText, { color: c.primary, fontWeight: typography.weights.bold }]}>
                           {showReceiptRawText ? 'Ocultar texto lido' : 'Ver texto lido'}
                         </Text>
                       </TouchableOpacity>
@@ -526,7 +526,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                               }
                             }}
                           >
-                            <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                            <Text style={[styles.helperText, { color: c.primary, fontWeight: typography.weights.bold }]}>
                               Copiar texto
                             </Text>
                           </TouchableOpacity>
@@ -675,7 +675,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                                 onEditCardAccount(selectedAccount.id);
                               }}
                             >
-                              <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                              <Text style={[styles.helperText, { color: c.primary, fontWeight: typography.weights.bold }]}>
                                 Configurar datas do cartão em Contas ›
                               </Text>
                             </TouchableOpacity>
@@ -699,7 +699,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                             onRequestCreateAccount();
                           }}
                         >
-                          <Text style={[styles.helperText, { color: c.primary, fontWeight: '700' }]}>
+                          <Text style={[styles.helperText, { color: c.primary, fontWeight: typography.weights.bold }]}>
                             Criar conta agora ›
                           </Text>
                         </TouchableOpacity>
@@ -989,13 +989,13 @@ const styles = StyleSheet.create({
   },
   ocrBannerText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
+    fontSize: typography.labelMd.fontSize,
     flex: 1,
   },
   lowConfBadge: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.semibold,
     marginBottom: space.xs,
   },
   formBody: {
@@ -1009,25 +1009,25 @@ const styles = StyleSheet.create({
   },
   currencyPrefix: {
     fontFamily: typography.fontFamily,
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.sizes.lead,
+    fontWeight: typography.weights.bold,
   },
   amountInput: {
     flex: 1,
     fontFamily: typography.fontFamily,
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.headlineLg.fontSize,
+    fontWeight: typography.weights.bold,
     paddingVertical: space.xs,
   },
   errorText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     marginTop: space.sm,
   },
   descInput: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.sizes.body,
+    fontWeight: typography.weights.bold,
     borderBottomWidth: 2,
     paddingVertical: space.sm,
     marginBottom: space.md,
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
   },
   metaValueInput: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
     paddingVertical: space.sm,
     paddingHorizontal: 0,
   },
@@ -1067,7 +1067,7 @@ const styles = StyleSheet.create({
   metaValueText: {
     flex: 1,
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
   },
   metaLabelRow: {
     flexDirection: 'row',
@@ -1077,12 +1077,12 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: typography.sizes.subtitle,
+    fontWeight: typography.weights.semibold,
   },
   dateInput: {
     fontFamily: typography.fontFamily,
-    fontSize: 13,
+    fontSize: typography.sizes.body,
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: space.md,
@@ -1097,12 +1097,12 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.labelMd.fontSize,
+    fontWeight: typography.weights.semibold,
   },
   helperText: {
     fontFamily: typography.fontFamily,
-    fontSize: 11,
+    fontSize: typography.sizes.subtitle,
     marginTop: space.sm,
   },
   saveBtnContainer: {
