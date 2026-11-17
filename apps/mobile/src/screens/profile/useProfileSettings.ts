@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { backupService, BackupImportMode, ExportArchiveResult } from '../../services/backupService';
+import { backupFileService } from '../../services/backupFileService';
 import { privacyAndAuthService } from '../../services/privacyAndAuth';
 import { authService } from '../../services/authService';
 import { sessionStore } from '../../stores/sessionStore';
@@ -135,12 +136,17 @@ export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeMode
     try {
       const exported = await backupService.exportDossierArchive();
       setLastExport(exported);
+      const saved = await backupFileService.saveAndShareArchive(exported);
       const { files } = exported.manifest;
+      const destination = saved.shared
+        ? 'Escolha no menu de compartilhar onde salvar (Drive, Arquivos, e-mail…).'
+        : `Compartilhamento indisponível; o arquivo ficou em ${saved.uri}`;
       setBanner({
         type: 'success',
         title: 'ARQUIVO .CELSUS.ZIP GERADO COM SUCESSO',
         message:
           `Pacote: ${exported.fileName} (${exported.zipBytes.byteLength} bytes)\n` +
+          `${destination}\n` +
           `• portfolios.csv (${files['portfolios.csv'].rows} linhas) — SHA-256: ${files['portfolios.csv'].sha256.slice(0, 12)}...\n` +
           `• assets.csv (${files['assets.csv'].rows} linhas) — SHA-256: ${files['assets.csv'].sha256.slice(0, 12)}...\n` +
           `• transactions.csv (${files['transactions.csv'].rows} linhas) — SHA-256: ${files['transactions.csv'].sha256.slice(0, 12)}...`,
@@ -156,7 +162,8 @@ export function useProfileSettings({ themeMode, onTogglePrivacyMode, onThemeMode
 
   const importDossier = async () => {
     try {
-      const archive = lastExport || (await backupService.exportDossierArchive());
+      const archive = await backupFileService.pickArchive();
+      if (!archive) return;
       const res = await backupService.importDossierArchive(archive.zipBytes, importMode);
       setBanner({
         type: 'success',
