@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import type {
   PluggyAccount,
   PluggyBill,
@@ -104,13 +105,305 @@ export interface SyncDiagnosticsReport {
   };
 }
 
-export function buildSyncDiagnostics(
-  _raw: RawSyncSnapshot,
-  _persisted: PersistedSyncSnapshot
-): SyncDiagnosticsReport {
-  throw new Error('Not implemented (Sprint 71 Phase A stub)');
+function isFilled(v: unknown): boolean {
+  if (v === null || v === undefined) return false;
+  if (typeof v === 'string') return v.trim().length > 0;
+  return true;
 }
 
-export function formatDiagnosticsReportText(_report: SyncDiagnosticsReport): string {
-  throw new Error('Not implemented (Sprint 71 Phase A stub)');
+export function buildSyncDiagnostics(
+  raw: RawSyncSnapshot,
+  persisted: PersistedSyncSnapshot
+): SyncDiagnosticsReport {
+  const rawAccounts = raw.accounts ?? [];
+  const rawTxs = raw.transactions ?? [];
+  const rawBills = raw.bills ?? [];
+  const rawInvs = raw.investments ?? [];
+  const rawInvTxs = raw.investmentTransactions ?? [];
+  const investmentErrors = raw.investmentErrors ?? 0;
+
+  const perAccounts = persisted.accounts ?? [];
+  const perTxs = persisted.transactions ?? [];
+  const perBills = persisted.bills ?? [];
+  const perAssets = persisted.assets ?? [];
+  const perInvTxs = persisted.investmentTransactions ?? [];
+
+  // Agrupamento de investimentos por type/subtype
+  const invKindsMap = new Map<string, { type: string; subtype: string | null; count: number }>();
+  for (const inv of rawInvs) {
+    const subtype = inv.subtype ?? null;
+    const key = `${inv.type}::${subtype ?? ''}`;
+    const prev = invKindsMap.get(key);
+    if (prev) prev.count += 1;
+    else invKindsMap.set(key, { type: inv.type, subtype, count: 1 });
+  }
+
+  // Agrupamento de movimentações de investimento por type
+  const invTxTypeMap = new Map<string, number>();
+  for (const tx of rawInvTxs) {
+    invTxTypeMap.set(tx.type, (invTxTypeMap.get(tx.type) ?? 0) + 1);
+  }
+
+  // Divergências
+  const divergences: SyncDivergence[] = [];
+
+  for (const acc of perAccounts) {
+    if (
+      acc.reportedBalanceCents !== null &&
+      Math.abs(acc.reportedBalanceCents - acc.calculatedBalanceCents) > 1
+    ) {
+      divergences.push({
+        kind: 'ACCOUNT_BALANCE_MISMATCH',
+        resourceId: acc.ofAccountId ?? 'unknown',
+        detail: `Diferença de saldo entre informado e calculado (${acc.reportedBalanceCents - acc.calculatedBalanceCents} centavos)`,
+      });
+    }
+  }
+
+  const persistedTxIds = new Set(perTxs.map((t) => t.externalId).filter(Boolean));
+  for (const tx of rawTxs) {
+    if (!persistedTxIds.has(tx.id)) {
+      divergences.push({
+        kind: 'TRANSACTION_NOT_PERSISTED',
+        resourceId: tx.id,
+        detail: 'Transação recebida da API não encontrada no banco local',
+      });
+    }
+  }
+
+  const assetByExt = new Map(
+    perAssets.filter((a) => a.externalId).map((a) => [a.externalId!, a])
+  );
+  for (const inv of rawInvs) {
+    const asset = assetByExt.get(inv.id);
+    if (asset && inv.quantity !== null && inv.quantity !== undefined) {
+      const diff = new Decimal(asset.quantity || '0').minus(inv.quantity).abs();
+      if (diff.gt('0.0001')) {
+        divergences.push({
+          kind: 'QUANTITY_MISMATCH',
+          resourceId: inv.id,
+          detail: `Quantidade divergente (API=${inv.quantity}, local=${asset.quantity})`,
+        });
+      }
+    }
+  }
+
+  if (investmentErrors > 0) {
+    divergences.push({
+      kind: 'INVESTMENT_ERROR',
+      resourceId: raw.itemId,
+      detail: `${investmentErrors} investimento(s) falharam ao buscar movimentações`,
+    });
+  }
+
+  // Cobertura campo a campo
+  const fieldCoverage: ResourceCoverageTable[] = [
+    {
+      resource: 'account',
+      totalReceived: rawAccounts.length,
+      totalPersisted: perAccounts.length,
+      fields: [
+        {
+          field: 'owner',
+          filledCount: rawAccounts.filter((a) => isFilled(a.owner)).length,
+          persistedCount: perAccounts.filter((a) => a.hasOwner).length,
+        },
+        {
+          field: 'number',
+          filledCount: rawAccounts.filter((a) => isFilled(a.number)).length,
+          persistedCount: perAccounts.filter((a) => a.hasMaskedNumber).length,
+        },
+        {
+          field: 'balance',
+          filledCount: rawAccounts.filter((a) => isFilled(a.balance)).length,
+          persistedCount: perAccounts.filter((a) => a.reportedBalanceCents !== null).length,
+        },
+        {
+          field: 'taxNumber',
+          filledCount: rawAccounts.filter((a) => isFilled(a.taxNumber)).length,
+          persistedCount: 0, // Dado sensível (CPF/CNPJ do titular) — ignorado por privacidade
+        },
+        {
+          field: 'bankData.automaticallyInvestedBalance',
+          filledCount: rawAccounts.filter((a) => isFilled(a.bankData?.automaticallyInvestedBalance)).length,
+          persistedCount: 0,
+        },
+      ],
+    },
+    {
+      resource: 'transaction',
+      totalReceived: rawTxs.length,
+      totalPersisted: perTxs.length,
+      fields: [
+        {
+          field: 'description',
+          filledCount: rawTxs.filter((t) => isFilled(t.description)).length,
+          persistedCount: perTxs.length,
+        },
+        {
+          field: 'descriptionRaw',
+          filledCount: rawTxs.filter((t) => isFilled(t.descriptionRaw)).length,
+          persistedCount: perTxs.filter((t) => t.hasDescriptionRaw).length,
+        },
+        {
+          field: 'category',
+          filledCount: rawTxs.filter((t) => isFilled(t.category)).length,
+          persistedCount: perTxs.filter((t) => t.hasCategory).length,
+        },
+        {
+          field: 'creditCardMetadata.billId',
+          filledCount: rawTxs.filter((t) => isFilled(t.creditCardMetadata?.billId)).length,
+          persistedCount: perTxs.filter((t) => t.hasBillMonth).length,
+        },
+        {
+          field: 'creditCardMetadata.installmentNumber',
+          filledCount: rawTxs.filter((t) => isFilled(t.creditCardMetadata?.installmentNumber)).length,
+          persistedCount: perTxs.filter((t) => t.hasInstallments).length,
+        },
+      ],
+    },
+    {
+      resource: 'bill',
+      totalReceived: rawBills.length,
+      totalPersisted: perBills.length,
+      fields: [
+        {
+          field: 'billClosingDate',
+          filledCount: rawBills.filter((b) => isFilled(b.billClosingDate)).length,
+          persistedCount: perBills.filter((b) => b.hasClosingDate).length,
+        },
+        {
+          field: 'minimumPaymentAmount',
+          filledCount: rawBills.filter((b) => isFilled(b.minimumPaymentAmount)).length,
+          persistedCount: perBills.filter((b) => b.hasMinimumPayment).length,
+        },
+      ],
+    },
+    {
+      resource: 'investment',
+      totalReceived: rawInvs.length,
+      totalPersisted: perAssets.length,
+      fields: [
+        {
+          field: 'issuer',
+          filledCount: rawInvs.filter((i) => isFilled(i.issuer)).length,
+          persistedCount: perAssets.filter((a) => a.hasIssuer).length,
+        },
+        {
+          field: 'issuerCNPJ',
+          filledCount: rawInvs.filter((i) => isFilled(i.issuerCNPJ)).length,
+          persistedCount: perAssets.filter((a) => a.hasIssuerCnpj).length,
+        },
+        {
+          field: 'issueDate',
+          filledCount: rawInvs.filter((i) => isFilled(i.issueDate)).length,
+          persistedCount: perAssets.filter((a) => a.hasIssueDate).length,
+        },
+        {
+          field: 'purchaseDate',
+          filledCount: rawInvs.filter((i) => isFilled(i.purchaseDate)).length,
+          persistedCount: perAssets.filter((a) => a.hasPurchaseDate).length,
+        },
+        {
+          field: 'taxes',
+          filledCount: rawInvs.filter((i) => isFilled(i.taxes)).length,
+          persistedCount: perAssets.filter((a) => a.hasTaxes).length,
+        },
+      ],
+    },
+    {
+      resource: 'investmentTransaction',
+      totalReceived: rawInvTxs.length,
+      totalPersisted: perInvTxs.length,
+      fields: [
+        {
+          field: 'expenses',
+          filledCount: rawInvTxs.filter((t) => isFilled(t.expenses)).length,
+          persistedCount: perInvTxs.filter((t) => t.hasFees).length,
+        },
+      ],
+    },
+  ];
+
+  const reportedAccountsBalanceCents = perAccounts.reduce(
+    (sum, a) => sum + (a.reportedBalanceCents ?? 0),
+    0
+  );
+  const calculatedAccountsBalanceCents = perAccounts.reduce(
+    (sum, a) => sum + a.calculatedBalanceCents,
+    0
+  );
+  const investmentsBalance = rawInvs
+    .reduce((sum, i) => sum.plus(i.balance ?? 0), new Decimal(0))
+    .toFixed(2);
+
+  return {
+    itemId: raw.itemId,
+    counts: {
+      accounts: { received: rawAccounts.length, persisted: perAccounts.length },
+      transactions: { received: rawTxs.length, persisted: perTxs.length },
+      bills: { received: rawBills.length, persisted: perBills.length },
+      investments: { received: rawInvs.length, persisted: perAssets.length },
+      investmentTransactions: { received: rawInvTxs.length, persisted: perInvTxs.length },
+      investmentErrors,
+    },
+    investmentsByKind: Array.from(invKindsMap.values()),
+    investmentTransactionsByType: Array.from(invTxTypeMap.entries()).map(([type, count]) => ({
+      type,
+      count,
+    })),
+    divergences,
+    fieldCoverage,
+    sums: {
+      reportedAccountsBalanceCents,
+      calculatedAccountsBalanceCents,
+      investmentsBalance,
+    },
+  };
+}
+
+export function formatDiagnosticsReportText(report: SyncDiagnosticsReport): string {
+  const lines: string[] = [
+    `Diagnóstico Open Finance`,
+    `Contas: ${report.counts.accounts.persisted}/${report.counts.accounts.received}`,
+    `Transações: ${report.counts.transactions.persisted}/${report.counts.transactions.received}`,
+    `Faturas: ${report.counts.bills.persisted}/${report.counts.bills.received}`,
+    `Investimentos: ${report.counts.investments.persisted}/${report.counts.investments.received}`,
+    `Movimentações de investimento: ${report.counts.investmentTransactions.persisted}/${report.counts.investmentTransactions.received}`,
+    `Erros em investimentos: ${report.counts.investmentErrors}`,
+    `Soma contas (informado/calculado): ${(report.sums.reportedAccountsBalanceCents / 100).toFixed(2)} / ${(report.sums.calculatedAccountsBalanceCents / 100).toFixed(2)}`,
+    `Soma investimentos: ${report.sums.investmentsBalance}`,
+  ];
+
+  if (report.investmentsByKind.length > 0) {
+    lines.push('Investimentos por tipo:');
+    for (const k of report.investmentsByKind) {
+      lines.push(`- ${k.type}/${k.subtype ?? 'OTHER'}: ${k.count}`);
+    }
+  }
+
+  if (report.investmentTransactionsByType.length > 0) {
+    lines.push('Movimentações por tipo:');
+    for (const t of report.investmentTransactionsByType) {
+      lines.push(`- ${t.type}: ${t.count}`);
+    }
+  }
+
+  lines.push(`Divergências: ${report.divergences.length}`);
+  for (const d of report.divergences) {
+    lines.push(`- [${d.kind}]`);
+  }
+
+  lines.push('Cobertura de campos (preenchidos -> gravados):');
+  for (const table of report.fieldCoverage) {
+    const filledSummary = table.fields
+      .filter((f) => f.filledCount > 0 || f.persistedCount > 0)
+      .map((f) => `${f.field}=${f.filledCount}->${f.persistedCount}`)
+      .join(', ');
+    if (filledSummary) {
+      lines.push(`- ${table.resource}: ${filledSummary}`);
+    }
+  }
+
+  return lines.join('\n');
 }

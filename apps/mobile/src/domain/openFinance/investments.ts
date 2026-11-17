@@ -4,6 +4,7 @@ import type {
   PluggyInvestment,
   PluggyInvestmentTransaction,
 } from '../../services/pluggy/types';
+import { buildInvestmentDisplay } from './naming';
 
 export type CostBasisSource = 'TRANSACTIONS' | 'INSTITUTION' | 'MANUAL';
 
@@ -138,13 +139,13 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
   const type = inv.type;
   const subtype = inv.subtype || 'OTHER';
 
-  if (type === 'ETF' || (type === 'EQUITY' && subtype === 'ETF')) {
+  if (type === 'ETF' || subtype === 'ETF' || subtype === 'ETF_FUND') {
     return { assetClass: 'STOCK', isEtf: true };
   }
+  if (subtype === 'REAL_ESTATE_FUND' || subtype === 'FI_INFRA' || subtype === 'FI_AGRO') {
+    return { assetClass: 'FII', isEtf: false };
+  }
   if (type === 'EQUITY') {
-    if (subtype === 'REAL_ESTATE_FUND') {
-      return { assetClass: 'FII', isEtf: false };
-    }
     return { assetClass: 'STOCK', isEtf: false };
   }
   if (type === 'FIXED_INCOME' || type === 'COE') {
@@ -156,26 +157,27 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
   return { assetClass: 'FIXED_INCOME', isEtf: false };
 }
 
-export function mapPluggyInvestment(inv: PluggyInvestment): MappedPluggyInvestment {
+export function mapPluggyInvestment(
+  inv: PluggyInvestment,
+  existingTickers?: Set<string>
+): MappedPluggyInvestment {
   const { assetClass, isEtf } = resolvePluggyAssetClass(inv);
   const status = inv.status || 'ACTIVE';
+  const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
 
-  const normalizedCode = normalizeInvestmentTicker(inv.code);
-  const ticker =
-    normalizedCode ||
-    (inv.isin ? inv.isin.trim().toUpperCase() : '') ||
-    (inv.name ? inv.name.trim().toUpperCase().slice(0, 24) : inv.id);
+  const display = buildInvestmentDisplay(inv, existingTickers);
 
-  const qtyNum =
-    status === 'TOTAL_WITHDRAWAL'
-      ? 0
-      : inv.quantity !== null && inv.quantity !== undefined
-      ? inv.quantity
-      : inv.balance > 0
-      ? 1
-      : 0;
+  let qtyNum = 0;
+  if (status !== 'TOTAL_WITHDRAWAL') {
+    if (inv.quantity !== null && inv.quantity !== undefined) {
+      qtyNum = inv.quantity;
+    } else if (!isVariableIncome && inv.balance > 0) {
+      qtyNum = 1;
+    }
+  }
 
   const balanceDec = new Decimal(status === 'TOTAL_WITHDRAWAL' ? 0 : inv.balance ?? 0);
+  const marketValue = isVariableIncome ? null : balanceDec.toFixed(2);
   const grossDec =
     inv.amount !== null && inv.amount !== undefined ? new Decimal(inv.amount).toFixed(2) : null;
   const origDec =
@@ -188,13 +190,20 @@ export function mapPluggyInvestment(inv: PluggyInvestment): MappedPluggyInvestme
     itemId: inv.itemId,
     assetClass,
     isEtf,
-    ticker,
-    name: inv.name || ticker,
+    ticker: display.ticker,
+    name: display.name,
     isin: inv.isin ? inv.isin.trim().toUpperCase() : null,
     quantity: new Decimal(qtyNum).toString(),
-    marketValue: balanceDec.toFixed(2),
+    marketValue,
     grossAmount: grossDec,
     amountOriginal: origDec,
+    issuerCnpj: inv.issuerCNPJ ? inv.issuerCNPJ.trim() : null,
+    issueDate: normalizeIsoDate(inv.issueDate),
+    purchaseDate: normalizeIsoDate(inv.purchaseDate),
+    taxes:
+      inv.taxes !== null && inv.taxes !== undefined ? new Decimal(inv.taxes).toFixed(2) : null,
+    taxes2:
+      inv.taxes2 !== null && inv.taxes2 !== undefined ? new Decimal(inv.taxes2).toFixed(2) : null,
     amountProfitFormatted: formatNullableOpenFinanceMetric(inv.amountProfit),
     lastMonthRateFormatted: formatNullableOpenFinanceMetric(inv.lastMonthRate, '%'),
     lastTwelveMonthsRateFormatted: formatNullableOpenFinanceMetric(inv.lastTwelveMonthsRate, '%'),
@@ -224,7 +233,7 @@ export function mapPluggyInvestmentTransaction(
   };
   const mappedType = typeMap[tx.type] || 'TRANSFER';
 
-  const qtyDec = new Decimal(tx.quantity ?? 1);
+  const qtyDec = new Decimal(tx.quantity ?? (mappedType === 'BUY' || mappedType === 'SELL' ? 1 : 0));
   const amountDec = new Decimal(tx.amount ?? 0).abs();
   const unitPriceDec =
     tx.value !== null && tx.value !== undefined
@@ -234,7 +243,18 @@ export function mapPluggyInvestmentTransaction(
       : amountDec;
 
   let feesDec = new Decimal(0);
-  if (tx.netAmount !== null && tx.netAmount !== undefined && tx.amount !== null && tx.amount !== undefined) {
+  if (tx.expenses !== null && tx.expenses !== undefined) {
+    for (const val of Object.values(tx.expenses)) {
+      if (typeof val === 'number' && Number.isFinite(val)) {
+        feesDec = feesDec.plus(new Decimal(val).abs());
+      }
+    }
+  } else if (
+    tx.netAmount !== null &&
+    tx.netAmount !== undefined &&
+    tx.amount !== null &&
+    tx.amount !== undefined
+  ) {
     feesDec = new Decimal(tx.netAmount).abs().minus(new Decimal(tx.amount).abs()).abs();
   }
 
@@ -266,17 +286,27 @@ export function calculateInvestmentCostBasis(
 
   let qty = new Decimal(0);
   let totalCost = new Decimal(0);
-  let hasBuyOrTransfer = false;
+  let hasCostHistory = false;
+  const buySignatures = new Set<string>();
 
   for (const tx of sorted) {
     const q = new Decimal(tx.quantity || 0);
     const p = new Decimal(tx.unitPrice || 0);
     const fees = new Decimal(tx.fees || 0);
 
-    if (tx.type === 'BUY' || tx.type === 'TRANSFER') {
-      hasBuyOrTransfer = true;
+    if (tx.type === 'BUY') {
+      hasCostHistory = true;
       totalCost = totalCost.plus(q.mul(p)).plus(fees);
       qty = qty.plus(q);
+      buySignatures.add(`${tx.tradeDate}:${q.toString()}:${p.toFixed(2)}`);
+    } else if (tx.type === 'TRANSFER') {
+      const sig = `${tx.tradeDate}:${q.toString()}:${p.toFixed(2)}`;
+      if (q.gt(0) && p.gt(0) && !buySignatures.has(sig)) {
+        hasCostHistory = true;
+        totalCost = totalCost.plus(q.mul(p)).plus(fees);
+        qty = qty.plus(q);
+        buySignatures.add(sig);
+      }
     } else if (tx.type === 'SELL') {
       if (qty.gt(0)) {
         const avg = totalCost.div(qty);
@@ -284,19 +314,23 @@ export function calculateInvestmentCostBasis(
         qty = qty.minus(sellQty);
         totalCost = totalCost.minus(sellQty.mul(avg));
       }
+    } else if (tx.type === 'AMORTIZATION') {
+      const amort = new Decimal(tx.totalAmount || 0);
+      totalCost = Decimal.max(0, totalCost.minus(amort));
     }
+    // TAX não altera quantidade nem preço médio diretamente
   }
 
   const qtyMatches =
-    hasBuyOrTransfer &&
+    hasCostHistory &&
     targetQty.gt(0) &&
     qty.minus(targetQty).abs().lte(new Decimal('0.0001'));
 
   if (qtyMatches) {
-    const avg = totalCost.div(qty);
+    const avg = totalCost.div(qty).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
     return {
       averagePrice: avg.toFixed(2),
-      totalInvested: totalCost.toFixed(2),
+      totalInvested: avg.mul(qty).toFixed(2),
       costBasisSource: 'TRANSACTIONS',
       coveredByHistory: true,
     };

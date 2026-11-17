@@ -7,6 +7,7 @@ import {
   mapPluggyTransaction,
   reconcilePluggyTransactions,
   shouldAutoSync,
+  toCentsDecimal,
   type MappedPluggyTransaction,
   type ReconcilableOpenFinanceEntry,
 } from '../../domain/openFinance';
@@ -135,7 +136,7 @@ export const pluggySyncService = {
 
         const newCheckingReportedCents = new Map<string, number>();
         for (const pgAcc of pluggyAccounts) {
-          const mapped = mapPluggyAccount(pgAcc);
+          const mapped = mapPluggyAccount(pgAcc, item.connector?.name);
           const choice = options?.accountChoices?.find(
             (c) => c.pluggyAccountId === pgAcc.id
           );
@@ -146,13 +147,21 @@ export const pluggySyncService = {
           }
 
           if (localAcc) {
+            const shouldPreserveName =
+              localAcc.auto_name !== null &&
+              localAcc.auto_name !== undefined &&
+              localAcc.name !== localAcc.auto_name;
             const updatedClosingDay =
               localAcc.closing_day ?? choice?.closingDay ?? mapped.closingDay ?? null;
             localAcc = await finRepository.updateAccount(localAcc.id, {
+              name: shouldPreserveName ? localAcc.name : mapped.name,
+              auto_name: mapped.name,
               of_account_id: pgAcc.id,
               source: 'OPEN_FINANCE',
               reported_balance_cents: mapped.reportedBalanceCents,
               reported_balance_at: mapped.reportedBalanceAt,
+              masked_number: mapped.maskedNumber,
+              owner: mapped.owner,
               ...(mapped.type === 'card'
                 ? {
                     credit_limit_cents:
@@ -176,9 +185,28 @@ export const pluggySyncService = {
               source: 'OPEN_FINANCE',
               reportedBalanceCents: mapped.reportedBalanceCents,
               reportedBalanceAt: mapped.reportedBalanceAt,
+              maskedNumber: mapped.maskedNumber,
+              owner: mapped.owner,
+              autoName: mapped.name,
             });
             if (mapped.type === 'checking') {
               newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
+            }
+          }
+
+          if (localAcc.type === 'card') {
+            const bills = billsByAccount.get(pgAcc.id) ?? [];
+            for (const b of bills) {
+              await finRepository.upsertBill({
+                accountId: localAcc.id,
+                externalId: b.id,
+                billMonth: b.dueDate.slice(0, 7),
+                closingDate: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
+                dueDate: b.dueDate.slice(0, 10),
+                totalAmountCents: toCentsDecimal(b.totalAmount),
+                minimumPaymentCents:
+                  b.minimumPaymentAmount != null ? toCentsDecimal(b.minimumPaymentAmount) : null,
+              });
             }
           }
 

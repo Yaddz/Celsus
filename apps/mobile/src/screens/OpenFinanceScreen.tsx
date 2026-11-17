@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Linking,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   TextInput,
@@ -37,6 +38,11 @@ import {
   type InvestmentReconciliationProposal,
 } from '../services/pluggy/pluggyInvestmentsSyncService';
 import { computeClassCoverageReport } from '../domain/openFinance/investments';
+import {
+  buildSyncDiagnostics,
+  formatDiagnosticsReportText,
+  type SyncDiagnosticsReport,
+} from '../domain/openFinance/diagnostics';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { ThemeMode } from '../theme/palettes';
@@ -72,6 +78,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   onClose,
   themeMode = 'dark',
   client,
+  onCopyReport,
   testID = 'open-finance-screen',
 }) => {
   const isLight = themeMode === 'light';
@@ -101,6 +108,9 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [reconcileChoices, setReconcileChoices] = useState<Record<string, string | 'CREATE_NEW'>>({});
   const [localAccounts, setLocalAccounts] = useState<FinAccount[]>([]);
   const [coverageReport, setCoverageReport] = useState<PluggyCoverageItemSummary[] | null>(null);
+  const [diagnosticsReport, setDiagnosticsReport] = useState<SyncDiagnosticsReport | null>(null);
+  const [pendingFinanceQueue, setPendingFinanceQueue] = useState<string[]>([]);
+  const [financeTotals, setFinanceTotals] = useState({ created: 0, updated: 0, accounts: 0 });
   const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
   const [isSyncingInvestments, setIsSyncingInvestments] = useState(false);
   const [invReconcile, setInvReconcile] = useState<{
@@ -278,6 +288,22 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
     }
   };
 
+  const openFinanceReconciliationFor = async (itemId: string, remainingQueue: string[]) => {
+    const [proposals, accounts] = await Promise.all([
+      pluggySyncService.previewAccountReconciliation(itemId, pluggyClient),
+      finRepository.listAccounts(false),
+    ]);
+    const initialChoices: Record<string, string | 'CREATE_NEW'> = {};
+    for (const p of proposals) {
+      initialChoices[p.pluggyAccount.id] = p.suggestedLocalAccountId ?? 'CREATE_NEW';
+    }
+    setLocalAccounts(accounts);
+    setReconcileProposals(proposals);
+    setReconcileChoices(initialChoices);
+    setPendingFinanceQueue(remainingQueue);
+    setReconcileItemId(itemId);
+  };
+
   const handleStartFinanceSync = async () => {
     setErrorMessage(null);
     setStatusMessage(null);
@@ -287,27 +313,20 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
     }
     setIsSyncingFinance(true);
     try {
-      const firstUnsynced = items.find((it) => !it.last_synced_at);
-      if (firstUnsynced) {
-        const [proposals, accounts] = await Promise.all([
-          pluggySyncService.previewAccountReconciliation(firstUnsynced.id),
-          finRepository.listAccounts(false),
-        ]);
-        const initialChoices: Record<string, string | 'CREATE_NEW'> = {};
-        for (const p of proposals) {
-          initialChoices[p.pluggyAccount.id] = p.suggestedLocalAccountId ?? 'CREATE_NEW';
-        }
-        setLocalAccounts(accounts);
-        setReconcileProposals(proposals);
-        setReconcileChoices(initialChoices);
-        setReconcileItemId(firstUnsynced.id);
+      const unsynced = items.filter((it) => !it.last_synced_at);
+      if (unsynced.length > 0) {
+        setFinanceTotals({ created: 0, updated: 0, accounts: 0 });
+        await openFinanceReconciliationFor(
+          unsynced[0].id,
+          unsynced.slice(1).map((u) => u.id)
+        );
         return;
       }
 
       let totalCreated = 0;
       let totalUpdated = 0;
       for (const it of items) {
-        const res = await pluggySyncService.syncFinance(it.id);
+        const res = await pluggySyncService.syncFinance(it.id, { client: pluggyClient });
         totalCreated += res.counts.transactionsCreated;
         totalUpdated += res.counts.transactionsUpdated;
       }
@@ -332,13 +351,36 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
         targetLocalAccountId: reconcileChoices[p.pluggyAccount.id] ?? 'CREATE_NEW',
       }));
       const res = await pluggySyncService.syncFinance(reconcileItemId, {
+        client: pluggyClient,
         accountChoices: choices,
       });
+      const nextTotals = {
+        created: financeTotals.created + res.counts.transactionsCreated,
+        updated: financeTotals.updated + res.counts.transactionsUpdated,
+        accounts: financeTotals.accounts + res.counts.accountsSynced,
+      };
+      setFinanceTotals(nextTotals);
+
+      if (pendingFinanceQueue.length > 0) {
+        const [nextItemId, ...restQueue] = pendingFinanceQueue;
+        await openFinanceReconciliationFor(nextItemId, restQueue);
+        return;
+      }
+
+      // Sincroniza também os itens já conciliados anteriormente
+      const syncedItems = items.filter((it) => Boolean(it.last_synced_at));
+      for (const it of syncedItems) {
+        const extraRes = await pluggySyncService.syncFinance(it.id, { client: pluggyClient });
+        nextTotals.created += extraRes.counts.transactionsCreated;
+        nextTotals.updated += extraRes.counts.transactionsUpdated;
+      }
+
       setReconcileItemId(null);
       setReconcileProposals([]);
+      setPendingFinanceQueue([]);
       await loadState();
       setStatusMessage(
-        `Primeira sincronização concluída: ${res.counts.accountsSynced} contas, ${res.counts.transactionsCreated} lançamentos.`
+        `Primeira sincronização concluída: ${nextTotals.accounts} contas, ${nextTotals.created} lançamentos.`
       );
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : 'Erro na conciliação inicial.');
@@ -350,7 +392,8 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const handleTestConnection = async () => {
     setErrorMessage(null);
     setStatusMessage(null);
-    if (items.length === 0) {
+    const currentItems = items.length > 0 ? items : await openFinanceRepository.listItems();
+    if (currentItems.length === 0) {
       setErrorMessage('Adicione pelo menos um itemId antes de testar a conexão.');
       return;
     }
@@ -359,7 +402,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
     const summaries: PluggyCoverageItemSummary[] = [];
 
     try {
-      for (const item of items) {
+      for (const item of currentItems) {
         const startedAt = new Date().toISOString();
         try {
           const summary = await pluggyClient.inspectItemCoverage(item.id);
@@ -429,8 +472,62 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 
       setCoverageReport(summaries);
       setItems(await openFinanceRepository.listItems());
+
+      const firstOk = summaries.find((s) => !s.error);
+      if (firstOk) {
+        const [rawAccs, rawInvs, localAccs] = await Promise.all([
+          typeof pluggyClient.listAccounts === 'function'
+            ? pluggyClient.listAccounts(firstOk.itemId).catch(() => [])
+            : Promise.resolve([]),
+          typeof pluggyClient.listInvestments === 'function'
+            ? pluggyClient.listInvestments(firstOk.itemId).catch(() => [])
+            : Promise.resolve([]),
+          finRepository.listAccounts(true).catch(() => []),
+        ]);
+        const diag = buildSyncDiagnostics(
+          {
+            itemId: firstOk.itemId,
+            connectorName: firstOk.connectorName,
+            accounts: rawAccs,
+            investments: rawInvs,
+          },
+          {
+            accounts: localAccs
+              .filter((a) => a.source === 'OPEN_FINANCE')
+              .map((a) => ({
+                ofAccountId: a.of_account_id,
+                reportedBalanceCents: a.reported_balance_cents,
+                calculatedBalanceCents: a.reported_balance_cents ?? 0,
+                hasOwner: Boolean(a.owner),
+                hasMaskedNumber: Boolean(a.masked_number),
+              })),
+          }
+        );
+        setDiagnosticsReport(diag);
+      }
     } finally {
       setIsTesting(false);
+    }
+  };
+
+  const handleCopyDiagnostics = async () => {
+    if (!diagnosticsReport) return;
+    const text = formatDiagnosticsReportText(diagnosticsReport);
+    if (onCopyReport) {
+      await onCopyReport(text);
+      setStatusMessage('Relatório de diagnóstico copiado sem dados pessoais.');
+      return;
+    }
+    try {
+      const nav = (globalThis as unknown as { navigator?: { clipboard?: { writeText?: (t: string) => Promise<void> } } }).navigator;
+      if (nav?.clipboard?.writeText) {
+        await nav.clipboard.writeText(text);
+      } else {
+        await Share.share({ message: text });
+      }
+      setStatusMessage('Relatório de diagnóstico copiado sem dados pessoais.');
+    } catch {
+      setErrorMessage('Não foi possível copiar o relatório.');
     }
   };
 
@@ -798,6 +895,27 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                     </View>
                   </View>
                 ))}
+              </BentoTile>
+            ) : null}
+
+            {diagnosticsReport ? (
+              <BentoTile variant={variant} testID="open-finance-diagnostics" style={styles.card}>
+                <Text style={[styles.sectionTitle, { color: fg }]}>
+                  Diagnóstico da última sincronização
+                </Text>
+                <Text style={[styles.caption, { color: fg }]}>
+                  {`Contas: ${diagnosticsReport.counts.accounts.persisted}/${diagnosticsReport.counts.accounts.received} · Transações: ${diagnosticsReport.counts.transactions.persisted}/${diagnosticsReport.counts.transactions.received} · Faturas: ${diagnosticsReport.counts.bills.persisted}/${diagnosticsReport.counts.bills.received}`}
+                </Text>
+                <Text style={[styles.caption, { color: fg }]}>
+                  {`Investimentos: ${diagnosticsReport.counts.investments.persisted}/${diagnosticsReport.counts.investments.received} · Movimentações: ${diagnosticsReport.counts.investmentTransactions.persisted}/${diagnosticsReport.counts.investmentTransactions.received} · Divergências: ${diagnosticsReport.divergences.length}`}
+                </Text>
+                <TouchableOpacity
+                  testID="open-finance-copy-diagnostics-btn"
+                  style={[styles.secondaryBtn, { borderColor: border }]}
+                  onPress={() => void handleCopyDiagnostics()}
+                >
+                  <Text style={[styles.secondaryBtnText, { color: fg }]}>Copiar relatório</Text>
+                </TouchableOpacity>
               </BentoTile>
             ) : null}
           </BentoGrid>

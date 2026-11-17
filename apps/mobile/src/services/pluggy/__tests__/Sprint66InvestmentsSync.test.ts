@@ -148,7 +148,7 @@ describe('Sprint 66 — Orquestração, Migração 1.1 e Precedência Pluggy (Fa
     expect(updatedAssets[0].source).toBe('OPEN_FINANCE');
     expect(updatedAssets[0].external_id).toBe('pg-inv-petr');
     expect(updatedAssets[0].quantity).toBe('100');
-    expect(updatedAssets[0].manual_position_value).toBe('3600.00');
+    expect(updatedAssets[0].manual_position_value).toBeNull();
 
     const allTxs = await db.select().from(transactions).where(eq(transactions.asset_id, existingPetr.id));
     const archivedManual = allTxs.filter((t) => t.source === 'MANUAL');
@@ -280,7 +280,7 @@ describe('Sprint 66 — Orquestração, Migração 1.1 e Precedência Pluggy (Fa
     const all = await assetRepository.getAssetsByPortfolio(portfolio.id);
     const mxrf = all.find((a) => a.ticker === 'MXRF11')!;
     expect(mxrf.quantity).toBe('200'); // NÃO zerou!
-    expect(mxrf.manual_position_value).toBe('2040.00');
+    expect(mxrf.manual_position_value).toBeNull();
     expect(mxrf.missing_since).toBe('2026-11-16T14:00:00.000Z');
 
     const lci = all.find((a) => a.external_id === 'pg-inv-out')!;

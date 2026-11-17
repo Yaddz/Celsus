@@ -14,9 +14,10 @@ import {
   type ClassCoverageStatus,
   type InvestmentMatchCandidate,
   type InvestmentMatchStrategy,
+  type MappedPluggyInvestmentTransaction,
 } from '../../domain/openFinance/investments';
-import { PluggyClient } from './pluggyClient';
-import type { PluggyInvestment, PluggyInvestmentTransaction } from './types';
+import { assertItemConsentActive, PluggyClient } from './pluggyClient';
+import type { PluggyInvestment, PluggyInvestmentTransaction, PluggyItem } from './types';
 
 export interface InvestmentReconciliationProposal {
   pluggyInvestment: PluggyInvestment;
@@ -77,15 +78,37 @@ function generateRunId(): string {
   return `of-inv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-async function fetchInvestmentsFromClient(
+async function fetchItemFromClient(
   client: PluggyClient,
   itemId: string
-): Promise<PluggyInvestment[]> {
-  const anyClient = client as unknown as Record<string, (id: string) => Promise<PluggyInvestment[]>>;
-  if (typeof anyClient.listInvestments === 'function') {
-    return anyClient.listInvestments(itemId);
+): Promise<PluggyItem | null> {
+  const anyClient = client as unknown as Record<string, (id: string) => Promise<PluggyItem | undefined>>;
+  if (typeof anyClient.getItem === 'function') {
+    return (await anyClient.getItem(itemId)) ?? null;
   }
-  return anyClient.fetchInvestments(itemId);
+  if (typeof anyClient.fetchItem === 'function') {
+    return (await anyClient.fetchItem(itemId)) ?? null;
+  }
+  return null;
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIdx = 0;
+  async function runWorker() {
+    while (nextIdx < items.length) {
+      const idx = nextIdx;
+      nextIdx += 1;
+      results[idx] = await worker(items[idx]);
+    }
+  }
+  const workers = Array.from({ length: Math.min(limit, items.length) }, () => runWorker());
+  await Promise.all(workers);
+  return results;
 }
 
 async function fetchInvestmentTxsFromClient(
@@ -100,6 +123,17 @@ async function fetchInvestmentTxsFromClient(
     return anyClient.listInvestmentTransactions(investmentId);
   }
   return anyClient.fetchInvestmentTransactions(investmentId);
+}
+
+async function fetchInvestmentsFromClient(
+  client: PluggyClient,
+  itemId: string
+): Promise<PluggyInvestment[]> {
+  const anyClient = client as unknown as Record<string, (id: string) => Promise<PluggyInvestment[]>>;
+  if (typeof anyClient.listInvestments === 'function') {
+    return anyClient.listInvestments(itemId);
+  }
+  return anyClient.fetchInvestments(itemId);
 }
 
 export const pluggyInvestmentsSyncService = {
@@ -158,82 +192,157 @@ export const pluggyInvestmentsSyncService = {
       assetsMarkedMissing: 0,
       transactionsArchived: 0,
       transactionsCreated: 0,
+      investmentErrors: 0,
     };
+    const interestTransactions: MappedPluggyInvestmentTransaction[] = [];
 
-    const pluggyInvs = await fetchInvestmentsFromClient(client, itemId);
-    counts.investmentsFetched = pluggyInvs.length;
-    const coverageByClass = computeClassCoverageReport(pluggyInvs);
+    try {
+      const item = await fetchItemFromClient(client, itemId);
+      if (item) {
+        assertItemConsentActive(item, nowFn().getTime());
+      }
 
-    const txsByInvId: Record<string, ReturnType<typeof mapPluggyInvestmentTransaction>[]> = {};
-    for (const inv of pluggyInvs) {
-      const rawTxs = await fetchInvestmentTxsFromClient(client, inv.id);
-      txsByInvId[inv.id] = rawTxs.map((t: PluggyInvestmentTransaction) =>
-        mapPluggyInvestmentTransaction(t, inv.id)
-      );
-    }
+      const pluggyInvs = await fetchInvestmentsFromClient(client, itemId);
+      counts.investmentsFetched = pluggyInvs.length;
+      const coverageByClass = computeClassCoverageReport(pluggyInvs);
 
-    const choicesByInvId = new Map<string, InvestmentReconciliationChoice>(
-      (options?.reconciliationChoices ?? []).map((c) => [c.pluggyInvestmentId, c])
-    );
-    const defaultPortId =
-      options?.portfolioByItemId?.[itemId] ?? options?.defaultPortfolioId ?? null;
-
-    let needsReconciliation = false;
-
-    await runInTransaction(async () => {
-      const db = await getDatabase();
-      const allAssets = await db.select().from(assets);
-      const syncedExternalIds = new Set<string>();
-
-      for (const inv of pluggyInvs) {
-        syncedExternalIds.add(inv.id);
-        const mapped = mapPluggyInvestment(inv);
-        const mappedTxs = txsByInvId[inv.id] || [];
-        const cost = calculateInvestmentCostBasis(inv, mappedTxs);
-
-        const existingByExt = allAssets.find((a) => a.external_id === inv.id);
-        const choice = choicesByInvId.get(inv.id);
-
-        let targetAssetId: string | null = existingByExt?.id ?? null;
-        let targetPortfolioId: string | null =
-          choice?.targetPortfolioId ?? existingByExt?.portfolio_id ?? defaultPortId;
-
-        if (!existingByExt && choice?.action === 'MATCH' && choice.targetAssetId) {
-          targetAssetId = choice.targetAssetId;
-        } else if (!existingByExt && !choice && !defaultPortId) {
-          needsReconciliation = true;
-          continue;
-        }
-
-        const isWithdrawn = mapped.status === 'TOTAL_WITHDRAWAL';
-
-        if (targetAssetId) {
-          // Arquivar movimentações manuais / B3 anteriores quando ativo passa para OPEN_FINANCE
-          const existingTxs = await db
-            .select()
-            .from(transactions)
-            .where(eq(transactions.asset_id, targetAssetId));
-
-          for (const tx of existingTxs) {
-            if (tx.source !== 'OPEN_FINANCE' && !tx.archived_at) {
-              await db
-                .update(transactions)
-                .set({ archived_at: nowIso })
-                .where(eq(transactions.id, tx.id));
-              counts.transactionsArchived++;
+      const txsByInvId: Record<string, MappedPluggyInvestmentTransaction[]> = {};
+      await mapWithConcurrency(pluggyInvs, 3, async (inv) => {
+        try {
+          const rawTxs = await fetchInvestmentTxsFromClient(client, inv.id);
+          const mapped = rawTxs.map((t: PluggyInvestmentTransaction) =>
+            mapPluggyInvestmentTransaction(t, inv.id)
+          );
+          txsByInvId[inv.id] = mapped;
+          for (const mtx of mapped) {
+            if (mtx.type === 'INCOME') {
+              interestTransactions.push(mtx);
             }
           }
+        } catch {
+          counts.investmentErrors = (counts.investmentErrors ?? 0) + 1;
+          txsByInvId[inv.id] = [];
+        }
+      });
 
-          await db
-            .update(assets)
-            .set({
+      const choicesByInvId = new Map<string, InvestmentReconciliationChoice>(
+        (options?.reconciliationChoices ?? []).map((c) => [c.pluggyInvestmentId, c])
+      );
+      const defaultPortId =
+        options?.portfolioByItemId?.[itemId] ?? options?.defaultPortfolioId ?? null;
+
+      let needsReconciliation = false;
+
+      await runInTransaction(async () => {
+        const db = await getDatabase();
+        const allAssets = await db.select().from(assets);
+        const syncedExternalIds = new Set<string>();
+        const usedTickers = new Set<string>();
+
+        for (const inv of pluggyInvs) {
+          syncedExternalIds.add(inv.id);
+          const mapped = mapPluggyInvestment(inv, usedTickers);
+          usedTickers.add(mapped.ticker);
+          const mappedTxs = txsByInvId[inv.id] || [];
+          const cost = calculateInvestmentCostBasis(inv, mappedTxs);
+
+          const existingByExt = allAssets.find((a) => a.external_id === inv.id);
+          const choice = choicesByInvId.get(inv.id);
+
+          let targetAssetId: string | null = existingByExt?.id ?? null;
+          let targetPortfolioId: string | null =
+            choice?.targetPortfolioId ?? existingByExt?.portfolio_id ?? defaultPortId;
+
+          if (!existingByExt && choice?.action === 'MATCH' && choice.targetAssetId) {
+            targetAssetId = choice.targetAssetId;
+          } else if (!existingByExt && !choice && !defaultPortId) {
+            needsReconciliation = true;
+            continue;
+          }
+
+          const isWithdrawn = mapped.status === 'TOTAL_WITHDRAWAL';
+          const nextManualPositionValue =
+            mapped.marketValue === null
+              ? null
+              : isWithdrawn
+              ? '0.00'
+              : mapped.marketValue;
+
+          if (targetAssetId) {
+            const existingAsset = allAssets.find((a) => a.id === targetAssetId);
+            const shouldPreserveName =
+              existingAsset &&
+              existingAsset.auto_name !== null &&
+              existingAsset.auto_name !== undefined &&
+              existingAsset.name !== existingAsset.auto_name;
+
+            // Arquivar movimentações manuais / B3 anteriores quando ativo passa para OPEN_FINANCE
+            const existingTxs = await db
+              .select()
+              .from(transactions)
+              .where(eq(transactions.asset_id, targetAssetId));
+
+            for (const tx of existingTxs) {
+              if (tx.source !== 'OPEN_FINANCE' && !tx.archived_at) {
+                await db
+                  .update(transactions)
+                  .set({ archived_at: nowIso })
+                  .where(eq(transactions.id, tx.id));
+                counts.transactionsArchived++;
+              }
+            }
+
+            await db
+              .update(assets)
+              .set({
+                asset_class: mapped.assetClass,
+                ticker: mapped.ticker,
+                name: shouldPreserveName ? existingAsset!.name : mapped.name,
+                auto_name: mapped.name,
+                quantity: isWithdrawn ? '0' : mapped.quantity,
+                average_price: cost.averagePrice,
+                manual_price_override: null,
+                manual_position_value: nextManualPositionValue,
+                gross_amount: mapped.grossAmount,
+                cost_basis_source: cost.costBasisSource,
+                isin: mapped.isin,
+                rf_indexer: mapped.rfIndexer,
+                rf_rate: mapped.rfRate,
+                rf_maturity_date: mapped.rfMaturityDate,
+                rf_issuer: mapped.rfIssuer,
+                rf_is_tax_exempt: mapped.rfIsTaxExempt ? 1 : 0,
+                is_etf: mapped.isEtf ? 1 : 0,
+                source: 'OPEN_FINANCE',
+                external_id: mapped.externalId,
+                institution_id: itemId,
+                last_synced_at: nowIso,
+                missing_since: null,
+                of_status: mapped.status,
+                issuer_cnpj: mapped.issuerCnpj ?? null,
+                issue_date: mapped.issueDate ?? null,
+                purchase_date: mapped.purchaseDate ?? null,
+                taxes: mapped.taxes ?? null,
+                taxes2: mapped.taxes2 ?? null,
+                updated_at: nowIso,
+              })
+              .where(eq(assets.id, targetAssetId));
+
+            if (isWithdrawn) {
+              counts.assetsClosed++;
+            } else {
+              counts.assetsUpdated++;
+            }
+          } else if (targetPortfolioId) {
+            const created = await assetRepository.createAsset({
+              portfolio_id: targetPortfolioId,
               asset_class: mapped.assetClass,
               ticker: mapped.ticker,
               name: mapped.name,
+              auto_name: mapped.name,
               quantity: isWithdrawn ? '0' : mapped.quantity,
               average_price: cost.averagePrice,
               manual_price_override: null,
-              manual_position_value: isWithdrawn ? '0.00' : mapped.marketValue,
+              manual_position_value: nextManualPositionValue,
               gross_amount: mapped.grossAmount,
               cost_basis_source: cost.costBasisSource,
               isin: mapped.isin,
@@ -249,120 +358,107 @@ export const pluggyInvestmentsSyncService = {
               last_synced_at: nowIso,
               missing_since: null,
               of_status: mapped.status,
-              updated_at: nowIso,
-            })
-            .where(eq(assets.id, targetAssetId));
-
-          if (isWithdrawn) {
-            counts.assetsClosed++;
-          } else {
-            counts.assetsUpdated++;
-          }
-        } else if (targetPortfolioId) {
-          const created = await assetRepository.createAsset({
-            portfolio_id: targetPortfolioId,
-            asset_class: mapped.assetClass,
-            ticker: mapped.ticker,
-            name: mapped.name,
-            quantity: isWithdrawn ? '0' : mapped.quantity,
-            average_price: cost.averagePrice,
-            manual_price_override: null,
-            manual_position_value: isWithdrawn ? '0.00' : mapped.marketValue,
-            gross_amount: mapped.grossAmount,
-            cost_basis_source: cost.costBasisSource,
-            isin: mapped.isin,
-            rf_indexer: mapped.rfIndexer,
-            rf_rate: mapped.rfRate,
-            rf_maturity_date: mapped.rfMaturityDate,
-            rf_issuer: mapped.rfIssuer,
-            rf_is_tax_exempt: mapped.rfIsTaxExempt ? 1 : 0,
-            is_etf: mapped.isEtf ? 1 : 0,
-            source: 'OPEN_FINANCE',
-            external_id: mapped.externalId,
-            institution_id: itemId,
-            last_synced_at: nowIso,
-            missing_since: null,
-            of_status: mapped.status,
-          });
-          targetAssetId = created.id;
-          if (isWithdrawn) {
-            counts.assetsClosed++;
-          } else {
-            counts.assetsCreated++;
-          }
-        }
-
-        // Inserir movimentações Pluggy com deduplicação por external_id
-        if (targetAssetId && targetPortfolioId) {
-          const currentAssetTxs = await db
-            .select()
-            .from(transactions)
-            .where(eq(transactions.asset_id, targetAssetId));
-          const existingExtTxIds = new Set(
-            currentAssetTxs
-              .filter((t) => t.source === 'OPEN_FINANCE' && t.external_id)
-              .map((t) => t.external_id!)
-          );
-
-          for (const mtx of mappedTxs) {
-            if (existingExtTxIds.has(mtx.externalId)) continue;
-            await transactionRepository.createTransaction({
-              portfolio_id: targetPortfolioId,
-              asset_id: targetAssetId,
-              type: mtx.type,
-              trade_date: mtx.tradeDate,
-              quantity: mtx.quantity,
-              unit_price: mtx.unitPrice,
-              fees: mtx.fees,
-              total_amount: mtx.totalAmount,
-              notes: mtx.notes,
-              source: 'OPEN_FINANCE',
-              external_id: mtx.externalId,
+              issuer_cnpj: mapped.issuerCnpj ?? null,
+              issue_date: mapped.issueDate ?? null,
+              purchase_date: mapped.purchaseDate ?? null,
+              taxes: mapped.taxes ?? null,
+              taxes2: mapped.taxes2 ?? null,
             });
-            existingExtTxIds.add(mtx.externalId);
-            counts.transactionsCreated++;
+            targetAssetId = created.id;
+            if (isWithdrawn) {
+              counts.assetsClosed++;
+            } else {
+              counts.assetsCreated++;
+            }
+          }
+
+          // Inserir APENAS movimentações BUY e SELL na tabela transactions com deduplicação por external_id
+          if (targetAssetId && targetPortfolioId) {
+            const currentAssetTxs = await db
+              .select()
+              .from(transactions)
+              .where(eq(transactions.asset_id, targetAssetId));
+            const existingExtTxIds = new Set(
+              currentAssetTxs
+                .filter((t) => t.source === 'OPEN_FINANCE' && t.external_id)
+                .map((t) => t.external_id!)
+            );
+
+            for (const mtx of mappedTxs) {
+              if (mtx.type !== 'BUY' && mtx.type !== 'SELL') continue;
+              if (existingExtTxIds.has(mtx.externalId)) continue;
+              await transactionRepository.createTransaction({
+                portfolio_id: targetPortfolioId,
+                asset_id: targetAssetId,
+                type: mtx.type,
+                trade_date: mtx.tradeDate,
+                quantity: mtx.quantity,
+                unit_price: mtx.unitPrice,
+                fees: mtx.fees,
+                total_amount: mtx.totalAmount,
+                notes: mtx.notes,
+                source: 'OPEN_FINANCE',
+                external_id: mtx.externalId,
+              });
+              existingExtTxIds.add(mtx.externalId);
+              counts.transactionsCreated++;
+            }
           }
         }
-      }
 
-      // Investimento que deixa de vir da Pluggy NÃO zera posição: marca missing_since
-      for (const a of allAssets) {
-        if (
-          a.source === 'OPEN_FINANCE' &&
-          a.institution_id === itemId &&
-          a.external_id &&
-          !syncedExternalIds.has(a.external_id) &&
-          a.of_status !== 'TOTAL_WITHDRAWAL'
-        ) {
-          if (!a.missing_since) {
-            await db
-              .update(assets)
-              .set({ missing_since: nowIso, updated_at: nowIso })
-              .where(eq(assets.id, a.id));
+        // Investimento que deixa de vir da Pluggy NÃO zera posição: marca missing_since
+        for (const a of allAssets) {
+          if (
+            a.source === 'OPEN_FINANCE' &&
+            a.institution_id === itemId &&
+            a.external_id &&
+            !syncedExternalIds.has(a.external_id) &&
+            a.of_status !== 'TOTAL_WITHDRAWAL'
+          ) {
+            if (!a.missing_since) {
+              await db
+                .update(assets)
+                .set({ missing_since: nowIso, updated_at: nowIso })
+                .where(eq(assets.id, a.id));
+            }
+            counts.assetsMarkedMissing++;
           }
-          counts.assetsMarkedMissing++;
         }
-      }
-    });
+      });
 
-    await openFinanceRepository.recordSyncRun({
-      id: runId,
-      item_id: itemId,
-      started_at: nowIso,
-      finished_at: new Date().toISOString(),
-      status: 'SUCCESS',
-      counts_json: JSON.stringify(counts),
-      error: null,
-    });
+      await openFinanceRepository.recordSyncRun({
+        id: runId,
+        item_id: itemId,
+        started_at: nowIso,
+        finished_at: new Date().toISOString(),
+        status: 'SUCCESS',
+        counts_json: JSON.stringify(counts),
+        error: null,
+      });
 
-    return {
-      runId,
-      itemId,
-      status: 'SUCCESS',
-      counts,
-      coverageByClass,
-      needsReconciliation,
-    };
+      return {
+        runId,
+        itemId,
+        status: 'SUCCESS',
+        counts,
+        coverageByClass,
+        needsReconciliation,
+        interestTransactions,
+      };
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Erro desconhecido ao sincronizar investimentos.';
+      await openFinanceRepository.recordSyncRun({
+        id: runId,
+        item_id: itemId,
+        started_at: nowIso,
+        finished_at: new Date().toISOString(),
+        status: 'ERROR',
+        counts_json: JSON.stringify(counts),
+        error: message,
+      });
+      throw err;
+    }
   },
 
   async disconnectItemInvestments(

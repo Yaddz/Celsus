@@ -397,7 +397,7 @@ export class PluggyClient {
     let totalPages = 1;
 
     do {
-      const params = new URLSearchParams({ ...baseParams, page: String(page), pageSize: '100' });
+      const params = new URLSearchParams({ ...baseParams, page: String(page), pageSize: '500' });
       const res = await this.request<PluggyPageResponse<T>>(`${basePath}?${params.toString()}`);
       if (Array.isArray(res.results) && res.results.length > 0) {
         all.push(...res.results);

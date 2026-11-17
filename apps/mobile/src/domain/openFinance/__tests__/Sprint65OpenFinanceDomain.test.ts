@@ -43,7 +43,7 @@ describe('Sprint 65 — Domínio Open Finance (Fase A)', () => {
     const mappedBank = mapPluggyAccount(bankAcc);
     expect(mappedBank).toMatchObject({
       ofAccountId: 'pg-bank-1',
-      name: 'Itaú Uniclass',
+      name: 'Conta corrente ·· 3456',
       type: 'checking',
       source: 'OPEN_FINANCE',
       reportedBalanceCents: 452050,
@@ -147,7 +147,7 @@ describe('Sprint 65 — Domínio Open Finance (Fase A)', () => {
       dueDate: '2026-11-15',
       paidDate: '2026-11-15',
       paidAmountCents: 19990,
-      description: 'AMAZON BR',
+      description: 'Amazon BR',
       descriptionRaw: 'AMAZON.COM.BR*12345 SAO PAULO',
       installmentNumber: 2,
       installmentTotal: 6,
@@ -185,7 +185,7 @@ describe('Sprint 65 — Domínio Open Finance (Fase A)', () => {
       amountCents: 5025,
       paidDate: null,
       paidAmountCents: null,
-      description: 'ESTORNO AMAZON',
+      description: 'Estorno Amazon',
       descriptionRaw: 'ESTORNO AMAZON.COM.BR',
     });
   });

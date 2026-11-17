@@ -510,6 +510,12 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'missing_since',
   'is_etf',
   'of_status',
+  'issuer_cnpj',
+  'issue_date',
+  'purchase_date',
+  'taxes',
+  'taxes2',
+  'auto_name',
   'created_at',
   'updated_at',
 ];
@@ -578,6 +584,9 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'source',
   'reported_balance_cents',
   'reported_balance_at',
+  'masked_number',
+  'owner',
+  'auto_name',
   'created_at',
 ];
 
@@ -677,6 +686,9 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     source: r.source || 'MANUAL',
     reported_balance_cents: parseOptionalInt(r.reported_balance_cents),
     reported_balance_at: r.reported_balance_at === '' ? null : r.reported_balance_at ?? null,
+    masked_number: r.masked_number === '' ? null : r.masked_number ?? null,
+    owner: r.owner === '' ? null : r.owner ?? null,
+    auto_name: r.auto_name === '' ? null : r.auto_name ?? null,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -1034,6 +1046,12 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     missing_since: !r.missing_since || r.missing_since === '' ? null : r.missing_since,
     is_etf: Number(r.is_etf || 0),
     of_status: !r.of_status || r.of_status === '' ? null : r.of_status,
+    issuer_cnpj: !r.issuer_cnpj || r.issuer_cnpj === '' ? null : r.issuer_cnpj,
+    issue_date: !r.issue_date || r.issue_date === '' ? null : r.issue_date,
+    purchase_date: !r.purchase_date || r.purchase_date === '' ? null : r.purchase_date,
+    taxes: !r.taxes || r.taxes === '' ? null : r.taxes,
+    taxes2: !r.taxes2 || r.taxes2 === '' ? null : r.taxes2,
+    auto_name: !r.auto_name || r.auto_name === '' ? null : r.auto_name,
     created_at: r.created_at,
     updated_at: r.updated_at,
   }));

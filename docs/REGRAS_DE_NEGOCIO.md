@@ -308,3 +308,20 @@ inclusive depois de "Apagar todos os dados".
   - **Transferências e pagamento de fatura (`transfer_out` / `transfer_in`)**: formam um par atômico ligado por `transfer_group_id`. `calculateMonthlySummary` **ignora** `transfer_out` e `transfer_in` (não inflam receitas, despesas nem categorias); `calculateAccountBalance` **subtrai** `transfer_out` e **soma** `transfer_in` na respectiva conta.
     - *Exemplo*: salário de R\$ 5.000,00 na conta corrente + compra de R\$ 800,00 no cartão + pagamento de R\$ 1.000,00 de fatura anterior → `calculateMonthlySummary` mostra R\$ 5.000,00 de receita e R\$ 800,00 de despesa; `calculateAccountBalance` da conta corrente resulta em `5000 - 1000 = R$ 4.000,00`.
   - **Atenção no Resumo (`detectOverdueAndDueSoonWithBills`)**: compras individuais no cartão não aparecem nos tiles "A vencer · 7 dias" e "Atrasadas"; em seu lugar entram as **faturas em aberto** pelo vencimento (`billDueDate`).
+
+---
+
+## 17. Open Finance / Pluggy (`domain/openFinance`, Sprint 71)
+
+- **Livro-razão de investimentos (`transactions`)**: apenas movimentações `BUY` e `SELL` são gravadas em `transactions` (alinhado a `averagePrice.ts`).
+  - `AMORTIZATION`: reduz o custo total (`totalCost = max(0, totalCost - amount)`) sem alterar a quantidade (`Q`).
+  - `TAX`: não altera a quantidade (`Q`) nem é gravado como movimentação de livro-razão.
+  - `TRANSFER`: só entra no custo e na quantidade quando possuir `quantity > 0` e `unitPrice > 0`, e nunca duplica uma `BUY` já contada na mesma data/quantidade/preço.
+  - `INTEREST` (dividendos, JCP, rendimentos): devolvido em campo separado do resultado sem persistência em `transactions` ou `income_events` nesta etapa.
+- **Taxas de movimentação**: usa a soma dos campos numéricos de `expenses` quando presente; só recorre a `|netAmount| − |amount|` quando `expenses` é nulo.
+- **Posição e `manual_position_value`**:
+  - Ações, FIIs, BDRs e ETFs usam a quantidade informada pela instituição (0 se nula) e mantêm `manual_position_value = NULL`, para que a cotação de mercado seja sempre a fonte do valor.
+  - Renda fixa, fundos e previdência recebem quantidade padrão `1` quando `quantity` é nula e `balance > 0`, gravando `manual_position_value = balance`.
+- **Nomenclatura e preservação de edição (`naming.ts`)**:
+  - Renda fixa/COE: ticker curto `"<SUBTIPO> <EMISSOR>"` e nome `"<Subtipo> <Emissor> · <taxa> · venc. mm/aaaa"`; fundos/previdência: sigla sem *stopwords*; contas: `"<Banco> · <tipo> ·· 1234"`; lançamentos: descrição limpa em capitalização normal mantendo o texto bruto em `description_raw`.
+  - Nomes editados pelo usuário não são sobrescritos (comparação com `auto_name` em contas e ativos, e `user_edited_fields` em lançamentos).

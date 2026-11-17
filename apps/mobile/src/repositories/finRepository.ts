@@ -3,6 +3,7 @@ import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
 import {
   finAccounts,
+  finBills,
   finBudgets,
   finCategories,
   finCategoryRules,
@@ -80,6 +81,9 @@ export class FinRepository {
     source?: 'MANUAL' | 'OPEN_FINANCE';
     reportedBalanceCents?: number | null;
     reportedBalanceAt?: string | null;
+    maskedNumber?: string | null;
+    owner?: string | null;
+    autoName?: string | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
     const isCard = params.type === 'card';
@@ -97,6 +101,9 @@ export class FinRepository {
       source: params.source ?? 'MANUAL',
       reported_balance_cents: params.reportedBalanceCents ?? null,
       reported_balance_at: params.reportedBalanceAt ?? null,
+      masked_number: params.maskedNumber ?? null,
+      owner: params.owner ?? null,
+      auto_name: params.autoName ?? null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -118,6 +125,9 @@ export class FinRepository {
       source: 'MANUAL' | 'OPEN_FINANCE';
       reported_balance_cents: number | null;
       reported_balance_at: string | null;
+      masked_number: string | null;
+      owner: string | null;
+      auto_name: string | null;
     }>
   ): Promise<FinAccount> {
     const db = getDatabase();
@@ -127,6 +137,58 @@ export class FinRepository {
       throw new Error(`Conta não encontrada: ${id}`);
     }
     return updated;
+  }
+
+  async upsertBill(params: {
+    accountId: string;
+    externalId: string;
+    billMonth: string;
+    closingDate: string | null;
+    dueDate: string;
+    totalAmountCents: number;
+    minimumPaymentCents: number | null;
+  }): Promise<void> {
+    const db = getDatabase();
+    const nowIso = new Date().toISOString();
+    const existing = await db
+      .select()
+      .from(finBills)
+      .where(eq(finBills.account_id, params.accountId));
+    const match = existing.find(
+      (b) => b.external_id === params.externalId || b.bill_month === params.billMonth
+    );
+    if (match) {
+      await db
+        .update(finBills)
+        .set({
+          external_id: params.externalId,
+          bill_month: params.billMonth,
+          closing_date: params.closingDate,
+          due_date: params.dueDate,
+          total_amount_cents: params.totalAmountCents,
+          minimum_payment_cents: params.minimumPaymentCents,
+          updated_at: nowIso,
+        })
+        .where(eq(finBills.id, match.id));
+    } else {
+      await db.insert(finBills).values({
+        id: generateUUID(),
+        account_id: params.accountId,
+        external_id: params.externalId,
+        bill_month: params.billMonth,
+        closing_date: params.closingDate,
+        due_date: params.dueDate,
+        total_amount_cents: params.totalAmountCents,
+        minimum_payment_cents: params.minimumPaymentCents,
+        created_at: nowIso,
+        updated_at: nowIso,
+      });
+    }
+  }
+
+  async listBillsByAccount(accountId: string) {
+    const db = getDatabase();
+    return db.select().from(finBills).where(eq(finBills.account_id, accountId));
   }
 
   async archiveAccount(id: string): Promise<FinAccount> {

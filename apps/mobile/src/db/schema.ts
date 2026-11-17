@@ -67,6 +67,12 @@ export const assets = sqliteTable('assets', {
   missing_since: text('missing_since'),
   is_etf: integer('is_etf').notNull().default(0),
   of_status: text('of_status'), // ACTIVE | PENDING | TOTAL_WITHDRAWAL
+  issuer_cnpj: text('issuer_cnpj'),
+  issue_date: text('issue_date'),
+  purchase_date: text('purchase_date'),
+  taxes: text('taxes'),
+  taxes2: text('taxes2'),
+  auto_name: text('auto_name'),
 
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
@@ -215,7 +221,27 @@ export const finAccounts = sqliteTable('fin_accounts', {
   source: text('source').notNull().default('MANUAL'), // 'MANUAL' | 'OPEN_FINANCE'
   reported_balance_cents: integer('reported_balance_cents'),
   reported_balance_at: text('reported_balance_at'),
+  masked_number: text('masked_number'),
+  owner: text('owner'),
+  auto_name: text('auto_name'),
   created_at: text('created_at').notNull(),
+});
+
+/**
+ * FIN_BILLS
+ * Faturas de cartão de crédito sincronizadas via Open Finance (fechamento e pagamento mínimo).
+ */
+export const finBills = sqliteTable('fin_bills', {
+  id: text('id').primaryKey(),
+  account_id: text('account_id').notNull(),
+  external_id: text('external_id'),
+  bill_month: text('bill_month').notNull(), // YYYY-MM
+  closing_date: text('closing_date'), // YYYY-MM-DD
+  due_date: text('due_date').notNull(), // YYYY-MM-DD
+  total_amount_cents: integer('total_amount_cents').notNull(),
+  minimum_payment_cents: integer('minimum_payment_cents'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
 });
 
 /**

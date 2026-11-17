@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **163 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 71 — Pluggy: diagnosticar e corrigir a importação (Fase A concluída)
+## Sprint 71 — Pluggy: diagnosticar e corrigir a importação (Fase B concluída)
 
 Diagnóstico e cobertura campo a campo, correção de movimentações (`BUY`/`SELL` em `transactions`, `TAX`/`AMORTIZATION`/`TRANSFER` no custo, `INTEREST` separado), taxas via `expenses`, `manual_position_value` nulo para ações/FIIs/BDRs/ETFs, robustez e concorrência no sync de investimentos, nomenclatura legível com preservação de edição do usuário e conciliação em sequência de todos os itens de finanças.
 
@@ -25,6 +25,15 @@ Diagnóstico e cobertura campo a campo, correção de movimentações (`BUY`/`SE
 | `apps/mobile/src/screens/__tests__/Sprint71OpenFinanceSyncFlow.test.tsx` | S71-T23…T25 | `dfa9e974c5435598dbc92387fa310e6c37b7d30b37bef2d06f5b80e673fdaa2a` | 3 FAIL |
 
 Execução da Fase A: `npx jest Sprint71 --no-coverage` → 23 falhando, 2 passando (25 testes, 5 suítes). 163 arquivos travados.
+
+**Testes antigos atualizados com autorização explícita do usuário:**
+- `Sprint65OpenFinanceDomain.test.ts` (`S65-D02`, `S65-D03`): atualizados para refletir `buildAccountName` e `cleanTransactionDescription` preservando `descriptionRaw`.
+- `Sprint66InvestmentsSync.test.ts` (`S66-S02`, `S66-S04`): atualizados para refletir `manual_position_value === null` em ações e FIIs.
+
+Execução da Fase B:
+- `npx jest Sprint71 --no-coverage`: **25/25 PASS** (5 suítes)
+- `npx jest Sprint64 Sprint65 Sprint66 Sprint69 Sprint70 pluggyClient`: **18/19 PASS** em paralelo + `Sprint69OpenFinanceInvestmentsUI` **4/4 PASS** isolado
+- `node scripts/test-lock.js verify`: **163 arquivos íntegros**
 
 ## Sprint 70 — Correções médias da revisão (Fase B concluída)
 

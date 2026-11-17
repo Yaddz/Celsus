@@ -263,6 +263,18 @@ CREATE TABLE IF NOT EXISTS fin_budgets (
   limit_cents INTEGER NOT NULL,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS fin_bills (
+  id TEXT PRIMARY KEY NOT NULL,
+  account_id TEXT NOT NULL,
+  external_id TEXT,
+  bill_month TEXT NOT NULL,
+  closing_date TEXT,
+  due_date TEXT NOT NULL,
+  total_amount_cents INTEGER NOT NULL,
+  minimum_payment_cents INTEGER,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 export const SCHEMA_SQL = INITIAL_SCHEMA_SQL;
@@ -293,6 +305,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_goal_contributions_goal ON fin_goal_contribut
 CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_goal ON fin_goal_sources(goal_id);
 CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_ref ON fin_goal_sources(ref_type, ref_id);
 CREATE INDEX IF NOT EXISTS idx_fin_budgets_category_month ON fin_budgets(category_id, year_month);
+CREATE INDEX IF NOT EXISTS idx_fin_bills_account_month ON fin_bills(account_id, bill_month);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -318,6 +331,7 @@ const inMemoryStore: Record<string, any[]> = {
   fin_goal_sources: [],
   net_worth_snapshots: [],
   fin_budgets: [],
+  fin_bills: [],
 };
 
 function evalCondition(row: any, cond: any): boolean {
@@ -540,8 +554,19 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'assets', column: 'missing_since', ddl: 'ALTER TABLE assets ADD COLUMN missing_since TEXT' },
   { table: 'assets', column: 'is_etf', ddl: 'ALTER TABLE assets ADD COLUMN is_etf INTEGER NOT NULL DEFAULT 0' },
   { table: 'assets', column: 'of_status', ddl: 'ALTER TABLE assets ADD COLUMN of_status TEXT' },
+  { table: 'assets', column: 'issuer_cnpj', ddl: 'ALTER TABLE assets ADD COLUMN issuer_cnpj TEXT' },
+  { table: 'assets', column: 'issue_date', ddl: 'ALTER TABLE assets ADD COLUMN issue_date TEXT' },
+  { table: 'assets', column: 'purchase_date', ddl: 'ALTER TABLE assets ADD COLUMN purchase_date TEXT' },
+  { table: 'assets', column: 'taxes', ddl: 'ALTER TABLE assets ADD COLUMN taxes TEXT' },
+  { table: 'assets', column: 'taxes2', ddl: 'ALTER TABLE assets ADD COLUMN taxes2 TEXT' },
+  { table: 'assets', column: 'auto_name', ddl: 'ALTER TABLE assets ADD COLUMN auto_name TEXT' },
+  { table: 'fin_accounts', column: 'masked_number', ddl: 'ALTER TABLE fin_accounts ADD COLUMN masked_number TEXT' },
+  { table: 'fin_accounts', column: 'owner', ddl: 'ALTER TABLE fin_accounts ADD COLUMN owner TEXT' },
+  { table: 'fin_accounts', column: 'auto_name', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_name TEXT' },
   { table: 'transactions', column: 'archived_at', ddl: 'ALTER TABLE transactions ADD COLUMN archived_at TEXT' },
 ];
+
+const VALID_LEDGER_TYPES = new Set(['BUY', 'SELL', 'SPLIT', 'INPLIT']);
 
 export function applySchemaUpgrades(raw: SQLiteDatabase) {
   for (const up of SCHEMA_UPGRADES) {
@@ -555,6 +580,15 @@ export function applySchemaUpgrades(raw: SQLiteDatabase) {
   raw.execSync(
     "UPDATE assets SET manual_position_value = manual_price_override, manual_price_override = NULL WHERE asset_class = 'FIXED_INCOME' AND manual_price_override IS NOT NULL AND manual_price_override != '' AND manual_position_value IS NULL;"
   );
+  // Migração Sprint 71: remove movimentações fantasmas de Open Finance fora de BUY/SELL/SPLIT/INPLIT
+  raw.execSync(
+    "DELETE FROM transactions WHERE source = 'OPEN_FINANCE' AND type NOT IN ('BUY', 'SELL', 'SPLIT', 'INPLIT');"
+  );
+  if (Array.isArray(inMemoryStore.transactions)) {
+    inMemoryStore.transactions = inMemoryStore.transactions.filter(
+      (t) => !(t.source === 'OPEN_FINANCE' && !VALID_LEDGER_TYPES.has(t.type))
+    );
+  }
 }
 
 let _dbInstance: ReturnType<typeof drizzle> | null = null;
@@ -651,7 +685,16 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'rf_indexer', 'rf_rate', 'rf_maturity_date', 'rf_is_tax_exempt', 'rf_issuer',
               'source', 'external_id', 'institution_id', 'last_synced_at',
               'isin', 'gross_amount', 'cost_basis_source', 'missing_since',
-              'is_etf', 'of_status', 'created_at', 'updated_at',
+              'is_etf', 'of_status', 'issuer_cnpj', 'issue_date', 'purchase_date',
+              'taxes', 'taxes2', 'auto_name', 'created_at', 'updated_at',
+            ].map((name) => ({ name }));
+          }
+          if (sql.includes('PRAGMA table_info(fin_accounts)')) {
+            return [
+              'id', 'name', 'type', 'initial_balance_cents', 'color', 'archived',
+              'closing_day', 'due_day', 'credit_limit_cents', 'of_account_id',
+              'source', 'reported_balance_cents', 'reported_balance_at',
+              'masked_number', 'owner', 'auto_name', 'created_at',
             ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(transactions)')) {

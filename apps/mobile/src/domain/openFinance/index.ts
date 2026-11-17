@@ -12,6 +12,7 @@ import {
   type CategoryRuleLike,
   type ReconcilableExistingEntry,
 } from '../statementImport';
+import { buildAccountName, cleanTransactionDescription } from './naming';
 
 export interface MappedPluggyAccount {
   ofAccountId: string;
@@ -24,6 +25,8 @@ export interface MappedPluggyAccount {
   dueDay: number | null;
   closingDay: number | null;
   needsClosingDay: boolean;
+  maskedNumber: string | null;
+  owner: string | null;
 }
 
 export interface MappedPluggyTransaction {
@@ -169,7 +172,10 @@ export function toCentsDecimal(value: number | string): number {
   return Object.is(res, -0) ? 0 : res;
 }
 
-export function mapPluggyAccount(account: PluggyAccount): MappedPluggyAccount {
+export function mapPluggyAccount(
+  account: PluggyAccount,
+  connectorName?: string | null
+): MappedPluggyAccount {
   const isCredit = account.type === 'CREDIT';
   const creditData = account.creditData ?? null;
   const closingDay = isCredit ? parseIsoDay(creditData?.balanceCloseDate) : null;
@@ -178,10 +184,13 @@ export function mapPluggyAccount(account: PluggyAccount): MappedPluggyAccount {
     isCredit && creditData?.creditLimit != null
       ? toCentsDecimal(creditData.creditLimit)
       : null;
+  const digits = (account.number || '').replace(/\D/g, '');
+  const maskedNumber = digits.length >= 4 ? digits.slice(-4) : null;
+  const owner = account.owner?.trim() || null;
 
   return {
     ofAccountId: account.id,
-    name: account.marketingName?.trim() || account.name,
+    name: buildAccountName(account, connectorName),
     type: isCredit ? 'card' : 'checking',
     source: 'OPEN_FINANCE',
     reportedBalanceCents: toCentsDecimal(account.balance),
@@ -190,6 +199,8 @@ export function mapPluggyAccount(account: PluggyAccount): MappedPluggyAccount {
     dueDay,
     closingDay,
     needsClosingDay: isCredit && closingDay === null,
+    maskedNumber,
+    owner,
   };
 }
 
@@ -284,6 +295,7 @@ export function mapPluggyTransaction(
     }
   }
 
+  const rawOriginal = tx.descriptionRaw ?? tx.description ?? null;
   const { categoryId, matchedRuleId } =
     kind === 'transfer_in'
       ? { categoryId: 'cat-outros-receita', matchedRuleId: undefined }
@@ -291,7 +303,7 @@ export function mapPluggyTransaction(
           tx.category,
           kind === 'income' ? 'income' : 'expense',
           options.rules ?? [],
-          tx.description
+          rawOriginal || tx.description
         );
 
   return {
@@ -304,8 +316,8 @@ export function mapPluggyTransaction(
     dueDate,
     paidDate,
     paidAmountCents,
-    description: tx.description,
-    descriptionRaw: tx.descriptionRaw ?? null,
+    description: cleanTransactionDescription(tx),
+    descriptionRaw: rawOriginal,
     categoryId,
     ...(matchedRuleId ? { matchedRuleId } : {}),
     installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,

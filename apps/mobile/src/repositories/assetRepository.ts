@@ -59,6 +59,12 @@ export class AssetRepository {
       missing_since: params.missing_since ?? null,
       is_etf: params.is_etf ?? 0,
       of_status: params.of_status ?? null,
+      issuer_cnpj: params.issuer_cnpj ?? null,
+      issue_date: params.issue_date ?? null,
+      purchase_date: params.purchase_date ?? null,
+      taxes: params.taxes ?? null,
+      taxes2: params.taxes2 ?? null,
+      auto_name: params.auto_name ?? null,
       created_at: now,
       updated_at: now,
     };
