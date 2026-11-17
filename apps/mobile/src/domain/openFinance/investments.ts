@@ -521,6 +521,15 @@ export function mapPluggyInvestmentTransaction(
   };
 }
 
+/**
+ * Sprint 95: rateia pelo valor de cada operação as taxas da nota repetidas em várias operações. Stub da Fase A.
+ */
+export function prorateSharedNoteFees(
+  txs: MappedPluggyInvestmentTransaction[]
+): MappedPluggyInvestmentTransaction[] {
+  return txs;
+}
+
 function subtractOneDay(isoDate: string): string {
   const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() - 1);
