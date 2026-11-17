@@ -22,6 +22,7 @@ import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { incomeRepository } from '../repositories/incomeRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
+import { isUnknownCost } from '../domain/finance/averagePrice';
 import {
   filterIncomes,
   monthlySeries,
@@ -257,6 +258,7 @@ export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
       ? assets
       : assets.filter((a) => a.portfolio_id === selectedPortfolioId);
     return relevantAssets.reduce((sum, a) => {
+      if (isUnknownCost(a)) return sum;
       const q = new Decimal(a.quantity || 0);
       const p = new Decimal(a.average_price || 0);
       return sum.plus(q.times(p));

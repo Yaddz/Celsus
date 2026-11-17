@@ -29,6 +29,7 @@ import { formatCentsBRL } from '../domain/financeFlow';
 import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { waitRemaining } from '../utils/minLoading';
 import { buildClassSummary } from '../domain/finance/classSummary';
+import { isUnknownCost } from '../domain/finance/averagePrice';
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
@@ -589,20 +590,31 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         });
 
         const mappedAssets: AssetItem[] | null = dbAssets
-          ? dbAssets.map((a) => ({
-              id: a.id,
-              ticker: a.ticker,
-              name: a.name,
-              assetClass: a.asset_class as AssetClass,
-              targetInClass: a.target_percentage_in_class || 0,
-              percentage: a.target_percentage_in_class || 0,
-              weight: Math.max(0.1, Math.round(((a.target_percentage_in_class || 0) / 10) * 100) / 100),
-              isLocked: false,
-              quantity: a.quantity,
-              price: a.manual_position_value
-                ? String((parseFloat(a.manual_position_value) || 0) / Math.max(1, parseFloat(a.quantity || '1') || 1))
-                : a.manual_price_override || a.average_price,
-            }))
+          ? dbAssets.map((a) => {
+              const positionValueRaw =
+                a.value_source === 'INSTITUTION' && a.of_reported_value
+                  ? a.of_reported_value
+                  : a.manual_position_value;
+              const qtyNum = parseFloat(a.quantity || '0');
+              const computedPrice =
+                positionValueRaw !== null && positionValueRaw !== undefined && positionValueRaw !== ''
+                  ? qtyNum > 0
+                    ? String((parseFloat(positionValueRaw) || 0) / qtyNum)
+                    : '0'
+                  : a.manual_price_override || (isUnknownCost(a) ? '0' : a.average_price || '0');
+              return {
+                id: a.id,
+                ticker: a.ticker,
+                name: a.name,
+                assetClass: a.asset_class as AssetClass,
+                targetInClass: a.target_percentage_in_class || 0,
+                percentage: a.target_percentage_in_class || 0,
+                weight: Math.max(0.1, Math.round(((a.target_percentage_in_class || 0) / 10) * 100) / 100),
+                isLocked: false,
+                quantity: a.quantity,
+                price: computedPrice,
+              };
+            })
           : null;
         // Sempre substitui (inclusive por lista vazia): uma carteira sem ativos não herda os da anterior.
         if (mappedAssets) apply.push(() => setAssets(mappedAssets));
@@ -687,11 +699,16 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         try {
           const pAssets = await assetRepository.getAssetsByPortfolio(p.id);
           balances[p.id] = pAssets.reduce((sum, a) => {
-            if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
-              return sum + (parseFloat(a.manual_position_value) || 0);
+            const positionValueRaw =
+              a.value_source === 'INSTITUTION' && a.of_reported_value
+                ? a.of_reported_value
+                : a.manual_position_value;
+            if (positionValueRaw !== null && positionValueRaw !== undefined && positionValueRaw !== '') {
+              return sum + (parseFloat(positionValueRaw) || 0);
             }
             const q = parseFloat(a.quantity || '0') || 0;
-            const pr = parseFloat(a.manual_price_override || a.average_price || '0') || 0;
+            const avgFallback = isUnknownCost(a) ? '0' : a.average_price || '0';
+            const pr = parseFloat(a.manual_price_override || avgFallback) || 0;
             return sum + q * pr;
           }, 0);
         } catch {

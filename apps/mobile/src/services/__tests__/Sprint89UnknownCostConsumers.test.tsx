@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { resetDatabase } from '../../db/client';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
 import { assetRepository } from '../../repositories/assetRepository';
@@ -45,12 +45,12 @@ describe('Sprint 89 — Custo desconhecido e saldos nos consumidores (Fase A)', 
       source: 'OPEN_FINANCE',
     });
 
-    const ctx = await finGoalsService.loadNetWorthContext();
+    const ctx = await finGoalsService.getGoalsContext();
     const goalPort = ctx.portfolios.find((p) => p.id === port.id);
     expect(goalPort).toBeDefined();
     expect(goalPort!.total_cents).toBe(1110000);
     expect(goalPort!.annual_return_percent).toBeCloseTo(10, 4);
-    expect(ctx.netWorth.totalNetWorthCents).toBe(1110000);
+    expect(ctx.netWorth.totalCents).toBe(1110000);
   });
 
   it('S89-T07: saldo da carteira na PortfolioManagementScreen usa of_reported_value para ativo INSTITUTION', async () => {
@@ -78,9 +78,7 @@ describe('Sprint 89 — Custo desconhecido e saldos nos consumidores (Fase A)', 
     await waitFor(() => {
       const chip = getByTestId(`portfolio-chip-${port.id}`);
       expect(chip).toBeTruthy();
-      expect(JSON.stringify(chip.props) + chip.findAll(() => true).map((n) => n.props.children).join(' ')).toMatch(
-        /6\.250,00/
-      );
+      expect(within(chip).getByText(/6\.250,00/)).toBeTruthy();
     });
   });
 
@@ -104,12 +102,12 @@ describe('Sprint 89 — Custo desconhecido e saldos nos consumidores (Fase A)', 
       source: 'OPEN_FINANCE',
     });
 
-    const { getByTestId, findByText } = await render(<PortfolioManagementScreen />);
+    const { getByTestId } = await render(<PortfolioManagementScreen />);
 
     await waitFor(() => {
       expect(getByTestId(`portfolio-chip-${port.id}`)).toBeTruthy();
+      const body = getByTestId('wallet-colored-body');
+      expect(within(body).getByText(/600,00/)).toBeTruthy();
     });
-
-    expect(await findByText(/1\.200,00/)).toBeTruthy();
   });
 });

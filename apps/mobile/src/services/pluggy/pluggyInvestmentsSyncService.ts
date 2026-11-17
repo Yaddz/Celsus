@@ -233,6 +233,7 @@ export const pluggyInvestmentsSyncService = {
       const coverageByClass = computeClassCoverageReport(pluggyInvs);
 
       const txsByInvId: Record<string, MappedPluggyInvestmentTransaction[]> = {};
+      const txPriceFactorsByInvId: Record<string, Array<number | null | undefined>> = {};
       const rawInterestByInvId: Record<string, PluggyInvestmentTransaction[]> = {};
       const failedSet = new Set<string>();
       await mapWithConcurrency(pluggyInvs, 2, async (inv) => {
@@ -242,6 +243,7 @@ export const pluggyInvestmentsSyncService = {
             mapPluggyInvestmentTransaction(t, inv.id)
           );
           txsByInvId[inv.id] = mapped;
+          txPriceFactorsByInvId[inv.id] = rawTxs.map((t) => t.priceFactor);
           rawInterestByInvId[inv.id] = rawTxs.filter((t) => t.type === 'INTEREST');
           for (const mtx of mapped) {
             if (mtx.type === 'INCOME') {
@@ -307,11 +309,12 @@ export const pluggyInvestmentsSyncService = {
 
         for (const inv of pluggyInvs) {
           syncedExternalIds.add(inv.id);
-          const mapped = mapPluggyInvestment(inv, usedTickers, usedNames);
+          const txPriceFactors = txPriceFactorsByInvId[inv.id];
+          const mapped = mapPluggyInvestment(inv, usedTickers, usedNames, txPriceFactors);
           usedTickers.add(mapped.ticker);
           usedNames.add(mapped.name);
           const mappedTxs = txsByInvId[inv.id] || [];
-          const cost = calculateInvestmentCostBasis(inv, mappedTxs);
+          const cost = calculateInvestmentCostBasis(inv, mappedTxs, txPriceFactors);
 
           const existingByExt = allAssets.find((a) => a.external_id === inv.id);
           const choice = choicesByInvId.get(inv.id);
@@ -602,6 +605,48 @@ export const pluggyInvestmentsSyncService = {
               }
             } else if (existingOpening) {
               await db.delete(transactions).where(eq(transactions.id, existingOpening.id));
+            }
+
+            // R13: Transação sintética SELL quando livro > posição (pluggy-closing-adj:<investmentId>)
+            const closingExtId = `pluggy-closing-adj:${inv.id}`;
+            const existingClosing = existingExtTxByExtId.get(closingExtId);
+            if (cost.closingAdjustment) {
+              const adj = cost.closingAdjustment;
+              const adjQtyDec = new Decimal(adj.quantity);
+              const adjTotalDec = new Decimal(adj.totalCost);
+              const adjUnitPrice = adjQtyDec.gt(0)
+                ? adjTotalDec.div(adjQtyDec).toFixed(8)
+                : adjTotalDec.toFixed(8);
+              if (existingClosing) {
+                await db
+                  .update(transactions)
+                  .set({
+                    trade_date: adj.tradeDate,
+                    quantity: adj.quantity,
+                    unit_price: adjUnitPrice,
+                    fees: '0.00',
+                    total_amount: adj.totalCost,
+                    is_synthetic: 1,
+                  })
+                  .where(eq(transactions.id, existingClosing.id));
+              } else {
+                await transactionRepository.createTransaction({
+                  portfolio_id: targetPortfolioId,
+                  asset_id: targetAssetId,
+                  type: 'SELL',
+                  trade_date: adj.tradeDate,
+                  quantity: adj.quantity,
+                  unit_price: adjUnitPrice,
+                  fees: '0.00',
+                  total_amount: adj.totalCost,
+                  notes: 'Ajuste de posição Open Finance',
+                  source: 'OPEN_FINANCE',
+                  external_id: closingExtId,
+                  is_synthetic: 1,
+                });
+              }
+            } else if (existingClosing) {
+              await db.delete(transactions).where(eq(transactions.id, existingClosing.id));
             }
           }
 

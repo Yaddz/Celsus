@@ -5,6 +5,7 @@ import { TransactionRepository, transactionRepository } from '../repositories/tr
 import { IMarketApiService, marketApiService, MarketQuote } from './marketApi';
 import { Asset } from '../db/schema';
 import { reconcileCorporateEvents, ReconciledEvent } from '../domain/finance/corporateEvents';
+import { isUnknownCost } from '../domain/finance/averagePrice';
 import { resolveVariableIncomeValueSource } from '../domain/openFinance/investments';
 
 export interface PortfolioSyncSummary {
@@ -315,12 +316,7 @@ export class MarketSyncService {
   }
 
   private isUnknownCostAsset(a: Asset): boolean {
-    return (
-      a.cost_basis_source === 'UNKNOWN' ||
-      a.average_price === null ||
-      a.average_price === undefined ||
-      a.average_price === ''
-    );
+    return isUnknownCost(a);
   }
 
   /**

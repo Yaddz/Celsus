@@ -265,25 +265,65 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
   return { assetClass: 'FIXED_INCOME', isEtf: false };
 }
 
+function resolvePositionPriceFactor(
+  inv: Pick<PluggyInvestment, 'priceFactor'>,
+  txPriceFactors?: Array<number | null | undefined>
+): { factor: Decimal; warnings: string[] } {
+  const uniqueTxFactors = Array.from(
+    new Set(
+      (txPriceFactors ?? []).filter(
+        (f): f is number => typeof f === 'number' && Number.isFinite(f) && f > 1
+      )
+    )
+  );
+  const warnings: string[] = [];
+
+  if (inv.priceFactor !== null && inv.priceFactor !== undefined && inv.priceFactor > 1) {
+    if (uniqueTxFactors.some((f) => f !== inv.priceFactor)) {
+      warnings.push(
+        `Fatores de lote (priceFactor) divergentes entre posição (${inv.priceFactor}) e transações (${uniqueTxFactors.join(', ')}); posição mantida sem multiplicação.`
+      );
+      return { factor: new Decimal(1), warnings };
+    }
+    return { factor: new Decimal(inv.priceFactor), warnings };
+  }
+
+  if (uniqueTxFactors.length === 1) {
+    warnings.push(
+      `priceFactor ausente na posição; aplicado fator ${uniqueTxFactors[0]} das transações.`
+    );
+    return { factor: new Decimal(uniqueTxFactors[0]), warnings };
+  }
+
+  if (uniqueTxFactors.length > 1) {
+    warnings.push(
+      `Fatores de lote (priceFactor) divergentes nas transações (${uniqueTxFactors.join(', ')}); posição mantida sem multiplicação.`
+    );
+    return { factor: new Decimal(1), warnings };
+  }
+
+  return { factor: new Decimal(1), warnings };
+}
+
 export function mapPluggyInvestment(
   inv: PluggyInvestment,
   existingTickers?: Set<string>,
   existingNames?: Set<string>,
   txPriceFactors?: Array<number | null | undefined>
 ): MappedPluggyInvestment {
-  void txPriceFactors;
   const { assetClass, isEtf } = resolvePluggyAssetClass(inv);
   const status = inv.status || 'ACTIVE';
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
 
   const display = buildInvestmentDisplay(inv, existingTickers, existingNames);
+  const pf = resolvePositionPriceFactor(inv, txPriceFactors);
 
-  let qtyNum = 0;
+  let qtyDec = new Decimal(0);
   if (status !== 'TOTAL_WITHDRAWAL') {
     if (inv.quantity !== null && inv.quantity !== undefined) {
-      qtyNum = inv.quantity;
+      qtyDec = new Decimal(inv.quantity).mul(pf.factor);
     } else if (!isVariableIncome && inv.balance > 0) {
-      qtyNum = 1;
+      qtyDec = new Decimal(1);
     }
   }
 
@@ -316,7 +356,7 @@ export function mapPluggyInvestment(
     ticker: display.ticker,
     name: display.name,
     isin: inv.isin ? inv.isin.trim().toUpperCase() : null,
-    quantity: new Decimal(qtyNum).toString(),
+    quantity: qtyDec.toString(),
     marketValue,
     grossAmount: grossDec,
     amountOriginal: origDec,
@@ -343,7 +383,7 @@ export function mapPluggyInvestment(
     valueSource,
     status,
     source: 'OPEN_FINANCE',
-    warnings: rfRates.warnings,
+    warnings: [...pf.warnings, ...rfRates.warnings],
   };
 }
 
@@ -487,17 +527,23 @@ function subtractOneDay(isoDate: string): string {
   return d.toISOString().slice(0, 10);
 }
 
+function addOneDay(isoDate: string): string {
+  const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export function calculateInvestmentCostBasis(
   inv: PluggyInvestment,
   txs: MappedPluggyInvestmentTransaction[],
   txPriceFactors?: Array<number | null | undefined>
 ): InvestmentCostBasisResult {
-  void txPriceFactors;
   const { assetClass } = resolvePluggyAssetClass(inv);
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
+  const pf = resolvePositionPriceFactor(inv, txPriceFactors);
   const targetQty =
     inv.quantity !== null && inv.quantity !== undefined
-      ? new Decimal(inv.quantity)
+      ? new Decimal(inv.quantity).mul(pf.factor)
       : !isVariableIncome && (inv.balance ?? 0) > 0
       ? new Decimal(1)
       : new Decimal(0);
@@ -564,9 +610,10 @@ export function calculateInvestmentCostBasis(
     const avg = orig.div(denom);
 
     let openingAdjustment: OpeningAdjustment | null = null;
+    let closingAdjustment: OpeningAdjustment | null = null;
     const remainingQty = targetQty.minus(qty);
     const remainingCost = orig.minus(totalCost);
-    if (remainingQty.gt(0) && remainingCost.gte(0)) {
+    if (remainingQty.gt(new Decimal('0.0001')) && remainingCost.gte(0)) {
       const tradeDate =
         normalizeIsoDate(inv.purchaseDate) ??
         normalizeIsoDate(inv.issueDate) ??
@@ -578,6 +625,18 @@ export function calculateInvestmentCostBasis(
         totalCost: remainingCost.toFixed(2),
         tradeDate,
       };
+    } else if (qty.minus(targetQty).gt(new Decimal('0.0001')) && hasCostHistory && qty.gt(0)) {
+      const excessQty = qty.minus(targetQty);
+      const bookAvg = totalCost.div(qty);
+      const tradeDate =
+        sorted.length > 0
+          ? addOneDay(sorted[sorted.length - 1].tradeDate)
+          : normalizeIsoDate(inv.date) ?? new Date().toISOString().slice(0, 10);
+      closingAdjustment = {
+        quantity: excessQty.toString(),
+        totalCost: excessQty.mul(bookAvg).toFixed(2),
+        tradeDate,
+      };
     }
 
     return {
@@ -586,7 +645,59 @@ export function calculateInvestmentCostBasis(
       costBasisSource: 'INSTITUTION',
       coveredByHistory: false,
       openingAdjustment,
+      closingAdjustment,
+    };
+  }
+
+  // Sem amountOriginal (R13): ajusta quantidade do livro para fechar posição sem inventar custo
+  const remainingQty = targetQty.minus(qty);
+  if (targetQty.gt(0) && remainingQty.gt(new Decimal('0.0001'))) {
+    const unitPrice =
+      hasCostHistory && qty.gt(0) && totalCost.gt(0)
+        ? totalCost.div(qty)
+        : inv.balance !== null && inv.balance !== undefined && inv.balance > 0
+        ? new Decimal(inv.balance).div(targetQty)
+        : new Decimal(0);
+    const tradeDate =
+      normalizeIsoDate(inv.purchaseDate) ??
+      normalizeIsoDate(inv.issueDate) ??
+      (sorted.length > 0 ? subtractOneDay(sorted[0].tradeDate) : null) ??
+      normalizeIsoDate(inv.date) ??
+      new Date().toISOString().slice(0, 10);
+    return {
+      averagePrice: null,
+      totalInvested: null,
+      costBasisSource: 'UNKNOWN',
+      coveredByHistory: false,
+      openingAdjustment: {
+        quantity: remainingQty.toString(),
+        totalCost: remainingQty.mul(unitPrice).toFixed(2),
+        tradeDate,
+      },
       closingAdjustment: null,
+    };
+  }
+
+  const excessQty = qty.minus(targetQty);
+  if (targetQty.gte(0) && excessQty.gt(new Decimal('0.0001')) && hasCostHistory && qty.gt(0)) {
+    const bookAvg = totalCost.div(qty);
+    const adjCost = excessQty.mul(bookAvg);
+    const remainingCost = Decimal.max(0, totalCost.minus(adjCost));
+    const tradeDate =
+      sorted.length > 0
+        ? addOneDay(sorted[sorted.length - 1].tradeDate)
+        : normalizeIsoDate(inv.date) ?? new Date().toISOString().slice(0, 10);
+    return {
+      averagePrice: bookAvg.toFixed(8),
+      totalInvested: remainingCost.toFixed(2),
+      costBasisSource: 'TRANSACTIONS',
+      coveredByHistory: false,
+      openingAdjustment: null,
+      closingAdjustment: {
+        quantity: excessQty.toString(),
+        totalCost: adjCost.toFixed(2),
+        tradeDate,
+      },
     };
   }
 

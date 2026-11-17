@@ -224,6 +224,25 @@ nova (saldo da Pluggy − lançamentos pagos importados), mantendo os lançament
 importado. Guardar `closing_balance_cents` e `auto_invested_cents`. Cartão: `credit_used_cents =
 creditLimit − availableCreditLimit`.
 
+**R12 `priceFactor` na posição (Sprint 89).** `inv.priceFactor > 1` ⇒ `quantity = inv.quantity × priceFactor` (mesma
+unidade das transações). Se a posição não trouxer `priceFactor` mas as transações trouxerem fatores `> 1` idênticos,
+aplica esse fator à posição e registra `warning`. Se houver fatores divergentes entre posição e transações (ou entre
+transações), registra `warning` e não multiplica a posição.
+
+**R13 Fechamento do livro sem `amountOriginal` e excesso no livro (Sprint 89).**
+- Quando faltam unidades (`livro < posição`) e não há `amountOriginal`, cria `OPENING_BALANCE` (`pluggy-opening:<id>`,
+  `is_synthetic = 1`) com a quantidade faltante, `unit_price =` preço médio do livro (quando houver compras) ou
+  `balance ÷ quantidade da posição`, mantendo `cost_basis_source = 'UNKNOWN'` (`average_price = null`, rentabilidade `"—"`).
+- Quando o livro tem mais unidades que a posição (`livro > posição`), cria transação sintética `SELL`
+  (`pluggy-closing-adj:<id>`, `is_synthetic = 1`) pela diferença ao preço médio do livro, datada de `última transação + 1 dia`.
+  Ambas as sintéticas são recalculadas ou removidas a cada sync quando o livro fechar.
+
+**R14 Custo desconhecido nos consumidores (Sprint 89).** A função pura `isUnknownCost(asset)` (`domain/finance/averagePrice.ts`)
+centraliza a detecção (`cost_basis_source === 'UNKNOWN'` ou `average_price` nulo/vazio). Aplicada em `marketSyncService`,
+`finGoalsService` (ativo entra no patrimônio, mas fica fora do investido e do valor no cálculo de `annual_return_percent`),
+`PortfolioManagementScreen` (usa `of_reported_value` quando `value_source = 'INSTITUTION'`, nunca usa `average_price` vazio e
+divide pela quantidade real sem `Math.max(1, quantity)`) e `IncomeHistoryScreen` (`costBasis` do YoC).
+
 ---
 
 ## 4. Plano de implementação

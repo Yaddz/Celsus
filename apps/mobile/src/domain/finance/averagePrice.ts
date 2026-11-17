@@ -186,6 +186,10 @@ export function isUnknownCost(asset: {
   cost_basis_source?: string | null;
   average_price?: string | number | null;
 }): boolean {
-  void asset;
-  return false;
+  return (
+    asset.cost_basis_source === 'UNKNOWN' ||
+    asset.average_price === null ||
+    asset.average_price === undefined ||
+    asset.average_price === ''
+  );
 }

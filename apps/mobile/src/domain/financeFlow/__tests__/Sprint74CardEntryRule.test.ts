@@ -32,6 +32,10 @@ function makeAccount(overrides: Partial<FinAccount> = {}): FinAccount {
     masked_number: null,
     owner: null,
     auto_name: null,
+    of_linked_at: null,
+    closing_balance_cents: null,
+    auto_invested_cents: null,
+    credit_used_cents: null,
     created_at: '2026-01-01T00:00:00Z',
     ...overrides,
   };
@@ -61,6 +65,8 @@ function makeEntry(overrides: Partial<FinEntry> = {}): FinEntry {
     import_batch_id: null,
     description_raw: null,
     user_edited_fields: null,
+    linked_income_id: null,
+    of_removed_at: null,
     created_at: '2026-11-10T10:00:00Z',
     ...overrides,
   };

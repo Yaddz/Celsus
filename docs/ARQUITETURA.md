@@ -365,3 +365,8 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 
 - `of_sync_runs` separa execuções `FINANCE` e `INVESTMENTS` (`kind`). O sync de finanças executa duas passadas (`createdAtFrom` incremental + `dateFrom` de 40 dias) e reconcilia exclusões via `detectRemovedOpenFinanceEntries` (`domain/openFinance/index.ts`), marcando `fin_entries.of_removed_at`.
 - `fin_accounts` persiste `of_linked_at`, `closing_balance_cents`, `auto_invested_cents` e `credit_used_cents` (todos incluídos no schema, migração idempotente e `backupService.ts`).
+
+## Correções da Validação Pluggy (Sprint 89)
+
+- `domain/openFinance/investments.ts`: `resolvePositionPriceFactor` aplica `priceFactor` também na posição (`R12`), e `calculateInvestmentCostBasis` produz `openingAdjustment` sem `amountOriginal` (`UNKNOWN`) e `closingAdjustment` (`SELL` sintético `pluggy-closing-adj:<id>`) quando o livro excede a posição (`R13`), ambos gerenciados em `pluggyInvestmentsSyncService.ts`.
+- `domain/finance/averagePrice.ts` (`isUnknownCost`): helper puro compartilhado entre `marketSyncService.ts`, `finGoalsService.ts`, `PortfolioManagementScreen.tsx` e `IncomeHistoryScreen.tsx` (`R14`).

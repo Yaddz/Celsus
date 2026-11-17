@@ -7,19 +7,30 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **186/186 suítes PASS** (após merge 87+88) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **188/188 suítes PASS** (**1240/1240 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (153 erros pré-existentes apenas em arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **204 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 89 — Correções da validação Pluggy (Fase A concluída)
+## Sprint 89 — Correções da validação Pluggy (Fase B concluída)
 
-Especificação de `priceFactor` na posição (`R12`), `OPENING_BALANCE` sem `amountOriginal` e `closingAdjustment` quando livro > posição (`R13`), e `isUnknownCost` nos consumidores fora do `marketSyncService` (`R14`).
+`priceFactor` aplicado também à posição (`resolvePositionPriceFactor`, herança com `warning` quando ausente na posição e uniforme nas transações, e `warning` sem multiplicar quando divergente — `R12`), `OPENING_BALANCE` sem `amountOriginal` mantendo `cost_basis_source = 'UNKNOWN'` e ajuste `SELL` sintético `pluggy-closing-adj:<investmentId>` quando livro > posição (`R13`), e helper puro `isUnknownCost` (`domain/finance/averagePrice.ts`) aplicado em `marketSyncService`, `finGoalsService`, `PortfolioManagementScreen` (usando `of_reported_value` para `INSTITUTION` e divisão por quantidade `< 1` sem `Math.max(1, qty)`) e `IncomeHistoryScreen` (`R14`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
-| `apps/mobile/src/services/pluggy/__tests__/Sprint89PluggyValidationFixes.test.ts` | S89-T01…T05 | `36ddf00cc3d97898d7d0ed9a3efecec9304457c27fdf4c63d0ec3acf1fb300a0` | 5 FAIL |
-| `apps/mobile/src/services/__tests__/Sprint89UnknownCostConsumers.test.tsx` | S89-T06…T08 | `0b64324db1623394fc156ca055c6f4b693a2794db16febac29f20bfe37c2a0e2` | 3 FAIL |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint89PluggyValidationFixes.test.ts` | S89-T01…T05 | `2cfcf0d4638cb64f8407a35d8dae498e08bd2eee466dfafb88ddc81bad1e517e` | 5 FAIL |
+| `apps/mobile/src/services/__tests__/Sprint89UnknownCostConsumers.test.tsx` | S89-T06…T08 | `7a262ba958b9ddf6fb7fb057b4e1d22cd59cff73044009bfd47e394240a9d29a` | 3 FAIL |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/services/pluggy/__tests__/Sprint84InvestmentNumbers.test.ts:234,276`: adicionado `docket_code` obrigatório nas fixtures de `createPortfolio` (correção só de tipo).
+- `apps/mobile/src/domain/financeFlow/__tests__/Sprint74CardEntryRule.test.ts:32,66`: adicionadas colunas novas obrigatórias (`of_linked_at`, `closing_balance_cents`, `auto_invested_cents`, `credit_used_cents`, `linked_income_id`, `of_removed_at`) nas fixtures `makeAccount` e `makeEntry` (correção só de tipo).
+- `apps/mobile/src/screens/__tests__/IncomeHistoryScreen.test.tsx:122`: adicionados `item_id: null` e `asset_id: null` na fixture de `addIncome` (correção só de tipo).
+- `apps/mobile/src/services/pluggy/__tests__/Sprint89PluggyValidationFixes.test.ts`: ajuste de setup (`defaultPortfolioId`, `tradeDate` na fixture de `S89-T04`, `calculateDailyPatrimonyCurve` em `S89-T03`).
+- `apps/mobile/src/services/__tests__/Sprint89UnknownCostConsumers.test.tsx`: ajuste de chamada (`finGoalsService.getGoalsContext`), consulta escopada (`within(chip)`) e verificação do total `R$ 600,00` em `wallet-colored-body` (`S89-T08`).
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **188/188 suítes PASS** (**1240/1240 testes PASS**)
+- `node scripts/test-lock.js verify`: **204 arquivos íntegros**
 
 ## Sprint 88 — Diagnóstico com dados reais e auditoria de outliers (Fase B concluída)
 

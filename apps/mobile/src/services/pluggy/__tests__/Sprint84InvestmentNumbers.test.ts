@@ -231,7 +231,7 @@ describe('Sprint 84 — Investimentos: números corretos (Fase A)', () => {
     expect(cost.costBasisSource).toBe('UNKNOWN');
     expect(cost.averagePrice).toBeNull();
 
-    const portfolio = await portfolioRepository.createPortfolio({ name: 'Carteira Fundo' });
+    const portfolio = await portfolioRepository.createPortfolio({ name: 'Carteira Fundo', docket_code: 'FD01' });
     await assetRepository.createAsset({
       portfolio_id: portfolio.id,
       asset_class: 'FUNDS',
@@ -273,7 +273,7 @@ describe('Sprint 84 — Investimentos: números corretos (Fase A)', () => {
 
   it('S84-T10: re-sync com transações antigas gravadas em 2 casas => atualiza in-place sem duplicar', async () => {
     await openFinanceRepository.addItem('item-s84');
-    const portfolio = await portfolioRepository.createPortfolio({ name: 'Carteira Re-Sync' });
+    const portfolio = await portfolioRepository.createPortfolio({ name: 'Carteira Re-Sync', docket_code: 'RS01' });
     const asset = await assetRepository.createAsset({
       portfolio_id: portfolio.id,
       asset_class: 'FUNDS',

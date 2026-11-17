@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { isUnknownCost } from '../domain/finance/averagePrice';
 import { getDatabase } from '../db/client';
 import {
   assets,
@@ -106,32 +107,47 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
     if (p.is_archived) continue;
     const pAssets = allAssets.filter((a) => a.portfolio_id === p.id);
     let totalReais = new Decimal(0);
+    let profitMarketReais = new Decimal(0);
     let totalCostReais = new Decimal(0);
     const byClass: Record<string, number> = {};
 
     for (const a of pAssets) {
       const qty = new Decimal(a.quantity || 0);
+      const unknownCost = isUnknownCost(a);
+      const fallbackAvg = unknownCost ? 0 : a.average_price || 0;
       const unitPrice = new Decimal(
-        a.manual_price_override ?? priceMap.get(a.ticker) ?? a.average_price ?? 0
+        a.manual_price_override ?? priceMap.get(a.ticker) ?? fallbackAvg
       );
       // Valor de posição informado (Open Finance / manual) vence quantidade × preço, como na carteira
       const hasPositionValue =
-        a.manual_position_value !== null &&
-        a.manual_position_value !== undefined &&
-        a.manual_position_value !== '';
+        a.value_source === 'INSTITUTION' &&
+        a.of_reported_value !== null &&
+        a.of_reported_value !== undefined &&
+        a.of_reported_value !== ''
+          ? true
+          : a.manual_position_value !== null &&
+            a.manual_position_value !== undefined &&
+            a.manual_position_value !== '';
+      const rawPosVal =
+        a.value_source === 'INSTITUTION' && a.of_reported_value
+          ? a.of_reported_value
+          : a.manual_position_value;
       const valReais = hasPositionValue
-        ? new Decimal(a.manual_position_value as string)
+        ? new Decimal(rawPosVal as string)
         : qty.mul(unitPrice);
-      const costReais = qty.mul(new Decimal(a.average_price || 0));
       totalReais = totalReais.plus(valReais);
-      totalCostReais = totalCostReais.plus(costReais);
+      if (!unknownCost) {
+        const costReais = qty.mul(new Decimal(a.average_price || 0));
+        totalCostReais = totalCostReais.plus(costReais);
+        profitMarketReais = profitMarketReais.plus(valReais);
+      }
       const clsCents = decimalReaisToCents(valReais);
       byClass[a.asset_class] = (byClass[a.asset_class] ?? 0) + clsCents;
     }
 
     const totalCents = decimalReaisToCents(totalReais);
     const annualReturnPercent = totalCostReais.gt(0)
-      ? totalReais.minus(totalCostReais).div(totalCostReais).mul(100).toNumber()
+      ? profitMarketReais.minus(totalCostReais).div(totalCostReais).mul(100).toNumber()
       : 0;
 
     portfolioContexts.push({
@@ -267,6 +283,8 @@ export const finGoalsService = {
     const ctx = await buildGoalsContext(referenceDateIso);
     return ctx.netWorth;
   },
+
+  getGoalsContext: buildGoalsContext,
 
   async captureMonthlySnapshot(options?: {
     yearMonth?: string;

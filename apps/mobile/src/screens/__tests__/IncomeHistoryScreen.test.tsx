@@ -119,6 +119,8 @@ describe('Sprint 48 — IncomeHistoryScreen', () => {
       unit_amount: '1.00',
       source: 'MANUAL',
       external_id: null,
+      item_id: null,
+      asset_id: null,
       notes: null,
       created_at: '',
     });

@@ -6,7 +6,7 @@ import {
   mapPluggyInvestment,
   mapPluggyInvestmentTransaction,
 } from '../../../domain/openFinance/investments';
-import { buildPortfolioHistory } from '../../../domain/finance/portfolioHistory';
+import { calculateDailyPatrimonyCurve } from '../../../domain/finance/portfolioHistory';
 import { pluggyInvestmentsSyncService } from '../pluggyInvestmentsSyncService';
 import { portfolioRepository } from '../../../repositories/portfolioRepository';
 import { assetRepository } from '../../../repositories/assetRepository';
@@ -83,7 +83,7 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
     const client = makeMockClient([inv], { [inv.id]: rawTxs });
     await pluggyInvestmentsSyncService.syncInvestments('item-pf', {
       client,
-      reconcileChoices: [{ pluggyInvestmentId: inv.id, targetPortfolioId: portfolio.id }],
+      defaultPortfolioId: portfolio.id,
     });
 
     const dbAssets = await assetRepository.getAssetsByPortfolio(portfolio.id);
@@ -166,7 +166,7 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
     const client = makeMockClient([inv], { [inv.id]: rawTxs });
     await pluggyInvestmentsSyncService.syncInvestments('item-open', {
       client,
-      reconcileChoices: [{ pluggyInvestmentId: inv.id, targetPortfolioId: portfolio.id }],
+      defaultPortfolioId: portfolio.id,
     });
 
     const dbAssets = await assetRepository.getAssetsByPortfolio(portfolio.id);
@@ -189,36 +189,31 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
     );
     expect(totalQtyFromLedger).toBe(100);
 
-    const history = buildPortfolioHistory({
+    const history = calculateDailyPatrimonyCurve({
       assets: [
         {
           id: dbAssets[0].id,
           ticker: dbAssets[0].ticker,
           assetClass: dbAssets[0].asset_class as any,
-          currentQuantity: 100,
-          currentPrice: 60,
-          manualPositionValue: 6000,
-          ofReportedValue: 6000,
+          manualPositionValue: '6000.00',
+          ofReportedValue: '6000.00',
           ofReportedAt: '2026-11-17',
           valueSource: 'INSTITUTION',
-        },
+        } as any,
       ],
       transactions: assetTxs.map((t) => ({
         id: t.id,
         assetId: t.asset_id,
         type: t.type as 'BUY' | 'SELL',
         tradeDate: t.trade_date,
-        quantity: Number(t.quantity),
-        unitPrice: Number(t.unit_price),
-        fees: Number(t.fees),
+        quantity: t.quantity,
+        unitPrice: t.unit_price,
       })),
-      quotesByTicker: {},
-      todayIso: '2026-11-17',
-      range: '1Y',
+      dates: ['2026-11-17'],
     });
 
-    expect(history.points.length).toBeGreaterThan(0);
-    expect(history.points[history.points.length - 1].marketValue).toBeCloseTo(6000, 1);
+    expect(history.length).toBeGreaterThan(0);
+    expect(Number(history[history.length - 1].marketValue)).toBeCloseTo(6000, 1);
   });
 
   it('S89-T04: livro com 150 e posição com 100 => ajuste SELL sintético de 50 unidades (pluggy-closing-adj)', async () => {
@@ -249,6 +244,7 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
         value: 30,
         amount: 4500,
         date: '2026-05-10T00:00:00Z',
+        tradeDate: '2026-05-10T00:00:00Z',
       }),
     ];
 
@@ -261,7 +257,7 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
     const client = makeMockClient([inv], { [inv.id]: rawTxs });
     await pluggyInvestmentsSyncService.syncInvestments('item-close', {
       client,
-      reconcileChoices: [{ pluggyInvestmentId: inv.id, targetPortfolioId: portfolio.id }],
+      defaultPortfolioId: portfolio.id,
     });
 
     const dbAssets = await assetRepository.getAssetsByPortfolio(portfolio.id);
@@ -309,7 +305,7 @@ describe('Sprint 89 — Correções da validação Pluggy (Fase A)', () => {
 
     await pluggyInvestmentsSyncService.syncInvestments('item-resync', {
       client: makeMockClient([inv], { [inv.id]: txsStep1 }),
-      reconcileChoices: [{ pluggyInvestmentId: inv.id, targetPortfolioId: portfolio.id }],
+      defaultPortfolioId: portfolio.id,
     });
 
     const db = getDatabase();
