@@ -64,6 +64,10 @@ export interface MappedPluggyInvestmentTransaction {
   notes: string | null;
   source: 'OPEN_FINANCE';
   warnings: string[];
+  /** Número da nota de corretagem (Sprint 95). */
+  brokerageNumber?: string | null;
+  /** Valor bruto da operação, sem taxas (Sprint 95). */
+  grossAmount?: string;
 }
 
 export interface OpeningAdjustment {
@@ -455,7 +459,15 @@ export function mapPluggyInvestmentTransaction(
     for (const key of ALLOWED_EXPENSE_KEYS) {
       const val = tx.expenses[key];
       if (typeof val === 'number' && Number.isFinite(val)) {
-        feesDec = feesDec.plus(new Decimal(val).abs());
+        const valDec = new Decimal(val).abs();
+        // Sprint 95: despesa >= valor da operação é o total da nota de corretagem, não uma taxa
+        if (amountDec.gt(0) && valDec.gte(amountDec)) {
+          warnings.push(
+            `Despesa ${key} (R$ ${valDec.toFixed(2)}) maior ou igual ao valor da operação: tratada como total da nota e ignorada.`
+          );
+          continue;
+        }
+        feesDec = feesDec.plus(valDec);
       }
     }
     if (
@@ -518,6 +530,8 @@ export function mapPluggyInvestmentTransaction(
     notes: noteParts.length > 0 ? noteParts.join(' · ') : null,
     source: 'OPEN_FINANCE',
     warnings,
+    brokerageNumber: tx.brokerageNumber ? String(tx.brokerageNumber).trim() || null : null,
+    grossAmount: amountDec.toFixed(2),
   };
 }
 
@@ -527,7 +541,53 @@ export function mapPluggyInvestmentTransaction(
 export function prorateSharedNoteFees(
   txs: MappedPluggyInvestmentTransaction[]
 ): MappedPluggyInvestmentTransaction[] {
-  return txs;
+  const groups = new Map<string, number[]>();
+  txs.forEach((t, idx) => {
+    if (t.type !== 'BUY' && t.type !== 'SELL') return;
+    if (!new Decimal(t.fees || 0).gt(0)) return;
+    const key = t.brokerageNumber ? `bn:${t.brokerageNumber}|${t.tradeDate}` : `d:${t.tradeDate}`;
+    const list = groups.get(key) ?? [];
+    list.push(idx);
+    groups.set(key, list);
+  });
+
+  const out = txs.map((t) => ({ ...t, warnings: [...t.warnings] }));
+  for (const idxs of groups.values()) {
+    if (idxs.length < 2) continue;
+    const fee = out[idxs[0]].fees;
+    if (!idxs.every((i) => out[i].fees === fee)) continue;
+
+    const total = new Decimal(fee);
+    const grossOf = (i: number) =>
+      new Decimal(
+        out[i].grossAmount ?? new Decimal(out[i].unitPrice || 0).mul(out[i].quantity || 0).toFixed(2)
+      );
+    const sumGross = idxs.reduce((acc, i) => acc.plus(grossOf(i)), new Decimal(0));
+    if (!sumGross.gt(0)) continue;
+
+    const shares = idxs.map((i) => total.mul(grossOf(i)).div(sumGross).toDecimalPlaces(2));
+    const residue = total.minus(shares.reduce((acc, s) => acc.plus(s), new Decimal(0)));
+    if (!residue.isZero()) {
+      let largest = 0;
+      idxs.forEach((i, k) => {
+        if (grossOf(i).gt(grossOf(idxs[largest]))) largest = k;
+      });
+      shares[largest] = shares[largest].plus(residue);
+    }
+
+    idxs.forEach((i, k) => {
+      const t = out[i];
+      const gross = grossOf(i);
+      const share = shares[k];
+      t.fees = share.toFixed(2);
+      t.totalAmount =
+        t.type === 'BUY' ? gross.plus(share).toFixed(2) : Decimal.max(0, gross.minus(share)).toFixed(2);
+      t.warnings.push(
+        `Taxas da nota (R$ ${total.toFixed(2)}) repetidas em ${idxs.length} operações: rateadas pelo valor de cada uma.`
+      );
+    });
+  }
+  return out;
 }
 
 function subtractOneDay(isoDate: string): string {

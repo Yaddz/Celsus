@@ -18,6 +18,7 @@ import {
   mapPluggyInvestmentTransaction,
   matchInvestmentToAsset,
   normalizeInvestmentTicker,
+  prorateSharedNoteFees,
   type ClassCoverageStatus,
   type InvestmentMatchCandidate,
   type InvestmentMatchStrategy,
@@ -25,6 +26,7 @@ import {
 } from '../../domain/openFinance/investments';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import { ensurePortfolioForItem } from './pluggyPortfolioService';
+import { relinkStoredBankIncomes } from './pluggyIncomeRelinkService';
 import type { PluggyInvestment, PluggyInvestmentTransaction, PluggyItem } from './types';
 
 export interface InvestmentReconciliationProposal {
@@ -64,6 +66,8 @@ export interface SyncInvestmentsCounts {
   incomesCreated?: number;
   incomesMatched?: number;
   incomesSkipped?: number;
+  /** Sprint 95: lançamentos da conta já gravados que viraram provento nesta sincronização. */
+  incomesRelinked?: number;
 }
 
 export interface SyncInvestmentsResult {
@@ -259,6 +263,19 @@ export const pluggyInvestmentsSyncService = {
       });
       if (failedSet.size > 0) {
         counts.failedInvestmentIds = Array.from(failedSet);
+      }
+
+      // Sprint 95: taxas da nota repetidas em várias operações (de investimentos diferentes) são rateadas
+      {
+        const invOrder = pluggyInvs.map((inv) => inv.id).filter((id) => !failedSet.has(id));
+        const flat = invOrder.flatMap((id) => txsByInvId[id] ?? []);
+        const prorated = prorateSharedNoteFees(flat);
+        let cursor = 0;
+        for (const id of invOrder) {
+          const n = (txsByInvId[id] ?? []).length;
+          txsByInvId[id] = prorated.slice(cursor, cursor + n);
+          cursor += n;
+        }
       }
 
       const choicesByInvId = new Map<string, InvestmentReconciliationChoice>(
@@ -780,6 +797,11 @@ export const pluggyInvestmentsSyncService = {
           }
         }
       });
+
+      // Sprint 95: créditos "RENDIMENTOS…" já gravados na conta e ainda sem provento
+      const relink = await relinkStoredBankIncomes();
+      counts.incomesRelinked = relink.relinked;
+      counts.incomesCreated = (counts.incomesCreated ?? 0) + relink.created;
 
       const finalStatus: 'SUCCESS' | 'PARTIAL' = failedSet.size > 0 ? 'PARTIAL' : 'SUCCESS';
 
