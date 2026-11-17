@@ -84,6 +84,7 @@ export function calculateBudgetUsage(
 ): BudgetUsageItem[] {
   const spentByCategory = new Map<string, number>();
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (entry.kind !== 'expense') continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
     const amt = entry.status === 'paid' ? entry.paid_amount_cents ?? entry.amount_cents : entry.amount_cents;
@@ -199,6 +200,7 @@ export function suggestBudgetLimit(
   ];
   let total = 0;
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (entry.kind !== 'expense') continue;
     if (entry.category_id !== categoryId) continue;
     const ym = entry.due_date.slice(0, 7);
@@ -293,6 +295,7 @@ export function projectCashflow(
     }
     let bal = acc.initial_balance_cents;
     for (const entry of entries) {
+      if (entry.of_removed_at) continue;
       if (entry.account_id !== acc.id || entry.status !== 'paid') continue;
       const real = entry.paid_amount_cents ?? entry.amount_cents;
       if (entry.kind === 'income' || entry.kind === 'transfer_in') bal += real;
@@ -309,6 +312,7 @@ export function projectCashflow(
 
   // 1. Pendentes (não-cartão) e parcelas
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (entry.status !== 'pending') continue;
     if (cardAccountIds.has(entry.account_id)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
@@ -320,7 +324,7 @@ export function projectCashflow(
 
   // 2. Faturas de cartão pelo vencimento
   for (const card of cardAccounts) {
-    const cardEntries = entries.filter((e) => e.account_id === card.id);
+    const cardEntries = entries.filter((e) => e.account_id === card.id && !e.of_removed_at);
     const normalized = cardEntries.map((e) =>
       e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day) }
     );

@@ -146,6 +146,13 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   source TEXT NOT NULL DEFAULT 'MANUAL',
   reported_balance_cents INTEGER,
   reported_balance_at TEXT,
+  masked_number TEXT,
+  owner TEXT,
+  auto_name TEXT,
+  of_linked_at TEXT,
+  closing_balance_cents INTEGER,
+  auto_invested_cents INTEGER,
+  credit_used_cents INTEGER,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_categories (
@@ -181,6 +188,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   description_raw TEXT,
   user_edited_fields TEXT,
   linked_income_id TEXT,
+  of_removed_at TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -229,6 +237,7 @@ CREATE TABLE IF NOT EXISTS of_sync_runs (
   started_at TEXT NOT NULL,
   finished_at TEXT,
   status TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'FINANCE',
   counts_json TEXT,
   error TEXT
 );
@@ -581,6 +590,12 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'item_id', ddl: 'ALTER TABLE income_events ADD COLUMN item_id TEXT' },
   { table: 'income_events', column: 'asset_id', ddl: 'ALTER TABLE income_events ADD COLUMN asset_id TEXT' },
   { table: 'fin_entries', column: 'linked_income_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_income_id TEXT' },
+  { table: 'fin_entries', column: 'of_removed_at', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_removed_at TEXT' },
+  { table: 'fin_accounts', column: 'of_linked_at', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_linked_at TEXT' },
+  { table: 'fin_accounts', column: 'closing_balance_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN closing_balance_cents INTEGER' },
+  { table: 'fin_accounts', column: 'auto_invested_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_invested_cents INTEGER' },
+  { table: 'fin_accounts', column: 'credit_used_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN credit_used_cents INTEGER' },
+  { table: 'of_sync_runs', column: 'kind', ddl: "ALTER TABLE of_sync_runs ADD COLUMN kind TEXT NOT NULL DEFAULT 'FINANCE'" },
   { table: 'fin_accounts', column: 'masked_number', ddl: 'ALTER TABLE fin_accounts ADD COLUMN masked_number TEXT' },
   { table: 'fin_accounts', column: 'owner', ddl: 'ALTER TABLE fin_accounts ADD COLUMN owner TEXT' },
   { table: 'fin_accounts', column: 'auto_name', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_name TEXT' },
@@ -631,6 +646,17 @@ export function applySchemaUpgrades(raw: SQLiteDatabase) {
         if (matchAsset) {
           inc.item_id = matchAsset.institution_id;
         }
+      }
+    }
+  }
+  // Migração Sprint 87: infere of_sync_runs.kind pelo prefixo 'of-inv-'
+  raw.execSync(
+    "UPDATE of_sync_runs SET kind = 'INVESTMENTS' WHERE id LIKE 'of-inv-%' AND (kind IS NULL OR kind = 'FINANCE');"
+  );
+  if (Array.isArray(inMemoryStore.of_sync_runs)) {
+    for (const run of inMemoryStore.of_sync_runs) {
+      if (!run.kind || (typeof run.id === 'string' && run.id.startsWith('of-inv-') && run.kind === 'FINANCE')) {
+        run.kind = typeof run.id === 'string' && run.id.startsWith('of-inv-') ? 'INVESTMENTS' : 'FINANCE';
       }
     }
   }
@@ -954,7 +980,8 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'id', 'name', 'type', 'initial_balance_cents', 'color', 'archived',
               'closing_day', 'due_day', 'credit_limit_cents', 'of_account_id',
               'source', 'reported_balance_cents', 'reported_balance_at',
-              'masked_number', 'owner', 'auto_name', 'created_at',
+              'masked_number', 'owner', 'auto_name', 'of_linked_at',
+              'closing_balance_cents', 'auto_invested_cents', 'credit_used_cents', 'created_at',
             ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(transactions)')) {

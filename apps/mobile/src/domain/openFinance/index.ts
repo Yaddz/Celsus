@@ -28,6 +28,9 @@ export interface MappedPluggyAccount {
   needsClosingDay: boolean;
   maskedNumber: string | null;
   owner: string | null;
+  closingBalanceCents: number | null;
+  autoInvestedCents: number | null;
+  creditUsedCents: number | null;
 }
 
 export interface MappedPluggyTransaction {
@@ -57,6 +60,7 @@ export interface MapPluggyTransactionOptions {
   dueDay?: number | null;
   bills?: PluggyBill[];
   rules?: CategoryRuleLike[];
+  externalIdOverride?: string;
 }
 
 export interface ReconcilableOpenFinanceEntry {
@@ -99,6 +103,81 @@ export interface ReconcilePluggyResult {
 
 export interface ReconcilePluggyOptions {
   accountTypesById?: Record<string, 'checking' | 'card'>;
+}
+
+export interface RemovedOpenFinanceCandidate {
+  entryId: string;
+  action: 'soft_delete' | 'mark_removed' | 'conflict';
+}
+
+export function detectRemovedOpenFinanceEntries(
+  existing: Array<{
+    id: string;
+    source: string;
+    external_id?: string | null;
+    due_date: string;
+    status: string;
+    user_edited_fields?: string | null;
+    of_removed_at?: string | null;
+  }>,
+  fetchedExternalIds: Set<string>,
+  windowStartIso: string
+): RemovedOpenFinanceCandidate[] {
+  const results: RemovedOpenFinanceCandidate[] = [];
+  for (const entry of existing) {
+    if (entry.source !== 'OPEN_FINANCE') continue;
+    if (!entry.external_id) continue;
+    if (entry.of_removed_at) continue;
+    if (entry.due_date < windowStartIso) continue;
+    if (fetchedExternalIds.has(entry.external_id)) continue;
+
+    let hasUserEdits = false;
+    if (entry.user_edited_fields && entry.user_edited_fields.trim()) {
+      const trimmed = entry.user_edited_fields.trim();
+      if (trimmed !== '[]' && trimmed !== 'null') {
+        hasUserEdits = true;
+      }
+    }
+
+    if (hasUserEdits) {
+      results.push({ entryId: entry.id, action: 'conflict' });
+    } else if (entry.status === 'pending') {
+      results.push({ entryId: entry.id, action: 'soft_delete' });
+    } else {
+      results.push({ entryId: entry.id, action: 'mark_removed' });
+    }
+  }
+  return results;
+}
+
+export function deduplicatePluggyAccountTransactions(
+  txs: PluggyTransaction[]
+): Array<{ tx: PluggyTransaction; externalId: string }> {
+  const seenById = new Map<string, { date: string; amountCents: number }>();
+  const usedExternalIds = new Set<string>();
+  const result: Array<{ tx: PluggyTransaction; externalId: string }> = [];
+
+  for (const tx of txs) {
+    const dateIso = (tx.date || '').slice(0, 10);
+    const amountCents = toCentsDecimal(tx.amountInAccountCurrency ?? tx.amount);
+    const prev = seenById.get(tx.id);
+    if (!prev) {
+      seenById.set(tx.id, { date: dateIso, amountCents });
+      usedExternalIds.add(tx.id);
+      result.push({ tx, externalId: tx.id });
+    } else if (prev.date === dateIso && prev.amountCents === amountCents) {
+      // Mesma transação retornada em duas passadas (createdAtFrom + dateFrom) -> deduplica
+      continue;
+    } else {
+      // Banrisul pode repetir transactionId com data/valor diferentes no mesmo fetch
+      const composite = `${tx.id}:${dateIso}:${amountCents}`;
+      if (!usedExternalIds.has(composite)) {
+        usedExternalIds.add(composite);
+        result.push({ tx, externalId: composite });
+      }
+    }
+  }
+  return result;
 }
 
 const PLUGGY_L1_EXPENSE_CATEGORY_MAP: Record<string, string> = {
@@ -188,6 +267,20 @@ export function mapPluggyAccount(
   const digits = (account.number || '').replace(/\D/g, '');
   const maskedNumber = digits.length >= 4 ? digits.slice(-4) : null;
   const owner = account.owner?.trim() || null;
+  const closingBalanceCents =
+    account.bankData?.closingBalance != null
+      ? toCentsDecimal(account.bankData.closingBalance)
+      : null;
+  const autoInvestedCents =
+    account.bankData?.automaticallyInvestedBalance != null
+      ? toCentsDecimal(account.bankData.automaticallyInvestedBalance)
+      : null;
+  const creditUsedCents =
+    isCredit &&
+    creditData?.creditLimit != null &&
+    creditData?.availableCreditLimit != null
+      ? toCentsDecimal(creditData.creditLimit) - toCentsDecimal(creditData.availableCreditLimit)
+      : null;
 
   return {
     ofAccountId: account.id,
@@ -202,6 +295,9 @@ export function mapPluggyAccount(
     needsClosingDay: isCredit && closingDay === null,
     maskedNumber,
     owner,
+    closingBalanceCents,
+    autoInvestedCents,
+    creditUsedCents,
   };
 }
 
@@ -321,7 +417,7 @@ export function mapPluggyTransaction(
         );
 
   return {
-    externalId: tx.id,
+    externalId: options.externalIdOverride ?? tx.id,
     source: 'OPEN_FINANCE',
     accountId: options.accountId,
     kind,

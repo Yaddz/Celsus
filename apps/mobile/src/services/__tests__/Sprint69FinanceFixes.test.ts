@@ -182,7 +182,7 @@ describe('Sprint 69 — Correções: fatura, saldo Open Finance e backup', () =>
     expect(created!.initial_balance_cents).toBe(320050 - (500000 - 150000));
   });
 
-  test('S69-S04: ligar a uma conta manual existente não altera o saldo inicial dela', async () => {
+  test('S69-S04: ligar a uma conta manual existente recalcula o saldo inicial na primeira vinculação (R11)', async () => {
     await openFinanceRepository.addItem('item-s69');
     const manual = await finRepository.createAccount({
       name: 'Conta Banco',
@@ -199,7 +199,7 @@ describe('Sprint 69 — Correções: fatura, saldo Open Finance e backup', () =>
 
     const linked = await finRepository.getAccountById(manual.id);
     expect(linked?.of_account_id).toBe('pg-chk-1');
-    expect(linked?.initial_balance_cents).toBe(20000);
+    expect(linked?.initial_balance_cents).toBe(320050 - (500000 - 150000));
   });
 
   test('S69-S05: segunda sincronização não mexe no saldo inicial já ajustado', async () => {

@@ -84,6 +84,10 @@ export class FinRepository {
     maskedNumber?: string | null;
     owner?: string | null;
     autoName?: string | null;
+    ofLinkedAt?: string | null;
+    closingBalanceCents?: number | null;
+    autoInvestedCents?: number | null;
+    creditUsedCents?: number | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
     const isCard = params.type === 'card';
@@ -104,6 +108,10 @@ export class FinRepository {
       masked_number: params.maskedNumber ?? null,
       owner: params.owner ?? null,
       auto_name: params.autoName ?? null,
+      of_linked_at: params.ofLinkedAt ?? null,
+      closing_balance_cents: params.closingBalanceCents ?? null,
+      auto_invested_cents: params.autoInvestedCents ?? null,
+      credit_used_cents: isCard ? (params.creditUsedCents ?? null) : null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -128,6 +136,10 @@ export class FinRepository {
       masked_number: string | null;
       owner: string | null;
       auto_name: string | null;
+      of_linked_at: string | null;
+      closing_balance_cents: number | null;
+      auto_invested_cents: number | null;
+      credit_used_cents: number | null;
     }>
   ): Promise<FinAccount> {
     const db = getDatabase();
@@ -330,6 +342,7 @@ export class FinRepository {
       description_raw: item.description_raw ?? item.descriptionRaw ?? null,
       user_edited_fields: item.user_edited_fields ?? item.userEditedFields ?? null,
       linked_income_id: item.linked_income_id ?? item.linkedIncomeId ?? null,
+      of_removed_at: item.of_removed_at ?? item.ofRemovedAt ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);
@@ -386,7 +399,9 @@ export class FinRepository {
       .select()
       .from(finEntries)
       .where(and(eq(finEntries.status, 'pending'), lte(finEntries.due_date, iso)))) as FinEntry[];
-    return [...rows].sort((a, b) => {
+    return [...rows]
+      .filter((r) => !r.of_removed_at)
+      .sort((a, b) => {
       const dateCmp = a.due_date.localeCompare(b.due_date);
       if (dateCmp !== 0) return dateCmp;
       return a.created_at.localeCompare(b.created_at);

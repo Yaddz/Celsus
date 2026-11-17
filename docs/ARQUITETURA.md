@@ -360,3 +360,8 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 
 - `services/pluggy/pluggyDiagnosticsService.ts`: gera relatório JSON anonimizado consultando contas, faturas, investimentos e transações de investimento em modo somente leitura (sem persistência em `assets`/`fin_entries`), com truncamento de descrições (40 chars) e hash curto de `itemId`.
 - `domain/openFinance/diagnostics.ts` (`auditOpenFinanceOutliers`): audita localmente ativos, contas e lançamentos para exibir alertas na seção **Qualidade dos dados** da `OpenFinanceScreen`, com exportação via `Share.share` (ou callback `onCopyReport`). Documentação operacional em `docs/DIAGNOSTICO_PLUGGY.md`.
+
+## Janela, Exclusões e Saldos Open Finance (Sprint 87)
+
+- `of_sync_runs` separa execuções `FINANCE` e `INVESTMENTS` (`kind`). O sync de finanças executa duas passadas (`createdAtFrom` incremental + `dateFrom` de 40 dias) e reconcilia exclusões via `detectRemovedOpenFinanceEntries` (`domain/openFinance/index.ts`), marcando `fin_entries.of_removed_at`.
+- `fin_accounts` persiste `of_linked_at`, `closing_balance_cents`, `auto_invested_cents` e `credit_used_cents` (todos incluídos no schema, migração idempotente e `backupService.ts`).

@@ -202,12 +202,12 @@ describe('Sprint 65 — Serviço pluggySyncService e Banco (Fase A)', () => {
     expect(syncedCard.credit_limit_cents).toBe(800000);
     expect(syncedCard.reported_balance_cents).toBe(45000);
 
-    // Segunda sincronização seguida: idempotente, janela = último sucesso - 7 dias
+    // Segunda sincronização seguida: idempotente, passada de reconciliação de 40 dias (R10)
     seenDateFrom.length = 0;
     const secondNow = () => new Date('2026-11-17T12:00:00.000Z');
     const res2 = await pluggySyncService.syncFinance('item-sync-1', { client, now: secondNow });
 
-    expect(seenDateFrom[0]).toBe('2026-11-09');
+    expect(seenDateFrom).toContain('2026-10-08');
     expect(res2.counts.transactionsCreated).toBe(0);
 
     const allEntries = await finRepository.listAllEntries();
