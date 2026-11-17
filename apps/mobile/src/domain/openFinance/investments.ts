@@ -244,9 +244,26 @@ function normalizeIsoDate(dateStr: string | null | undefined): string | null {
   return dateStr.slice(0, 10);
 }
 
+/**
+ * Sprint 96: na B3, final 12 é direito de subscrição de FII e 13–15 são recibos de subscrição.
+ * A Pluggy os entrega como EQUITY/STOCK.
+ */
+export function resolveFiiSubscription(
+  code: string | null | undefined
+): { kind: 'Direito' | 'Recibo'; baseTicker: string } | null {
+  const t = normalizeInvestmentTicker(code);
+  const m = t.match(/^([A-Z]{4})(1[2-5])$/);
+  if (!m) return null;
+  return { kind: m[2] === '12' ? 'Direito' : 'Recibo', baseTicker: `${m[1]}11` };
+}
+
 export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: AssetClass; isEtf: boolean } {
   const type = inv.type;
   const subtype = inv.subtype || 'OTHER';
+
+  if ((type === 'EQUITY' || !type) && resolveFiiSubscription(inv.code)) {
+    return { assetClass: 'FII', isEtf: false };
+  }
 
   if (subtype === 'OPTION' || subtype === 'DERIVATIVES') {
     return { assetClass: 'FUNDS', isEtf: false };
@@ -320,6 +337,10 @@ export function mapPluggyInvestment(
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
 
   const display = buildInvestmentDisplay(inv, existingTickers, existingNames);
+  const subscription = resolveFiiSubscription(inv.code);
+  if (subscription) {
+    display.name = `${subscription.kind} de subscrição ${subscription.baseTicker}`;
+  }
   const pf = resolvePositionPriceFactor(inv, txPriceFactors);
 
   let qtyDec = new Decimal(0);

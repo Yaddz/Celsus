@@ -27,7 +27,7 @@ import {
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import { ensurePortfolioForItem } from './pluggyPortfolioService';
 import { relinkStoredBankIncomes } from './pluggyIncomeRelinkService';
-import type { PluggyInvestment, PluggyInvestmentTransaction, PluggyItem } from './types';
+import type { PluggyAccount, PluggyInvestment, PluggyInvestmentTransaction, PluggyItem } from './types';
 
 export interface InvestmentReconciliationProposal {
   pluggyInvestment: PluggyInvestment;
@@ -145,6 +145,17 @@ async function fetchInvestmentTxsFromClient(
     return anyClient.listInvestmentTransactions(investmentId);
   }
   return anyClient.fetchInvestmentTransactions(investmentId);
+}
+
+/** Sprint 96: contas da conexão só para descobrir a instituição (COMPE); falha não interrompe o sync. */
+async function fetchAccountsForNaming(client: PluggyClient, itemId: string): Promise<PluggyAccount[]> {
+  const anyClient = client as unknown as Record<string, (id: string) => Promise<PluggyAccount[]>>;
+  if (typeof anyClient.listAccounts !== 'function') return [];
+  try {
+    return (await anyClient.listAccounts(itemId)) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 async function fetchInvestmentsFromClient(
@@ -292,7 +303,8 @@ export const pluggyInvestmentsSyncService = {
         const ensured = await ensurePortfolioForItem(
           itemId,
           item?.connector?.name ?? storedItem?.connector_name ?? null,
-          pluggyInvs[0]
+          pluggyInvs[0],
+          await fetchAccountsForNaming(client, itemId)
         );
         defaultPortId = ensured.portfolio.id;
         brokerPortfolioName = ensured.portfolio.name;

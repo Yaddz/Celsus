@@ -25,6 +25,7 @@ import { incomeRepository } from '../../repositories/incomeRepository';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { pluggyClassificationService } from './pluggyClassificationService';
+import { resolveInstitutionName } from '../../domain/openFinance/institutions';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from './types';
 
@@ -191,8 +192,13 @@ export const pluggySyncService = {
 
         const newCheckingReportedCents = new Map<string, number>();
         const syncedAccountIds = new Set<string>();
+        // Sprint 96: em conexões Meu Pluggy o conector é genérico; a instituição vem do COMPE das contas
+        const itemInstitution = resolveInstitutionName({
+          connectorName: item.connector?.name,
+          accounts: pluggyAccounts,
+        });
         for (const pgAcc of pluggyAccounts) {
-          const mapped = mapPluggyAccount(pgAcc, item.connector?.name);
+          const mapped = mapPluggyAccount(pgAcc, item.connector?.name, itemInstitution);
           const choice = options?.accountChoices?.find(
             (c) => c.pluggyAccountId === pgAcc.id
           );
@@ -728,7 +734,11 @@ export const pluggySyncService = {
       for (const choice of choices) {
         const pgAcc = pluggyAccounts.find((a) => a.id === choice.pluggyAccountId);
         if (!pgAcc) continue;
-        const mapped = mapPluggyAccount(pgAcc);
+        const mapped = mapPluggyAccount(
+          pgAcc,
+          null,
+          resolveInstitutionName({ accounts: pluggyAccounts })
+        );
 
         if (choice.targetLocalAccountId === 'CREATE_NEW') {
           await finRepository.createAccount({

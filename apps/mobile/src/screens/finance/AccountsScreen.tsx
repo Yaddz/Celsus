@@ -393,7 +393,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           }
         }}
         bottomContent={
-          <View style={styles.rowActions}>
+          <View style={styles.rowActions} testID={`account-actions-${acc.id}`}>
             {isOpenFinance ? (
               <View
                 testID={`account-of-badge-${acc.id}`}
@@ -674,7 +674,9 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   rowActions: {
     flexDirection: 'row',
-    gap: space.sm,
+    flexWrap: 'wrap',
+    columnGap: space.sm,
+    rowGap: space.sm,
   },
   actionBtn: {
     height: 32,

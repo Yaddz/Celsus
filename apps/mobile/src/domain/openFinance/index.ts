@@ -220,7 +220,8 @@ export function toCentsDecimal(value: number | string): number {
 
 export function mapPluggyAccount(
   account: PluggyAccount,
-  connectorName?: string | null
+  connectorName?: string | null,
+  itemInstitution?: string | null
 ): MappedPluggyAccount {
   const isCredit = account.type === 'CREDIT';
   const creditData = account.creditData ?? null;
@@ -250,7 +251,7 @@ export function mapPluggyAccount(
 
   return {
     ofAccountId: account.id,
-    name: buildAccountName(account, connectorName),
+    name: buildAccountName(account, connectorName, itemInstitution),
     type: isCredit ? 'card' : 'checking',
     source: 'OPEN_FINANCE',
     reportedBalanceCents: toCentsDecimal(account.balance),

@@ -4,6 +4,7 @@ import type {
   PluggyTransaction,
 } from '../../services/pluggy/types';
 import { normalizeInvestmentTicker } from './investments';
+import { institutionFromAccount, isGenericInstitutionName } from './institutions';
 
 export interface InvestmentDisplay {
   ticker: string;
@@ -321,15 +322,26 @@ export function buildInvestmentDisplay(
   return { ticker, name };
 }
 
+function stripAccentsLower(str: string): string {
+  return str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+/**
+ * Sprint 96: o banco vem, nesta ordem, do COMPE do próprio transferNumber, da instituição da conexão
+ * (`itemInstitution`) e do nome do conector — que é ignorado quando é o genérico "MeuPluggy".
+ */
 export function buildAccountName(
   account: PluggyAccount,
-  connectorName?: string | null
+  connectorName?: string | null,
+  itemInstitution?: string | null
 ): string {
-  const bank = (connectorName || '').trim();
+  const connector = isGenericInstitutionName(connectorName) ? '' : (connectorName || '').trim();
+  const bank = (institutionFromAccount(account) || (itemInstitution || '').trim() || connector).trim();
   let typeLabel: string;
 
   if (account.type === 'CREDIT' || account.subtype === 'CREDIT_CARD') {
-    typeLabel = (account.marketingName || account.name || 'Cartão').trim();
+    const raw = (account.marketingName || account.name || 'Cartão').trim();
+    typeLabel = raw === raw.toLowerCase() ? raw.charAt(0).toUpperCase() + raw.slice(1) : raw;
   } else if (account.subtype === 'SAVINGS_ACCOUNT') {
     typeLabel = 'Poupança';
   } else {
@@ -339,7 +351,10 @@ export function buildAccountName(
   const digits = (account.number || '').replace(/\D/g, '');
   const suffix = digits.length >= 4 ? ` ·· ${digits.slice(-4)}` : '';
 
-  if (bank && !typeLabel.toLowerCase().startsWith(bank.toLowerCase())) {
+  const bankWordRe = bank
+    ? new RegExp(`(^|[^a-z0-9])${stripAccentsLower(bank).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`)
+    : null;
+  if (bank && !(bankWordRe && bankWordRe.test(stripAccentsLower(typeLabel)))) {
     return `${bank} · ${typeLabel}${suffix}`;
   }
   return `${typeLabel}${suffix}`;
