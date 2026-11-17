@@ -51,6 +51,7 @@ export class PortfolioRepository {
       docket_code: params.docket_code,
       patrimony_goal: null,
       monthly_contribution: null,
+      of_item_id: null,
       is_archived: 0,
       created_at: now,
       updated_at: now,

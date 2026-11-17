@@ -1002,6 +1002,7 @@ function parsePortfoliosFromCsv(csv: string): Portfolio[] {
     docket_code: r.docket_code,
     patrimony_goal: r.patrimony_goal ? r.patrimony_goal : null,
     monthly_contribution: r.monthly_contribution ? r.monthly_contribution : null,
+    of_item_id: null,
     is_archived: Number(r.is_archived || 0),
     created_at: r.created_at,
     updated_at: r.updated_at,

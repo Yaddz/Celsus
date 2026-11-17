@@ -10,7 +10,19 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **167 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **170 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 73 — Pluggy: botão único "Sincronizar" e carteira automática por corretora (Fase A concluída)
+
+Vínculo `portfolios.of_item_id`, serviço `ensurePortfolioForItem` (reaproveitamento/vinculação por nome/criação automática, proteção de nome renomeado), roteamento em `syncInvestments`, botão único `"Sincronizar"` com progresso por conexão, resumo final, isolamento de erros e reload de `walletsStore`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint73PortfolioPerBroker.test.ts` | S73-T01…T06 | `c02651d33d3ba1dedea62bf7287db72dd1789bccc45a476b34c26f4114ec99c9` | 6 FAIL |
+| `apps/mobile/src/db/__tests__/Sprint73PortfolioItemLinkMigration.test.ts` | S73-T07…T08 | `33fccf7fa5f52049705e6c04d671d607378f5224cce34572ccf7581f1553eca8` | 2 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint73UnifiedSync.test.tsx` | S73-T09…T10 | `46980d5e0de181f70c519f03c31534a1e4f0c87c2d85dde2074c11df710b6387` | 2 FAIL |
+
+Execução da Fase A: `npx jest Sprint73 --no-coverage` → 10 falhando, 0 passando (10 testes, 3 suítes). 170 arquivos travados.
 
 ## Sprint 72 — Pluggy: sincronizar proventos (Fase B concluída)
 
