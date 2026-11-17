@@ -65,6 +65,9 @@ const STATUS_LABELS: Record<BillStatus, string> = {
   fechada: 'Fechada',
   paga: 'Paga',
   atrasada: 'Atrasada',
+  parcial: 'Parcial',
+  'sem saldo': 'Sem saldo',
+  'sem dados de pagamento': 'Sem dados de pagamento',
 };
 
 export const CardBillScreen: React.FC<CardBillScreenProps> = ({

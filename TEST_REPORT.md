@@ -737,3 +737,13 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
     - `apps/mobile/src/services/__tests__/Sprint65PluggySyncService.test.ts:194` (`S65-S02`): `expect(seenDateFrom).toEqual([])` na 1ª sync (antes `'2025-11-16'`).
   - Resultado: Sprint 98 — 2 suítes / 13 testes PASS. Suíte geral: **208/208 suítes PASS** (**1350/1350 testes PASS**). `tsc --noEmit`: 0 erros em produção. `expo lint`: 0 erros nos arquivos alterados. `test-lock verify`: OK (224 arquivos protegidos).
   - Nota: `docs/json.json` ainda é o export pré-v3 (sem `fieldPresence` de `providerId`); todas as regras funcionam com e sem `providerId`.
+
+
+## Sprint 99 — Fatura do cartão igual à da Pluggy
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D27–D30, D38–D41, D45; R25–R28).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint99CardBills.test.ts` (SHA-256 `6ac041e0222ff7812e3f295c20056fa946f53ff5928e129275c6289d3ee40f7e`) — `S99-T01`..`S99-T08`, `S99-T11`, `S99-T12`, `S99-T14`, `S99-T15` (D38), `S99-T16` (D39).
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint99CardBillsSync.test.ts` (SHA-256 `749069bde4487b71eee308cc11df6fb328112cf87606822a5c9ef70490f499c5`) — `S99-T13` (`deriveCardCalendar`, `calendar_source`, migração `fin:of:billmonth:s99`).
+  - `apps/mobile/src/screens/__tests__/Sprint99CardBillUI.test.tsx` (SHA-256 `84b030529fc2ec2db3f5450877cb9dee1ac3e6eee4e3a617f6289243b402f6d4`) — `S99-T09` (D27), `S99-T10`/`S99-T18` (D29/D41), `S99-T17`/`S99-T19` (D40/D45).
+  - Stubs de compilação: `domain/openFinance/cardBills.ts`, `BillStatus` em `cards.ts` e `STATUS_LABELS` em `CardBillScreen.tsx`.
+  - Execução Fase A: 3 suítes / 17 FAIL (Red Phase esperado).

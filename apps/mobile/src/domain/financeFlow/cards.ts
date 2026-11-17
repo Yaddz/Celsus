@@ -1,6 +1,13 @@
 import type { FinAccount, FinEntry } from '../../db/schema';
 
-export type BillStatus = 'aberta' | 'fechada' | 'paga' | 'atrasada';
+export type BillStatus =
+  | 'aberta'
+  | 'fechada'
+  | 'paga'
+  | 'atrasada'
+  | 'parcial'
+  | 'sem saldo'
+  | 'sem dados de pagamento';
 
 export interface BillSummary {
   billMonth: string;
