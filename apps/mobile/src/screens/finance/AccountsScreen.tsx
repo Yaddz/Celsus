@@ -17,14 +17,11 @@ import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
 import type { FinAccount, FinEntry } from '../../db/schema';
 import {
-  availableLimit,
-  billDueDate,
   calculateAccountBalance,
   formatCentsBRL,
   getTodayIsoLocal,
   parseBRLToCents,
-  resolveBillMonth,
-  summarizeBill,
+  summarizeCardAccountForScreen,
   type FinAccountType,
 } from '../../domain/financeFlow';
 import {
@@ -283,33 +280,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
   const renderAccountRow = (acc: FinAccount, isLast: boolean, isArchived: boolean) => {
     const isCard = acc.type === 'card';
-    const cardEntries = isCard
-      ? entries
-          .filter((e) => e.account_id === acc.id)
-          .map((e) =>
-            e.bill_month
-              ? e
-              : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1, acc.due_day) }
-          )
-      : [];
-    const currentBillMonth = isCard
-      ? resolveBillMonth(getTodayIsoLocal(), acc.closing_day ?? 1, acc.due_day)
-      : currentYm;
-    const currentBillSummary = isCard
-      ? summarizeBill(cardEntries, currentBillMonth, {
-          dueDate: billDueDate(currentBillMonth, acc.due_day ?? 10),
-          todayIso: getTodayIsoLocal(),
-          closingDay: acc.closing_day ?? undefined,
-        })
+    const cardScreenSummary = isCard
+      ? summarizeCardAccountForScreen(acc, entries, getTodayIsoLocal())
       : null;
-    const openBillsTotalCents = isCard
-      ? Array.from(
-          new Set(cardEntries.map((e) => e.bill_month).filter(Boolean) as string[])
-        ).reduce((sum, bm) => sum + summarizeBill(cardEntries, bm).openCents, 0)
-      : 0;
-    const availLimitCents = isCard
-      ? availableLimit(acc.credit_limit_cents, openBillsTotalCents)
-      : null;
+    const currentBillSummary = cardScreenSummary?.currentBillSummary ?? null;
+    const availLimitCents = cardScreenSummary?.availLimitCents ?? null;
 
     const isOpenFinance = acc.source === 'OPEN_FINANCE';
     const calculatedBalance = isCard

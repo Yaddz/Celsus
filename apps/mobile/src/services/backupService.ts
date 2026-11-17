@@ -601,6 +601,11 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'closing_balance_cents',
   'auto_invested_cents',
   'credit_used_cents',
+  'of_available_limit_cents',
+  'of_minimum_payment_cents',
+  'of_balance_due_date',
+  'of_overdraft_used_cents',
+  'of_reserved_cents',
   'created_at',
 ];
 
@@ -641,6 +646,18 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'of_removed_at',
   'of_category_id',
   'of_class_reason',
+  'of_provider_id',
+  'of_bill_id',
+  'of_bill_forecast_month',
+  'of_bill_post_date',
+  'of_operation_type',
+  'of_raw_status',
+  'of_raw_type',
+  'of_raw_amount_cents',
+  'of_created_at',
+  'of_installment_number',
+  'of_installment_total',
+  'of_bill_month_source',
   'created_at',
 ];
 
@@ -711,6 +728,11 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     closing_balance_cents: parseOptionalInt(r.closing_balance_cents),
     auto_invested_cents: parseOptionalInt(r.auto_invested_cents),
     credit_used_cents: parseOptionalInt(r.credit_used_cents),
+    of_available_limit_cents: parseOptionalInt(r.of_available_limit_cents),
+    of_minimum_payment_cents: parseOptionalInt(r.of_minimum_payment_cents),
+    of_balance_due_date: emptyToNull(r.of_balance_due_date),
+    of_overdraft_used_cents: parseOptionalInt(r.of_overdraft_used_cents),
+    of_reserved_cents: parseOptionalInt(r.of_reserved_cents),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -757,6 +779,18 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     of_removed_at: !r.of_removed_at || r.of_removed_at === '' ? null : r.of_removed_at,
     of_category_id: !r.of_category_id || r.of_category_id === '' ? null : r.of_category_id,
     of_class_reason: !r.of_class_reason || r.of_class_reason === '' ? null : r.of_class_reason,
+    of_provider_id: emptyToNull(r.of_provider_id),
+    of_bill_id: emptyToNull(r.of_bill_id),
+    of_bill_forecast_month: emptyToNull(r.of_bill_forecast_month),
+    of_bill_post_date: emptyToNull(r.of_bill_post_date),
+    of_operation_type: emptyToNull(r.of_operation_type),
+    of_raw_status: emptyToNull(r.of_raw_status),
+    of_raw_type: emptyToNull(r.of_raw_type),
+    of_raw_amount_cents: parseOptionalInt(r.of_raw_amount_cents),
+    of_created_at: emptyToNull(r.of_created_at),
+    of_installment_number: parseOptionalInt(r.of_installment_number),
+    of_installment_total: parseOptionalInt(r.of_installment_total),
+    of_bill_month_source: emptyToNull(r.of_bill_month_source),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -822,6 +856,10 @@ const OF_ITEMS_COLUMNS: (keyof OfItemRow)[] = [
   'consent_expires_at',
   'last_synced_at',
   'last_error',
+  'last_updated_at',
+  'next_auto_sync_at',
+  'status_detail_json',
+  'error_code',
 ];
 
 function emptyToNull(raw?: string): string | null {
@@ -849,6 +887,10 @@ function parseOfItemsFromCsv(csvText?: string): OfItemRow[] {
     consent_expires_at: emptyToNull(r.consent_expires_at),
     last_synced_at: emptyToNull(r.last_synced_at),
     last_error: emptyToNull(r.last_error),
+    last_updated_at: emptyToNull(r.last_updated_at),
+    next_auto_sync_at: emptyToNull(r.next_auto_sync_at),
+    status_detail_json: emptyToNull(r.status_detail_json),
+    error_code: emptyToNull(r.error_code),
   }));
 }
 

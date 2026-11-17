@@ -227,12 +227,17 @@ export const pluggySyncService = {
               owner: mapped.owner,
               closing_balance_cents: mapped.closingBalanceCents,
               auto_invested_cents: mapped.autoInvestedCents,
+              of_overdraft_used_cents: mapped.ofOverdraftUsedCents,
+              of_reserved_cents: mapped.ofReservedCents,
               ...(isFirstLink ? { of_linked_at: nowIso } : {}),
               ...(mapped.type === 'card'
                 ? {
                     credit_limit_cents:
                       mapped.creditLimitCents ?? localAcc.credit_limit_cents,
                     credit_used_cents: mapped.creditUsedCents,
+                    of_available_limit_cents: mapped.ofAvailableLimitCents,
+                    of_minimum_payment_cents: mapped.ofMinimumPaymentCents,
+                    of_balance_due_date: mapped.ofBalanceDueDate,
                     due_day: mapped.dueDay ?? localAcc.due_day,
                     closing_day: updatedClosingDay,
                   }
@@ -262,6 +267,11 @@ export const pluggySyncService = {
               closingBalanceCents: mapped.closingBalanceCents,
               autoInvestedCents: mapped.autoInvestedCents,
               creditUsedCents: mapped.creditUsedCents,
+              ofAvailableLimitCents: mapped.ofAvailableLimitCents,
+              ofMinimumPaymentCents: mapped.ofMinimumPaymentCents,
+              ofBalanceDueDate: mapped.ofBalanceDueDate,
+              ofOverdraftUsedCents: mapped.ofOverdraftUsedCents,
+              ofReservedCents: mapped.ofReservedCents,
             });
             if (mapped.type === 'checking') {
               newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
@@ -281,6 +291,9 @@ export const pluggySyncService = {
                 totalAmountCents: toCentsDecimal(b.totalAmount),
                 minimumPaymentCents:
                   b.minimumPaymentAmount != null ? toCentsDecimal(b.minimumPaymentAmount) : null,
+                allowsInstallments: b.allowsInstallments ?? null,
+                payments: b.payments ?? null,
+                financeCharges: b.financeCharges ?? null,
               });
             }
           }
@@ -447,7 +460,16 @@ export const pluggySyncService = {
               existing.kind !== nextKind ||
               existing.transfer_group_id !== nextTransferGroupId ||
               (existing.of_class_reason ?? null) !== nextClassReason ||
-              (existing.of_category_id ?? null) !== nextOfCategoryId;
+              (existing.of_category_id ?? null) !== nextOfCategoryId ||
+              (existing.of_provider_id ?? null) !== row.ofProviderId ||
+              (existing.of_bill_id ?? null) !== row.ofBillId ||
+              (existing.of_bill_forecast_month ?? null) !== row.ofBillForecastMonth ||
+              (existing.of_bill_post_date ?? null) !== row.ofBillPostDate ||
+              (existing.of_operation_type ?? null) !== row.ofOperationType ||
+              (existing.of_raw_status ?? null) !== row.ofRawStatus ||
+              (existing.of_raw_type ?? null) !== row.ofRawType ||
+              (existing.of_raw_amount_cents ?? null) !== row.ofRawAmountCents ||
+              (existing.of_created_at ?? null) !== row.ofCreatedAt;
 
             if (hasChanges) {
               await finRepository.updateEntry(existing.id, {
@@ -466,6 +488,17 @@ export const pluggySyncService = {
                 transfer_group_id: nextTransferGroupId,
                 of_category_id: nextOfCategoryId,
                 of_class_reason: nextClassReason,
+                of_provider_id: row.ofProviderId,
+                of_bill_id: row.ofBillId,
+                of_bill_forecast_month: row.ofBillForecastMonth,
+                of_bill_post_date: row.ofBillPostDate,
+                of_operation_type: row.ofOperationType,
+                of_raw_status: row.ofRawStatus,
+                of_raw_type: row.ofRawType,
+                of_raw_amount_cents: row.ofRawAmountCents,
+                of_created_at: row.ofCreatedAt,
+                of_installment_number: row.ofInstallmentNumber,
+                of_installment_total: row.ofInstallmentTotal,
               });
               counts.transactionsUpdated += 1;
             }
@@ -484,6 +517,17 @@ export const pluggySyncService = {
               description_raw: row.descriptionRaw,
               of_category_id: row.ofCategoryId ?? null,
               of_class_reason: row.classReason ?? null,
+              of_provider_id: row.ofProviderId,
+              of_bill_id: row.ofBillId,
+              of_bill_forecast_month: row.ofBillForecastMonth,
+              of_bill_post_date: row.ofBillPostDate,
+              of_operation_type: row.ofOperationType,
+              of_raw_status: row.ofRawStatus,
+              of_raw_type: row.ofRawType,
+              of_raw_amount_cents: row.ofRawAmountCents,
+              of_created_at: row.ofCreatedAt,
+              of_installment_number: row.ofInstallmentNumber,
+              of_installment_total: row.ofInstallmentTotal,
             });
             counts.transactionsSettled += 1;
           } else {
@@ -506,6 +550,18 @@ export const pluggySyncService = {
               external_id: row.externalId,
               of_category_id: row.ofCategoryId ?? null,
               of_class_reason: row.classReason ?? null,
+              of_provider_id: row.ofProviderId,
+              of_bill_id: row.ofBillId,
+              of_bill_forecast_month: row.ofBillForecastMonth,
+              of_bill_post_date: row.ofBillPostDate,
+              of_operation_type: row.ofOperationType,
+              of_raw_status: row.ofRawStatus,
+              of_raw_type: row.ofRawType,
+              of_raw_amount_cents: row.ofRawAmountCents,
+              of_created_at: row.ofCreatedAt,
+              of_installment_number: row.ofInstallmentNumber,
+              of_installment_total: row.ofInstallmentTotal,
+              of_bill_month_source: row.ofBillMonthSource,
             });
           }
         }
@@ -644,6 +700,10 @@ export const pluggySyncService = {
           consent_expires_at: item.consentExpiresAt ?? null,
           last_synced_at: nowIso,
           last_error: null,
+          last_updated_at: item.lastUpdatedAt ?? null,
+          next_auto_sync_at: item.nextAutoSyncAt ?? null,
+          status_detail_json: item.statusDetail ? JSON.stringify(item.statusDetail) : null,
+          error_code: item.error?.code ?? null,
         });
 
         await openFinanceRepository.recordSyncRun({
@@ -792,6 +852,8 @@ export const pluggySyncService = {
             auto_name: mapped.name,
             closing_balance_cents: mapped.closingBalanceCents,
             auto_invested_cents: mapped.autoInvestedCents,
+            of_overdraft_used_cents: mapped.ofOverdraftUsedCents,
+            of_reserved_cents: mapped.ofReservedCents,
             ...(isFirstLink ? { of_linked_at: nowIso } : {}),
             ...(nextInitialBalance !== undefined
               ? { initial_balance_cents: nextInitialBalance }
@@ -800,6 +862,9 @@ export const pluggySyncService = {
               ? {
                   credit_limit_cents: mapped.creditLimitCents,
                   credit_used_cents: mapped.creditUsedCents,
+                  of_available_limit_cents: mapped.ofAvailableLimitCents,
+                  of_minimum_payment_cents: mapped.ofMinimumPaymentCents,
+                  of_balance_due_date: mapped.ofBalanceDueDate,
                   due_day: mapped.dueDay,
                   ...(choice.closingDay != null || mapped.closingDay != null
                     ? { closing_day: choice.closingDay ?? mapped.closingDay }

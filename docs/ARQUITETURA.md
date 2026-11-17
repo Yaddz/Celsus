@@ -390,3 +390,12 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `services/pluggy/pluggyClassificationService.ts`: `pairOwnTransfersAcrossItems(today, { windowStart })` desfaz pares `of-tr-` incompatíveis antes de parear.
 - `services/pluggy/pluggySyncService.ts`: busca única do histórico completo por conexão (`OF_HISTORY_BACKFILL_META_PREFIX`), terceira chamada paralela às duas da R10.
 - `domain/openFinance/diagnostics.ts`: mascaramento de contraparte por padrão de descrição (Pix/TED/DOC/transferência).
+
+## Contrato Completo Pluggy, Campos Crus e Conferência (Sprint 97)
+
+- `services/pluggy/types.ts`: tipos completos da OpenAPI Pluggy (Apêndice A.3–A.7), incluindo `statusDetail`, `bankData.reservedBalances`/`overdraftUsedLimit`, `creditData.disaggregatedCreditLimits`, `creditCardMetadata` completo (`billForecastDate`, `billPostDate`, `paymentType`, `feeType`, `otherCreditsType`), `paymentData` e `PluggyBill.payments`/`financeCharges`.
+- `domain/openFinance/dates.ts`: `toBrtDate` e `toBrtMonth` (UTC−3 fixo preservando datas puras).
+- `domain/openFinance/pluggyTruth.ts`: `computePluggyTruth`, `collectAppNumbers`, `reconcileAppVsPluggy` e `computeChargeableChargesCents`.
+- `domain/financeFlow/cards.ts`: `summarizeCardAccountForScreen` extraída de `AccountsScreen.tsx` sem alterar resultados.
+- `db/schema.ts`, `db/client.ts` e `services/backupService.ts`: persistência e backup das colunas `of_*` em `fin_entries`, `fin_bills`, `fin_accounts` e `of_items`.
+- `services/pluggy/pluggyDiagnosticsService.ts`: export v3 com `fieldPresence`, `txCountByYear`, `localEntriesSummary`, `bills`, `forecastVsBill`, `categoryMap`, `item` e `reconciliation` anonimizados.

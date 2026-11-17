@@ -236,6 +236,11 @@ export const finAccounts = sqliteTable('fin_accounts', {
   closing_balance_cents: integer('closing_balance_cents'),
   auto_invested_cents: integer('auto_invested_cents'),
   credit_used_cents: integer('credit_used_cents'),
+  of_available_limit_cents: integer('of_available_limit_cents'),
+  of_minimum_payment_cents: integer('of_minimum_payment_cents'),
+  of_balance_due_date: text('of_balance_due_date'),
+  of_overdraft_used_cents: integer('of_overdraft_used_cents'),
+  of_reserved_cents: integer('of_reserved_cents'),
   created_at: text('created_at').notNull(),
 });
 
@@ -252,6 +257,11 @@ export const finBills = sqliteTable('fin_bills', {
   due_date: text('due_date').notNull(), // YYYY-MM-DD
   total_amount_cents: integer('total_amount_cents').notNull(),
   minimum_payment_cents: integer('minimum_payment_cents'),
+  payments_json: text('payments_json'),
+  payments_total_cents: integer('payments_total_cents'),
+  finance_charges_json: text('finance_charges_json'),
+  chargeable_charges_cents: integer('chargeable_charges_cents'),
+  allows_installments: integer('allows_installments'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
 });
@@ -302,6 +312,18 @@ export const finEntries = sqliteTable('fin_entries', {
   of_removed_at: text('of_removed_at'),
   of_category_id: text('of_category_id'), // categoryId hierárquico da Pluggy (Sprint 91)
   of_class_reason: text('of_class_reason'), // INVESTMENT_MOVE | OWN_ACCOUNT_UNPAIRED | ... (Sprint 91)
+  of_provider_id: text('of_provider_id'),
+  of_bill_id: text('of_bill_id'),
+  of_bill_forecast_month: text('of_bill_forecast_month'),
+  of_bill_post_date: text('of_bill_post_date'),
+  of_operation_type: text('of_operation_type'),
+  of_raw_status: text('of_raw_status'),
+  of_raw_type: text('of_raw_type'),
+  of_raw_amount_cents: integer('of_raw_amount_cents'),
+  of_created_at: text('of_created_at'),
+  of_installment_number: integer('of_installment_number'),
+  of_installment_total: integer('of_installment_total'),
+  of_bill_month_source: text('of_bill_month_source'),
   created_at: text('created_at').notNull(),
 });
 
@@ -355,6 +377,9 @@ export const finRecurrenceSkips = sqliteTable(
 export type FinAccount = typeof finAccounts.$inferSelect;
 export type NewFinAccount = typeof finAccounts.$inferInsert;
 
+export type FinBill = typeof finBills.$inferSelect;
+export type NewFinBill = typeof finBills.$inferInsert;
+
 export type FinCategory = typeof finCategories.$inferSelect;
 export type NewFinCategory = typeof finCategories.$inferInsert;
 
@@ -399,6 +424,10 @@ export const ofItems = sqliteTable('of_items', {
   consent_expires_at: text('consent_expires_at'),
   last_synced_at: text('last_synced_at'),
   last_error: text('last_error'),
+  last_updated_at: text('last_updated_at'),
+  next_auto_sync_at: text('next_auto_sync_at'),
+  status_detail_json: text('status_detail_json'),
+  error_code: text('error_code'),
 });
 
 /**

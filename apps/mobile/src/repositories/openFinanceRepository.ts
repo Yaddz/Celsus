@@ -12,6 +12,10 @@ export interface OfItemRecord {
   consent_expires_at: string | null;
   last_synced_at: string | null;
   last_error: string | null;
+  last_updated_at?: string | null;
+  next_auto_sync_at?: string | null;
+  status_detail_json?: string | null;
+  error_code?: string | null;
 }
 
 export interface OfSyncRunRecord {
@@ -63,6 +67,10 @@ export const openFinanceRepository = {
       consent_expires_at: null,
       last_synced_at: null,
       last_error: null,
+      last_updated_at: null,
+      next_auto_sync_at: null,
+      status_detail_json: null,
+      error_code: null,
     };
     await db.insert(ofItems).values(record);
     return record;
@@ -81,6 +89,10 @@ export const openFinanceRepository = {
           consent_expires_at: record.consent_expires_at,
           last_synced_at: record.last_synced_at,
           last_error: record.last_error,
+          last_updated_at: record.last_updated_at ?? null,
+          next_auto_sync_at: record.next_auto_sync_at ?? null,
+          status_detail_json: record.status_detail_json ?? null,
+          error_code: record.error_code ?? null,
         })
         .where(eq(ofItems.id, record.id));
       return;

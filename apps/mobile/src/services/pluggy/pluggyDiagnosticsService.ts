@@ -3,14 +3,25 @@ import { getDatabase } from '../../db/client';
 import {
   assets,
   finAccounts,
+  finBills,
   finEntries,
   incomeEvents,
   marketPriceCache,
   transactions,
 } from '../../db/schema';
 import { isUnknownCost } from '../../domain/finance/averagePrice';
-import { isStaleOpenFinancePending } from '../../domain/openFinance/stalePending';
+import { getTodayIsoLocal } from '../../domain/financeFlow';
+import { toBrtMonth } from '../../domain/openFinance/dates';
 import { redactDiagnosticDescription } from '../../domain/openFinance/diagnostics';
+import {
+  collectAppNumbers,
+  computePluggyTruth,
+  hasSignMismatch,
+  reconcileAppVsPluggy,
+  type Difference,
+} from '../../domain/openFinance/pluggyTruth';
+import { isStaleOpenFinancePending } from '../../domain/openFinance/stalePending';
+import { toCentsDecimal } from '../../domain/openFinance';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { PluggyClient } from './pluggyClient';
 import type {
@@ -22,6 +33,38 @@ import type {
   PluggyTransaction,
 } from './types';
 
+export interface AnonymizedAccountFieldPresence {
+  providerId: number;
+  billId: number;
+  billForecastDate: number;
+  billPostDate: number;
+  operationType: number;
+  operationTypeCounts: Record<string, number>;
+  paymentType: number;
+  transactionDateTime: number;
+  installmentNumber: number;
+  signMismatchCount: number;
+}
+
+export interface AnonymizedBillDiagnostic {
+  dueDate: string;
+  closingDate: string | null;
+  totalAmount: number;
+  minimumPaymentAmount: number | null;
+  payments: Array<{
+    paymentDate: string;
+    amount: number;
+    valueType: string | null;
+    paymentMode: string | null;
+  }>;
+  financeCharges: Array<{
+    type: string;
+    amount: number;
+    additionalInfo: string | null;
+  }>;
+  itemsSumByBillId: number;
+}
+
 export interface AnonymizedAccountSummary {
   type: string;
   subtype: string;
@@ -32,6 +75,20 @@ export interface AnonymizedAccountSummary {
   creditLimit: number | null;
   availableCreditLimit: number | null;
   billsCount: number;
+  txCount: number;
+  txCountByYear: Record<string, number>;
+  localEntriesSummary: {
+    total: number;
+    byReason: Record<string, number>;
+    removedCount: number;
+  };
+  fieldPresence: AnonymizedAccountFieldPresence;
+  bills?: AnonymizedBillDiagnostic[];
+  forecastVsBill?: {
+    totalWithBoth: number;
+    matchesDueDateMonth: number;
+    matchesClosingDateMonth: number;
+  };
   entriesLast90d: {
     total: number;
     byKind: Record<string, number>;
@@ -90,6 +147,19 @@ export interface AnonymizedInvestmentSummary {
 export interface AnonymizedItemDiagnostics {
   itemHash: string;
   connectorName: string;
+  item: {
+    connectorId: number | null;
+    isOpenFinance: boolean | null;
+    status: string | null;
+    executionStatus: string | null;
+    lastUpdatedAt: string | null;
+    nextAutoSyncAt: string | null;
+    consentExpiresAt: string | null;
+    productsNotUpdated: string[];
+    warningCodes: string[];
+  };
+  categoryMap: Record<string, string>;
+  reconciliation: Difference[];
   accounts: AnonymizedAccountSummary[];
   investments: AnonymizedInvestmentSummary[];
 }
@@ -181,13 +251,14 @@ export const pluggyDiagnosticsService = {
       (await openFinanceRepository.listItems()).map((it) => it.id);
 
     const db = getDatabase();
-    const [localAssets, localTxs, localIncomes, localFinAccounts, localFinEntries, priceCache] =
+    const [localAssets, localTxs, localIncomes, localFinAccounts, localFinEntries, localFinBills, priceCache] =
       await Promise.all([
         db.select().from(assets),
         db.select().from(transactions),
         db.select().from(incomeEvents),
         db.select().from(finAccounts),
         db.select().from(finEntries),
+        db.select().from(finBills),
         db.select().from(marketPriceCache),
       ]);
 
@@ -221,6 +292,10 @@ export const pluggyDiagnosticsService = {
         ...investments.map((i) => i.owner),
       ].filter((o): o is string => Boolean(o && o.trim()));
 
+      const categoryMap: Record<string, string> = {};
+      const transactionsByAccount: Record<string, PluggyTransaction[]> = {};
+      const billsByAccount: Record<string, PluggyBill[]> = {};
+
       const anonymizedAccounts: AnonymizedAccountSummary[] = [];
       for (const acc of accounts) {
         const txs: PluggyTransaction[] =
@@ -231,6 +306,111 @@ export const pluggyDiagnosticsService = {
           acc.type === 'CREDIT' && typeof anyClient.listBills === 'function'
             ? await anyClient.listBills(acc.id).catch(() => [])
             : [];
+        transactionsByAccount[acc.id] = txs;
+        if (acc.type === 'CREDIT') {
+          billsByAccount[acc.id] = bills;
+        }
+
+        const fieldPresence: AnonymizedAccountFieldPresence = {
+          providerId: 0,
+          billId: 0,
+          billForecastDate: 0,
+          billPostDate: 0,
+          operationType: 0,
+          operationTypeCounts: {},
+          paymentType: 0,
+          transactionDateTime: 0,
+          installmentNumber: 0,
+          signMismatchCount: 0,
+        };
+        const txCountByYear: Record<string, number> = {};
+        const itemsSumByBillIdMap = new Map<string, number>();
+
+        for (const t of txs) {
+          if (t.categoryId && t.category) {
+            categoryMap[t.categoryId] = t.category;
+          }
+          const year = (t.date || '').slice(0, 4);
+          if (/^\d{4}$/.test(year)) {
+            txCountByYear[year] = (txCountByYear[year] ?? 0) + 1;
+          }
+          if (t.providerId) fieldPresence.providerId += 1;
+          if (t.operationType) {
+            fieldPresence.operationType += 1;
+            fieldPresence.operationTypeCounts[t.operationType] =
+              (fieldPresence.operationTypeCounts[t.operationType] ?? 0) + 1;
+          }
+          if (hasSignMismatch(acc.type, t)) {
+            fieldPresence.signMismatchCount += 1;
+          }
+          const meta = t.creditCardMetadata;
+          if (meta) {
+            if (meta.billId) {
+              fieldPresence.billId += 1;
+              if (t.operationType !== 'PAGAMENTO_FATURA') {
+                const absCents = Math.abs(
+                  toCentsDecimal(t.amountInAccountCurrency ?? t.amount)
+                );
+                const signedCents = t.type === 'DEBIT' ? absCents : -absCents;
+                itemsSumByBillIdMap.set(
+                  meta.billId,
+                  (itemsSumByBillIdMap.get(meta.billId) ?? 0) + signedCents
+                );
+              }
+            }
+            if (meta.billForecastDate) fieldPresence.billForecastDate += 1;
+            if (meta.billPostDate) fieldPresence.billPostDate += 1;
+            if (meta.paymentType) fieldPresence.paymentType += 1;
+            if (meta.transactionDateTime) fieldPresence.transactionDateTime += 1;
+            if (meta.installmentNumber != null) fieldPresence.installmentNumber += 1;
+          }
+        }
+
+        let billsDiag: AnonymizedBillDiagnostic[] | undefined;
+        let forecastVsBill: AnonymizedAccountSummary['forecastVsBill'];
+        if (acc.type === 'CREDIT') {
+          const billById = new Map(bills.map((b) => [b.id, b]));
+          billsDiag = bills.map((b) => ({
+            dueDate: (b.dueDate || '').slice(0, 10),
+            closingDate: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
+            totalAmount: b.totalAmount,
+            minimumPaymentAmount: b.minimumPaymentAmount ?? null,
+            payments: (b.payments ?? []).map((p) => ({
+              paymentDate: (p.paymentDate || '').slice(0, 10),
+              amount: p.amount,
+              valueType: p.valueType ?? null,
+              paymentMode: p.paymentMode ?? null,
+            })),
+            financeCharges: (b.financeCharges ?? []).map((c) => ({
+              type: c.type,
+              amount: c.amount,
+              additionalInfo: c.additionalInfo
+                ? redactDiagnosticDescription(c.additionalInfo, { ownerNames })
+                : null,
+            })),
+            itemsSumByBillId: (itemsSumByBillIdMap.get(b.id) ?? 0) / 100,
+          }));
+
+          let totalWithBoth = 0;
+          let matchesDueDateMonth = 0;
+          let matchesClosingDateMonth = 0;
+          for (const t of txs) {
+            const billId = t.creditCardMetadata?.billId;
+            const forecast = t.creditCardMetadata?.billForecastDate;
+            if (!billId || !forecast) continue;
+            const bill = billById.get(billId);
+            if (!bill) continue;
+            totalWithBoth += 1;
+            const forecastYm = forecast.slice(0, 7);
+            if (toBrtMonth(bill.dueDate) === forecastYm) {
+              matchesDueDateMonth += 1;
+            }
+            if (bill.billClosingDate && toBrtMonth(bill.billClosingDate) === forecastYm) {
+              matchesClosingDateMonth += 1;
+            }
+          }
+          forecastVsBill = { totalWithBoth, matchesDueDateMonth, matchesClosingDateMonth };
+        }
 
         const localAcc = localAccByOfId.get(acc.id);
         const byKind: Record<string, number> = {};
@@ -238,9 +418,18 @@ export const pluggyDiagnosticsService = {
         let outrosCount = 0;
         let stalePendingCount = 0;
         const transfersByReason: Record<string, number> = {};
+        const localByReason: Record<string, number> = {};
+        let localTotal = 0;
+        let localRemovedCount = 0;
         if (localAcc) {
           for (const e of localFinEntries) {
             if (e.account_id !== localAcc.id) continue;
+            if (e.source === 'OPEN_FINANCE') {
+              localTotal += 1;
+              const reasonKey = e.of_class_reason ?? 'NONE';
+              localByReason[reasonKey] = (localByReason[reasonKey] ?? 0) + 1;
+              if (e.of_removed_at) localRemovedCount += 1;
+            }
             if (e.of_removed_at) continue;
             if (isStaleOpenFinancePending(e, todayIsoDiag)) stalePendingCount += 1;
             if (e.due_date < cutoff90d) continue;
@@ -274,6 +463,16 @@ export const pluggyDiagnosticsService = {
           creditLimit: acc.creditData?.creditLimit ?? null,
           availableCreditLimit: acc.creditData?.availableCreditLimit ?? null,
           billsCount: bills.length,
+          txCount: txs.length,
+          txCountByYear,
+          localEntriesSummary: {
+            total: localTotal,
+            byReason: localByReason,
+            removedCount: localRemovedCount,
+          },
+          fieldPresence,
+          ...(billsDiag !== undefined ? { bills: billsDiag } : {}),
+          ...(forecastVsBill !== undefined ? { forecastVsBill } : {}),
           entriesLast90d: {
             total: total90d,
             byKind,
@@ -367,9 +566,49 @@ export const pluggyDiagnosticsService = {
         });
       }
 
+      const productsNotUpdated: string[] = [];
+      const warningCodes: string[] = [];
+      if (item?.statusDetail) {
+        for (const [product, info] of Object.entries(item.statusDetail)) {
+          if (!info) continue;
+          if (info.isUpdated === false) productsNotUpdated.push(product);
+          for (const w of info.warnings ?? []) {
+            if (w?.code) warningCodes.push(w.code);
+          }
+        }
+      }
+
+      const reconciliation: Difference[] = item
+        ? reconcileAppVsPluggy(
+            computePluggyTruth(
+              { item, accounts, transactionsByAccount, billsByAccount, investments },
+              getTodayIsoLocal()
+            ),
+            collectAppNumbers({
+              accounts: localFinAccounts,
+              entries: localFinEntries,
+              bills: localFinBills,
+              todayIso: getTodayIsoLocal(),
+            })
+          )
+        : [];
+
       items.push({
         itemHash: hashShort(itemId),
         connectorName: item?.connector?.name ?? 'Instituição',
+        item: {
+          connectorId: item?.connector?.id ?? null,
+          isOpenFinance: item?.connector?.isOpenFinance ?? null,
+          status: item?.status ?? null,
+          executionStatus: item?.executionStatus ?? null,
+          lastUpdatedAt: item?.lastUpdatedAt ?? null,
+          nextAutoSyncAt: item?.nextAutoSyncAt ?? null,
+          consentExpiresAt: item?.consentExpiresAt ?? null,
+          productsNotUpdated,
+          warningCodes,
+        },
+        categoryMap,
+        reconciliation,
         accounts: anonymizedAccounts,
         investments: anonymizedInvestments,
       });

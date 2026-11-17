@@ -39,6 +39,11 @@ export interface MappedPluggyAccount {
   closingBalanceCents: number | null;
   autoInvestedCents: number | null;
   creditUsedCents: number | null;
+  ofAvailableLimitCents: number | null;
+  ofMinimumPaymentCents: number | null;
+  ofBalanceDueDate: string | null;
+  ofOverdraftUsedCents: number | null;
+  ofReservedCents: number | null;
 }
 
 export interface MappedPluggyTransaction {
@@ -62,6 +67,18 @@ export interface MappedPluggyTransaction {
   installmentTotal: number | null;
   billId: string | null;
   billMonth: string | null;
+  ofProviderId: string | null;
+  ofBillId: string | null;
+  ofBillForecastMonth: string | null;
+  ofBillPostDate: string | null;
+  ofOperationType: string | null;
+  ofRawStatus: string | null;
+  ofRawType: string | null;
+  ofRawAmountCents: number;
+  ofCreatedAt: string | null;
+  ofInstallmentNumber: number | null;
+  ofInstallmentTotal: number | null;
+  ofBillMonthSource: string | null;
 }
 
 export interface MapPluggyTransactionOptions {
@@ -249,6 +266,32 @@ export function mapPluggyAccount(
       ? toCentsDecimal(creditData.creditLimit) - toCentsDecimal(creditData.availableCreditLimit)
       : null;
 
+  const ofAvailableLimitCents =
+    isCredit && creditData?.availableCreditLimit != null
+      ? toCentsDecimal(creditData.availableCreditLimit)
+      : null;
+  const ofMinimumPaymentCents =
+    isCredit && creditData?.minimumPayment != null
+      ? toCentsDecimal(creditData.minimumPayment)
+      : null;
+  const ofBalanceDueDate =
+    isCredit && creditData?.balanceDueDate
+      ? creditData.balanceDueDate.slice(0, 10)
+      : null;
+  const ofOverdraftUsedCents =
+    !isCredit && account.bankData?.overdraftUsedLimit != null
+      ? toCentsDecimal(account.bankData.overdraftUsedLimit)
+      : null;
+  const ofReservedCents =
+    !isCredit && Array.isArray(account.bankData?.reservedBalances)
+      ? account.bankData.reservedBalances.reduce(
+          (sum, rb) =>
+            sum +
+            (rb.availableAmounts ?? []).reduce((s, a) => s + toCentsDecimal(a.amount), 0),
+          0
+        )
+      : null;
+
   return {
     ofAccountId: account.id,
     name: buildAccountName(account, connectorName, itemInstitution),
@@ -265,6 +308,11 @@ export function mapPluggyAccount(
     closingBalanceCents,
     autoInvestedCents,
     creditUsedCents,
+    ofAvailableLimitCents,
+    ofMinimumPaymentCents,
+    ofBalanceDueDate,
+    ofOverdraftUsedCents,
+    ofReservedCents,
   };
 }
 
@@ -358,6 +406,22 @@ export function mapPluggyTransaction(
     installmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
     billId,
     billMonth,
+    ofProviderId: tx.providerId ?? null,
+    ofBillId: billId,
+    ofBillForecastMonth: tx.creditCardMetadata?.billForecastDate
+      ? tx.creditCardMetadata.billForecastDate.slice(0, 7)
+      : null,
+    ofBillPostDate: tx.creditCardMetadata?.billPostDate
+      ? tx.creditCardMetadata.billPostDate.slice(0, 10)
+      : null,
+    ofOperationType: tx.operationType ?? null,
+    ofRawStatus: tx.status ?? null,
+    ofRawType: tx.type ?? null,
+    ofRawAmountCents: toCentsDecimal(rawAmount),
+    ofCreatedAt: tx.createdAt ?? null,
+    ofInstallmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
+    ofInstallmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
+    ofBillMonthSource: null,
   };
 }
 

@@ -1,6 +1,9 @@
 import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
+import { toCentsDecimal } from '../domain/openFinance';
+import { computeChargeableChargesCents } from '../domain/openFinance/pluggyTruth';
+import type { PluggyBillFinanceCharge, PluggyBillPayment } from '../services/pluggy/types';
 import {
   finAccounts,
   finBills,
@@ -95,6 +98,11 @@ export class FinRepository {
     closingBalanceCents?: number | null;
     autoInvestedCents?: number | null;
     creditUsedCents?: number | null;
+    ofAvailableLimitCents?: number | null;
+    ofMinimumPaymentCents?: number | null;
+    ofBalanceDueDate?: string | null;
+    ofOverdraftUsedCents?: number | null;
+    ofReservedCents?: number | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
     const isCard = params.type === 'card';
@@ -119,6 +127,11 @@ export class FinRepository {
       closing_balance_cents: params.closingBalanceCents ?? null,
       auto_invested_cents: params.autoInvestedCents ?? null,
       credit_used_cents: isCard ? (params.creditUsedCents ?? null) : null,
+      of_available_limit_cents: isCard ? (params.ofAvailableLimitCents ?? null) : null,
+      of_minimum_payment_cents: isCard ? (params.ofMinimumPaymentCents ?? null) : null,
+      of_balance_due_date: isCard ? (params.ofBalanceDueDate ?? null) : null,
+      of_overdraft_used_cents: !isCard ? (params.ofOverdraftUsedCents ?? null) : null,
+      of_reserved_cents: !isCard ? (params.ofReservedCents ?? null) : null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -147,6 +160,11 @@ export class FinRepository {
       closing_balance_cents: number | null;
       auto_invested_cents: number | null;
       credit_used_cents: number | null;
+      of_available_limit_cents: number | null;
+      of_minimum_payment_cents: number | null;
+      of_balance_due_date: string | null;
+      of_overdraft_used_cents: number | null;
+      of_reserved_cents: number | null;
     }>
   ): Promise<FinAccount> {
     const db = getDatabase();
@@ -166,9 +184,25 @@ export class FinRepository {
     dueDate: string;
     totalAmountCents: number;
     minimumPaymentCents: number | null;
+    allowsInstallments?: boolean | null;
+    payments?: PluggyBillPayment[] | null;
+    financeCharges?: PluggyBillFinanceCharge[] | null;
   }): Promise<void> {
     const db = getDatabase();
     const nowIso = new Date().toISOString();
+    const paymentsJson = params.payments ? JSON.stringify(params.payments) : null;
+    const paymentsTotalCents = params.payments
+      ? params.payments.reduce((sum, p) => sum + toCentsDecimal(p.amount), 0)
+      : null;
+    const financeChargesJson = params.financeCharges
+      ? JSON.stringify(params.financeCharges)
+      : null;
+    const chargeableChargesCents = params.financeCharges
+      ? computeChargeableChargesCents(params.financeCharges)
+      : null;
+    const allowsInstallments =
+      params.allowsInstallments == null ? null : params.allowsInstallments ? 1 : 0;
+
     const existing = await db
       .select()
       .from(finBills)
@@ -186,6 +220,11 @@ export class FinRepository {
           due_date: params.dueDate,
           total_amount_cents: params.totalAmountCents,
           minimum_payment_cents: params.minimumPaymentCents,
+          payments_json: paymentsJson,
+          payments_total_cents: paymentsTotalCents,
+          finance_charges_json: financeChargesJson,
+          chargeable_charges_cents: chargeableChargesCents,
+          allows_installments: allowsInstallments,
           updated_at: nowIso,
         })
         .where(eq(finBills.id, match.id));
@@ -199,6 +238,11 @@ export class FinRepository {
         due_date: params.dueDate,
         total_amount_cents: params.totalAmountCents,
         minimum_payment_cents: params.minimumPaymentCents,
+        payments_json: paymentsJson,
+        payments_total_cents: paymentsTotalCents,
+        finance_charges_json: financeChargesJson,
+        chargeable_charges_cents: chargeableChargesCents,
+        allows_installments: allowsInstallments,
         created_at: nowIso,
         updated_at: nowIso,
       });
@@ -359,6 +403,18 @@ export class FinRepository {
       of_removed_at: item.of_removed_at ?? item.ofRemovedAt ?? null,
       of_category_id: item.of_category_id ?? item.ofCategoryId ?? null,
       of_class_reason: item.of_class_reason ?? item.ofClassReason ?? null,
+      of_provider_id: item.of_provider_id ?? item.ofProviderId ?? null,
+      of_bill_id: item.of_bill_id ?? item.ofBillId ?? null,
+      of_bill_forecast_month: item.of_bill_forecast_month ?? item.ofBillForecastMonth ?? null,
+      of_bill_post_date: item.of_bill_post_date ?? item.ofBillPostDate ?? null,
+      of_operation_type: item.of_operation_type ?? item.ofOperationType ?? null,
+      of_raw_status: item.of_raw_status ?? item.ofRawStatus ?? null,
+      of_raw_type: item.of_raw_type ?? item.ofRawType ?? null,
+      of_raw_amount_cents: item.of_raw_amount_cents ?? item.ofRawAmountCents ?? null,
+      of_created_at: item.of_created_at ?? item.ofCreatedAt ?? null,
+      of_installment_number: item.of_installment_number ?? item.ofInstallmentNumber ?? null,
+      of_installment_total: item.of_installment_total ?? item.ofInstallmentTotal ?? null,
+      of_bill_month_source: item.of_bill_month_source ?? item.ofBillMonthSource ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);

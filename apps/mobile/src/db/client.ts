@@ -153,6 +153,11 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   closing_balance_cents INTEGER,
   auto_invested_cents INTEGER,
   credit_used_cents INTEGER,
+  of_available_limit_cents INTEGER,
+  of_minimum_payment_cents INTEGER,
+  of_balance_due_date TEXT,
+  of_overdraft_used_cents INTEGER,
+  of_reserved_cents INTEGER,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_categories (
@@ -191,6 +196,18 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   of_removed_at TEXT,
   of_category_id TEXT,
   of_class_reason TEXT,
+  of_provider_id TEXT,
+  of_bill_id TEXT,
+  of_bill_forecast_month TEXT,
+  of_bill_post_date TEXT,
+  of_operation_type TEXT,
+  of_raw_status TEXT,
+  of_raw_type TEXT,
+  of_raw_amount_cents INTEGER,
+  of_created_at TEXT,
+  of_installment_number INTEGER,
+  of_installment_total INTEGER,
+  of_bill_month_source TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -231,7 +248,11 @@ CREATE TABLE IF NOT EXISTS of_items (
   execution_status TEXT,
   consent_expires_at TEXT,
   last_synced_at TEXT,
-  last_error TEXT
+  last_error TEXT,
+  last_updated_at TEXT,
+  next_auto_sync_at TEXT,
+  status_detail_json TEXT,
+  error_code TEXT
 );
 CREATE TABLE IF NOT EXISTS of_sync_runs (
   id TEXT PRIMARY KEY NOT NULL,
@@ -294,6 +315,11 @@ CREATE TABLE IF NOT EXISTS fin_bills (
   due_date TEXT NOT NULL,
   total_amount_cents INTEGER NOT NULL,
   minimum_payment_cents INTEGER,
+  payments_json TEXT,
+  payments_total_cents INTEGER,
+  finance_charges_json TEXT,
+  chargeable_charges_cents INTEGER,
+  allows_installments INTEGER,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -604,6 +630,32 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'fin_accounts', column: 'owner', ddl: 'ALTER TABLE fin_accounts ADD COLUMN owner TEXT' },
   { table: 'fin_accounts', column: 'auto_name', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_name TEXT' },
   { table: 'transactions', column: 'archived_at', ddl: 'ALTER TABLE transactions ADD COLUMN archived_at TEXT' },
+  { table: 'fin_entries', column: 'of_provider_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_provider_id TEXT' },
+  { table: 'fin_entries', column: 'of_bill_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_bill_id TEXT' },
+  { table: 'fin_entries', column: 'of_bill_forecast_month', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_bill_forecast_month TEXT' },
+  { table: 'fin_entries', column: 'of_bill_post_date', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_bill_post_date TEXT' },
+  { table: 'fin_entries', column: 'of_operation_type', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_operation_type TEXT' },
+  { table: 'fin_entries', column: 'of_raw_status', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_raw_status TEXT' },
+  { table: 'fin_entries', column: 'of_raw_type', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_raw_type TEXT' },
+  { table: 'fin_entries', column: 'of_raw_amount_cents', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_raw_amount_cents INTEGER' },
+  { table: 'fin_entries', column: 'of_created_at', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_created_at TEXT' },
+  { table: 'fin_entries', column: 'of_installment_number', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_installment_number INTEGER' },
+  { table: 'fin_entries', column: 'of_installment_total', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_installment_total INTEGER' },
+  { table: 'fin_entries', column: 'of_bill_month_source', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_bill_month_source TEXT' },
+  { table: 'fin_bills', column: 'payments_json', ddl: 'ALTER TABLE fin_bills ADD COLUMN payments_json TEXT' },
+  { table: 'fin_bills', column: 'payments_total_cents', ddl: 'ALTER TABLE fin_bills ADD COLUMN payments_total_cents INTEGER' },
+  { table: 'fin_bills', column: 'finance_charges_json', ddl: 'ALTER TABLE fin_bills ADD COLUMN finance_charges_json TEXT' },
+  { table: 'fin_bills', column: 'chargeable_charges_cents', ddl: 'ALTER TABLE fin_bills ADD COLUMN chargeable_charges_cents INTEGER' },
+  { table: 'fin_bills', column: 'allows_installments', ddl: 'ALTER TABLE fin_bills ADD COLUMN allows_installments INTEGER' },
+  { table: 'fin_accounts', column: 'of_available_limit_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_available_limit_cents INTEGER' },
+  { table: 'fin_accounts', column: 'of_minimum_payment_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_minimum_payment_cents INTEGER' },
+  { table: 'fin_accounts', column: 'of_balance_due_date', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_balance_due_date TEXT' },
+  { table: 'fin_accounts', column: 'of_overdraft_used_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_overdraft_used_cents INTEGER' },
+  { table: 'fin_accounts', column: 'of_reserved_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_reserved_cents INTEGER' },
+  { table: 'of_items', column: 'last_updated_at', ddl: 'ALTER TABLE of_items ADD COLUMN last_updated_at TEXT' },
+  { table: 'of_items', column: 'next_auto_sync_at', ddl: 'ALTER TABLE of_items ADD COLUMN next_auto_sync_at TEXT' },
+  { table: 'of_items', column: 'status_detail_json', ddl: 'ALTER TABLE of_items ADD COLUMN status_detail_json TEXT' },
+  { table: 'of_items', column: 'error_code', ddl: 'ALTER TABLE of_items ADD COLUMN error_code TEXT' },
 ];
 
 const VALID_LEDGER_TYPES = new Set(['BUY', 'SELL', 'SPLIT', 'INPLIT']);
@@ -985,7 +1037,9 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'closing_day', 'due_day', 'credit_limit_cents', 'of_account_id',
               'source', 'reported_balance_cents', 'reported_balance_at',
               'masked_number', 'owner', 'auto_name', 'of_linked_at',
-              'closing_balance_cents', 'auto_invested_cents', 'credit_used_cents', 'created_at',
+              'closing_balance_cents', 'auto_invested_cents', 'credit_used_cents',
+              'of_available_limit_cents', 'of_minimum_payment_cents', 'of_balance_due_date',
+              'of_overdraft_used_cents', 'of_reserved_cents', 'created_at',
             ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(transactions)')) {

@@ -31,6 +31,21 @@ Este documento descreve como exportar o relatório anonimizado do Open Finance n
   - `byKind`: contagem agrupada por `kind` (`expense`, `income`, `transfer_out`, `transfer_in`).
   - `outrosCount` e `outrosPct`: contagem e percentual de lançamentos categorizados em `cat-outros-*`.
 
+## 2.1 Campos do relatório v3 (Sprint 97 — D36, D37, D43)
+
+### Por conexão (`items[]`)
+- `item`: `{ connectorId, isOpenFinance, status, executionStatus, lastUpdatedAt, nextAutoSyncAt, consentExpiresAt, productsNotUpdated, warningCodes }`.
+- `categoryMap`: mapa `categoryId -> category` observado nas transações retornadas pela Pluggy.
+- `reconciliation`: saída de `reconcileAppVsPluggy(truth, appNumbers)` comparando a verdade da Pluggy com os números locais do app (`APP_RECOMPUTED`, `ITEMS_VS_TOTAL`, `MISSING_BILL`, `SIGN_MISMATCH`).
+
+### Por conta (`items[].accounts[]`)
+- `fieldPresence`: contagem de presença de `providerId`, `billId`, `billForecastDate`, `billPostDate`, `operationType` (e distribuição `operationTypeCounts`), `paymentType`, `transactionDateTime`, `installmentNumber` e `signMismatchCount` (divergência entre `type` e sinal de `amount`, D37).
+- `txCount` e `txCountByYear`: total de transações devolvidas pela Pluggy sem filtro de data e contagem por ano de `date` (D43).
+- `localEntriesSummary`: `{ total, byReason, removedCount }` dos lançamentos `OPEN_FINANCE` locais da conta.
+- Para cartões (`CREDIT`):
+  - `bills`: `{ dueDate, closingDate, totalAmount, minimumPaymentAmount, payments: [{ paymentDate, amount, valueType, paymentMode }], financeCharges: [{ type, amount, additionalInfo (redigido) }], itemsSumByBillId }`.
+  - `forecastVsBill`: `{ totalWithBoth, matchesDueDateMonth, matchesClosingDateMonth }` para conferir se `billForecastDate` alinha com `dueDate` ou `billClosingDate`.
+
 ---
 
 ## 3. Significado dos alertas locais

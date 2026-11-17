@@ -144,6 +144,62 @@ export function availableLimit(
   return limitCents - Math.max(0, openBillsTotalCents);
 }
 
+export interface CardAccountScreenSummary {
+  cardEntries: FinEntry[];
+  currentBillMonth: string;
+  currentBillSummary: BillSummary;
+  openBillsTotalCents: number;
+  availLimitCents: number | null;
+  closedBillsByMonth: Record<string, BillSummary>;
+}
+
+/**
+ * Cálculo puro de faturas e limite disponível de um cartão para a tela de Contas e conferência.
+ */
+export function summarizeCardAccountForScreen(
+  acc: FinAccount,
+  entries: FinEntry[],
+  todayIso: string
+): CardAccountScreenSummary {
+  const cardEntries = entries
+    .filter((e) => e.account_id === acc.id)
+    .map((e) =>
+      e.bill_month
+        ? e
+        : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1, acc.due_day) }
+    );
+  const currentBillMonth = resolveBillMonth(todayIso, acc.closing_day ?? 1, acc.due_day);
+  const currentBillSummary = summarizeBill(cardEntries, currentBillMonth, {
+    dueDate: billDueDate(currentBillMonth, acc.due_day ?? 10),
+    todayIso,
+    closingDay: acc.closing_day ?? undefined,
+  });
+  const billMonths = Array.from(
+    new Set(cardEntries.map((e) => e.bill_month).filter(Boolean) as string[])
+  );
+  const closedBillsByMonth: Record<string, BillSummary> = {};
+  let openBillsTotalCents = 0;
+  for (const bm of billMonths) {
+    const summary = summarizeBill(cardEntries, bm, {
+      dueDate: billDueDate(bm, acc.due_day ?? 10),
+      todayIso,
+      closingDay: acc.closing_day ?? undefined,
+    });
+    closedBillsByMonth[bm] = summary;
+    openBillsTotalCents += summary.openCents;
+  }
+  const availLimitCents = availableLimit(acc.credit_limit_cents, openBillsTotalCents);
+
+  return {
+    cardEntries,
+    currentBillMonth,
+    currentBillSummary,
+    openBillsTotalCents,
+    availLimitCents,
+    closedBillsByMonth,
+  };
+}
+
 export const DEFAULT_CARD_CLOSING_DAY = 1;
 export const DEFAULT_CARD_DUE_DAY = 10;
 
