@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { resetDatabase } from '../../db/client';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
@@ -116,7 +116,7 @@ describe('Sprint 73 — Botão Único Sincronizar na OpenFinanceScreen (Fase A)'
 
     await waitFor(() => {
       expect(getByText(/Falha na rede BTG/i)).toBeTruthy();
-      expect(getByText(/XP/i)).toBeTruthy();
+      expect(within(getByTestId('open-finance-item-item-1')).getByText(/XP/i)).toBeTruthy();
     });
 
     expect(refreshSpy).toHaveBeenCalled();

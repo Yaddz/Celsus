@@ -355,3 +355,8 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - Tokens novos em `layout`: `safeBottomMin` (16), `dockClearance` (96 = barra de 60 + folga de 36), `fabClearance` (72 = botão de 56 + 16) e `chipGap` (8).
 - Padding inferior do conteúdo rolável: `dockContentPaddingBottom(insets.bottom, { withFab })` em `src/theme/layoutMetrics.ts` = `max(safe area, 16) + 96 (+ 72 com botão flutuante)`. Usado pela Home de Investimentos (`App.tsx`) e por todas as telas de Finanças; substitui os valores fixos 96/120/130/170.
 - Telas raiz de Finanças (Resumo, Lançamentos, Contas, Mais) usam `sharedStyles.scrollContent`: margem lateral `layout.tabScreenPaddingX` (16), respiro sob o header `layout.tabScreenPaddingTop` (4) e gap `bento.gap` (10), iguais aos da Home de Investimentos.
+
+## Diagnóstico Pluggy e Auditoria de Outliers (Sprint 88)
+
+- `services/pluggy/pluggyDiagnosticsService.ts`: gera relatório JSON anonimizado consultando contas, faturas, investimentos e transações de investimento em modo somente leitura (sem persistência em `assets`/`fin_entries`), com truncamento de descrições (40 chars) e hash curto de `itemId`.
+- `domain/openFinance/diagnostics.ts` (`auditOpenFinanceOutliers`): audita localmente ativos, contas e lançamentos para exibir alertas na seção **Qualidade dos dados** da `OpenFinanceScreen`, com exportação via `Share.share` (ou callback `onCopyReport`). Documentação operacional em `docs/DIAGNOSTICO_PLUGGY.md`.

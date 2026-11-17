@@ -7,19 +7,26 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2` | **182/182 suítes PASS** (**1218/1218 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **184/184 suítes PASS** (**1223/1223 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **198 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **200 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 88 — Diagnóstico com dados reais e auditoria de outliers (Fase A concluída)
+## Sprint 88 — Diagnóstico com dados reais e auditoria de outliers (Fase B concluída)
 
-Especificação do diagnóstico anonimizado (`pluggyDiagnosticsService`) e auditoria de outliers (`auditOpenFinanceOutliers`).
+Relatório JSON anonimizado (`pluggyDiagnosticsService.generateAnonymizedPluggyDiagnostics`, sem `owner`, `taxNumber`, `number`, `itemId` em claro e descrições truncadas em 40 chars), auditoria local de outliers (`auditOpenFinanceOutliers`), seção **Qualidade dos dados** com botão **Exportar diagnóstico** em `OpenFinanceScreen` e documentação em `docs/DIAGNOSTICO_PLUGGY.md`. Correção de tipo em `pluggyInvestmentsSyncService.ts:545` (`is_synthetic: 0`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/domain/openFinance/__tests__/Sprint88Audit.test.ts` | S88-T02…T04 | `587a317857038c83bbe8fd901b24a01cccfd2a7552ecb655a7f8cd08b45d54cc` | 3 FAIL |
 | `apps/mobile/src/services/pluggy/__tests__/Sprint88Diagnostics.test.ts` | S88-T01, S88-T05 | `9a52242f46065e52a992866eb3e0271daa9b8f2a4f6ae0c3070c757890431ece` | 2 FAIL |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/screens/__tests__/Sprint73UnifiedSync.test.tsx:119` (`S73-T10`): escopada a consulta `getByText(/XP/i)` para `within(getByTestId('open-finance-item-item-1')).getByText(/XP/i)`, porque o botão `"Exportar diagnóstico"` da Sprint 88 contém a substring `"xp"` (`E[xp]ortar`) e causava falso-positivo de múltiplos elementos.
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **184/184 suítes PASS** (**1223/1223 testes PASS**)
+- `node scripts/test-lock.js verify`: **200 arquivos íntegros**
 
 ## Sprint 86 — Proventos completos (Fase B concluída)
 

@@ -13,7 +13,10 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { OpenFinanceInvestmentReconciliationSheet } from '../components/OpenFinanceInvestmentReconciliationSheet';
 import { BentoGrid, BentoTile, ConfirmDialog } from '../components/ui';
 import { CircleIconButton } from '../components/ui/CircleIconButton';
-import type { FinAccount } from '../db/schema';
+import { FinListCard, FinListRow } from '../components/ui/FinListCard';
+import { getDatabase } from '../db/client';
+import { assets, type FinAccount } from '../db/schema';
+import { calculateAccountBalance } from '../domain/financeFlow';
 import { finRepository } from '../repositories/finRepository';
 import {
   MAX_MEU_PLUGGY_ITEMS,
@@ -39,10 +42,13 @@ import {
 } from '../services/pluggy/pluggyInvestmentsSyncService';
 import { computeClassCoverageReport } from '../domain/openFinance/investments';
 import {
+  auditOpenFinanceOutliers,
   buildSyncDiagnostics,
   formatDiagnosticsReportText,
+  type OutlierAlert,
   type SyncDiagnosticsReport,
 } from '../domain/openFinance/diagnostics';
+import { pluggyDiagnosticsService } from '../services/pluggy/pluggyDiagnosticsService';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { walletsStore } from '../stores/walletsStore';
@@ -119,6 +125,8 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [financeTotals, setFinanceTotals] = useState({ created: 0, updated: 0, accounts: 0 });
   const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
   const [failedInvestmentsByItem, setFailedInvestmentsByItem] = useState<Record<string, string[]>>({});
+  const [outlierAlerts, setOutlierAlerts] = useState<OutlierAlert[]>([]);
+  const [isExportingDiagnostics, setIsExportingDiagnostics] = useState(false);
   const [isSyncingInvestments, setIsSyncingInvestments] = useState(false);
   const [invReconcile, setInvReconcile] = useState<{
     itemId: string;
@@ -143,6 +151,53 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
       setHasSavedCreds(false);
     }
     setItems(storedItems);
+    try {
+      const db = getDatabase();
+      const [localAssets, allFinAccounts, allFinEntries] = await Promise.all([
+        db.select().from(assets),
+        finRepository.listAccounts(true),
+        finRepository.listAllEntries(),
+      ]);
+      const alerts = auditOpenFinanceOutliers({
+        assets: localAssets.map((a) => ({
+          id: a.id,
+          ticker: a.ticker,
+          name: a.name,
+          quantity: a.quantity,
+          average_price: a.average_price,
+          marketValue: a.manual_position_value ?? a.of_reported_value ?? null,
+          of_reported_value: a.of_reported_value,
+          value_source: a.value_source,
+          rf_indexer: a.rf_indexer,
+          rf_rate: a.rf_rate,
+          source: a.source,
+        })),
+        accounts: allFinAccounts.map((acc) => ({
+          id: acc.id,
+          name: acc.name,
+          type: acc.type,
+          source: acc.source,
+          reported_balance_cents: acc.reported_balance_cents,
+          calculated_balance_cents: calculateAccountBalance(
+            acc.initial_balance_cents,
+            allFinEntries,
+            acc.id
+          ),
+        })),
+        entries: allFinEntries.map((e) => ({
+          id: e.id,
+          account_id: e.account_id,
+          kind: e.kind,
+          amount_cents: e.amount_cents,
+          due_date: e.due_date,
+          source: e.source,
+          external_id: e.external_id,
+        })),
+      });
+      setOutlierAlerts(alerts);
+    } catch {
+      // ignora erro de auditoria na carga inicial
+    }
   }, []);
 
   useEffect(() => {
@@ -1107,6 +1162,63 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 <Text style={[styles.caption, { color: fg }]}>{statusMessage}</Text>
               </BentoTile>
             ) : null}
+
+            {/* Qualidade dos dados (Sprint 88) */}
+            <FinListCard
+              testID="open-finance-data-quality"
+              title="Qualidade dos dados"
+              themeMode={themeMode}
+              actionLabel={isExportingDiagnostics ? 'Exportando...' : 'Exportar diagnóstico'}
+              actionTestID="export-diagnostics-btn"
+              onActionPress={async () => {
+                if (isExportingDiagnostics) return;
+                setIsExportingDiagnostics(true);
+                setErrorMessage(null);
+                try {
+                  const report = await pluggyDiagnosticsService.generateAnonymizedPluggyDiagnostics({
+                    client: pluggyClient,
+                  });
+                  const json = JSON.stringify(report, null, 2);
+                  if (onCopyReport) {
+                    await onCopyReport(json);
+                    setStatusMessage('Diagnóstico anonimizado exportado.');
+                  } else {
+                    await Share.share({ message: json });
+                  }
+                } catch (err) {
+                  setErrorMessage(
+                    err instanceof Error ? err.message : 'Erro ao exportar diagnóstico.'
+                  );
+                } finally {
+                  setIsExportingDiagnostics(false);
+                }
+              }}
+            >
+              {outlierAlerts.length === 0 ? (
+                <FinListRow
+                  icon="check-circle-outline"
+                  avatarColor={inset}
+                  iconColor={t.success ?? accent}
+                  title="Nenhum alerta de qualidade"
+                  subtitle="Posições e lançamentos consistentes"
+                  isLast
+                  themeMode={themeMode}
+                />
+              ) : (
+                outlierAlerts.slice(0, 10).map((alert, idx, arr) => (
+                  <FinListRow
+                    key={alert.id}
+                    icon={alert.severity === 'high' ? 'error-outline' : 'warning-amber'}
+                    avatarColor={inset}
+                    iconColor={alert.severity === 'high' ? t.error : (t.warning ?? accent)}
+                    title={alert.title}
+                    subtitle={alert.detail}
+                    isLast={idx === arr.length - 1}
+                    themeMode={themeMode}
+                  />
+                ))
+              )}
+            </FinListCard>
 
             {coverageReport ? (
               <BentoTile variant={variant} testID="open-finance-coverage-report" style={styles.card}>

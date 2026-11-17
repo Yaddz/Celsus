@@ -459,6 +459,157 @@ export interface OutlierAuditInput {
   }>;
 }
 
-export function auditOpenFinanceOutliers(_input: OutlierAuditInput): OutlierAlert[] {
-  return [];
+const VALID_B3_TICKER_RE = /^[A-Z]{4}\d{1,2}$/;
+
+function daysBetweenIso(a: string, b: string): number {
+  const t1 = Date.parse(`${a.slice(0, 10)}T00:00:00Z`);
+  const t2 = Date.parse(`${b.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(t1) || !Number.isFinite(t2)) return 999;
+  return Math.abs(Math.round((t1 - t2) / 86_400_000));
+}
+
+export function auditOpenFinanceOutliers(input: OutlierAuditInput): OutlierAlert[] {
+  const alerts: OutlierAlert[] = [];
+
+  for (const a of input.assets ?? []) {
+    const qty = new Decimal(a.quantity || '0');
+    const hasAvg =
+      a.average_price !== null &&
+      a.average_price !== undefined &&
+      a.average_price !== '' &&
+      new Decimal(a.average_price).gt(0);
+
+    if (qty.gt(0) && !hasAvg) {
+      alerts.push({
+        id: `missing-cost-${a.id}`,
+        kind: 'MISSING_COST_BASIS',
+        severity: 'medium',
+        title: `${a.ticker}: custo médio ausente`,
+        detail: `Quantidade ${a.quantity} sem preço médio conhecido.`,
+      });
+    }
+
+    if (hasAvg && qty.gt(0) && a.marketValue !== null && a.marketValue !== undefined && a.marketValue !== '') {
+      const invested = qty.mul(new Decimal(a.average_price!));
+      const mv = new Decimal(a.marketValue);
+      if (invested.gt(0)) {
+        const profitPct = mv.minus(invested).div(invested).mul(100);
+        if (profitPct.gt(300) || profitPct.lt(-90)) {
+          alerts.push({
+            id: `extreme-profit-${a.id}`,
+            kind: 'EXTREME_PROFITABILITY',
+            severity: 'high',
+            title: `${a.ticker}: rentabilidade atípica (${profitPct.toFixed(1)}%)`,
+            detail: `Investido R$ ${invested.toFixed(2)} vs. mercado R$ ${mv.toFixed(2)}.`,
+          });
+        }
+      }
+    }
+
+    if (
+      a.of_reported_value !== null &&
+      a.of_reported_value !== undefined &&
+      a.of_reported_value !== '' &&
+      a.marketValue !== null &&
+      a.marketValue !== undefined &&
+      a.marketValue !== ''
+    ) {
+      const reported = new Decimal(a.of_reported_value);
+      const localMv = new Decimal(a.marketValue);
+      if (reported.gt(0)) {
+        const diffRatio = localMv.minus(reported).abs().div(reported);
+        if (diffRatio.gt('0.15')) {
+          alerts.push({
+            id: `mv-div-${a.id}`,
+            kind: 'MARKET_VALUE_DIVERGENCE',
+            severity: 'high',
+            title: `${a.ticker}: valor local diverge da instituição`,
+            detail: `Local R$ ${localMv.toFixed(2)} vs. instituição R$ ${reported.toFixed(2)}.`,
+          });
+        }
+      }
+    }
+
+    if (a.rf_rate !== null && a.rf_rate !== undefined) {
+      const idx = (a.rf_indexer || '').toUpperCase();
+      const outOfRange =
+        idx === 'CDI'
+          ? a.rf_rate < 50 || a.rf_rate > 200
+          : idx === 'PRE' || idx === 'IPCA'
+          ? a.rf_rate < 0 || a.rf_rate > 30
+          : false;
+      if (outOfRange) {
+        alerts.push({
+          id: `rf-rate-${a.id}`,
+          kind: 'RF_RATE_OUT_OF_RANGE',
+          severity: 'high',
+          title: `${a.ticker}: taxa ${idx} fora da faixa (${a.rf_rate})`,
+          detail: `Taxa informada fora do intervalo plausível para ${idx}.`,
+        });
+      }
+    }
+
+    if (a.value_source === 'QUOTE' && !VALID_B3_TICKER_RE.test((a.ticker || '').trim().toUpperCase())) {
+      alerts.push({
+        id: `invalid-quote-ticker-${a.id}`,
+        kind: 'INVALID_QUOTE_TICKER',
+        severity: 'medium',
+        title: `${a.ticker}: ticker não-B3 usando cotação`,
+        detail: 'Ativo marcado com value_source QUOTE sem ticker B3 válido.',
+      });
+    }
+  }
+
+  for (const acc of input.accounts ?? []) {
+    if (
+      acc.source === 'OPEN_FINANCE' &&
+      acc.reported_balance_cents !== null &&
+      acc.reported_balance_cents !== undefined &&
+      acc.calculated_balance_cents !== null &&
+      acc.calculated_balance_cents !== undefined &&
+      Math.abs(acc.reported_balance_cents - acc.calculated_balance_cents) > 100
+    ) {
+      alerts.push({
+        id: `acc-div-${acc.id}`,
+        kind: 'ACCOUNT_BALANCE_DIVERGENCE',
+        severity: 'medium',
+        title: `${acc.name}: divergência de saldo`,
+        detail: `Diferença de ${Math.abs(acc.reported_balance_cents - acc.calculated_balance_cents)} centavos.`,
+      });
+    }
+  }
+
+  const activeOfEntries = (input.entries ?? []).filter(
+    (e) => e.source === 'OPEN_FINANCE' && !e.of_removed_at
+  );
+  const seenPairs = new Set<string>();
+  for (let i = 0; i < activeOfEntries.length; i += 1) {
+    const a = activeOfEntries[i];
+    for (let j = i + 1; j < activeOfEntries.length; j += 1) {
+      const b = activeOfEntries[j];
+      if (
+        a.account_id === b.account_id &&
+        a.kind === b.kind &&
+        a.amount_cents === b.amount_cents &&
+        a.external_id &&
+        b.external_id &&
+        a.external_id !== b.external_id &&
+        daysBetweenIso(a.due_date, b.due_date) <= 1
+      ) {
+        const pairKey = [a.id, b.id].sort().join(':');
+        if (!seenPairs.has(pairKey)) {
+          seenPairs.add(pairKey);
+          alerts.push({
+            id: `dup-entry-${pairKey}`,
+            kind: 'DUPLICATE_FIN_ENTRY',
+            severity: 'medium',
+            title: 'Possível lançamento duplicado',
+            detail: `Dois lançamentos de R$ ${(a.amount_cents / 100).toFixed(2)} em ${a.due_date} / ${b.due_date}.`,
+          });
+        }
+      }
+    }
+  }
+
+  return alerts;
 }
