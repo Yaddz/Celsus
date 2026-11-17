@@ -50,6 +50,10 @@ import {
 
 export interface EntriesListScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
+  onAvatarPress?: () => void;
+  userName?: string;
+  userInitials?: string;
   onOpenCardBill?: (accountId: string, billMonth: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
@@ -91,6 +95,10 @@ function formatShortBillMonth(yearMonth: string): string {
 
 export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   onBack,
+  onSwitchModule,
+  onAvatarPress,
+  userName,
+  userInitials,
   onOpenCardBill,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -457,10 +465,15 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Lançamentos"
         subtitle={monthLabel}
         subtitleTestID="entries-month-label"
-        onBack={onBack}
+        onBack={onAvatarPress ? undefined : onBack}
+        onAvatarPress={onAvatarPress}
+        userName={userName}
+        userInitials={userInitials}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

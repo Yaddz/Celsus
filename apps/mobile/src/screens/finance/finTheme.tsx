@@ -4,7 +4,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Skeleton, SkeletonTile } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { formatCentsBRL } from '../../domain/financeFlow';
-import { bento, borders, colors, layout, space, typography } from '../../theme/tokens';
+import { bento, borders, colors, dock, layout, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 
 export function getFinUiColors(themeMode: ThemeMode = 'dark') {
@@ -253,7 +253,7 @@ export const sharedStyles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: layout.tabScreenPaddingX,
     paddingTop: layout.tabScreenPaddingTop,
-    paddingBottom: 170,
+    paddingBottom: dock.pillHeight + 76,
     gap: bento.gap,
   },
   stateContainer: {

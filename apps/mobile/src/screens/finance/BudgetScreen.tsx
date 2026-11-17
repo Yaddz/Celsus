@@ -26,6 +26,7 @@ import { getFinUiColors, sharedStyles } from './finTheme';
 
 export interface BudgetScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -34,6 +35,7 @@ export interface BudgetScreenProps {
 
 export const BudgetScreen: React.FC<BudgetScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -98,10 +100,12 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Orçamento"
         subtitle={formatYearMonthPtBr(selectedMonth)}
         isGlobeActive={true}
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

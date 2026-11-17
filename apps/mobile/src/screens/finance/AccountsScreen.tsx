@@ -46,6 +46,10 @@ import {
 
 export interface AccountsScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
+  onAvatarPress?: () => void;
+  userName?: string;
+  userInitials?: string;
   onOpenCardBill?: (accountId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
@@ -71,6 +75,10 @@ function getCurrentYearMonth(): string {
 
 export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   onBack,
+  onSwitchModule,
+  onAvatarPress,
+  userName,
+  userInitials,
   onOpenCardBill,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -440,9 +448,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
+        module="finance"
         title="Contas"
         subtitle="Onde está o seu dinheiro"
-        onBack={onBack}
+        onBack={onAvatarPress ? undefined : onBack}
+        onAvatarPress={onAvatarPress}
+        userName={userName}
+        userInitials={userInitials}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

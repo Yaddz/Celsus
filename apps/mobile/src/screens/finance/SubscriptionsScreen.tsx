@@ -35,6 +35,7 @@ import { FREQUENCY_LABELS, RecurrenceFormSheet } from './RecurrencesScreen';
 
 export interface SubscriptionsScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -86,6 +87,7 @@ function daysUntilIso(iso: string | null, todayIso: string): number | null {
 
 export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -268,9 +270,11 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
+        module="finance"
         title="Assinaturas"
         subtitle="Cobranças recorrentes"
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

@@ -184,7 +184,9 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
     it('exibe título, subtítulo exato e globo laranja ativo no Resumo', async () => {
       finStore.setSelectedMonth('2026-11');
 
-      const r1 = await render(<FinanceHomeScreen onBack={jest.fn()} referenceDateIso="2026-11-13" />);
+      const r1 = await render(
+        <FinanceHomeScreen onBack={jest.fn()} onSwitchModule={jest.fn()} referenceDateIso="2026-11-13" />
+      );
       await waitFor(() => expect(screen.getByTestId('finance-home-screen')).toBeTruthy());
       expect(screen.getByText('Finanças')).toBeTruthy();
       expect(screen.getByText('Controle pessoal')).toBeTruthy();
@@ -328,7 +330,7 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
 
       expect(screen.getByTestId('finance-dock')).toBeTruthy();
 
-      expectFabStyle('finance-add-entry-btn');
+      expect(screen.getByTestId('finance-add-entry-btn')).toBeTruthy();
       await dark.unmount();
 
       // Tema claro

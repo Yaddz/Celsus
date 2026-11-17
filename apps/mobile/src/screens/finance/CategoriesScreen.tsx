@@ -32,6 +32,7 @@ import {
 
 export interface CategoriesScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -40,6 +41,7 @@ export interface CategoriesScreenProps {
 
 export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -167,9 +169,11 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   return (
     <View style={[styles.container, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
+        module="finance"
         title="Categorias"
         subtitle="Organize seus lançamentos"
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

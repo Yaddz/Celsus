@@ -90,10 +90,10 @@ const estimateLabelW = (label: string) => Math.round(label.length * CHAR_W);
 const pillWidth = (labelW: number) => PAD_X * 2 + ICON + LABEL_GAP + labelW;
 
 /** x (esquerda) de cada slot; as sobras de largura viram espaço entre as abas. */
-function slotLefts(activeIndex: number, pillW: number[], trackW: number): number[] {
-  const widths = TABS.map((_, i) => (i === activeIndex ? pillW[i] : SLOT_W));
+function slotLefts(activeIndex: number, pillW: number[], trackW: number, tabsCount: number): number[] {
+  const widths = Array.from({ length: tabsCount }, (_, i) => (i === activeIndex ? pillW[i] : SLOT_W));
   const total = widths.reduce((a, b) => a + b, 0);
-  const gap = Math.max(0, (trackW - 2 * TRACK_PAD - total) / (TABS.length - 1));
+  const gap = tabsCount > 1 ? Math.max(0, (trackW - 2 * TRACK_PAD - total) / (tabsCount - 1)) : 0;
   const lefts: number[] = [];
   let x = TRACK_PAD;
   widths.forEach((w) => {
@@ -103,13 +103,7 @@ function slotLefts(activeIndex: number, pillW: number[], trackW: number): number
   return lefts;
 }
 
-/**
- * O App monta um FloatingBottomDock diferente em cada aba (ramos de render distintos),
- * então o componente é desmontado/remontado a cada troca e perderia a animação.
- * Guardamos o último índice ativo no módulo: o novo dock nasce na posição do anterior
- * e anima até a aba atual, dando continuidade à pílula elástica.
- */
-let lastDockIndex: number | null = null;
+const lastDockIndexByPrefix = new Map<string, number>();
 
 /**
  * Ícone + que gira 45° (vira ×). Fica isolado e memoizado para NÃO re-renderizar
@@ -127,15 +121,19 @@ const RotatingPlusIcon = React.memo(({ progress }: { progress: Animated.Value })
   );
 });
 
-const MENU_ITEMS = [
+const MENU_ITEMS: DockActionItem[] = [
   { id: 'nova-carteira', testID: 'fab-action-nova-carteira', icon: 'account-balance-wallet', label: 'Nova carteira', sub: 'Criar uma carteira vazia', tint: 'tertiary' },
   { id: 'adicionar-ativo', testID: 'fab-action-adicionar-ativo', icon: 'playlist-add', label: 'Adicionar ativo', sub: 'Incluir um ativo em uma carteira', tint: 'stock' },
   { id: 'novo-aporte', testID: 'fab-action-novo-aporte', icon: 'north-east', label: 'Nova movimentação', sub: 'Registrar compra ou venda', tint: 'primary' },
-] as const;
+];
 
-const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
-  activeTab = 'home',
+const FloatingBottomDockBase = <T extends string = DockTab>({
+  activeTab = 'home' as T,
   onTabChange = () => {},
+  tabs,
+  actions,
+  tabTestIdPrefix = 'dock-tab-',
+  actionButtonTestID = 'floating-dock-action-button',
   onActionPress,
   onNovoAportePress,
   onNovaCarteiraPress,
@@ -144,7 +142,9 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
   style,
   testID = 'floating-bottom-dock',
   themeMode = 'dark',
-}) => {
+}: FloatingBottomDockProps<T>) => {
+  const effectiveTabs: DockTabItem<T>[] = (tabs ?? (TABS as unknown as DockTabItem<T>[]));
+  const effectiveActions: DockActionItem[] = actions ?? MENU_ITEMS;
   const insets = useSafeAreaInsets();
   const bottomPadding = Math.max(insets.bottom, 16);
   const isLight = themeMode === 'light';
@@ -152,23 +152,28 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
 
   // Aba exibida pelo dock: muda NA HORA do toque (render urgente só do dock), enquanto a troca da
   // tela roda em transição. Assim a pílula/texto animam sem esperar a nova tela montar.
-  const [shownTab, setShownTab] = useState<DockTab>(activeTab);
+  const [shownTab, setShownTab] = useState<T>(activeTab);
   useEffect(() => {
     setShownTab(activeTab);
   }, [activeTab]);
-  const activeIndex = Math.max(0, TABS.findIndex((t) => t.id === shownTab));
+  const activeIndex = Math.max(0, effectiveTabs.findIndex((t) => t.id === shownTab));
   const { width: windowW } = useWindowDimensions();
   // Estimativa inicial (largura da tela - margens - gap - botão +); refinada pelo onLayout.
   const estimatedTrackW = Math.max(0, Math.round(windowW - 32 - 12 - 60));
   const [trackW, setTrackW] = useState(estimatedTrackW);
-  const [labelW, setLabelW] = useState<number[]>(() => TABS.map((t) => estimateLabelW(t.label)));
+  const [labelW, setLabelW] = useState<number[]>(() =>
+    effectiveTabs.map((t) => estimateLabelW(t.label))
+  );
   const pillW = labelW.map(pillWidth);
   const maxPillW = Math.max(...pillW);
-  const lefts = slotLefts(activeIndex, pillW, trackW);
+  const lefts = slotLefts(activeIndex, pillW, trackW, effectiveTabs.length);
 
   // Posição inicial = onde o dock anterior parou (ou a aba atual, no primeiro uso).
-  const initIndex = useRef(lastDockIndex ?? activeIndex).current;
-  const initLefts = slotLefts(initIndex, pillW, estimatedTrackW);
+  const savedLast = lastDockIndexByPrefix.get(tabTestIdPrefix) ?? null;
+  const initIndex = useRef(
+    savedLast !== null && savedLast < effectiveTabs.length ? savedLast : activeIndex
+  ).current;
+  const initLefts = slotLefts(initIndex, pillW, estimatedTrackW, effectiveTabs.length);
   // A pílula base tem largura maxPillW (transform-origin no centro); a largura exibida
   // é obtida por scaleX, então o x do transform compensa o centro.
   const pillTx = (i: number, L: number[]) => L[i] + (maxPillW * (pillW[i] / maxPillW - 1)) / 2;
@@ -185,17 +190,17 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
       extrapolate: 'clamp',
     })
   ).current;
-  const tabX = useRef(TABS.map((_, i) => new Animated.Value(initContent(i)))).current;
-  const tabScale = useRef(TABS.map(() => new Animated.Value(1))).current;
-  const labelOpacity = useRef(TABS.map((_, i) => new Animated.Value(i === initIndex ? 1 : 0))).current;
+  const tabX = useRef(effectiveTabs.map((_, i) => new Animated.Value(initContent(i)))).current;
+  const tabScale = useRef(effectiveTabs.map(() => new Animated.Value(1))).current;
+  const labelOpacity = useRef(effectiveTabs.map((_, i) => new Animated.Value(i === initIndex ? 1 : 0))).current;
   // Fade horizontal do texto: ao sair ele desliza para o lado do ícone enquanto some; ao entrar volta
   // para a posição. Assim não fica um texto "pendurado" enquanto a pílula (mola) ainda está chegando.
-  const labelShift = useRef(TABS.map((_, i) => new Animated.Value(i === initIndex ? 0 : LABEL_SLIDE))).current;
-  const prevIndexRef = useRef<number | null>(lastDockIndex);
+  const labelShift = useRef(effectiveTabs.map((_, i) => new Animated.Value(i === initIndex ? 0 : LABEL_SLIDE))).current;
+  const prevIndexRef = useRef<number | null>(savedLast);
   const pillXValue = useRef(pillTx(initIndex, initLefts));
 
   // x do conteúdo (ícone+label) de cada aba: ativo alinha com a pílula; inativo centraliza no slot.
-  const contentTargets = TABS.map((_, i) =>
+  const contentTargets = effectiveTabs.map((_, i) =>
     i === activeIndex ? lefts[i] : lefts[i] + (SLOT_W - ICON) / 2 - PAD_X
   );
 
@@ -205,7 +210,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
     const targetPillTx = pillTx(activeIndex, lefts);
     const distance = first ? 0 : Math.abs(targetPillTx - pillXValue.current);
     prevIndexRef.current = activeIndex;
-    lastDockIndex = activeIndex;
+    lastDockIndexByPrefix.set(tabTestIdPrefix, activeIndex);
 
     const toX = (v: Animated.Value, to: number, kind: 'jelly' | 'soft') => {
       if (first) {
@@ -222,7 +227,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
     toX(pillX, targetPillTx, 'jelly');
     toX(pillBaseScale, pillW[activeIndex] / maxPillW, 'soft');
     pillXValue.current = targetPillTx;
-    TABS.forEach((_, i) => {
+    effectiveTabs.forEach((_, i) => {
       toX(tabX[i], contentTargets[i], 'soft');
       const target = i === activeIndex ? 1 : 0;
       if (first) {
@@ -261,7 +266,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
   // ---- Speed dial (+) ----
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const menuAnims = useRef(MENU_ITEMS.map(() => new Animated.Value(0))).current;
+  const menuAnims = useRef(effectiveActions.map(() => new Animated.Value(0))).current;
 
   // Voltar com o menu "+" aberto fecha só o menu (registrado depois do handler do App,
   // então roda primeiro).
@@ -312,8 +317,8 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
     setIsSheetOpen(nextState);
     animateSheet(nextState);
 
-    // Se não houver callbacks específicos de opções, delega para onActionPress
-    if (!onNovoAportePress && !onNovaCarteiraPress && !onAdicionarAtivoPress) {
+    // Se não houver callbacks específicos de opções nem ações customizadas, delega para onActionPress
+    if (!actions && !onNovoAportePress && !onNovaCarteiraPress && !onAdicionarAtivoPress) {
       onActionPress?.();
     }
   };
@@ -323,7 +328,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
     animateSheet(false);
   };
 
-  const handleTabPress = (tabId: DockTab) => {
+  const handleTabPress = (tabId: T) => {
     if (isSheetOpen) closeSheet();
     if (tabId === shownTab) return;
     setShownTab(tabId);
@@ -374,7 +379,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
           testID="fab-speed-dial-stack"
           style={[styles.speedDialStack, isLight && styles.speedDialStackLight]}
         >
-          {MENU_ITEMS.map((item, idx) => {
+          {effectiveActions.map((item, idx) => {
             const a = menuAnims[idx];
             return (
               <Animated.View
@@ -395,7 +400,11 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
                   style={[styles.speedDialBtn, isLight && styles.speedDialBtnLight]}
                   onPress={() => {
                     closeSheet();
-                    optionHandlers[item.id]();
+                    if (item.onPress) {
+                      item.onPress();
+                    } else {
+                      optionHandlers[item.id]?.();
+                    }
                   }}
                 >
                   <Text style={[styles.speedDialLabel, isLight && styles.speedDialLabelLight]}>{item.label}</Text>
@@ -428,7 +437,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
                   },
                 ]}
               />
-              {TABS.map((tab, i) => {
+              {effectiveTabs.map((tab, i) => {
                 const isActive = i === activeIndex;
                 const iconColor = isActive
                   ? (isLight ? '#FFFFFF' : colors.voidFloor)
@@ -466,10 +475,10 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
                   </Animated.View>
                 );
               })}
-              {TABS.map((tab, i) => (
+              {effectiveTabs.map((tab, i) => (
                 <TouchableOpacity
                   key={`hit-${tab.id}`}
-                  testID={`dock-tab-${tab.id}`}
+                  testID={`${tabTestIdPrefix}${tab.id}`}
                   activeOpacity={1}
                   accessibilityRole="tab"
                   accessibilityLabel={tab.label}
@@ -487,7 +496,7 @@ const FloatingBottomDockBase: React.FC<FloatingBottomDockProps> = ({
 
       {/* Botão de ação circular (+) com feedback elástico */}
       <JellyPressable
-        testID="floating-dock-action-button"
+        testID={actionButtonTestID}
         intensity="strong"
         onPress={toggleSheet}
         style={styles.actionButton}

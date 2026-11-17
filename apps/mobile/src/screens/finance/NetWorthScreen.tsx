@@ -13,6 +13,7 @@ import { getFinUiColors, sharedStyles } from './finTheme';
 
 export interface NetWorthScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -24,6 +25,7 @@ const MASK = 'R$ ••••••';
 
 export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -57,10 +59,12 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Patrimônio"
         subtitle="Visão consolidada"
         isGlobeActive={true}
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

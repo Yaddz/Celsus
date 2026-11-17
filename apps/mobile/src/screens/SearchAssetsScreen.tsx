@@ -50,6 +50,7 @@ const CLASS_FILTERS: Array<{ id: AssetClass | 'ALL'; label: string }> = [
 export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
   onSelectAsset,
   onProfilePress,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -218,10 +219,12 @@ export const SearchAssetsScreen: React.FC<SearchAssetsScreenProps> = ({
     <View testID={testID} style={[styles.root, { backgroundColor: bg }]}>
       {/* Header padrão minimalista XP */}
       <XpMinimalHeader
+        module="investments"
         userName={profileName || 'Usuário'}
         userInitials={profileInitials || 'U'}
         isPrivacyModeEnabled={isPrivacyMode}
         onAvatarPress={onProfilePress}
+        onSwitchModule={onSwitchModule}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />

@@ -17,7 +17,7 @@ describe('Sprint 76 — XpMinimalHeader com ícone de módulo (Fase A)', () => {
     );
 
     const iconInv = screen.getByTestId('header-globe-icon');
-    expect(iconInv.props.name).toBe('show-chart');
+    expect(iconInv.props.children).toBe('show-chart');
     expect(MODULE_META.investments.icon).toBe('show-chart');
     expect(screen.getByTestId('header-globe-button').props.accessibilityLabel).toBe(
       'Alternar para Finanças'
@@ -35,7 +35,7 @@ describe('Sprint 76 — XpMinimalHeader com ícone de módulo (Fase A)', () => {
       />
     );
     const iconFin = screen.getByTestId('header-globe-icon');
-    expect(iconFin.props.name).toBe('account-balance');
+    expect(iconFin.props.children).toBe('account-balance');
     expect(MODULE_META.finance.icon).toBe('account-balance');
     expect(screen.getByTestId('header-globe-button').props.accessibilityLabel).toBe(
       'Alternar para Investimentos'
@@ -59,7 +59,7 @@ describe('Sprint 76 — XpMinimalHeader com ícone de módulo (Fase A)', () => {
     );
     fireEvent.press(screen.getByTestId('header-globe-button'));
     expect(onGlobe).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('header-globe-icon').props.name).toBe('account-balance');
+    expect(screen.getByTestId('header-globe-icon').props.children).toBe('account-balance');
     alertSpy.mockRestore();
   });
 });

@@ -355,6 +355,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
 
 export interface RecurrencesScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -363,6 +364,7 @@ export interface RecurrencesScreenProps {
 
 export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -506,9 +508,11 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Recorrências"
         subtitle="Lançamentos que se repetem"
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

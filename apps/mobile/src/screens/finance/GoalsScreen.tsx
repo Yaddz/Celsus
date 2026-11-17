@@ -18,6 +18,7 @@ import { getFinUiColors, sharedStyles } from './finTheme';
 
 export interface GoalsScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   onOpenPortfolioTransaction?: (portfolioId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
@@ -37,6 +38,7 @@ const SOURCE_OPTIONS: Array<{ type: FinGoalSourceType; label: string }> = [
 
 export const GoalsScreen: React.FC<GoalsScreenProps> = ({
   onBack,
+  onSwitchModule,
   onOpenPortfolioTransaction,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -189,10 +191,12 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Metas"
         subtitle="Progresso e projeções"
         isGlobeActive={true}
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

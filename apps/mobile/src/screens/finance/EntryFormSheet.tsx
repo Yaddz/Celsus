@@ -48,6 +48,7 @@ export interface EntryFormSheetProps {
   onEditCardAccount?: (accountId: string) => void;
   editingEntry?: FinEntry | null;
   receiptDraft?: ReceiptDraft | null;
+  initialKind?: EntryFormKind;
   installmentScope?: InstallmentScope;
   defaultDueDate?: string;
   themeMode?: ThemeMode;
@@ -78,6 +79,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
   onEditCardAccount,
   editingEntry = null,
   receiptDraft = null,
+  initialKind: initialKindProp,
   installmentScope,
   defaultDueDate,
   themeMode = 'dark',
@@ -129,10 +131,14 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       setAccounts(accs);
       setCategories(cats);
 
-      const initialKind: FinKind =
-        editingEntry?.kind === 'income' ? 'income' : 'expense';
-      setKind(initialKind);
-      setFormKind(initialKind);
+      const resolvedBaseKind: FinKind =
+        editingEntry?.kind === 'income'
+          ? 'income'
+          : !editingEntry && initialKindProp === 'income'
+          ? 'income'
+          : 'expense';
+      setKind(resolvedBaseKind);
+      setFormKind(!editingEntry && initialKindProp ? initialKindProp : resolvedBaseKind);
 
       if (!editingEntry && receiptDraft) {
         setDescription(receiptDraft.description ?? '');
@@ -168,7 +174,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       const preferredCatId = editingEntry?.category_id ?? receiptDraft?.categoryId ?? null;
       const matchingCat =
         (preferredCatId ? cats.find((cat) => cat.id === preferredCatId) : undefined) ??
-        cats.find((cat) => cat.kind === initialKind) ??
+        cats.find((cat) => cat.kind === resolvedBaseKind) ??
         cats[0];
       setCategoryId(matchingCat?.id ?? '');
       setOptionsLoaded(true);
@@ -394,16 +400,6 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
     }
   };
 
-  if (!visible) return null;
-
-  const dayNumber = extractDayLabel(dueDate);
-  const repeatHelper =
-    repeatMode === 'monthly'
-      ? `Todo dia ${dayNumber} · sem data final`
-      : repeatMode === 'installment'
-      ? `${installmentsText || '2'} parcelas mensais a partir do dia ${dayNumber}`
-      : 'Lançamento único neste vencimento';
-
   const selectedAccount = accounts.find((acc) => acc.id === accountId);
   const isCardSelected = selectedAccount?.type === 'card';
   const cardBillHint = useMemo(() => {
@@ -421,6 +417,16 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
       repeatMode === 'installment' ? '1ª parcela na fatura de ' : 'Fatura de ';
     return `${prefix}${billLabel} · fecha ${closingDdMm} · vence ${dueDdMm}${estimatedSuffix}`;
   }, [selectedAccount, dueDate, repeatMode]);
+
+  if (!visible) return null;
+
+  const dayNumber = extractDayLabel(dueDate);
+  const repeatHelper =
+    repeatMode === 'monthly'
+      ? `Todo dia ${dayNumber} · sem data final`
+      : repeatMode === 'installment'
+      ? `${installmentsText || '2'} parcelas mensais a partir do dia ${dayNumber}`
+      : 'Lançamento único neste vencimento';
 
   return (
     <AnimatedModalSheet

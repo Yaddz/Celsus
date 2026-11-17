@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Animated } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
 import { typography } from '../../theme/tokens';
 import { deriveInitials } from '../../domain/profile';
-import type { AppModule } from '../../navigation/appModule';
+import { MODULE_META, type AppModule } from '../../navigation/appModule';
 
 export interface XpMinimalHeaderProps {
   module?: AppModule;
@@ -38,6 +38,8 @@ export interface XpMinimalHeaderProps {
  * - Direita: Botão de Globo e Botão de Olho (Modo Privacidade).
  */
 const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
+  module,
+  onSwitchModule,
   userName = '',
   userInitials = '',
   isPrivacyModeEnabled = false,
@@ -70,13 +72,9 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
   const buttonBorder = isLight ? '#EAE4D7' : '#26292C';
   const iconColor = isLight ? '#111315' : '#D5CAA8';
 
-  const handleGlobePress = () => {
-    if (onGlobePress) {
-      onGlobePress();
-    } else {
-      Alert.alert('Funcionalidade em desenvolvimento');
-    }
-  };
+  const effectiveModule: AppModule = module ?? (isGlobeActive ? 'finance' : 'investments');
+  const otherModule: AppModule = effectiveModule === 'investments' ? 'finance' : 'investments';
+  const switchHandler = onSwitchModule ?? onGlobePress;
 
   // Fade da borda inferior: 1 faixa por pixel na cor de fundo da tela, ancorado logo abaixo
   // da altura FIXA do header. Só aparece quando o conteúdo rola (scrollY > 0); em repouso fica
@@ -205,25 +203,27 @@ const XpMinimalHeaderBase: React.FC<XpMinimalHeaderProps> = ({
           )}
         </TouchableOpacity>
 
-        {/* Botão Globo (Módulo Finanças) */}
-        <TouchableOpacity
-          testID="header-globe-button"
-          accessibilityRole="button"
-          accessibilityLabel="Finanças"
-          onPress={handleGlobePress}
-          activeOpacity={0.7}
-          style={[
-            styles.circularButton,
-            { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
-          ]}
-        >
-          <MaterialIcons
-            testID="header-globe-icon"
-            name="language"
-            size={20}
-            color={isGlobeActive ? '#D96628' : iconColor}
-          />
-        </TouchableOpacity>
+        {/* Botão de Módulo (Alterna entre Investimentos e Finanças) */}
+        {switchHandler ? (
+          <TouchableOpacity
+            testID="header-globe-button"
+            accessibilityRole="button"
+            accessibilityLabel={`Alternar para ${MODULE_META[otherModule].label}`}
+            onPress={switchHandler}
+            activeOpacity={0.7}
+            style={[
+              styles.circularButton,
+              { backgroundColor: buttonBg, borderColor: buttonBorder, borderWidth: 1 },
+            ]}
+          >
+            <MaterialIcons
+              testID="header-globe-icon"
+              name={MODULE_META[effectiveModule].icon}
+              size={20}
+              color={effectiveModule === 'finance' ? '#D96628' : iconColor}
+            />
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );

@@ -65,7 +65,7 @@ import {
 import { B3ImportScreen } from './src/screens/B3ImportScreen';
 import { B3ImportSheet } from './src/components/B3ImportSheet';
 import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
-import { FinanceHomeScreen } from './src/screens/finance';
+import { FinanceHomeScreen, type FinanceRoute } from './src/screens/finance';
 import {
   redactCurrencyValue,
   redactPercentageValue,
@@ -298,7 +298,8 @@ function AppContent(props: {
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
-  const [financeInitialRoute, setFinanceInitialRoute] = useState<'home' | 'entries'>('home');
+  const [financeInitialRoute, setFinanceInitialRoute] = useState<FinanceRoute>('home');
+  const [lastFinanceRoute, setLastFinanceRoute] = useState<FinanceRoute>('home');
 
   useEffect(() => {
     const applyResponse = (resp: Notifications.NotificationResponse | null | undefined) => {
@@ -914,10 +915,16 @@ function AppContent(props: {
   const activePortfolioIdRef = React.useRef<string | null>(null);
   activePortfolioIdRef.current = activePortfolioId;
   const homeOpenSettings = useCallback(() => setIsSettingsBackupModalOpen(true), []);
-  const homeGlobePress = useCallback(() => {
-    finStore.resetMonthToCurrent();
-    setIsFinanceOpen(true);
-  }, []);
+  const switchModule = useCallback(() => {
+    if (isFinanceOpen) {
+      setIsFinanceOpen(false);
+    } else {
+      finStore.resetMonthToCurrent();
+      setFinanceInitialRoute(lastFinanceRoute);
+      setIsFinanceOpen(true);
+    }
+  }, [isFinanceOpen, lastFinanceRoute]);
+  const homeGlobePress = switchModule;
   const homeMaisPress = useCallback(() => Alert.alert('Funcionalidade em desenvolvimento'), []);
   const homeTogglePrivacy = useCallback(() => {
     const next = privacyAndAuthService.togglePrivacyMode();
@@ -1012,6 +1019,7 @@ function AppContent(props: {
             setIsPrivacyMode(next.isPrivacyModeEnabled);
           }}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSwitchModule={switchModule}
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
@@ -1059,6 +1067,7 @@ function AppContent(props: {
             setIsPrivacyMode(next.isPrivacyModeEnabled);
           }}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSwitchModule={switchModule}
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
@@ -1238,8 +1247,14 @@ function AppContent(props: {
         <FinanceHomeScreen
           onBack={() => {
             setFinanceInitialRoute('home');
+            setLastFinanceRoute('home');
             setIsFinanceOpen(false);
           }}
+          onSwitchModule={switchModule}
+          onAvatarPress={homeOpenSettings}
+          userName={profileName || 'Usuário'}
+          userInitials={profileInitials || (profileName ? deriveInitials(profileName) : '')}
+          onNavigate={setLastFinanceRoute}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={homeTogglePrivacy}
           themeMode={themeMode}
@@ -1596,6 +1611,7 @@ function AppContent(props: {
             setIsPrivacyMode(next.isPrivacyModeEnabled);
           }}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSwitchModule={switchModule}
           themeMode={themeMode}
           initialActiveIndex={activeWalletIndex}
           autoOpenNewPortfolioModal={openCreatePortfolioModal}
@@ -1665,6 +1681,7 @@ function AppContent(props: {
           themeMode={themeMode}
           onOpenIncomeHistory={() => setIsIncomeHistoryOpen(true)}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSwitchModule={switchModule}
           onClassPress={(cls) => setSelectedClassDetail(cls)}
         />
         <FloatingBottomDock
@@ -1791,6 +1808,7 @@ function AppContent(props: {
           }}
           themeMode={themeMode}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+          onSwitchModule={switchModule}
           onSelectAsset={(ticker) => setSelectedAssetTicker(ticker)}
         />
         <FloatingBottomDock
@@ -1854,11 +1872,12 @@ function AppContent(props: {
         {/* Header Minimalista XP (Avatar + Nome na esquerda, Globo + Olho na direita) */}
         <XpMinimalHeader
           testID="xp-minimal-header"
+          module="investments"
           userName={profileName || 'Usuário'}
           userInitials={profileInitials || (profileName ? deriveInitials(profileName) : '')}
           isPrivacyModeEnabled={isPrivacyMode}
           onAvatarPress={homeOpenSettings}
-          onGlobePress={homeGlobePress}
+          onSwitchModule={switchModule}
           onTogglePrivacy={homeTogglePrivacy}
           palette={activePalette}
           themeMode={themeMode}

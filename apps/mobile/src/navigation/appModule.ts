@@ -8,6 +8,6 @@ export interface ModuleMeta {
 }
 
 export const MODULE_META: Record<AppModule, ModuleMeta> = {
-  investments: { label: 'Investimentos', icon: 'language' },
-  finance: { label: 'Finanças', icon: 'language' },
+  investments: { label: 'Investimentos', icon: 'show-chart' },
+  finance: { label: 'Finanças', icon: 'account-balance' },
 };

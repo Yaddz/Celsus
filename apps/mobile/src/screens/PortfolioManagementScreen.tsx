@@ -313,6 +313,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   isPrivacyMode = false,
   onTogglePrivacy,
   onProfilePress,
+  onSwitchModule,
   modalOnly = false,
   onSubModalClosed,
   themeMode = 'dark',
@@ -1316,10 +1317,12 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       {!modalOnly && (
         <>
           <XpMinimalHeader
+            module="investments"
             userName={profileName || 'Usuário'}
             userInitials={profileInitials || 'U'}
             palette={getPortfolioPalette(activeIndex)}
             onAvatarPress={onProfilePress}
+            onSwitchModule={onSwitchModule}
             isPrivacyModeEnabled={privacyMode}
             onTogglePrivacy={handleTogglePrivacy}
             themeMode={themeMode}

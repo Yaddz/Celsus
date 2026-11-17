@@ -63,6 +63,7 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   isPrivacyMode = false,
   onTogglePrivacy,
   onProfilePress,
+  onSwitchModule,
   onClassPress,
   themeMode = 'dark',
   testID = 'statistics-screen',
@@ -292,10 +293,12 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
       <XpMinimalHeader
+        module="investments"
         userName={profileName || 'Usuário'}
         userInitials={profileInitials || 'U'}
         palette={getPortfolioPalette(activeWalletIndex)}
         onAvatarPress={onProfilePress}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

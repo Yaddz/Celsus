@@ -12,18 +12,28 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **178 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 76 — Casca compartilhada: header, nav bar única e troca de módulo (Fase A travada)
+## Sprint 76 — Casca compartilhada: header, nav bar única e troca de módulo (Fase B concluída)
 
-`AppModule` (`show-chart` / `account-balance`), `XpMinimalHeader` sem Alert e com ícone do módulo ativo, `FloatingBottomDock` configurável por props (`tabs`, `actions`, prefixos) usado também em Finanças, avatar nas 4 telas raiz de Finanças abrindo `SettingsBackupScreen`, e `switchModule()` em `App.tsx` preservando aba e rota.
+`AppModule` (`show-chart` / `account-balance`), `XpMinimalHeader` sem Alert e com ícone do módulo ativo, `FloatingBottomDock` configurável por props (`tabs`, `actions`, prefixos) usado também em Finanças (removido `FinanceDock.tsx`), avatar nas 4 telas raiz de Finanças abrindo `SettingsBackupScreen`, e `switchModule()` em `App.tsx` preservando aba e rota.
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
-| `apps/mobile/src/components/ui/__tests__/Sprint76SharedHeader.test.tsx` | S76-T01…T02 | `0843eede0b11d847b5b005367baaf1d3ae5af16d1c9b71a50e82c489fb886261` | 2 FAIL |
+| `apps/mobile/src/components/ui/__tests__/Sprint76SharedHeader.test.tsx` | S76-T01…T02 | `91d9cefb8268bbba1ee47d4d66d25622f316f1db4c84f069cfd66d334a1e74d4` | 2 FAIL |
 | `apps/mobile/src/components/ui/__tests__/Sprint76ConfigurableDock.test.tsx` | S76-T03…T04 | `72ba90c64f2b19b19bb4fc4cfb9a4561425fc8803063137d0f1199fa0223c35a` | 1 FAIL / 1 PASS |
-| `apps/mobile/src/screens/__tests__/Sprint76ModuleSwitchEverywhere.test.tsx` | S76-T05…T06 | `2f45a51d806e4647e44f76621d4de04bdf167a042ef49f5fa473513ba9b3ac9c` | 2 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint76ModuleSwitchEverywhere.test.tsx` | S76-T05…T06 | `69024c55f3e18dfb47ca4d96a873e0560c18995b5f625454a4a8a680d2c92e04` | 2 FAIL |
 | `apps/mobile/src/navigation/__tests__/Sprint76BackNavigation.test.ts` | S76-T07 | `de2073c3b0a9972ef34e7e0b9e89689b6cfcb0a517bd4a30c8d37264` | 1 PASS |
 
-Execução da Fase A: `npx jest --no-coverage Sprint76SharedHeader Sprint76ConfigurableDock Sprint76ModuleSwitchEverywhere Sprint76BackNavigation` → 5 falhando, 2 passando (7 testes, 4 suítes). 178 arquivos travados em `tests.lock.json`.
+**Testes atualizados com autorização explícita do usuário:**
+- `Sprint76SharedHeader.test.tsx` (`S76-T01`, `S76-T02`) e `Sprint76ModuleSwitchEverywhere.test.tsx` (`S76-T06`): leitura do nome do ícone via `.props.children` (padrão do mock de `MaterialIcons` em `jest.setup.js`).
+- `Sprint55FinanceReskin.test.tsx` (`S55-T03`, `S55-T04`): passado `onSwitchModule={jest.fn()}` no Resumo e atualizado check de `finance-add-entry-btn` para o novo botão do `FloatingBottomDock`.
+- `FinanceModuleScreens.test.tsx`: retorno do Resumo de Finanças para Investimentos via `header-globe-button` e conta `checking` para o teste de baixa de lançamento pendente.
+
+Execução da Fase B:
+- `npx jest --no-coverage Sprint76 Sprint58FinanceNavbar Sprint60FinanceArtifactFidelity FinanceModuleScreens Sprint55FinanceReskin`: **8/8 suítes PASS** (**53/53 testes PASS**)
+- `npx jest --no-coverage` (suíte completa): **157/164 suítes PASS** (**1037/1045 testes PASS**)
+- `npx tsc --noEmit`: **0 erros** nos arquivos de produção e nos testes das Sprints 74–76
+- `npx expo export --platform web`: **778 módulos** empacotados sem erros
+- `node scripts/test-lock.js verify`: **178 arquivos íntegros**
 
 ## Sprint 75 — Leitor de cupom: valor total e chave de 44 dígitos (Fase B concluída)
 

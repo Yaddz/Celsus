@@ -19,6 +19,10 @@ export type FinanceMoreRoute =
 
 export interface FinanceMoreScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
+  onAvatarPress?: () => void;
+  userName?: string;
+  userInitials?: string;
   onOpen: (route: FinanceMoreRoute) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
@@ -29,6 +33,10 @@ export interface FinanceMoreScreenProps {
 
 export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
   onBack,
+  onSwitchModule,
+  onAvatarPress,
+  userName,
+  userInitials,
   onOpen,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -47,10 +55,15 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
+        module="finance"
         title="Mais"
         subtitle="Recorrências e organização"
         isGlobeActive={true}
-        onBack={onBack}
+        onBack={onAvatarPress ? undefined : onBack}
+        onAvatarPress={onAvatarPress}
+        userName={userName}
+        userInitials={userInitials}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

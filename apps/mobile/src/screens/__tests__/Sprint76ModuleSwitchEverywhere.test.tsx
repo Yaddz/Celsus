@@ -66,7 +66,7 @@ describe('Sprint 76 — Troca de módulo e Perfil nas telas dos dois módulos (F
 
     await waitFor(() => {
       expect(screen.getByTestId('header-avatar-button')).toBeTruthy();
-      expect(screen.getByTestId('header-globe-icon').props.name).toBe('account-balance');
+      expect(screen.getByTestId('header-globe-icon').props.children).toBe('account-balance');
     });
 
     fireEvent.press(screen.getByTestId('header-avatar-button'));

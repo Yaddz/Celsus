@@ -52,6 +52,7 @@ export interface CardBillScreenProps {
   accountId: string;
   initialBillMonth?: string;
   onBack: () => void;
+  onSwitchModule?: () => void;
   onEditCardAccount?: (accountId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
@@ -70,6 +71,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   accountId,
   initialBillMonth,
   onBack,
+  onSwitchModule,
   onEditCardAccount,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -296,8 +298,10 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   return (
     <View style={[sharedStyles.screen, { backgroundColor: ui.background }]} testID={testID}>
       <XpMinimalHeader
+        module="finance"
         title={card?.name ?? 'Fatura do cartão'}
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

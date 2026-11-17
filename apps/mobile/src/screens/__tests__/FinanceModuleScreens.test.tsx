@@ -52,12 +52,12 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
         expect(screen.getByTestId('finance-home-screen')).toBeTruthy();
       });
 
-      expect(screen.getByTestId('header-back-button')).toBeTruthy();
-      expect(screen.getByText('Finanças')).toBeTruthy();
+      expect(screen.getByTestId('header-avatar-button')).toBeTruthy();
+      expect(screen.getByTestId('header-globe-button')).toBeTruthy();
       expect(alertSpy).not.toHaveBeenCalledWith('Funcionalidade em desenvolvimento');
 
-      // Voltar retorna para a Home de investimentos
-      fireEvent.press(screen.getByTestId('header-back-button'));
+      // Tocar no ícone do módulo retorna para a Home de investimentos
+      fireEvent.press(screen.getByTestId('header-globe-button'));
       await waitFor(() => {
         expect(screen.getByTestId('home-screen-root')).toBeTruthy();
       });
@@ -209,8 +209,8 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
     it('exibe atrasadas, a vencer em 7 dias, badge de parcela, filtros e pergunta escopo ao excluir parcela', async () => {
       await finService.initializeFinanceModule('2026-11-13');
       const acc = await finRepository.createAccount({
-        name: 'Cartão',
-        type: 'card',
+        name: 'Conta Corrente',
+        type: 'checking',
         initialBalanceCents: 0,
         color: '#D96628',
       });
@@ -359,8 +359,8 @@ describe('Sprint 54 — Módulo Finanças (Navegação, Telas, Privacidade e Est
 
       await finService.initializeFinanceModule('2026-11-13');
       const acc = await finRepository.createAccount({
-        name: 'Cartão',
-        type: 'card',
+        name: 'Conta Corrente',
+        type: 'checking',
         initialBalanceCents: 0,
         color: '#D96628',
       });

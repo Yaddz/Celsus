@@ -19,6 +19,7 @@ import { FinEmptyState, getFinUiColors, sharedStyles } from './finTheme';
 
 export interface CategoryRulesScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
@@ -33,6 +34,7 @@ const MATCH_TYPE_LABELS: Record<CategoryRuleMatchType, string> = {
 
 export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
   onBack,
+  onSwitchModule,
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
@@ -96,10 +98,12 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
       style={[sharedStyles.screen, { backgroundColor: c.background }]}
     >
       <XpMinimalHeader
+        module="finance"
         title="Regras de categoria"
         subtitle="Categorização automática"
         isGlobeActive={true}
         onBack={onBack}
+        onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}

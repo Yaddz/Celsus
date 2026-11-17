@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BackHandler, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
+import {
+  FloatingBottomDock,
+  type DockActionItem,
+  type DockTabItem,
+} from '../../components/ui/FloatingBottomDock';
 import { PriceAreaChart } from '../../components/ui/PriceAreaChart';
 import type { FinAccount, FinBudget, FinCategory, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
 import type { ReceiptDraft } from '../../domain/receipt';
@@ -22,7 +27,7 @@ import { formatUpdatedAgo } from '../../domain/openFinance';
 import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
-import { bento, typography } from '../../theme/tokens';
+import { bento, dock, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
 import { CardBillScreen } from './CardBillScreen';
@@ -34,7 +39,6 @@ import { EntryFormSheet } from './EntryFormSheet';
 import { ReceiptScannerSheet, type ReceiptScannerMode } from './ReceiptScannerSheet';
 import { RecurrencesScreen } from './RecurrencesScreen';
 import { SubscriptionsScreen } from './SubscriptionsScreen';
-import { FinanceDock, type FinanceTab } from './FinanceDock';
 import { FinanceMoreScreen } from './FinanceMoreScreen';
 import { BudgetScreen } from './BudgetScreen';
 import { GoalsScreen } from './GoalsScreen';
@@ -43,7 +47,6 @@ import { finGoalsService } from '../../services/finGoalsService';
 import {
   FinEmptyState,
   FinErrorView,
-  FinFloatingAddButton,
   FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
@@ -115,8 +118,21 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   categoryRules: 'more',
 };
 
+export type FinanceTab = 'home' | 'entries' | 'accounts' | 'more';
+
+const FINANCE_DOCK_TABS: DockTabItem<FinanceTab>[] = [
+  { id: 'home', iconName: 'dashboard', label: 'Resumo' },
+  { id: 'entries', iconName: 'receipt-long', label: 'Lançamentos' },
+  { id: 'accounts', iconName: 'account-balance-wallet', label: 'Contas' },
+  { id: 'more', iconName: 'more-horiz', label: 'Mais' },
+];
+
 export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onBack,
+  onSwitchModule,
+  onAvatarPress,
+  userName,
+  userInitials,
   onOpenPortfolioTransaction,
   isPrivacyMode = false,
   onTogglePrivacy,
@@ -155,7 +171,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [ofLastSyncedAt, setOfLastSyncedAt] = useState<string | null>(null);
   const [ofSyncError, setOfSyncError] = useState<string | null>(null);
   const [isAddEntryOpen, setIsAddEntryOpen] = useState(false);
-  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [entryFormInitialKind, setEntryFormInitialKind] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
@@ -398,6 +414,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <EntriesListScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onSwitchModule={onSwitchModule}
+          onAvatarPress={onAvatarPress}
+          userName={userName}
+          userInitials={userInitials}
           onOpenCardBill={(accId, billMonth) => {
             setSelectedCardAccountId(accId);
             setSelectedCardBillMonth(billMonth);
@@ -414,6 +434,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <FinanceMoreScreen
           onBack={() => setActiveRoute('home')}
+          onSwitchModule={onSwitchModule}
+          onAvatarPress={onAvatarPress}
+          userName={userName}
+          userInitials={userInitials}
           onOpen={(route) => {
             if (route === 'statementImport') {
               setIsStatementImportOpen(true);
@@ -431,6 +455,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <GoalsScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          onSwitchModule={onSwitchModule}
           onOpenPortfolioTransaction={onOpenPortfolioTransaction}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
@@ -443,6 +468,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <NetWorthScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -454,6 +480,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <BudgetScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -464,6 +491,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <SubscriptionsScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -474,6 +502,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <RecurrencesScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -484,6 +513,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <AccountsScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onSwitchModule={onSwitchModule}
+          onAvatarPress={onAvatarPress}
+          userName={userName}
+          userInitials={userInitials}
           onOpenCardBill={(accId) => {
             setSelectedCardAccountId(accId);
             setSelectedCardBillMonth(undefined);
@@ -501,6 +534,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           accountId={selectedCardAccountId}
           initialBillMonth={selectedCardBillMonth}
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'accounts')}
+          onSwitchModule={onSwitchModule}
           onEditCardAccount={() => navigateTo('accounts')}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
@@ -512,6 +546,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <CategoriesScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -522,6 +557,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       return (
         <CategoryRulesScreen
           onBack={() => setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'more')}
+          onSwitchModule={onSwitchModule}
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -532,10 +568,15 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     return (
       <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
         <XpMinimalHeader
+          module="finance"
           title="Finanças"
           subtitle="Controle pessoal"
           isGlobeActive={true}
-          onBack={onBack}
+          onBack={onAvatarPress ? undefined : onBack}
+          onAvatarPress={onAvatarPress}
+          userName={userName}
+          userInitials={userInitials}
+          onSwitchModule={onSwitchModule}
           isPrivacyModeEnabled={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
@@ -543,7 +584,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
 
         <ScrollView
           testID="finance-home-scroll"
-          contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}
+          contentContainerStyle={[
+            sharedStyles.scrollContent,
+            { paddingBottom: dock.pillHeight + 76 },
+          ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void handlePullRefresh()} />
           }
@@ -835,116 +879,106 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           )}
 
         </ScrollView>
-
-        <FinFloatingAddButton
-          testID="finance-add-entry-btn"
-          accessibilityLabel="Novo lançamento"
-          onPress={() => setIsAddMenuOpen(true)}
-        />
-
-        <Modal
-          visible={isAddMenuOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsAddMenuOpen(false)}
-        >
-          <Pressable
-            style={styles.addMenuBackdrop}
-            onPress={() => setIsAddMenuOpen(false)}
-          >
-            <View
-              testID="finance-add-menu"
-              style={[
-                styles.addMenuCard,
-                { backgroundColor: c.surface, borderColor: c.border },
-              ]}
-            >
-              <TouchableOpacity
-                testID="add-menu-manual"
-                style={styles.addMenuOption}
-                onPress={() => {
-                  setIsAddMenuOpen(false);
-                  setReceiptDraft(null);
-                  setIsAddEntryOpen(true);
-                }}
-              >
-                <MaterialIcons name="edit" size={20} color={c.text} />
-                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
-                  Lançar manualmente
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="add-menu-ocr"
-                style={styles.addMenuOption}
-                onPress={() => {
-                  setIsAddMenuOpen(false);
-                  setScannerMode('ocr');
-                }}
-              >
-                <MaterialIcons name="photo-camera" size={20} color={c.primary} />
-                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
-                  Fotografar cupom
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                testID="add-menu-qr"
-                style={styles.addMenuOption}
-                onPress={() => {
-                  setIsAddMenuOpen(false);
-                  setScannerMode('qr');
-                }}
-              >
-                <MaterialIcons name="qr-code-scanner" size={20} color={c.primary} />
-                <Text style={[styles.addMenuOptionText, { color: c.text }]}>
-                  Ler QR da nota
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
-
-        <ReceiptScannerSheet
-          visible={scannerMode !== null}
-          mode={scannerMode ?? 'ocr'}
-          onClose={() => setScannerMode(null)}
-          onResult={(draft) => {
-            setScannerMode(null);
-            setReceiptDraft(draft);
-            setIsAddEntryOpen(true);
-          }}
-          onFallbackManual={() => {
-            setScannerMode(null);
-            setReceiptDraft(null);
-            setIsAddEntryOpen(true);
-          }}
-          themeMode={themeMode}
-        />
-
-        <EntryFormSheet
-          visible={isAddEntryOpen}
-          onClose={() => {
-            setIsAddEntryOpen(false);
-            setReceiptDraft(null);
-          }}
-          onSaved={() => void loadData()}
-          onRequestCreateAccount={() => navigateTo('accounts')}
-          receiptDraft={receiptDraft}
-          defaultDueDate={effectiveToday}
-          themeMode={themeMode}
-        />
       </View>
     );
 
   };
 
+  const financeDockActions: DockActionItem[] = [
+    {
+      id: 'transfer',
+      testID: 'add-menu-transfer',
+      icon: 'swap-horiz',
+      label: 'Transferir',
+      sub: 'Mover entre contas',
+      tint: 'tertiary',
+      onPress: () => {
+        setReceiptDraft(null);
+        setEntryFormInitialKind('transfer');
+        setIsAddEntryOpen(true);
+      },
+    },
+    {
+      id: 'qr',
+      testID: 'add-menu-qr',
+      icon: 'qr-code-scanner',
+      label: 'Ler QR / código',
+      sub: 'QR Code, barras ou chave',
+      tint: 'stock',
+      onPress: () => setScannerMode('qr'),
+    },
+    {
+      id: 'ocr',
+      testID: 'add-menu-ocr',
+      icon: 'photo-camera',
+      label: 'Ler cupom',
+      sub: 'Foto ou texto do cupom',
+      tint: 'tertiary',
+      onPress: () => setScannerMode('ocr'),
+    },
+    {
+      id: 'manual',
+      testID: 'add-menu-manual',
+      icon: 'edit',
+      label: 'Novo lançamento',
+      sub: 'Receita ou despesa',
+      tint: 'primary',
+      onPress: () => {
+        setReceiptDraft(null);
+        setEntryFormInitialKind('expense');
+        setIsAddEntryOpen(true);
+      },
+    },
+  ];
+
   return (
     <View style={styles.shell}>
       {renderBody()}
-      <FinanceDock
+      <FloatingBottomDock<FinanceTab>
+        testID="finance-dock"
+        tabTestIdPrefix="finance-dock-tab-"
+        actionButtonTestID="finance-add-entry-btn"
         activeTab={TAB_OF_ROUTE[activeRoute]}
+        tabs={FINANCE_DOCK_TABS}
+        actions={financeDockActions}
         onTabChange={(tab) => navigateTo(tab)}
+        forceClose={isAddEntryOpen || scannerMode !== null || isStatementImportOpen}
+        themeMode={themeMode}
+      />
+      <ReceiptScannerSheet
+        visible={scannerMode !== null}
+        mode={scannerMode ?? 'ocr'}
+        onClose={() => setScannerMode(null)}
+        onResult={(draft) => {
+          setScannerMode(null);
+          setReceiptDraft(draft);
+          setEntryFormInitialKind('expense');
+          setIsAddEntryOpen(true);
+        }}
+        onFallbackManual={() => {
+          setScannerMode(null);
+          setReceiptDraft(null);
+          setEntryFormInitialKind('expense');
+          setIsAddEntryOpen(true);
+        }}
+        themeMode={themeMode}
+      />
+      <EntryFormSheet
+        visible={isAddEntryOpen}
+        onClose={() => {
+          setIsAddEntryOpen(false);
+          setReceiptDraft(null);
+          setEntryFormInitialKind('expense');
+        }}
+        onSaved={() => void loadData()}
+        onRequestCreateAccount={() => navigateTo('accounts')}
+        onEditCardAccount={() => {
+          setIsAddEntryOpen(false);
+          navigateTo('accounts');
+        }}
+        receiptDraft={receiptDraft}
+        initialKind={entryFormInitialKind}
+        defaultDueDate={effectiveToday}
         themeMode={themeMode}
       />
       <StatementImportSheet
