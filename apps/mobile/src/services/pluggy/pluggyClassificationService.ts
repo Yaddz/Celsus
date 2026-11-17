@@ -4,6 +4,7 @@ import {
   classifyOpenFinanceBankEntry,
   findCardTopupPairs,
   findOwnTransferPairs,
+  isTransferCompatibleCategoryId,
   type OwnTransferCandidate,
   type OwnTransferPair,
 } from '../../domain/openFinance/classification';
@@ -65,26 +66,63 @@ async function applyPairs(
   }
 }
 
+const revertKind = (kind: string): FinEntry['kind'] =>
+  kind === 'transfer_out' ? 'expense' : kind === 'transfer_in' ? 'income' : kind;
+
+/**
+ * Sprint 92: pares entre contas gravados pela Sprint 91 em que um lado tem categoria de compra ou de salário eram
+ * coincidência de valor. Desfaz os dois lados (voltam a receita/despesa) para o pareamento atual decidir de novo.
+ */
+async function undoIncompatibleOwnPairs(entries: FinEntry[]): Promise<Set<string>> {
+  const byGroup = new Map<string, FinEntry[]>();
+  for (const e of entries) {
+    if (e.of_class_reason !== 'OWN_ACCOUNT_PAIRED' || !e.transfer_group_id?.startsWith('of-tr-')) continue;
+    byGroup.set(e.transfer_group_id, [...(byGroup.get(e.transfer_group_id) ?? []), e]);
+  }
+  const undone = new Set<string>();
+  for (const group of byGroup.values()) {
+    if (group.every((e) => isTransferCompatibleCategoryId(e.of_category_id ?? null))) continue;
+    // Edição do usuário em qualquer lado mantém o par inteiro
+    if (group.some((e) => editedFields(e.user_edited_fields).includes('kind'))) continue;
+    for (const e of group) {
+      await finRepository.updateEntry(e.id, {
+        kind: revertKind(e.kind),
+        transfer_group_id: null,
+        of_class_reason: 'SIGN',
+      });
+      undone.add(e.id);
+    }
+  }
+  return undone;
+}
+
 export const pluggyClassificationService = {
   /**
    * R18/R19: pareamento entre TODAS as contas Open Finance (últimos 40 dias, sem transfer_group_id).
    * Roda depois do sync de cada conexão. Recarga pelo cartão primeiro (mesma conta), depois contas próprias.
    */
-  async pairOwnTransfersAcrossItems(todayIso: string = getTodayIsoLocal()): Promise<{ paired: number; topups: number }> {
+  async pairOwnTransfersAcrossItems(
+    todayIso: string = getTodayIsoLocal(),
+    options: { windowStart?: string } = {}
+  ): Promise<{ paired: number; topups: number; unpaired: number }> {
     const [accounts, entries] = await Promise.all([finRepository.listAccounts(true), finRepository.listAllEntries()]);
     const typeById = new Map(accounts.map((a) => [a.id, a.type]));
+    const unpairedIds = await undoIncompatibleOwnPairs(entries);
     const candidates = entries
       .filter((e) => e.source === 'OPEN_FINANCE' && !e.of_removed_at)
-      .map((e) => toCandidate(e, typeById.get(e.account_id) ?? 'checking'));
+      .map((e) => {
+        const c = toCandidate(e, typeById.get(e.account_id) ?? 'checking');
+        return unpairedIds.has(e.id) ? { ...c, transfer_group_id: null, kind: revertKind(e.kind), of_class_reason: 'SIGN' } : c;
+      });
 
     const topups = findCardTopupPairs(candidates, todayIso);
     await applyPairs(topups, 'CARD_TOPUP');
     const grouped = new Map(topups.flatMap((p) => [[p.outId, p.transferGroupId], [p.inId, p.transferGroupId]] as const));
     const remaining = candidates.map((c) => (grouped.has(c.id) ? { ...c, transfer_group_id: grouped.get(c.id)! } : c));
 
-    const pairs = findOwnTransferPairs(remaining, todayIso);
+    const pairs = findOwnTransferPairs(remaining, todayIso, { windowStart: options.windowStart });
     await applyPairs(pairs, 'OWN_ACCOUNT_PAIRED');
-    return { paired: pairs.length, topups: topups.length };
+    return { paired: pairs.length, topups: topups.length, unpaired: unpairedIds.size };
   },
 
   /**

@@ -150,3 +150,18 @@ contagem dos últimos 90 dias por `kind` e o percentual em "Outros".
 - Qual é o `name` que a Pluggy devolve para FIIs dessas corretoras? O diagnóstico da Sprint 90 vai mostrar. Se ele
   não ajudar, a alternativa é uma tabela de apelidos que o usuário confirma na primeira ocorrência.
 - A TED de saída depois do Investback é para conta própria? Se for, uma regra do usuário resolve.
+
+## 7. Sprint 92 — correções da revisão (17/11/2026)
+
+A revisão das sprints 90 e 91 achou quatro defeitos, três deles reproduzidos com os dados do export:
+
+1. A raiz do ticker usava a descrição inteira quando não havia "s/" ou "FII": "CONTA REMUNERADA - RESGATE
+   REMUNERAÇÃO" virava provento de CSAN3. Agora nome e raiz só olham o trecho do fundo (ajuste da R15).
+2. O pareamento entre contas unia compra e salário de mesmo valor. Agora só pareia sem categoria ou com 04/05 nos
+   dois lados, dentro e entre conexões, e desfaz os pares errados já gravados (ajuste da R18).
+3. O diagnóstico mantinha nomes em Pix que a Pluggy classifica como compra. Agora mascara pela descrição (ajuste da
+   R21).
+4. A reclassificação não alcançava lançamentos antigos sem `of_category_id`. Agora cada conexão busca o histórico
+   completo uma vez (nova R22).
+
+Testes S92-T01…T09 em `Sprint92ReviewFixes.test.ts` (domínio e serviços).

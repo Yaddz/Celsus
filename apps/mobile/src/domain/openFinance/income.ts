@@ -106,11 +106,16 @@ function matchesQueryWordsInOrder(queryWords: string[], nameWords: string[]): bo
   return true;
 }
 
+/**
+ * Trecho com o nome do fundo: o que vem depois de "s/" ou "FII". Sem esse marcador não há nome a procurar
+ * (Sprint 92): usar a descrição inteira fazia "CONTA REMUNERADA - RESGATE REMUNERAÇÃO" casar com CSAN3.
+ */
 function extractFundQueryWords(desc: string): string[] {
   const sSlashMatch = desc.match(/\bs\/\s*(.+)$/i);
   const fiiMatch = !sSlashMatch ? desc.match(/\bFII\b\s*(.+)$/i) : null;
-  const fragment = sSlashMatch ? sSlashMatch[1] : fiiMatch ? fiiMatch[1] : desc;
-  return tokenizeAlphaNum(fragment).filter((w) => !INCOME_NAME_STOPWORDS.has(w));
+  const fragment = sSlashMatch ? sSlashMatch[1] : fiiMatch ? fiiMatch[1] : null;
+  if (!fragment) return [];
+  return tokenizeAlphaNum(fragment).filter((w) => !INCOME_NAME_STOPWORDS.has(w) && !/^\d+$/.test(w));
 }
 
 function isPluggyInvestmentIncomeCategory(

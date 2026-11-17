@@ -382,3 +382,11 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/openFinance/classification.ts`: `classifyOpenFinanceBankEntry` (R17/R18), `mapPluggyCategory`/`resolveCategoryByPluggyId` (R20, prefixo do `categoryId`), `findOwnTransferPairs` (R18) e `findCardTopupPairs` (R19), todas puras. `stalePending.ts` guarda `isStaleOpenFinancePending` (janela de 40 dias), usado por `financeFlow`.
 - `services/pluggy/pluggyClassificationService.ts`: `pairOwnTransfersAcrossItems()` (chamado dentro da transação de `syncFinance`, depois de gravar os lançamentos) e `reclassifyOpenFinanceEntries()` (passada única).
 - Schema: `fin_entries.of_category_id` e `of_class_reason` (DDL, ALTER idempotente, backup). Diagnóstico: `entriesLast90d.transfersByReason` e `stalePendingCount` por conta.
+
+## Correções da Revisão (Sprint 92)
+
+- `domain/openFinance/income.ts`: `extractFundQueryWords` devolve vazio sem `"s/"`/`"FII"`; nome e raiz do ticker só procuram nesse trecho.
+- `domain/openFinance/classification.ts`: `isTransferCompatibleCategoryId` (sem categoria, `04*`, `05*`) filtra `findOwnTransferPairs` e o pareamento de `reconcilePluggyTransactions`; `findOwnTransferPairs` aceita `windowStart`.
+- `services/pluggy/pluggyClassificationService.ts`: `pairOwnTransfersAcrossItems(today, { windowStart })` desfaz pares `of-tr-` incompatíveis antes de parear.
+- `services/pluggy/pluggySyncService.ts`: busca única do histórico completo por conexão (`OF_HISTORY_BACKFILL_META_PREFIX`), terceira chamada paralela às duas da R10.
+- `domain/openFinance/diagnostics.ts`: mascaramento de contraparte por padrão de descrição (Pix/TED/DOC/transferência).

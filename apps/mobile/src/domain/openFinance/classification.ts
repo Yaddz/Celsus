@@ -182,6 +182,15 @@ export function isOwnAccountCategoryId(categoryId: string | null | undefined): b
   return (categoryId ?? '').trim().startsWith('04');
 }
 
+/**
+ * Sprint 92: só lançamentos sem categoria ou com categoria de transferência (04 conta própria, 05 transferências)
+ * podem formar par. Valor igual entre um gasto de restaurante e um salário é coincidência, não transferência.
+ */
+export function isTransferCompatibleCategoryId(categoryId: string | null | undefined): boolean {
+  const id = (categoryId ?? '').trim();
+  return !id || id.startsWith('04') || id.startsWith('05');
+}
+
 export function isInvestmentMoveDescription(description: string | null | undefined): boolean {
   return INVESTMENT_DESCRIPTION_RE.test(normalizeKey(description ?? ''));
 }
@@ -296,9 +305,15 @@ const isInKind = (k: string) => k === 'income' || k === 'transfer_in';
 const groupKey = (c: OwnTransferCandidate) => c.external_id ?? c.id;
 
 /** R18: pareia, entre todas as contas, valor igual em centavos, direção oposta, contas diferentes, até 2 dias. */
-export function findOwnTransferPairs(candidates: OwnTransferCandidate[], todayIso: string): OwnTransferPair[] {
-  const windowStart = openFinanceWindowStart(todayIso);
-  const pool = candidates.filter((c) => isEligible(c, windowStart));
+export function findOwnTransferPairs(
+  candidates: OwnTransferCandidate[],
+  todayIso: string,
+  options: { windowStart?: string } = {}
+): OwnTransferPair[] {
+  const windowStart = options.windowStart ?? openFinanceWindowStart(todayIso);
+  const pool = candidates.filter(
+    (c) => isEligible(c, windowStart) && isTransferCompatibleCategoryId(c.of_category_id)
+  );
   const outs = pool.filter((c) => isOutKind(c.kind)).sort((a, b) => a.due_date.localeCompare(b.due_date));
   const used = new Set<string>();
   const pairs: OwnTransferPair[] = [];

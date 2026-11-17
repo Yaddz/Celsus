@@ -14,7 +14,12 @@ import {
   type ReconcilableExistingEntry,
 } from '../statementImport';
 import { buildAccountName, cleanTransactionDescription } from './naming';
-import { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory } from './classification';
+import {
+  classifyOpenFinanceBankEntry,
+  isCardBillPayment,
+  isTransferCompatibleCategoryId,
+  mapPluggyCategory,
+} from './classification';
 
 export { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory };
 
@@ -466,6 +471,9 @@ export function reconcilePluggyTransactions(
       const inTx = transactions[j];
       if (pairedExternalIds.has(inTx.externalId)) continue;
       if (incomeExternalIds?.has(inTx.externalId)) continue;
+      if (!isTransferCompatibleCategoryId(outTx.ofCategoryId) || !isTransferCompatibleCategoryId(inTx.ofCategoryId)) {
+        continue;
+      }
       if (inTx.accountId === outTx.accountId) continue;
       if (inTx.kind !== 'income' && inTx.kind !== 'transfer_in') continue;
       if (inTx.amountCents !== outTx.amountCents) continue;

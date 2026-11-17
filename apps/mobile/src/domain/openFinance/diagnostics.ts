@@ -639,15 +639,21 @@ export function redactDiagnosticDescription(
   let result = (desc || '').replace(/\s+/g, ' ').trim();
   if (!result) return '';
 
+  // Contraparte: em Pix/TED/DOC/transferência de qualquer categoria (a Pluggy classifica Pix para pessoas como
+  // compra) e em 04/05 que não sejam provento. Sprint 92.
   const catId = (ctx?.categoryId || '').trim();
-  if (catId.startsWith('04') || catId.startsWith('05')) {
+  const normalized = stripDiagAccents(result).toLowerCase();
+  const isTransferLike = /\b(pix|ted|doc|transf\w*)\b/.test(normalized);
+  const isIncomeLike = /\b(rendimentos?|dividendos?|jcp|juros)\b/.test(normalized);
+  if (isTransferLike || ((catId.startsWith('04') || catId.startsWith('05')) && !isIncomeLike)) {
     result = result.replace(/(\s*\|\s*|\s+para\s+|\s+de\s+).+$/i, '$1<contraparte>');
   }
 
-  // Remove CPF e CNPJ formatados
+  // Remove CPF e CNPJ formatados, inclusive o CNPJ parcial que identifica MEI ("62.985.265")
   result = result
     .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '')
-    .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, '');
+    .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, '')
+    .replace(/\b\d{2,3}\.\d{3}\.\d{3}\b/g, '');
 
   // Remove palavras do nome do titular (comparação sem acento)
   const ownerWords = new Set<string>();

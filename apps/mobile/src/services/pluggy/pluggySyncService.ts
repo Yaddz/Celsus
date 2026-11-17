@@ -22,6 +22,7 @@ import {
 import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { finRepository } from '../../repositories/finRepository';
 import { incomeRepository } from '../../repositories/incomeRepository';
+import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { pluggyClassificationService } from './pluggyClassificationService';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
@@ -43,6 +44,13 @@ export interface PluggySyncCounts {
   reclassified?: number;
   reclassifiedByReason?: Record<string, number>;
 }
+
+/**
+ * Sprint 92: marca, por conexão, que o histórico completo já foi buscado depois da classificação da Sprint 91.
+ * Conexões sincronizadas antes dela tinham lançamentos antigos sem `of_category_id`, que a reclassificação não
+ * conseguia corrigir.
+ */
+export const OF_HISTORY_BACKFILL_META_PREFIX = 'fin:of:backfill:s92:';
 
 export interface PluggySyncResult {
   runId: string;
@@ -117,6 +125,11 @@ export const pluggySyncService = {
         ? firstDateFrom
         : new Date(nowDate.getTime() - 40 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+      const backfillMetaKey = `${OF_HISTORY_BACKFILL_META_PREFIX}${itemId}`;
+      const needsHistoryBackfill =
+        !isFirstFinanceSync && (await appMetaRepository.get(backfillMetaKey)) !== '1';
+      const fetchedFullHistory = isFirstFinanceSync || needsHistoryBackfill;
+
       const item = await client.getItem(itemId);
       assertItemConsentActive(item, nowDate.getTime());
 
@@ -129,11 +142,14 @@ export const pluggySyncService = {
         if (isFirstFinanceSync || !createdAtFrom) {
           rawTxs = await client.listTransactions(acc.id, { dateFrom: firstDateFrom });
         } else {
-          const [incTxs, recTxs] = await Promise.all([
+          const [incTxs, recTxs, historyTxs] = await Promise.all([
             client.listTransactions(acc.id, { createdAtFrom }),
             client.listTransactions(acc.id, { dateFrom: reconcileWindowStart }),
+            needsHistoryBackfill
+              ? client.listTransactions(acc.id, { dateFrom: firstDateFrom })
+              : Promise.resolve([] as PluggyTransaction[]),
           ]);
-          rawTxs = [...incTxs, ...recTxs];
+          rawTxs = [...incTxs, ...recTxs, ...historyTxs];
         }
         const deduped = deduplicatePluggyAccountTransactions(rawTxs);
         txsByAccount.set(acc.id, deduped);
@@ -404,8 +420,8 @@ export const pluggySyncService = {
               !!existing.transfer_group_id &&
               existing.transfer_group_id.startsWith('of-') &&
               (existing.kind === 'transfer_out' || existing.kind === 'transfer_in') &&
-              (row.classReason ?? 'SIGN') === 'SIGN' &&
-              (row.kind === 'expense' || row.kind === 'income');
+              !row.transferRole &&
+              ((row.classReason ?? 'SIGN') === 'SIGN' || row.classReason === 'OWN_ACCOUNT_UNPAIRED');
             const nextKind = row.transferRole ?? (keepsGlobalPair ? existing.kind : row.kind);
             const nextTransferGroupId =
               row.transferGroupId ?? existing.transfer_group_id ?? null;
@@ -581,7 +597,10 @@ export const pluggySyncService = {
         }
 
         // R17–R20: pareamento global entre todas as contas Open Finance e reclassificação única dos já gravados
-        const globalPairing = await pluggyClassificationService.pairOwnTransfersAcrossItems();
+        // Com o histórico completo em mãos, o pareamento olha a mesma janela; nas demais, os últimos 40 dias.
+        const globalPairing = await pluggyClassificationService.pairOwnTransfersAcrossItems(nowIso.slice(0, 10), {
+          windowStart: fetchedFullHistory ? firstDateFrom : undefined,
+        });
         counts.ownTransfersPaired = globalPairing.paired;
         counts.cardTopupsPaired = globalPairing.topups;
         const reclassification = await pluggyClassificationService.reclassifyOpenFinanceEntries();
@@ -605,6 +624,10 @@ export const pluggySyncService = {
               initial_balance_cents: reportedCents - paidNetCents,
             });
           }
+        }
+
+        if (fetchedFullHistory) {
+          await appMetaRepository.set(backfillMetaKey, '1');
         }
 
         await openFinanceRepository.upsertItem({
