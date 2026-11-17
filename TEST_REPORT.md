@@ -767,3 +767,13 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Teste antigo atualizado (autorizado pelo usuário devido à D37):
     - `apps/mobile/src/services/__tests__/Sprint87FinanceSync.test.ts:174-175` (`S87-T03`): com `type: 'DEBIT'` e `amount: -120` no cartão, `D37` classifica como `expense` (antes `income` pelo sinal negativo) e `settle_pending` atualiza `id-1` in-place para `id-2` (`status: 'paid'`).
   - Resultado: Sprint 100 — 2 suítes / 14 testes PASS. Suíte geral: **211/213 suítes PASS** na execução em paralelo (`Sprint87FinanceSync` corrigido e PASS 6/6; `receiptFlow` instável sob carga, PASS 5/5 isolado). `tsc --noEmit`: 0 erros em produção. `expo lint`: 0 erros nos arquivos alterados. `test-lock verify`: OK (229 arquivos protegidos).
+
+
+## Sprint 101 — Conta corrente, saldos, pendentes e datas BRT
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D34, D35, D36, D44; R34, R35).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint101CheckingPending.test.ts` (SHA-256 `5245cb66bfad5bd7adab4dafb25ea26e05225dc1ffd43228c7b8e29e76cd4647`) — `S101-T01` D34 `toBrtDate`/`toBrtMonth` meia-noite BRT; `S101-T02` `2026-04-01T02:00:00Z` -> `2026-03-31`/`2026-03`; `S101-T04` R34 `PROCESSING` vs `SCHEDULED`; `S101-T05` D35 `monthlyAccountFlows`; `S101-T06` cancelamento soft delete; `S101-T11` `PROCESSING` fora de alertas/cashflow e `SCHEDULED` em `computeAppPendingOutflowCents`.
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint101BrtDatesSync.test.ts` (SHA-256 `90385a6a1edacdf38137f4d6d12282ec15ccc6f758f23c42e2d8f862884f7b04`) — `S101-T03` migração `fin:of:brtdates:s101` respeitando `user_edited_fields`; `S101-T07` D36 `closingBalanceCents`/`overdraftUsedCents`/`blockedBalanceCents` e `collectAppNumbers`; `S101-T08` `reconcileAppVsPluggy` comparando fluxos mensais e `pendingOutflowCents`.
+  - `apps/mobile/src/screens/__tests__/Sprint101AccountFlowsUI.test.tsx` (SHA-256 `61fc91bfc43ae33580f90e8ec5167c74ef3d55c75d8baa923696b9fa3a5a221d`) — `S101-T09` `AccountsScreen` exibindo processamento, agendado, cheque especial, reservado, saldo contábil e fluxo mensal; `S101-T10` `FinanceHomeScreen` separando `"Despesas futuras"` de `"A vencer · 7 dias"`.
+  - Stubs de compilação: `monthlyAccountFlows` e `computeAppPendingOutflowCents` em `apps/mobile/src/domain/financeFlow/index.ts`.
+  - Execução Fase A: 3 suítes / 9 FAIL, 2 PASS (`S101-T02`, `S101-T06`). `test-lock verify`: OK (232 arquivos protegidos).

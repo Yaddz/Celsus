@@ -422,6 +422,25 @@ export function resolveAccountBalance(
 }
 
 /** `todayIso` (opcional): PENDING do Open Finance com mais de 40 dias fica fora de "a pagar"/"a receber" (R17). */
+export interface AccountMonthlyFlows {
+  month: string;
+  inflowCents: number;
+  outflowCents: number;
+  count: number;
+}
+
+export function monthlyAccountFlows(
+  _entries: FinEntry[],
+  _accountId: string,
+  _yearMonth: string
+): AccountMonthlyFlows {
+  throw new Error('NOT_IMPLEMENTED');
+}
+
+export function computeAppPendingOutflowCents(_entries: FinEntry[]): number {
+  throw new Error('NOT_IMPLEMENTED');
+}
+
 export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, todayIso?: string): MonthlySummary {
   let paidIncomeCents = 0;
   let paidExpenseCents = 0;
