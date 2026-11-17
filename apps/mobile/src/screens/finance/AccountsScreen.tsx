@@ -147,6 +147,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const cardMonthSpendMap = useMemo(() => {
     const map = new Map<string, number>();
     for (const entry of entries) {
+      if (entry.of_removed_at) continue;
       if (entry.kind !== 'expense') continue;
       if (!entry.due_date || !entry.due_date.startsWith(currentYm)) continue;
       const cents =
@@ -164,6 +165,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       map.set(acc.id, 0);
     }
     for (const entry of entries) {
+      if (entry.of_removed_at) continue;
       if (entry.status !== 'paid') continue;
       if (!entry.due_date || !entry.due_date.startsWith(currentYm)) continue;
       const cents = entry.paid_amount_cents ?? entry.amount_cents;
@@ -338,11 +340,16 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         ? formatReportedBalanceDate(acc.reported_balance_at)
         : null;
 
+    const creditUsedCents = isCard ? (acc as any).credit_used_cents ?? null : null;
     const baseSubtitle = isArchived
       ? undefined
       : isCard
-      ? `Fatura atual • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
+      ? `${isOpenFinance ? 'Total em aberto' : 'Fatura atual'} • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
           availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
+        }${
+          isOpenFinance && creditUsedCents !== null
+            ? ` • Limite usado ${formatCentsBRL(creditUsedCents, isPrivacyMode)}`
+            : ''
         }`
       : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
 

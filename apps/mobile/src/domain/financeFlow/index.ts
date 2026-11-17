@@ -35,6 +35,7 @@ export interface MonthlySummary {
   yearMonth: string;
   totalIncomeCents: number;
   totalExpenseCents: number;
+  expensesCents: number;
   paidIncomeCents: number;
   paidExpenseCents: number;
   pendingIncomeCents: number;
@@ -381,11 +382,16 @@ export function buildInstallmentSchedule(params: {
 
 export function calculateAccountBalance(
   initialBalanceCents: number,
-  entries: Array<Pick<FinEntry, 'account_id' | 'kind' | 'status' | 'amount_cents' | 'paid_amount_cents'>>,
+  entries: Array<
+    Pick<FinEntry, 'account_id' | 'kind' | 'status' | 'amount_cents' | 'paid_amount_cents'> & {
+      of_removed_at?: string | null;
+    }
+  >,
   accountId?: string
 ): number {
   let balance = initialBalanceCents;
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (accountId !== undefined && entry.account_id !== accountId) continue;
     if (entry.status !== 'paid') continue;
     const realCents = entry.paid_amount_cents ?? entry.amount_cents;
@@ -420,6 +426,7 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string):
   const categoryTotals = new Map<string, number>();
 
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
 
@@ -463,6 +470,7 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string):
     yearMonth,
     totalIncomeCents,
     totalExpenseCents,
+    expensesCents: totalExpenseCents,
     paidIncomeCents,
     paidExpenseCents,
     pendingIncomeCents,
@@ -501,6 +509,7 @@ export function detectOverdueAndDueSoon(
   const upcoming: FinEntry[] = [];
 
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     const status = classifyEntryDueStatus(entry, todayIso, horizonDays);
     if (status === 'overdue') {
       overdue.push(entry);
@@ -700,6 +709,7 @@ export function detectOverdueAndDueSoonWithBills(
 
   const nonCardEntries = entries.filter(
     (e) =>
+      !e.of_removed_at &&
       !cardAccountIds.has(e.account_id) &&
       e.kind !== 'transfer_out' &&
       e.kind !== 'transfer_in'
@@ -713,7 +723,7 @@ export function detectOverdueAndDueSoonWithBills(
   let dueSoonBillsTotalCents = 0;
 
   for (const card of cardAccounts) {
-    const cardEntries = entries.filter((e) => e.account_id === card.id);
+    const cardEntries = entries.filter((e) => e.account_id === card.id && !e.of_removed_at);
     const months = new Set<string>();
     for (const e of cardEntries) {
       const bm = e.bill_month ?? resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day);

@@ -90,6 +90,7 @@ export function summarizeBill(
   let paidCents = 0;
 
   for (const entry of entries) {
+    if (entry.of_removed_at) continue;
     if (entry.bill_month !== billMonth) continue;
     if (entry.kind === 'expense') {
       expensesCents +=

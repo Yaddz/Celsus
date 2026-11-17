@@ -597,6 +597,10 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'masked_number',
   'owner',
   'auto_name',
+  'of_linked_at',
+  'closing_balance_cents',
+  'auto_invested_cents',
+  'credit_used_cents',
   'created_at',
 ];
 
@@ -634,6 +638,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'description_raw',
   'user_edited_fields',
   'linked_income_id',
+  'of_removed_at',
   'created_at',
 ];
 
@@ -700,6 +705,10 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     masked_number: r.masked_number === '' ? null : r.masked_number ?? null,
     owner: r.owner === '' ? null : r.owner ?? null,
     auto_name: r.auto_name === '' ? null : r.auto_name ?? null,
+    of_linked_at: !r.of_linked_at || r.of_linked_at === '' ? null : r.of_linked_at,
+    closing_balance_cents: parseOptionalInt(r.closing_balance_cents),
+    auto_invested_cents: parseOptionalInt(r.auto_invested_cents),
+    credit_used_cents: parseOptionalInt(r.credit_used_cents),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -743,6 +752,7 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     description_raw: r.description_raw === '' ? null : r.description_raw ?? null,
     user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
     linked_income_id: !r.linked_income_id || r.linked_income_id === '' ? null : r.linked_income_id,
+    of_removed_at: !r.of_removed_at || r.of_removed_at === '' ? null : r.of_removed_at,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }

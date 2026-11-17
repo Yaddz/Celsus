@@ -234,7 +234,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   }, [entries, filters, effectiveToday]);
 
   const pendingCount = useMemo(
-    () => entries.filter((e) => e.status === 'pending').length,
+    () => entries.filter((e) => e.status === 'pending' && !e.of_removed_at).length,
     [entries]
   );
 

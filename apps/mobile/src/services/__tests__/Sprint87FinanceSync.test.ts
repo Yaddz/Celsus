@@ -271,7 +271,7 @@ describe('Sprint 87 — Bancos e cartões: janela, duplicatas e saldos (Fase A)'
     const entries = await finRepository.listAllEntries();
     const calc = calculateAccountBalance(updatedAcc.initial_balance_cents, entries, updatedAcc.id);
     expect(calc).toBe(452050);
-    expect(updatedAcc.masked_number).toBe('12345-6');
+    expect(updatedAcc.masked_number).toBe('3456');
   });
 
   it('S87-T09: cartão com creditLimit 5.000 e availableCreditLimit 3.200 => credit_used_cents 180000 (D18, R11)', async () => {

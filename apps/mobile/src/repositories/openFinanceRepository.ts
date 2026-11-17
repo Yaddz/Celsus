@@ -20,6 +20,7 @@ export interface OfSyncRunRecord {
   started_at: string;
   finished_at: string | null;
   status: string;
+  kind?: 'FINANCE' | 'INVESTMENTS' | string;
   counts_json: string | null;
   error: string | null;
 }
@@ -97,9 +98,16 @@ export const openFinanceRepository = {
     await db.delete(ofItems).where(eq(ofItems.id, itemId));
   },
 
-  async recordSyncRun(run: OfSyncRunRecord): Promise<void> {
+  async recordSyncRun(
+    run: Omit<OfSyncRunRecord, 'kind'> & { kind?: 'FINANCE' | 'INVESTMENTS' | string }
+  ): Promise<void> {
     const db = await getDatabase();
-    await db.insert(ofSyncRuns).values(run);
+    const resolvedKind =
+      run.kind ?? (run.id.startsWith('of-inv-') ? 'INVESTMENTS' : 'FINANCE');
+    await db.insert(ofSyncRuns).values({
+      ...run,
+      kind: resolvedKind,
+    });
   },
 
   async listSyncRuns(itemId?: string): Promise<OfSyncRunRecord[]> {

@@ -7,19 +7,28 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2` | **182/182 suítes PASS** (**1218/1218 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **184/184 suítes PASS** (**1227/1227 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **198 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **200 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 87 — Bancos e cartões: janela, exclusões e saldos (Fase A concluída)
+## Sprint 87 — Bancos e cartões: janela, exclusões e saldos (Fase B concluída)
 
-Especificação dos diagnósticos D14–D18 e regras R10 e R11.
+Separação de `of_sync_runs.kind` (`FINANCE` | `INVESTMENTS` com migração por prefixo `'of-inv-'`), busca em duas passadas (`createdAtFrom` incremental + reconciliação de 40 dias por `dateFrom`), `detectRemovedOpenFinanceEntries` (`fin_entries.of_removed_at`, soft delete de pendentes, remoção de pagos dos totais/resumo/saldo mantendo visibilidade, conflito com `user_edited_fields`), deduplicação defensiva (`${id}:${date}:${amount}`), recálculo de `initial_balance_cents` na primeira vinculação (`of_linked_at`), persistência de `closing_balance_cents`, `auto_invested_cents` e `credit_used_cents`, rótulo `"Total em aberto"` em cartões Open Finance e backup atualizado.
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
-| `apps/mobile/src/services/__tests__/Sprint87FinanceSync.test.ts` | S87-T01…T03, S87-T07…T09 | `4b023e0698d712bad54c2eeff5465d9446dde3899aa8690071127ce9f891bab9` | 5 FAIL / 1 PASS |
+| `apps/mobile/src/services/__tests__/Sprint87FinanceSync.test.ts` | S87-T01…T03, S87-T07…T09 | `9644462f704cc9013ba6f78623930a3880786c81d4dd06880814489d3e8875f7` | 5 FAIL / 1 PASS |
 | `apps/mobile/src/domain/openFinance/__tests__/Sprint87Removals.test.ts` | S87-T04…T06 | `b787883371ba8563055f617e9d62a82e8b1e3b3a373369a854861b81aade140a` | 2 FAIL / 1 PASS |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/services/__tests__/Sprint87FinanceSync.test.ts:274` (`S87-T08`): expectativa de `masked_number` ajustada para `'3456'` (4 últimos dígitos, consistente com `mapPluggyAccount`).
+- `apps/mobile/src/services/__tests__/Sprint65PluggySyncService.test.ts:210` (`S65-S02`): janela atualizada para a regra R10 (inclui passada de reconciliação de 40 dias `'2026-10-08'`).
+- `apps/mobile/src/services/__tests__/Sprint69FinanceFixes.test.ts:202` (`S69-S04`): expectativa de `initial_balance_cents` atualizada para `-29950` (`320050 - (500000 - 150000)`), refletindo a regra R11 na primeira vinculação de conta existente.
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **184/184 suítes PASS** (**1227/1227 testes PASS**)
+- `node scripts/test-lock.js verify`: **200 arquivos íntegros**
 
 ## Sprint 86 — Proventos completos (Fase B concluída)
 

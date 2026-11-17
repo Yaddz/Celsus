@@ -232,6 +232,10 @@ export const finAccounts = sqliteTable('fin_accounts', {
   masked_number: text('masked_number'),
   owner: text('owner'),
   auto_name: text('auto_name'),
+  of_linked_at: text('of_linked_at'),
+  closing_balance_cents: integer('closing_balance_cents'),
+  auto_invested_cents: integer('auto_invested_cents'),
+  credit_used_cents: integer('credit_used_cents'),
   created_at: text('created_at').notNull(),
 });
 
@@ -295,6 +299,7 @@ export const finEntries = sqliteTable('fin_entries', {
   description_raw: text('description_raw'),
   user_edited_fields: text('user_edited_fields'),
   linked_income_id: text('linked_income_id'),
+  of_removed_at: text('of_removed_at'),
   created_at: text('created_at').notNull(),
 });
 
@@ -404,6 +409,7 @@ export const ofSyncRuns = sqliteTable('of_sync_runs', {
   started_at: text('started_at').notNull(),
   finished_at: text('finished_at'),
   status: text('status').notNull(),
+  kind: text('kind').notNull().default('FINANCE'), // 'FINANCE' | 'INVESTMENTS'
   counts_json: text('counts_json'),
   error: text('error'),
 });

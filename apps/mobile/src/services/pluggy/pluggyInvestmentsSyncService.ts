@@ -556,6 +556,7 @@ export const pluggyInvestmentsSyncService = {
                 source: 'OPEN_FINANCE',
                 external_id: mtx.externalId,
                 archived_at: null,
+                is_synthetic: 0,
                 created_at: nowIso,
               });
               counts.transactionsCreated++;

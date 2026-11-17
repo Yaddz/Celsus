@@ -355,3 +355,8 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - Tokens novos em `layout`: `safeBottomMin` (16), `dockClearance` (96 = barra de 60 + folga de 36), `fabClearance` (72 = botão de 56 + 16) e `chipGap` (8).
 - Padding inferior do conteúdo rolável: `dockContentPaddingBottom(insets.bottom, { withFab })` em `src/theme/layoutMetrics.ts` = `max(safe area, 16) + 96 (+ 72 com botão flutuante)`. Usado pela Home de Investimentos (`App.tsx`) e por todas as telas de Finanças; substitui os valores fixos 96/120/130/170.
 - Telas raiz de Finanças (Resumo, Lançamentos, Contas, Mais) usam `sharedStyles.scrollContent`: margem lateral `layout.tabScreenPaddingX` (16), respiro sob o header `layout.tabScreenPaddingTop` (4) e gap `bento.gap` (10), iguais aos da Home de Investimentos.
+
+## Janela, Exclusões e Saldos Open Finance (Sprint 87)
+
+- `of_sync_runs` separa execuções `FINANCE` e `INVESTMENTS` (`kind`). O sync de finanças executa duas passadas (`createdAtFrom` incremental + `dateFrom` de 40 dias) e reconcilia exclusões via `detectRemovedOpenFinanceEntries` (`domain/openFinance/index.ts`), marcando `fin_entries.of_removed_at`.
+- `fin_accounts` persiste `of_linked_at`, `closing_balance_cents`, `auto_invested_cents` e `credit_used_cents` (todos incluídos no schema, migração idempotente e `backupService.ts`).

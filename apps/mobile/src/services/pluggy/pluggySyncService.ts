@@ -4,6 +4,8 @@ import { assets, incomeEvents, portfolios } from '../../db/schema';
 import {
   applyUserEditedPreservation,
   computeSyncWindowStart,
+  deduplicatePluggyAccountTransactions,
+  detectRemovedOpenFinanceEntries,
   mapPluggyAccount,
   mapPluggyTransaction,
   reconcilePluggyTransactions,
@@ -28,6 +30,8 @@ export interface PluggySyncCounts {
   transactionsSettled: number;
   transfersMatched: number;
   billsSynced: number;
+  entriesRemoved?: number;
+  removalConflicts?: number;
 }
 
 export interface PluggySyncResult {
@@ -86,23 +90,43 @@ export const pluggySyncService = {
 
     try {
       const priorRuns = await openFinanceRepository.listSyncRuns(itemId);
-      const lastSuccess = priorRuns.find((r) => r.status === 'SUCCESS');
+      const financeRuns = priorRuns.filter(
+        (r) => (r.kind ?? (r.id.startsWith('of-inv-') ? 'INVESTMENTS' : 'FINANCE')) === 'FINANCE'
+      );
+      const lastSuccess = financeRuns.find((r) => r.status === 'SUCCESS');
       const lastSuccessIso = lastSuccess
         ? lastSuccess.finished_at ?? lastSuccess.started_at
         : null;
-      const dateFrom = computeSyncWindowStart(lastSuccessIso, nowIso);
+      const isFirstFinanceSync = !lastSuccessIso;
+      const firstDateFrom = computeSyncWindowStart(null, nowIso);
+      const createdAtFrom = lastSuccessIso
+        ? new Date(Date.parse(lastSuccessIso) - 24 * 60 * 60 * 1000).toISOString()
+        : null;
+      const reconcileWindowStart = isFirstFinanceSync
+        ? firstDateFrom
+        : new Date(nowDate.getTime() - 40 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
       const item = await client.getItem(itemId);
       assertItemConsentActive(item, nowDate.getTime());
 
       const pluggyAccounts = await client.listAccounts(itemId);
-      const txsByAccount = new Map<string, PluggyTransaction[]>();
+      const txsByAccount = new Map<string, Array<{ tx: PluggyTransaction; externalId: string }>>();
       const billsByAccount = new Map<string, PluggyBill[]>();
 
       for (const acc of pluggyAccounts) {
-        const txs = await client.listTransactions(acc.id, { dateFrom });
-        txsByAccount.set(acc.id, txs);
-        counts.transactionsFetched += txs.length;
+        let rawTxs: PluggyTransaction[];
+        if (isFirstFinanceSync || !createdAtFrom) {
+          rawTxs = await client.listTransactions(acc.id, { dateFrom: firstDateFrom });
+        } else {
+          const [incTxs, recTxs] = await Promise.all([
+            client.listTransactions(acc.id, { createdAtFrom }),
+            client.listTransactions(acc.id, { dateFrom: reconcileWindowStart }),
+          ]);
+          rawTxs = [...incTxs, ...recTxs];
+        }
+        const deduped = deduplicatePluggyAccountTransactions(rawTxs);
+        txsByAccount.set(acc.id, deduped);
+        counts.transactionsFetched += deduped.length;
 
         if (acc.type === 'CREDIT') {
           const bills = await client.listBills(acc.id);
@@ -139,6 +163,7 @@ export const pluggySyncService = {
         }
 
         const newCheckingReportedCents = new Map<string, number>();
+        const syncedAccountIds = new Set<string>();
         for (const pgAcc of pluggyAccounts) {
           const mapped = mapPluggyAccount(pgAcc, item.connector?.name);
           const choice = options?.accountChoices?.find(
@@ -151,6 +176,7 @@ export const pluggySyncService = {
           }
 
           if (localAcc) {
+            const isFirstLink = !(localAcc as any).of_linked_at;
             const shouldPreserveName =
               localAcc.auto_name !== null &&
               localAcc.auto_name !== undefined &&
@@ -166,15 +192,22 @@ export const pluggySyncService = {
               reported_balance_at: mapped.reportedBalanceAt,
               masked_number: mapped.maskedNumber,
               owner: mapped.owner,
+              closing_balance_cents: mapped.closingBalanceCents,
+              auto_invested_cents: mapped.autoInvestedCents,
+              ...(isFirstLink ? { of_linked_at: nowIso } : {}),
               ...(mapped.type === 'card'
                 ? {
                     credit_limit_cents:
                       mapped.creditLimitCents ?? localAcc.credit_limit_cents,
+                    credit_used_cents: mapped.creditUsedCents,
                     due_day: mapped.dueDay ?? localAcc.due_day,
                     closing_day: updatedClosingDay,
                   }
                 : {}),
             });
+            if (isFirstLink && mapped.type === 'checking') {
+              newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
+            }
           } else {
             const createdClosingDay = choice?.closingDay ?? mapped.closingDay;
             localAcc = await finRepository.createAccount({
@@ -192,11 +225,16 @@ export const pluggySyncService = {
               maskedNumber: mapped.maskedNumber,
               owner: mapped.owner,
               autoName: mapped.name,
+              ofLinkedAt: nowIso,
+              closingBalanceCents: mapped.closingBalanceCents,
+              autoInvestedCents: mapped.autoInvestedCents,
+              creditUsedCents: mapped.creditUsedCents,
             });
             if (mapped.type === 'checking') {
               newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
             }
           }
+          syncedAccountIds.add(localAcc.id);
 
           if (localAcc.type === 'card') {
             const bills = billsByAccount.get(pgAcc.id) ?? [];
@@ -225,12 +263,16 @@ export const pluggySyncService = {
         }
 
         const allMapped: MappedPluggyTransaction[] = [];
+        const fetchedExternalIds = new Set<string>();
+        const rawTxByExternalId = new Map<string, PluggyTransaction>();
         for (const pgAcc of pluggyAccounts) {
           const localAcc = localAccountByPgId.get(pgAcc.id);
           if (!localAcc) continue;
           const txs = txsByAccount.get(pgAcc.id) ?? [];
           const bills = billsByAccount.get(pgAcc.id) ?? [];
-          for (const tx of txs) {
+          for (const { tx, externalId } of txs) {
+            fetchedExternalIds.add(externalId);
+            rawTxByExternalId.set(externalId, tx);
             allMapped.push(
               mapPluggyTransaction(tx, {
                 accountId: localAcc.id,
@@ -239,6 +281,7 @@ export const pluggySyncService = {
                 dueDay: localAcc.due_day,
                 bills,
                 rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
+                externalIdOverride: externalId,
               })
             );
           }
@@ -269,12 +312,6 @@ export const pluggySyncService = {
 
         const existingById = new Map(existingEntries.map((e) => [e.id, e]));
         const toCreate: Array<Record<string, unknown>> = [];
-        const rawTxByExternalId = new Map<string, PluggyTransaction>();
-        for (const [, txs] of txsByAccount.entries()) {
-          for (const rawTx of txs) {
-            rawTxByExternalId.set(rawTx.id, rawTx);
-          }
-        }
         const syncedEntryRefs: Array<{ entryId: string; externalId: string }> = [];
 
         for (const row of reconciled.transactions) {
@@ -452,17 +489,40 @@ export const pluggySyncService = {
           }
         }
 
-        // Conta corrente recém-criada: o saldo do banco já contém o histórico importado. O saldo
-        // inicial vira "saldo do banco − lançamentos pagos importados", para o saldo calculado fechar.
-        for (const [accountId, reportedCents] of newCheckingReportedCents) {
-          let paidNetCents = 0;
-          for (const row of reconciled.transactions) {
-            if (row.accountId !== accountId || row.status !== 'paid') continue;
-            const kind = row.transferRole ?? row.kind;
-            const real = row.paidAmountCents ?? row.amountCents;
-            paidNetCents += kind === 'income' || kind === 'transfer_in' ? real : -real;
+        // R10: Detectar lançamentos Open Finance removidos pela instituição dentro da janela de 40 dias
+        const settledEntryIds = new Set(
+          reconciled.transactions
+            .filter((r) => r.action === 'settle_pending' && r.matchedEntryId)
+            .map((r) => r.matchedEntryId!)
+        );
+        const candidatesForRemoval = existingEntries.filter(
+          (e) => syncedAccountIds.has(e.account_id) && !settledEntryIds.has(e.id)
+        );
+        const removals = detectRemovedOpenFinanceEntries(
+          candidatesForRemoval,
+          fetchedExternalIds,
+          reconcileWindowStart
+        );
+        for (const rem of removals) {
+          if (rem.action === 'conflict') {
+            counts.removalConflicts = (counts.removalConflicts ?? 0) + 1;
+          } else {
+            await finRepository.updateEntry(rem.entryId, { of_removed_at: nowIso });
+            counts.entriesRemoved = (counts.entriesRemoved ?? 0) + 1;
           }
-          if (paidNetCents !== 0) {
+        }
+
+        // Conta corrente recém-criada ou recém-vinculada (R11): o saldo do banco já contém o histórico
+        // e os lançamentos existentes. Ajusta initial_balance_cents para que o saldo calculado feche.
+        if (newCheckingReportedCents.size > 0) {
+          const allEntriesAfter = await finRepository.listAllEntries();
+          for (const [accountId, reportedCents] of newCheckingReportedCents) {
+            let paidNetCents = 0;
+            for (const entry of allEntriesAfter) {
+              if (entry.account_id !== accountId || entry.status !== 'paid' || entry.of_removed_at) continue;
+              const real = entry.paid_amount_cents ?? entry.amount_cents;
+              paidNetCents += entry.kind === 'income' || entry.kind === 'transfer_in' ? real : -real;
+            }
             await finRepository.updateAccount(accountId, {
               initial_balance_cents: reportedCents - paidNetCents,
             });
@@ -485,6 +545,7 @@ export const pluggySyncService = {
           started_at: nowIso,
           finished_at: nowIso,
           status: 'SUCCESS',
+          kind: 'FINANCE',
           counts_json: JSON.stringify(counts),
           error: null,
         });
@@ -514,6 +575,7 @@ export const pluggySyncService = {
         started_at: nowIso,
         finished_at: new Date().toISOString(),
         status: 'ERROR',
+        kind: 'FINANCE',
         counts_json: JSON.stringify(counts),
         error: message,
       });
@@ -556,7 +618,12 @@ export const pluggySyncService = {
     choices: AccountReconciliationChoice[],
     pluggyAccounts: PluggyAccount[]
   ): Promise<void> {
+    const nowIso = new Date().toISOString();
     await runInTransaction(async () => {
+      const [localAccounts, allEntries] = await Promise.all([
+        finRepository.listAccounts(true),
+        finRepository.listAllEntries(),
+      ]);
       for (const choice of choices) {
         const pgAcc = pluggyAccounts.find((a) => a.id === choice.pluggyAccountId);
         if (!pgAcc) continue;
@@ -575,16 +642,53 @@ export const pluggySyncService = {
             source: 'OPEN_FINANCE',
             reportedBalanceCents: mapped.reportedBalanceCents,
             reportedBalanceAt: mapped.reportedBalanceAt,
+            maskedNumber: mapped.maskedNumber,
+            owner: mapped.owner,
+            autoName: mapped.name,
+            ofLinkedAt: nowIso,
+            closingBalanceCents: mapped.closingBalanceCents,
+            autoInvestedCents: mapped.autoInvestedCents,
+            creditUsedCents: mapped.creditUsedCents,
           });
         } else {
+          const existing = localAccounts.find((a) => a.id === choice.targetLocalAccountId);
+          const isFirstLink = !existing?.of_linked_at;
+          let nextInitialBalance: number | undefined;
+          if (isFirstLink && mapped.type === 'checking') {
+            let paidNetCents = 0;
+            for (const entry of allEntries) {
+              if (
+                entry.account_id !== choice.targetLocalAccountId ||
+                entry.status !== 'paid' ||
+                entry.of_removed_at
+              ) {
+                continue;
+              }
+              const real = entry.paid_amount_cents ?? entry.amount_cents;
+              paidNetCents +=
+                entry.kind === 'income' || entry.kind === 'transfer_in' ? real : -real;
+            }
+            nextInitialBalance = mapped.reportedBalanceCents - paidNetCents;
+          }
+
           await finRepository.updateAccount(choice.targetLocalAccountId, {
             of_account_id: pgAcc.id,
             source: 'OPEN_FINANCE',
             reported_balance_cents: mapped.reportedBalanceCents,
             reported_balance_at: mapped.reportedBalanceAt,
+            masked_number: mapped.maskedNumber,
+            owner: mapped.owner,
+            auto_name: mapped.name,
+            closing_balance_cents: mapped.closingBalanceCents,
+            auto_invested_cents: mapped.autoInvestedCents,
+            ...(isFirstLink ? { of_linked_at: nowIso } : {}),
+            ...(nextInitialBalance !== undefined
+              ? { initial_balance_cents: nextInitialBalance }
+              : {}),
             ...(mapped.type === 'card'
               ? {
                   credit_limit_cents: mapped.creditLimitCents,
+                  credit_used_cents: mapped.creditUsedCents,
                   due_day: mapped.dueDay,
                   ...(choice.closingDay != null || mapped.closingDay != null
                     ? { closing_day: choice.closingDay ?? mapped.closingDay }
