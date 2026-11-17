@@ -10,7 +10,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **185 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **193 arquivos protegidos**, SHA-256 íntegros |
 
 ## Sprint 79 — Tema claro em todas as telas (Fase B concluída)
 
@@ -148,6 +148,8 @@ Execução da Fase B:
 - `npx tsc --noEmit`: **0 erros** nos arquivos de produção e nos testes das Sprints 71–73
 - `npx expo export --platform web`: **778 módulos** empacotados sem erros
 - `node scripts/test-lock.js verify`: **170 arquivos íntegros**
+
+**Merge sprints 73 com 74–81 (nota de integração):** a branch `feat/sprint-73-pluggy-unified-sync` foi criada antes das sprints 74–81 e sua Fase B (10/10 testes locais passando, suítes dependentes `Sprint69OpenFinanceInvestmentsUI`/`Sprint71OpenFinanceSyncFlow` 7/7 passando) foi integrada por merge ao branch principal. Conflitos em `OpenFinanceScreen.tsx` resolvidos preservando o botão único `"Sincronizar"` + toggle `"Opções avançadas"` da 73 com a estilização por tokens (`t.primaryButtonBg`, `space.xs`) das sprints 80–81.
 
 ## Sprint 72 — Pluggy: sincronizar proventos (Fase B concluída)
 

@@ -104,6 +104,7 @@ describe('Sprint 69 — Investimentos do Open Finance acessíveis pela tela', ()
       expect(getByTestId('open-finance-item-item-inv')).toBeTruthy();
     });
 
+    fireEvent.press(getByTestId('open-finance-advanced-toggle'));
     fireEvent.press(getByTestId('open-finance-sync-investments-btn'));
 
     await waitFor(() => {
@@ -144,6 +145,7 @@ describe('Sprint 69 — Investimentos do Open Finance acessíveis pela tela', ()
       expect(getByTestId('open-finance-item-item-inv')).toBeTruthy();
     });
 
+    fireEvent.press(getByTestId('open-finance-advanced-toggle'));
     fireEvent.press(getByTestId('open-finance-sync-investments-btn'));
 
     await waitFor(() => {
@@ -161,6 +163,7 @@ describe('Sprint 69 — Investimentos do Open Finance acessíveis pela tela', ()
       expect(getByTestId('open-finance-item-item-inv')).toBeTruthy();
     });
 
+    fireEvent.press(getByTestId('open-finance-advanced-toggle'));
     fireEvent.press(getByTestId('open-finance-sync-investments-btn'));
 
     await waitFor(() => {

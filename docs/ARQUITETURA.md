@@ -70,6 +70,7 @@ Princípios que atravessam o código:
 | `src/stores/` | `walletStore`, `walletsStore`, `sessionStore`, `profileStore` |
 | `src/domain/finance/` | Regras financeiras (ver `REGRAS_DE_NEGOCIO.md`) |
 | `src/domain/openFinance/` | Mapeamento Pluggy (`index.ts`, `investments.ts`), nomenclatura (`naming.ts`) e diagnóstico/cobertura (`diagnostics.ts`) |
+| `src/services/pluggy/` | Cliente Pluggy (`pluggyClient`), sincronizadores (`pluggySyncService`, `pluggyInvestmentsSyncService`) e carteira automática por corretora (`pluggyPortfolioService`) |
 | `src/domain/b3/` | Parser/classificador/planejador do extrato da B3 |
 | `src/domain/profile.ts` | Derivação de iniciais e validação de nome |
 | `src/services/` | `marketApi`, `marketSyncService`, `transactionService`, `rebalanceExecution`, `backupService`, `b3ImportService`, `b3/readStatementFile`, `spreadsheetImportService`, `authService`, `secureStorage`, `biometricProvider`, `privacyAndAuth` |

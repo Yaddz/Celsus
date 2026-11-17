@@ -92,6 +92,7 @@ describe('Sprint 71 — Fluxo OpenFinanceScreen e Diagnóstico (Fase A)', () => 
       expect(getByTestId('open-finance-item-item-2')).toBeTruthy();
     });
 
+    fireEvent.press(getByTestId('open-finance-advanced-toggle'));
     fireEvent.press(getByTestId('open-finance-sync-finance-btn'));
 
     // Primeiro item abre conciliação

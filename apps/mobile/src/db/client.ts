@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS portfolios (
   docket_code TEXT NOT NULL,
   patrimony_goal TEXT,
   monthly_contribution TEXT,
+  of_item_id TEXT,
   is_archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
@@ -308,6 +309,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_goal ON fin_goal_sources(goal_id
 CREATE INDEX IF NOT EXISTS idx_fin_goal_sources_ref ON fin_goal_sources(ref_type, ref_id);
 CREATE INDEX IF NOT EXISTS idx_fin_budgets_category_month ON fin_budgets(category_id, year_month);
 CREATE INDEX IF NOT EXISTS idx_fin_bills_account_month ON fin_bills(account_id, bill_month);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolios_of_item_id ON portfolios(of_item_id) WHERE of_item_id IS NOT NULL;
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -518,6 +520,7 @@ function isWebMemoryDbOptIn(): boolean {
 export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string }> = [
   { table: 'portfolios', column: 'patrimony_goal', ddl: 'ALTER TABLE portfolios ADD COLUMN patrimony_goal TEXT' },
   { table: 'portfolios', column: 'monthly_contribution', ddl: 'ALTER TABLE portfolios ADD COLUMN monthly_contribution TEXT' },
+  { table: 'portfolios', column: 'of_item_id', ddl: 'ALTER TABLE portfolios ADD COLUMN of_item_id TEXT' },
   {
     table: 'portfolio_class_targets',
     column: 'receives_contribution',
@@ -852,6 +855,10 @@ export function resetDatabase() {
 
 export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof drizzle> {
   if (!_dbInstance) {
+    if (isTestEnvironment() || isWebMemoryDbOptIn()) {
+      _dbInstance = createInMemoryDatabase();
+      return _dbInstance;
+    }
     try {
       // Reaproveita a conexão aberta por getRawSqliteDatabase (antes abria uma segunda conexão).
       if (!_rawSqliteDb) {
@@ -887,6 +894,12 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
         execSync: () => {},
         prepareSync: () => ({ executeSync: () => ({}) }),
         getAllSync: (sql: string) => {
+          if (sql.includes('PRAGMA table_info(portfolios)')) {
+            return [
+              'id', 'name', 'description', 'docket_code', 'patrimony_goal',
+              'monthly_contribution', 'of_item_id', 'is_archived', 'created_at', 'updated_at',
+            ].map((name) => ({ name }));
+          }
           if (sql.includes('PRAGMA table_info(assets)')) {
             return [
               'id', 'portfolio_id', 'asset_class', 'ticker', 'name',
