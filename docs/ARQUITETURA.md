@@ -175,7 +175,7 @@ movimentações e proventos).
 | :--- | :--- | :--- |
 | `portfolios` | carteiras | `name`, `docket_code`, `patrimony_goal`, `monthly_contribution`, `is_archived` |
 | `portfolio_class_targets` | meta por classe | `asset_class`, `target_percentage` (REAL), `receives_contribution` |
-| `assets` | posição por ativo na carteira | `ticker`, `asset_class`, `target_percentage_in_class`, `quantity`, `average_price`, `manual_price_override`, `rf_*` (renda fixa), `source`, `external_id` |
+| `assets` | posição por ativo na carteira | `ticker`, `asset_class`, `target_percentage_in_class`, `quantity`, `average_price`, `manual_price_override`, `rf_*` (renda fixa, incluindo `rf_indexer_pct`), `source`, `external_id` |
 | `transactions` | livro-razão | `type` (BUY, SELL, SPLIT, INPLIT…), `trade_date`, `quantity`, `unit_price`, `fees`, `total_amount`, `source`, `external_id` |
 | `income_events` | proventos | `ticker`, `pay_date`, `amount`, `kind` (RENDIMENTO/DIVIDENDO/JCP), `quantity`, `unit_amount`, `source`, `external_id` |
 | `app_meta` | chave/valor | perfil, onboarding, buscas recentes, watchlist, lote B3, marcas de semente |

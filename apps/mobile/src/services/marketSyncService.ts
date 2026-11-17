@@ -206,15 +206,20 @@ export class MarketSyncService {
 
     for (const p of portfolios) {
       const assets = portfolioAssetsMap.get(p.id) || [];
-      const { investedCapitalDec, marketValueDec } = this.calculateAssetsValuation(
-        assets,
-        quotesMap
-      );
+      const {
+        investedCapitalDec,
+        marketValueDec,
+        profitInvestedDec,
+        profitMarketDec,
+        hasUnknownCost,
+      } = this.calculateAssetsValuation(assets, quotesMap);
 
-      const profitDec = marketValueDec.minus(investedCapitalDec);
-      const profitPctDec = investedCapitalDec.gt(0)
-        ? profitDec.div(investedCapitalDec).mul(100)
-        : new Decimal(0);
+      const profitDec = profitMarketDec.minus(profitInvestedDec);
+      const profitPctStr = profitInvestedDec.gt(0)
+        ? profitDec.div(profitInvestedDec).mul(100).toFixed(2)
+        : hasUnknownCost
+        ? '—'
+        : '0.00';
 
       grandInvested = grandInvested.plus(investedCapitalDec);
       grandMarketValue = grandMarketValue.plus(marketValueDec);
@@ -225,7 +230,7 @@ export class MarketSyncService {
         investedCapital: investedCapitalDec.toFixed(2),
         marketValue: marketValueDec.toFixed(2),
         profit: profitDec.toFixed(2),
-        profitPercentage: profitPctDec.toFixed(2),
+        profitPercentage: profitPctStr,
       });
     }
 
@@ -275,14 +280,19 @@ export class MarketSyncService {
       }
     }
 
-    const { investedCapitalDec, marketValueDec } = this.calculateAssetsValuation(
-      assets,
-      quotesMap
-    );
-    const profitDec = marketValueDec.minus(investedCapitalDec);
-    const profitPctDec = investedCapitalDec.gt(0)
-      ? profitDec.div(investedCapitalDec).mul(100)
-      : new Decimal(0);
+    const {
+      investedCapitalDec,
+      marketValueDec,
+      profitInvestedDec,
+      profitMarketDec,
+      hasUnknownCost,
+    } = this.calculateAssetsValuation(assets, quotesMap);
+    const profitDec = profitMarketDec.minus(profitInvestedDec);
+    const profitPctStr = profitInvestedDec.gt(0)
+      ? profitDec.div(profitInvestedDec).mul(100).toFixed(2)
+      : hasUnknownCost
+      ? '—'
+      : '0.00';
 
     const summary: PortfolioSyncSummary = {
       portfolioId: portfolio.id,
@@ -290,7 +300,7 @@ export class MarketSyncService {
       investedCapital: investedCapitalDec.toFixed(2),
       marketValue: marketValueDec.toFixed(2),
       profit: profitDec.toFixed(2),
-      profitPercentage: profitPctDec.toFixed(2),
+      profitPercentage: profitPctStr,
     };
 
     return {
@@ -303,6 +313,15 @@ export class MarketSyncService {
     };
   }
 
+  private isUnknownCostAsset(a: Asset): boolean {
+    return (
+      a.cost_basis_source === 'UNKNOWN' ||
+      a.average_price === null ||
+      a.average_price === undefined ||
+      a.average_price === ''
+    );
+  }
+
   /**
    * Recalcula o patrimônio de uma carteira com base nos preços atuais do cache de mercado.
    */
@@ -311,69 +330,109 @@ export class MarketSyncService {
 
     let totalInvested = new Decimal(0);
     let totalMarket = new Decimal(0);
+    let profitInvested = new Decimal(0);
+    let profitMarket = new Decimal(0);
+    let hasUnknownCost = false;
 
     for (const a of assets) {
+      const unknownCost = this.isUnknownCostAsset(a);
+      if (unknownCost) hasUnknownCost = true;
+
       const qty = new Decimal(a.quantity || 0);
-      const pm = new Decimal(a.average_price || 0);
-      const invested = qty.mul(pm);
+      const pm = new Decimal(unknownCost ? 0 : a.average_price || 0);
+      const invested = unknownCost ? new Decimal(0) : qty.mul(pm);
       totalInvested = totalInvested.plus(invested);
 
+      let assetMarket = new Decimal(0);
       if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
-        totalMarket = totalMarket.plus(new Decimal(a.manual_position_value));
+        assetMarket = new Decimal(a.manual_position_value);
       } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
-        totalMarket = totalMarket.plus(qty.mul(new Decimal(a.manual_price_override)));
+        assetMarket = qty.mul(new Decimal(a.manual_price_override));
       } else {
         const cached = await this.marketApi.getCachedQuote(a.ticker);
         if (cached && cached.currentPrice) {
-          totalMarket = totalMarket.plus(qty.mul(new Decimal(cached.currentPrice)));
+          assetMarket = qty.mul(new Decimal(cached.currentPrice));
         } else {
-          totalMarket = totalMarket.plus(invested);
+          assetMarket = invested;
         }
+      }
+      totalMarket = totalMarket.plus(assetMarket);
+
+      if (!unknownCost) {
+        profitInvested = profitInvested.plus(invested);
+        profitMarket = profitMarket.plus(assetMarket);
       }
     }
 
-    const profit = totalMarket.minus(totalInvested);
-    const profitPct = totalInvested.gt(0)
-      ? profit.div(totalInvested).mul(100)
-      : new Decimal(0);
+    const profit = profitMarket.minus(profitInvested);
+    const profitPctStr = profitInvested.gt(0)
+      ? profit.div(profitInvested).mul(100).toFixed(2)
+      : hasUnknownCost
+      ? '—'
+      : '0.00';
 
     return {
       investedCapital: totalInvested.toFixed(2),
       marketValue: totalMarket.toFixed(2),
       profit: profit.toFixed(2),
-      profitPercentage: profitPct.toFixed(2),
+      profitPercentage: profitPctStr,
     };
   }
 
   private calculateAssetsValuation(
     assets: Asset[],
     quotesMap: Record<string, MarketQuote>
-  ): { investedCapitalDec: Decimal; marketValueDec: Decimal } {
+  ): {
+    investedCapitalDec: Decimal;
+    marketValueDec: Decimal;
+    profitInvestedDec: Decimal;
+    profitMarketDec: Decimal;
+    hasUnknownCost: boolean;
+  } {
     let investedCapitalDec = new Decimal(0);
     let marketValueDec = new Decimal(0);
+    let profitInvestedDec = new Decimal(0);
+    let profitMarketDec = new Decimal(0);
+    let hasUnknownCost = false;
 
     for (const a of assets) {
+      const unknownCost = this.isUnknownCostAsset(a);
+      if (unknownCost) hasUnknownCost = true;
+
       const qty = new Decimal(a.quantity || 0);
-      const pm = new Decimal(a.average_price || 0);
-      const invested = qty.mul(pm);
+      const pm = new Decimal(unknownCost ? 0 : a.average_price || 0);
+      const invested = unknownCost ? new Decimal(0) : qty.mul(pm);
       investedCapitalDec = investedCapitalDec.plus(invested);
 
+      let assetMarket = new Decimal(0);
       if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
-        marketValueDec = marketValueDec.plus(new Decimal(a.manual_position_value));
+        assetMarket = new Decimal(a.manual_position_value);
       } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
-        marketValueDec = marketValueDec.plus(qty.mul(new Decimal(a.manual_price_override)));
+        assetMarket = qty.mul(new Decimal(a.manual_price_override));
       } else {
         const norm = a.ticker.trim().toUpperCase();
         const quote = quotesMap[norm];
         if (quote && quote.currentPrice) {
-          marketValueDec = marketValueDec.plus(qty.mul(new Decimal(quote.currentPrice)));
+          assetMarket = qty.mul(new Decimal(quote.currentPrice));
         } else {
-          marketValueDec = marketValueDec.plus(invested);
+          assetMarket = invested;
         }
+      }
+      marketValueDec = marketValueDec.plus(assetMarket);
+
+      if (!unknownCost) {
+        profitInvestedDec = profitInvestedDec.plus(invested);
+        profitMarketDec = profitMarketDec.plus(assetMarket);
       }
     }
 
-    return { investedCapitalDec, marketValueDec };
+    return {
+      investedCapitalDec,
+      marketValueDec,
+      profitInvestedDec,
+      profitMarketDec,
+      hasUnknownCost,
+    };
   }
 }
 

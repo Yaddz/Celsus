@@ -53,6 +53,7 @@ export const assets = sqliteTable('assets', {
   // Renda Fixa specific fields
   rf_indexer: text('rf_indexer'), // CDI | IPCA | PRE | NULL
   rf_rate: real('rf_rate'),
+  rf_indexer_pct: real('rf_indexer_pct'),
   rf_maturity_date: text('rf_maturity_date'),
   rf_is_tax_exempt: integer('rf_is_tax_exempt').notNull().default(0),
   rf_issuer: text('rf_issuer'),

@@ -12,13 +12,21 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **193 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 84 — Investimentos: números corretos (Fase A concluída)
+## Sprint 84 — Investimentos: números corretos (Fase B concluída)
 
-Especificação dos diagnósticos D3, D4, D5 e D9 e regras R1, R2, R3 e R4 (sem `OPENING_BALANCE`).
+Precisão de 8 casas decimais em `unit_price` e `average_price` (`R1`), validação de `tx.value` e exclusão de `incomeTax`/`iofProvision` em `fees` (`R2`), mapeamento de taxas de Renda Fixa com `assets.rf_indexer_pct` e faixa plausível (`R3`), custo `'UNKNOWN'` quando sem `amountOriginal` (`R4`), reprocessamento idempotente por `external_id` e formatação `formatUnitPriceBRL` (2 ou 6 casas para cotas `< R$ 1,00`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/services/pluggy/__tests__/Sprint84InvestmentNumbers.test.ts` | S84-T01…T10 | `4f8c419db8ccdf64e7f071f8e491efb6f831529eeda986462d10290550c71bf9` | 9 FAIL / 1 PASS |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `Sprint66InvestmentsDomain.test.ts` (`S66-D06`, `S66-D07`, `S66-D08`): expectativas de `unitPrice` e `averagePrice` atualizadas para 8 casas decimais (`R1`).
+- `Sprint71InvestmentMapping.test.ts` (`S71-T04`, `S71-T05`, `S71-T06`, `S71-T08`): expectativas de `averagePrice` atualizadas para 8 casas decimais e `totalInvested` sem truncamento intermediário de PM (`R1`).
+
+Execução da Fase B:
+- `npx jest --watchAll=false src/domain/openFinance/__tests__/ src/services/pluggy/__tests__/`: **14/14 suítes PASS** (**92/92 testes PASS**)
+- `node scripts/test-lock.js verify`: **194 arquivos íntegros**
 
 ## Sprint 79 — Tema claro em todas as telas (Fase B concluída)
 

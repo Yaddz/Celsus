@@ -202,7 +202,7 @@ describe('Sprint 66 — Domínio de Investimentos Open Finance (Fase A)', () => 
       expect(mappedBuy.type).toBe('BUY');
       expect(mappedBuy.tradeDate).toBe('2026-03-10');
       expect(mappedBuy.quantity).toBe('100');
-      expect(mappedBuy.unitPrice).toBe('30.00');
+      expect(mappedBuy.unitPrice).toBe('30.00000000');
       expect(mappedBuy.fees).toBe('5.50');
 
       const interestTx: PluggyInvestmentTransaction = {
@@ -290,7 +290,7 @@ describe('Sprint 66 — Domínio de Investimentos Open Finance (Fase A)', () => 
       // PM: (3010 + 3600) / 200 = 33.05; após venda de 50, restam 150 * 33.05 = 4957.50
       expect(cost.coveredByHistory).toBe(true);
       expect(cost.costBasisSource).toBe('TRANSACTIONS');
-      expect(cost.averagePrice).toBe('33.05');
+      expect(cost.averagePrice).toBe('33.05000000');
       expect(cost.totalInvested).toBe('4957.50');
     });
 
@@ -317,7 +317,7 @@ describe('Sprint 66 — Domínio de Investimentos Open Finance (Fase A)', () => 
       const cost = calculateInvestmentCostBasis(inv, partialTxs);
       expect(cost.coveredByHistory).toBe(false);
       expect(cost.costBasisSource).toBe('INSTITUTION');
-      expect(cost.averagePrice).toBe('27.50'); // 5500 / 200
+      expect(cost.averagePrice).toBe('27.50000000'); // 5500 / 200
       expect(cost.totalInvested).toBe('5500.00');
     });
   });

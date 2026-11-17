@@ -20,6 +20,7 @@ import { portfolioRepository } from '../repositories/portfolioRepository';
 import { Asset, Portfolio } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
 import { TextField } from '../components/ui/TextField';
+import { formatUnitPriceBRL } from '../utils/formatters';
 
 export interface TransactionScreenProps {
   onClose?: () => void;
@@ -878,7 +879,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
           <Text style={[styles.summarySub, isLight && styles.summarySubLight, { textAlign: 'center', marginTop: 0 }]}>
             {isPrivacyMode
               ? 'Posição atual •••• un: PM: R$ ••••••'
-              : `Posição atual ${selectedAsset?.quantity || '0'} un: PM: R$ ${parseFloat(selectedAsset?.average_price || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+              : `Posição atual ${selectedAsset?.quantity || '0'} un: PM: ${selectedAsset?.cost_basis_source === 'UNKNOWN' || !selectedAsset?.average_price ? '—' : formatUnitPriceBRL(selectedAsset?.average_price)}`}
           </Text>
         </View>
 

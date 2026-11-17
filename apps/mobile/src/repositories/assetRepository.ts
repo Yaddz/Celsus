@@ -46,6 +46,7 @@ export class AssetRepository {
       manual_position_value: params.manual_position_value ?? null,
       rf_indexer: params.rf_indexer ?? null,
       rf_rate: params.rf_rate ?? null,
+      rf_indexer_pct: params.rf_indexer_pct ?? null,
       rf_maturity_date: params.rf_maturity_date ?? null,
       rf_is_tax_exempt: params.rf_is_tax_exempt ?? 0,
       rf_issuer: params.rf_issuer ?? null,

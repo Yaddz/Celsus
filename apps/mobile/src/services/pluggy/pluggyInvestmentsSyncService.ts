@@ -361,7 +361,7 @@ export const pluggyInvestmentsSyncService = {
                 name: shouldPreserveName ? existingAsset!.name : mapped.name,
                 auto_name: mapped.name,
                 quantity: isWithdrawn ? '0' : mapped.quantity,
-                average_price: cost.averagePrice,
+                average_price: cost.averagePrice ?? '',
                 manual_price_override: null,
                 manual_position_value: nextManualPositionValue,
                 gross_amount: mapped.grossAmount,
@@ -369,6 +369,7 @@ export const pluggyInvestmentsSyncService = {
                 isin: mapped.isin,
                 rf_indexer: mapped.rfIndexer,
                 rf_rate: mapped.rfRate,
+                rf_indexer_pct: mapped.rfIndexerPct,
                 rf_maturity_date: mapped.rfMaturityDate,
                 rf_issuer: mapped.rfIssuer,
                 rf_is_tax_exempt: mapped.rfIsTaxExempt ? 1 : 0,
@@ -401,7 +402,7 @@ export const pluggyInvestmentsSyncService = {
               name: mapped.name,
               auto_name: mapped.name,
               quantity: isWithdrawn ? '0' : mapped.quantity,
-              average_price: cost.averagePrice,
+              average_price: cost.averagePrice ?? '',
               manual_price_override: null,
               manual_position_value: nextManualPositionValue,
               gross_amount: mapped.grossAmount,
@@ -409,6 +410,7 @@ export const pluggyInvestmentsSyncService = {
               isin: mapped.isin,
               rf_indexer: mapped.rfIndexer,
               rf_rate: mapped.rfRate,
+              rf_indexer_pct: mapped.rfIndexerPct,
               rf_maturity_date: mapped.rfMaturityDate,
               rf_issuer: mapped.rfIssuer,
               rf_is_tax_exempt: mapped.rfIsTaxExempt ? 1 : 0,
@@ -439,15 +441,38 @@ export const pluggyInvestmentsSyncService = {
               .select()
               .from(transactions)
               .where(eq(transactions.asset_id, targetAssetId));
-            const existingExtTxIds = new Set(
+            const existingExtTxByExtId = new Map(
               currentAssetTxs
                 .filter((t) => t.source === 'OPEN_FINANCE' && t.external_id)
-                .map((t) => t.external_id!)
+                .map((t) => [t.external_id!, t])
             );
 
             for (const mtx of mappedTxs) {
               if (mtx.type !== 'BUY' && mtx.type !== 'SELL') continue;
-              if (existingExtTxIds.has(mtx.externalId)) continue;
+              const existingTx = existingExtTxByExtId.get(mtx.externalId);
+              if (existingTx) {
+                const needsUpdate =
+                  existingTx.unit_price !== mtx.unitPrice ||
+                  existingTx.fees !== mtx.fees ||
+                  existingTx.total_amount !== mtx.totalAmount ||
+                  existingTx.quantity !== mtx.quantity ||
+                  existingTx.trade_date !== mtx.tradeDate ||
+                  (existingTx.notes ?? null) !== (mtx.notes ?? null);
+                if (needsUpdate) {
+                  await db
+                    .update(transactions)
+                    .set({
+                      trade_date: mtx.tradeDate,
+                      quantity: mtx.quantity,
+                      unit_price: mtx.unitPrice,
+                      fees: mtx.fees,
+                      total_amount: mtx.totalAmount,
+                      notes: mtx.notes,
+                    })
+                    .where(eq(transactions.id, existingTx.id));
+                }
+                continue;
+              }
               await transactionRepository.createTransaction({
                 portfolio_id: targetPortfolioId,
                 asset_id: targetAssetId,
@@ -461,7 +486,22 @@ export const pluggyInvestmentsSyncService = {
                 source: 'OPEN_FINANCE',
                 external_id: mtx.externalId,
               });
-              existingExtTxIds.add(mtx.externalId);
+              existingExtTxByExtId.set(mtx.externalId, {
+                id: '',
+                portfolio_id: targetPortfolioId,
+                asset_id: targetAssetId,
+                type: mtx.type,
+                trade_date: mtx.tradeDate,
+                quantity: mtx.quantity,
+                unit_price: mtx.unitPrice,
+                fees: mtx.fees,
+                total_amount: mtx.totalAmount,
+                notes: mtx.notes,
+                source: 'OPEN_FINANCE',
+                external_id: mtx.externalId,
+                archived_at: null,
+                created_at: nowIso,
+              });
               counts.transactionsCreated++;
             }
 

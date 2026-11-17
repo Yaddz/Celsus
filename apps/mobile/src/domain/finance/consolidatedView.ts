@@ -6,7 +6,8 @@ export interface PortfolioAssetInput {
   ticker: string;
   assetClass: AssetClass;
   quantity: string | number;
-  averagePrice: string | number;
+  averagePrice: string | number | null;
+  costBasisSource?: string | null;
   currentPrice?: string | number | null;
   manualPriceOverride?: string | number | null;
   manualPositionValue?: string | number | null;
@@ -106,13 +107,16 @@ export function consolidatePortfolios(
 
   let grandInvested = new Decimal(0);
   let grandMarketValue = new Decimal(0);
+  let grandProfitInvested = new Decimal(0);
+  let grandProfitMarket = new Decimal(0);
+  let grandHasUnknownCost = false;
 
   interface ComputedPortfolioData {
     portfolio: PortfolioConsolidationInput;
     invested: Decimal;
     marketValue: Decimal;
     profit: Decimal;
-    profitPct: Decimal;
+    profitPctStr: string;
   }
 
   const computedPortfolios: ComputedPortfolioData[] = [];
@@ -154,11 +158,24 @@ export function consolidatePortfolios(
   for (const p of activePortfolios) {
     let pInvested = new Decimal(0);
     let pMarketValue = new Decimal(0);
+    let pProfitInvested = new Decimal(0);
+    let pProfitMarket = new Decimal(0);
+    let pHasUnknownCost = false;
 
     for (const asset of p.assets) {
+      const unknownCost =
+        asset.costBasisSource === 'UNKNOWN' ||
+        asset.averagePrice === null ||
+        asset.averagePrice === undefined ||
+        asset.averagePrice === '';
+      if (unknownCost) {
+        pHasUnknownCost = true;
+        grandHasUnknownCost = true;
+      }
+
       const qty = new Decimal(asset.quantity || 0);
-      const avgPrice = new Decimal(asset.averagePrice || 0);
-      const invested = qty.mul(avgPrice);
+      const avgPrice = new Decimal(unknownCost ? 0 : asset.averagePrice || 0);
+      const invested = unknownCost ? new Decimal(0) : qty.mul(avgPrice);
 
       let price = avgPrice;
       let mv: Decimal;
@@ -190,6 +207,10 @@ export function consolidatePortfolios(
 
       pInvested = pInvested.plus(invested);
       pMarketValue = pMarketValue.plus(mv);
+      if (!unknownCost) {
+        pProfitInvested = pProfitInvested.plus(invested);
+        pProfitMarket = pProfitMarket.plus(mv);
+      }
 
       // Track class totals
       if (classInvestedMap[asset.assetClass]) {
@@ -217,21 +238,25 @@ export function consolidatePortfolios(
       holding.portfolioIds.add(p.id);
     }
 
-    const pProfit = pMarketValue.minus(pInvested);
-    const pProfitPct = pInvested.gt(0)
-      ? pProfit.div(pInvested).mul(100)
-      : new Decimal(0);
+    const pProfit = pProfitMarket.minus(pProfitInvested);
+    const pProfitPctStr = pProfitInvested.gt(0)
+      ? pProfit.div(pProfitInvested).mul(100).toFixed(2)
+      : pHasUnknownCost
+      ? '—'
+      : '0.00';
 
     computedPortfolios.push({
       portfolio: p,
       invested: pInvested,
       marketValue: pMarketValue,
       profit: pProfit,
-      profitPct: pProfitPct,
+      profitPctStr: pProfitPctStr,
     });
 
     grandInvested = grandInvested.plus(pInvested);
     grandMarketValue = grandMarketValue.plus(pMarketValue);
+    grandProfitInvested = grandProfitInvested.plus(pProfitInvested);
+    grandProfitMarket = grandProfitMarket.plus(pProfitMarket);
 
     // Track targets weighted by portfolio market value
     if (p.classTargets && p.classTargets.length > 0) {
@@ -245,10 +270,12 @@ export function consolidatePortfolios(
     }
   }
 
-  const grandProfit = grandMarketValue.minus(grandInvested);
-  const grandProfitPct = grandInvested.gt(0)
-    ? grandProfit.div(grandInvested).mul(100)
-    : new Decimal(0);
+  const grandProfit = grandProfitMarket.minus(grandProfitInvested);
+  const grandProfitPctStr = grandProfitInvested.gt(0)
+    ? grandProfit.div(grandProfitInvested).mul(100).toFixed(2)
+    : grandHasUnknownCost
+    ? '—'
+    : '0.00';
 
   // Portfolio breakdown
   const breakdown: PortfolioBreakdownItem[] = computedPortfolios.map((cp) => {
@@ -263,7 +290,7 @@ export function consolidatePortfolios(
       investedCapital: cp.invested.toFixed(2),
       marketValue: cp.marketValue.toFixed(2),
       profit: cp.profit.toFixed(2),
-      profitPercentage: cp.profitPct.toFixed(2),
+      profitPercentage: cp.profitPctStr,
       shareOfTotal: share,
     };
   });
@@ -333,7 +360,7 @@ export function consolidatePortfolios(
     totalInvestedCapital: grandInvested.toFixed(2),
     totalMarketValue: grandMarketValue.toFixed(2),
     totalProfit: grandProfit.toFixed(2),
-    totalProfitPercentage: grandProfitPct.toFixed(2),
+    totalProfitPercentage: grandProfitPctStr,
     activePortfolioCount: activePortfolios.length,
     archivedPortfolioCount: archivedCount,
     portfolioBreakdown: breakdown,

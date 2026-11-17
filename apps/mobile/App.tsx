@@ -9,6 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders, layout } from './src/theme/tokens';
+import { formatUnitPriceBRL } from './src/utils/formatters';
 import { dockContentPaddingBottom } from './src/theme/layoutMetrics';
 import {
   StackedWalletDeck,
@@ -248,7 +249,7 @@ function getInitialTransactions(): RecentTransactionItem[] {
           type: t.type as 'BUY' | 'SELL',
           dateText: t.trade_date,
           amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-          unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+          unitPrice: t.unit_price ? formatUnitPriceBRL(t.unit_price) : undefined,
           quantity: t.quantity ? String(t.quantity) : undefined,
           fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
           assetName: asset?.name,
@@ -437,6 +438,7 @@ function AppContent(props: {
               assetClass: a.asset_class as any,
               quantity: a.quantity,
               averagePrice: a.average_price,
+              costBasisSource: a.cost_basis_source,
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
               manualPriceOverride: a.manual_price_override,
               manualPositionValue: a.manual_position_value,
@@ -458,8 +460,10 @@ function AppContent(props: {
 
         const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
         const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-        const profitPctStr = parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',');
-        const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${profitPctStr}% total`;
+        const formattedProfit =
+          homeDossier.totalProfitPercentage === '—'
+            ? '—'
+            : `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',')}% total`;
         setTotalPatrimony(formattedTotal);
         setProfitSummary(formattedProfit);
         setWalletsList(
@@ -468,8 +472,10 @@ function AppContent(props: {
             const pMv = parseFloat(b?.marketValue || '0');
             const pBalance = `R$ ${pMv.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
             const pProfitNum = parseFloat(b?.profit || '0');
-            const pProfitPctStr = parseFloat(b?.profitPercentage || '0').toFixed(1).replace('.', ',');
-            const pProfitText = `${pProfitNum >= 0 ? '+' : ''}${pProfitPctStr}% total`;
+            const pProfitText =
+              b?.profitPercentage === '—'
+                ? '—'
+                : `${pProfitNum >= 0 ? '+' : ''}${parseFloat(b?.profitPercentage || '0').toFixed(1).replace('.', ',')}% total`;
             const pal = getPortfolioPalette(idx);
             return {
               id: p.id,
@@ -543,7 +549,7 @@ function AppContent(props: {
               type: t.type as 'BUY' | 'SELL',
               dateText: t.trade_date,
               amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-              unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+              unitPrice: t.unit_price ? formatUnitPriceBRL(t.unit_price) : undefined,
               quantity: t.quantity ? String(t.quantity) : undefined,
               fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
               assetName: asset?.name,
@@ -695,6 +701,7 @@ function AppContent(props: {
               assetClass: a.asset_class as any,
               quantity: a.quantity,
               averagePrice: a.average_price,
+              costBasisSource: a.cost_basis_source,
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
               manualPriceOverride: a.manual_price_override,
               manualPositionValue: a.manual_position_value,
@@ -715,8 +722,10 @@ function AppContent(props: {
           const homeDossier = consolidatePortfolios([activeInput]);
           const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
           const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-          const profitPctStr = parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',');
-          const formattedProfit = `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${profitPctStr}% total`;
+          const formattedProfit =
+            homeDossier.totalProfitPercentage === '—'
+              ? '—'
+              : `${parseFloat(homeDossier.totalProfit || '0') >= 0 ? '+' : ''}${parseFloat(homeDossier.totalProfitPercentage || '0').toFixed(1).replace('.', ',')}% total`;
           apply.push(() => setTotalPatrimony(formattedTotal));
           apply.push(() => setProfitSummary(formattedProfit));
           apply.push(() => setActivePortfolioId(activePort.id));
@@ -767,7 +776,7 @@ function AppContent(props: {
                   type: t.type as 'BUY' | 'SELL',
                   dateText: t.trade_date,
                   amountText: `R$ ${parseFloat(t.total_amount || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                  unitPrice: t.unit_price ? `R$ ${parseFloat(t.unit_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
+                  unitPrice: t.unit_price ? formatUnitPriceBRL(t.unit_price) : undefined,
                   quantity: t.quantity ? String(t.quantity) : undefined,
                   fees: t.fees ? `R$ ${parseFloat(t.fees).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : undefined,
                   assetName: asset?.name,
@@ -1494,13 +1503,14 @@ function AppContent(props: {
     const classTotalGross = classRawAssets.reduce((sum, a) => sum.plus(grossOf(a)), new Decimal(0));
     const classAssetsForDetail: ClassAssetDetailItem[] = classRawAssets
       .map((a) => {
+        const unknownCost = a.cost_basis_source === 'UNKNOWN' || !a.average_price;
         const qtyDec = new Decimal(a.quantity || '0');
-        const avgDec = new Decimal(a.average_price || '0');
-        const investedDec = qtyDec.mul(avgDec);
+        const avgDec = new Decimal(unknownCost ? '0' : a.average_price || '0');
+        const investedDec = unknownCost ? new Decimal(0) : qtyDec.mul(avgDec);
         const currentPriceDec = priceOf(a);
         const grossDec = grossOf(a);
         const profitDec = grossDec.minus(investedDec);
-        const profitPctDec = investedDec.gt(0) ? profitDec.div(investedDec).mul(100) : new Decimal(0);
+        const profitPctDec = !unknownCost && investedDec.gt(0) ? profitDec.div(investedDec).mul(100) : new Decimal(0);
         const isPos = profitDec.gte(0);
 
         return {
@@ -1515,10 +1525,10 @@ function AppContent(props: {
             : 0,
           grossBalance: `R$ ${grossDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           quantity: a.quantity,
-          averagePrice: `R$ ${avgDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          currentPrice: `R$ ${currentPriceDec.toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-          profitabilityPercentage: `${isPos ? '+' : ''}${profitPctDec.toFixed(2).replace('.', ',')}%`,
-          profitabilityAmount: `${isPos ? '+' : '-'}R$ ${profitDec.abs().toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          averagePrice: unknownCost ? '—' : formatUnitPriceBRL(a.average_price),
+          currentPrice: formatUnitPriceBRL(currentPriceDec.toString()),
+          profitabilityPercentage: unknownCost ? '—' : `${isPos ? '+' : ''}${profitPctDec.toFixed(2).replace('.', ',')}%`,
+          profitabilityAmount: unknownCost ? '—' : `${isPos ? '+' : '-'}R$ ${profitDec.abs().toNumber().toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           sliceColor: ASSET_CLASS_ATTRIBUTE_MAP[a.asset_class as AssetClass]?.color || colors.primary,
         };
       });

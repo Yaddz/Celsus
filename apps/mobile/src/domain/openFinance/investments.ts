@@ -6,7 +6,7 @@ import type {
 } from '../../services/pluggy/types';
 import { buildInvestmentDisplay } from './naming';
 
-export type CostBasisSource = 'TRANSACTIONS' | 'INSTITUTION' | 'MANUAL';
+export type CostBasisSource = 'TRANSACTIONS' | 'INSTITUTION' | 'MANUAL' | 'UNKNOWN';
 
 export type MappedInvestmentLedgerType =
   | 'BUY'
@@ -39,12 +39,14 @@ export interface MappedPluggyInvestment {
   annualRateFormatted: string;
   rfIndexer: 'CDI' | 'IPCA' | 'PRE' | null;
   rfRate: number | null;
+  rfIndexerPct: number | null;
   rfFixedAnnualRate: number | null;
   rfMaturityDate: string | null;
   rfIssuer: string | null;
   rfIsTaxExempt: boolean;
   status: 'ACTIVE' | 'PENDING' | 'TOTAL_WITHDRAWAL';
   source: 'OPEN_FINANCE';
+  warnings: string[];
 }
 
 export interface MappedPluggyInvestmentTransaction {
@@ -58,11 +60,12 @@ export interface MappedPluggyInvestmentTransaction {
   totalAmount: string;
   notes: string | null;
   source: 'OPEN_FINANCE';
+  warnings: string[];
 }
 
 export interface InvestmentCostBasisResult {
-  averagePrice: string;
-  totalInvested: string;
+  averagePrice: string | null;
+  totalInvested: string | null;
   costBasisSource: CostBasisSource;
   coveredByHistory: boolean;
 }
@@ -130,6 +133,54 @@ function mapRfIndexer(rateType: string | null | undefined): 'CDI' | 'IPCA' | 'PR
   return null;
 }
 
+export function resolvePluggyFixedIncomeRates(
+  inv: Pick<PluggyInvestment, 'rateType' | 'rate' | 'fixedAnnualRate'>
+): {
+  rfIndexer: 'CDI' | 'IPCA' | 'PRE' | null;
+  rfRate: number | null;
+  rfIndexerPct: number | null;
+  warnings: string[];
+} {
+  const rfIndexer = mapRfIndexer(inv.rateType);
+  const warnings: string[] = [];
+  let rfRate: number | null = null;
+  let rfIndexerPct: number | null = null;
+
+  if (rfIndexer === 'CDI') {
+    const raw = inv.rate ?? null;
+    if (raw !== null) {
+      if (raw < 50 || raw > 200) {
+        warnings.push(`Taxa CDI/SELIC fora da faixa plausível (50–200%): ${raw}`);
+      } else {
+        rfRate = raw;
+      }
+    }
+  } else if (rfIndexer === 'PRE') {
+    const raw = inv.fixedAnnualRate ?? inv.rate ?? null;
+    if (raw !== null) {
+      if (raw < 0 || raw > 30) {
+        warnings.push(`Taxa PRE fora da faixa plausível (0–30%): ${raw}`);
+      } else {
+        rfRate = raw;
+      }
+    }
+  } else if (rfIndexer === 'IPCA') {
+    const rawSpread = inv.fixedAnnualRate ?? null;
+    if (rawSpread !== null) {
+      if (rawSpread < 0 || rawSpread > 30) {
+        warnings.push(`Spread IPCA/IGPM fora da faixa plausível (0–30%): ${rawSpread}`);
+      } else {
+        rfRate = rawSpread;
+      }
+    }
+    rfIndexerPct = inv.rate ?? null;
+  } else {
+    rfRate = inv.rate ?? inv.fixedAnnualRate ?? null;
+  }
+
+  return { rfIndexer, rfRate, rfIndexerPct, warnings };
+}
+
 function normalizeIsoDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
   return dateStr.slice(0, 10);
@@ -185,6 +236,8 @@ export function mapPluggyInvestment(
       ? new Decimal(inv.amountOriginal).toFixed(2)
       : null;
 
+  const rfRates = resolvePluggyFixedIncomeRates(inv);
+
   return {
     externalId: inv.id,
     itemId: inv.itemId,
@@ -208,16 +261,34 @@ export function mapPluggyInvestment(
     lastMonthRateFormatted: formatNullableOpenFinanceMetric(inv.lastMonthRate, '%'),
     lastTwelveMonthsRateFormatted: formatNullableOpenFinanceMetric(inv.lastTwelveMonthsRate, '%'),
     annualRateFormatted: formatNullableOpenFinanceMetric(inv.annualRate, '%'),
-    rfIndexer: mapRfIndexer(inv.rateType),
-    rfRate: inv.rate ?? inv.fixedAnnualRate ?? null,
+    rfIndexer: rfRates.rfIndexer,
+    rfRate: rfRates.rfRate,
+    rfIndexerPct: rfRates.rfIndexerPct,
     rfFixedAnnualRate: inv.fixedAnnualRate ?? null,
     rfMaturityDate: normalizeIsoDate(inv.dueDate),
     rfIssuer: inv.issuer ? inv.issuer.trim() : null,
     rfIsTaxExempt: Boolean(inv.taxExempt),
     status,
     source: 'OPEN_FINANCE',
+    warnings: rfRates.warnings,
   };
 }
+
+const ALLOWED_EXPENSE_KEYS = [
+  'brokerageFee',
+  'settlementFee',
+  'clearingFee',
+  'stockExchangeFee',
+  'tradingAssetsNoticeFee',
+  'custodyFee',
+  'operatingFee',
+  'serviceTax',
+  'maintenanceFee',
+  'registryFee',
+  'exchangeFee',
+  'iof',
+  'other',
+] as const;
 
 export function mapPluggyInvestmentTransaction(
   tx: PluggyInvestmentTransaction,
@@ -232,22 +303,65 @@ export function mapPluggyInvestmentTransaction(
     TRANSFER: 'TRANSFER',
   };
   const mappedType = typeMap[tx.type] || 'TRANSFER';
+  const warnings: string[] = [];
 
-  const qtyDec = new Decimal(tx.quantity ?? (mappedType === 'BUY' || mappedType === 'SELL' ? 1 : 0));
+  const hasPositiveQty = tx.quantity !== null && tx.quantity !== undefined && tx.quantity > 0;
+  const baseQtyDec = hasPositiveQty
+    ? new Decimal(tx.quantity!)
+    : new Decimal(mappedType === 'BUY' || mappedType === 'SELL' ? 1 : 0);
+
+  const priceFactor =
+    tx.priceFactor !== null && tx.priceFactor !== undefined && tx.priceFactor > 1
+      ? new Decimal(tx.priceFactor)
+      : null;
+  const qtyDec = priceFactor ? baseQtyDec.mul(priceFactor) : baseQtyDec;
+
   const amountDec = new Decimal(tx.amount ?? 0).abs();
-  const unitPriceDec =
-    tx.value !== null && tx.value !== undefined
-      ? new Decimal(tx.value)
-      : qtyDec.gt(0)
-      ? amountDec.div(qtyDec)
-      : amountDec;
+  const unitPriceDec = qtyDec.gt(0) ? amountDec.div(qtyDec) : amountDec;
+
+  if (tx.value !== null && tx.value !== undefined) {
+    const valueDec = new Decimal(tx.value).abs();
+    const expectedTotal = valueDec.mul(qtyDec);
+    if (amountDec.gt(0)) {
+      const diffRatio = expectedTotal.minus(amountDec).abs().div(amountDec);
+      if (diffRatio.gt(new Decimal('0.01'))) {
+        warnings.push(
+          `Divergência > 1% entre value×quantity (${expectedTotal.toFixed(2)}) e amount (${amountDec.toFixed(2)})`
+        );
+      }
+    } else if (valueDec.gt(0) && qtyDec.gt(0)) {
+      warnings.push(
+        `Transação com value=${valueDec.toFixed(2)} e quantity=${qtyDec.toString()}, mas amount=0`
+      );
+    }
+  }
 
   let feesDec = new Decimal(0);
+  const taxNotes: string[] = [];
   if (tx.expenses !== null && tx.expenses !== undefined) {
-    for (const val of Object.values(tx.expenses)) {
+    for (const key of ALLOWED_EXPENSE_KEYS) {
+      const val = tx.expenses[key];
       if (typeof val === 'number' && Number.isFinite(val)) {
         feesDec = feesDec.plus(new Decimal(val).abs());
       }
+    }
+    if (
+      typeof tx.expenses.incomeTax === 'number' &&
+      Number.isFinite(tx.expenses.incomeTax) &&
+      tx.expenses.incomeTax !== 0
+    ) {
+      taxNotes.push(
+        `IR retido R$ ${new Decimal(tx.expenses.incomeTax).abs().toFixed(2).replace('.', ',')}`
+      );
+    }
+    if (
+      typeof tx.expenses.iofProvision === 'number' &&
+      Number.isFinite(tx.expenses.iofProvision) &&
+      tx.expenses.iofProvision !== 0
+    ) {
+      taxNotes.push(
+        `Provisão IOF R$ ${new Decimal(tx.expenses.iofProvision).abs().toFixed(2).replace('.', ',')}`
+      );
     }
   } else if (
     tx.netAmount !== null &&
@@ -258,10 +372,26 @@ export function mapPluggyInvestmentTransaction(
     feesDec = new Decimal(tx.netAmount).abs().minus(new Decimal(tx.amount).abs()).abs();
   }
 
-  const totalAmountDec =
-    tx.netAmount !== null && tx.netAmount !== undefined
-      ? new Decimal(tx.netAmount).abs()
-      : amountDec.plus(feesDec);
+  let totalAmountDec: Decimal;
+  if (mappedType === 'BUY') {
+    totalAmountDec = amountDec.plus(feesDec);
+  } else if (mappedType === 'SELL') {
+    totalAmountDec =
+      tx.netAmount !== null && tx.netAmount !== undefined
+        ? new Decimal(tx.netAmount).abs()
+        : Decimal.max(0, amountDec.minus(feesDec));
+  } else {
+    totalAmountDec =
+      tx.netAmount !== null && tx.netAmount !== undefined
+        ? new Decimal(tx.netAmount).abs()
+        : amountDec.plus(feesDec);
+  }
+
+  const noteParts: string[] = [];
+  if (tx.description && tx.description.trim()) {
+    noteParts.push(tx.description.trim());
+  }
+  noteParts.push(...taxNotes);
 
   return {
     externalId: tx.id,
@@ -269,11 +399,12 @@ export function mapPluggyInvestmentTransaction(
     type: mappedType,
     tradeDate: (tx.tradeDate || tx.date).slice(0, 10),
     quantity: qtyDec.toString(),
-    unitPrice: unitPriceDec.toFixed(2),
+    unitPrice: unitPriceDec.toFixed(8),
     fees: feesDec.toFixed(2),
     totalAmount: totalAmountDec.toFixed(2),
-    notes: tx.description ?? null,
+    notes: noteParts.length > 0 ? noteParts.join(' · ') : null,
     source: 'OPEN_FINANCE',
+    warnings,
   };
 }
 
@@ -298,9 +429,9 @@ export function calculateInvestmentCostBasis(
       hasCostHistory = true;
       totalCost = totalCost.plus(q.mul(p)).plus(fees);
       qty = qty.plus(q);
-      buySignatures.add(`${tx.tradeDate}:${q.toString()}:${p.toFixed(2)}`);
+      buySignatures.add(`${tx.tradeDate}:${q.toString()}:${p.toFixed(8)}`);
     } else if (tx.type === 'TRANSFER') {
-      const sig = `${tx.tradeDate}:${q.toString()}:${p.toFixed(2)}`;
+      const sig = `${tx.tradeDate}:${q.toString()}:${p.toFixed(8)}`;
       if (q.gt(0) && p.gt(0) && !buySignatures.has(sig)) {
         hasCostHistory = true;
         totalCost = totalCost.plus(q.mul(p)).plus(fees);
@@ -327,23 +458,32 @@ export function calculateInvestmentCostBasis(
     qty.minus(targetQty).abs().lte(new Decimal('0.0001'));
 
   if (qtyMatches) {
-    const avg = totalCost.div(qty).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const avg = totalCost.div(qty);
     return {
-      averagePrice: avg.toFixed(2),
-      totalInvested: avg.mul(qty).toFixed(2),
+      averagePrice: avg.toFixed(8),
+      totalInvested: totalCost.toFixed(2),
       costBasisSource: 'TRANSACTIONS',
       coveredByHistory: true,
     };
   }
 
-  // Fallback para histórico incompleto: amountOriginal ÷ quantity
-  const orig = new Decimal(inv.amountOriginal ?? inv.amount ?? inv.balance ?? 0);
-  const denom = targetQty.gt(0) ? targetQty : new Decimal(1);
-  const avg = orig.div(denom);
+  // Fallback para histórico incompleto: apenas amountOriginal ÷ quantity (R4)
+  if (inv.amountOriginal !== null && inv.amountOriginal !== undefined) {
+    const orig = new Decimal(inv.amountOriginal);
+    const denom = targetQty.gt(0) ? targetQty : new Decimal(1);
+    const avg = orig.div(denom);
+    return {
+      averagePrice: avg.toFixed(8),
+      totalInvested: orig.toFixed(2),
+      costBasisSource: 'INSTITUTION',
+      coveredByHistory: false,
+    };
+  }
+
   return {
-    averagePrice: avg.toFixed(2),
-    totalInvested: orig.toFixed(2),
-    costBasisSource: 'INSTITUTION',
+    averagePrice: null,
+    totalInvested: null,
+    costBasisSource: 'UNKNOWN',
     coveredByHistory: false,
   };
 }
@@ -385,7 +525,7 @@ export function matchInvestmentToAsset(
   if (assetClass === 'FIXED_INCOME') {
     const invIssuer = (inv.issuer || '').trim().toLowerCase();
     const invDue = normalizeIsoDate(inv.dueDate);
-    const invRate = inv.rate ?? inv.fixedAnnualRate ?? null;
+    const { rfRate: invRate } = resolvePluggyFixedIncomeRates(inv);
 
     if (invIssuer && invDue && invRate !== null) {
       const byRf = existingAssets.find((a) => {

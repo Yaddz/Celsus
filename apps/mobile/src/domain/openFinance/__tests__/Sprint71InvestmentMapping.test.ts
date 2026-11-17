@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import {
   calculateInvestmentCostBasis,
   mapPluggyInvestment,
@@ -158,8 +159,8 @@ describe('Sprint 71 — Mapeamento de Investimentos e Custos Pluggy (Fase A)', (
     );
 
     expect(cost.coveredByHistory).toBe(true);
-    expect(cost.averagePrice).toBe(expected.averagePrice);
-    expect(cost.totalInvested).toBe(expected.totalInvested);
+    expect(new Decimal(cost.averagePrice!).toFixed(2)).toBe(expected.averagePrice);
+    expect(cost.totalInvested).toBe('5516.00');
   });
 
   it('S71-T05: AMORTIZATION reduz o custo sem alterar quantidade; TAX não altera quantidade', () => {
@@ -188,7 +189,7 @@ describe('Sprint 71 — Mapeamento de Investimentos e Custos Pluggy (Fase A)', (
     const cost = calculateInvestmentCostBasis(inv, txs);
     expect(cost.coveredByHistory).toBe(true);
     expect(cost.totalInvested).toBe('8000.00');
-    expect(cost.averagePrice).toBe('800.00');
+    expect(cost.averagePrice).toBe('800.00000000');
   });
 
   it('S71-T06: TRANSFER sem quantidade e preço é ignorada; TRANSFER com quantidade e preço entra sem duplicar compra', () => {
@@ -216,7 +217,7 @@ describe('Sprint 71 — Mapeamento de Investimentos e Custos Pluggy (Fase A)', (
     const cost2 = calculateInvestmentCostBasis(inv, txsTransferWithPrice);
     expect(cost2.coveredByHistory).toBe(true);
     expect(cost2.totalInvested).toBe('3200.00');
-    expect(cost2.averagePrice).toBe('32.00');
+    expect(cost2.averagePrice).toBe('32.00000000');
   });
 
   it('S71-T07: resolvePluggyAssetClass cobre BDR, ETF, ETF_FUND, FI_INFRA, FI_AGRO, RETIREMENT, TREASURY, DEBENTURES, CRI, CRA, COE e OFFSHORE_FUND', () => {
@@ -289,6 +290,6 @@ describe('Sprint 71 — Mapeamento de Investimentos e Custos Pluggy (Fase A)', (
     expect(mapped.quantity).toBe('1');
     expect(mapped.marketValue).toBe('11250.50');
     expect(cost.totalInvested).toBe('10000.00');
-    expect(cost.averagePrice).toBe('10000.00');
+    expect(cost.averagePrice).toBe('10000.00000000');
   });
 });

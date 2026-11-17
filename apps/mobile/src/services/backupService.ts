@@ -498,6 +498,7 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'manual_position_value',
   'rf_indexer',
   'rf_rate',
+  'rf_indexer_pct',
   'rf_maturity_date',
   'rf_is_tax_exempt',
   'rf_issuer',
@@ -1030,11 +1031,15 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     name: r.name,
     target_percentage_in_class: Number(r.target_percentage_in_class || 0),
     quantity: r.quantity || '0',
-    average_price: r.average_price || '0.00',
+    average_price:
+      r.average_price === '' && r.cost_basis_source === 'UNKNOWN'
+        ? ''
+        : r.average_price || '0.00',
     manual_price_override: r.manual_price_override === '' ? null : r.manual_price_override,
     manual_position_value: !r.manual_position_value || r.manual_position_value === '' ? null : r.manual_position_value,
     rf_indexer: r.rf_indexer === '' ? null : r.rf_indexer,
     rf_rate: r.rf_rate === '' ? null : Number(r.rf_rate),
+    rf_indexer_pct: r.rf_indexer_pct === undefined || r.rf_indexer_pct === '' ? null : Number(r.rf_indexer_pct),
     rf_maturity_date: r.rf_maturity_date === '' ? null : r.rf_maturity_date,
     rf_is_tax_exempt: Number(r.rf_is_tax_exempt || 0),
     rf_issuer: !r.rf_issuer || r.rf_issuer === '' ? null : r.rf_issuer,
