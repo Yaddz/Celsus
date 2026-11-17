@@ -9,6 +9,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { colors, typography, spacing, borders, layout } from './src/theme/tokens';
+import { dockContentPaddingBottom } from './src/theme/layoutMetrics';
 import {
   StackedWalletDeck,
   AnimatedModalSheet,
@@ -1889,7 +1890,7 @@ function AppContent(props: {
           {...homeScrollProps}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 96 },
+            { paddingBottom: dockContentPaddingBottom(insets.bottom) },
           ]}
           showsVerticalScrollIndicator={false}
         >

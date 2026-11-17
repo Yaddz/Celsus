@@ -261,7 +261,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
             />
           ) : (
             <BentoTile variant={tileVariant} title="CHAVE RECONHECIDA">
-              <Text style={[styles.infoText, { color: c.text, marginBottom: 4 }]}>
+              <Text style={[styles.infoText, { color: c.text, marginBottom: space.xs }]}>
                 Agora aponte para o total do cupom
               </Text>
               <Text style={[styles.helperText, { color: c.muted }]}>
@@ -289,7 +289,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     { color: c.text, borderColor: c.border, backgroundColor: c.surface },
                   ]}
                 />
-                <Text style={[styles.helperText, { color: c.muted, marginTop: 6 }]}>
+                <Text style={[styles.helperText, { color: c.muted, marginTop: space.sm }]}>
                   {keyDigitsCount}/44 dígitos
                 </Text>
               </BentoTile>

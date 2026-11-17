@@ -170,7 +170,7 @@ describe('Sprint 60 — Fidelidade visual e funcional ao artifact Celsus Finanç
       const scrollStyle = StyleSheet.flatten(
         screen.getByTestId('finance-home-scroll').props.contentContainerStyle
       );
-      expect(scrollStyle.paddingBottom).toBeGreaterThanOrEqual(120);
+      expect(scrollStyle.paddingBottom).toBeGreaterThanOrEqual(112);
       const fabStyle = StyleSheet.flatten(
         screen.getByTestId('finance-add-entry-btn').props.style
       );

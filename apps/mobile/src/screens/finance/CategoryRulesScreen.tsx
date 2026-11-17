@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import {
   ScrollView,
   StyleSheet,
@@ -40,6 +42,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
   themeMode = 'dark',
   testID = 'category-rules-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const [rules, setRules] = useState<FinCategoryRule[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
@@ -112,7 +115,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
       <ScrollView
         contentContainerStyle={[
           sharedStyles.scrollContent,
-          { paddingBottom: 130 },
+          { paddingBottom: dockContentPaddingBottom(insets.bottom) },
         ]}
       >
         {editingRule ? (
@@ -275,14 +278,14 @@ const styles = StyleSheet.create({
     gap: space.sm,
   },
   editTitle: { fontFamily: typography.fontFamily, fontSize: 16, fontWeight: '700' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     borderRadius: 999,
     borderWidth: 1,
   },
-  actionsRow: { flexDirection: 'row', gap: 8, marginTop: space.xs },
+  actionsRow: { flexDirection: 'row', gap: space.sm, marginTop: space.xs },
   btn: {
     flex: 1,
     height: 44,
@@ -293,11 +296,11 @@ const styles = StyleSheet.create({
   ruleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    gap: 8,
+    paddingVertical: space.md,
+    paddingHorizontal: space.lg,
+    gap: space.sm,
   },
   patternText: { fontSize: 14, fontWeight: '600' },
-  metaText: { fontSize: 12, marginTop: 2 },
-  iconBtn: { padding: 6 },
+  metaText: { fontSize: 12, marginTop: space.xs },
+  iconBtn: { padding: space.sm },
 });

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { AnimatedModalSheet, DotTrack, LedgerInput, TextField, XpMinimalHeader } from '../../components/ui';
@@ -13,7 +15,7 @@ import { finRepository } from '../../repositories/finRepository';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
 import { finGoalsService, type EvaluatedGoalItem } from '../../services/finGoalsService';
 import type { ThemeMode } from '../../theme/palettes';
-import { bento, colors, typography } from '../../theme/tokens';
+import { bento, colors, space, typography } from '../../theme/tokens';
 import { getFinUiColors, sharedStyles } from './finTheme';
 
 export interface GoalsScreenProps {
@@ -46,6 +48,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
   referenceDateIso,
   testID = 'goals-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const isLight = themeMode === 'light';
   const reducedMotion = useReducedMotion();
@@ -202,7 +205,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}>
+      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}>
         <TouchableOpacity
           testID="goals-add-btn"
           accessibilityRole="button"
@@ -222,7 +225,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
         ) : null}
 
         {items.map(({ goal, evaluation }) => (
-          <FinListCard key={goal.id} themeMode={themeMode} style={{ marginTop: 12 }}>
+          <FinListCard key={goal.id} themeMode={themeMode} style={{ marginTop: space.md }}>
             <View style={styles.cardHeader}>
               <View style={styles.titleWrap}>
                 <Text style={[styles.goalName, { color: c.text }]}>{goal.name}</Text>
@@ -235,7 +238,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
               </Text>
             </View>
 
-            <View style={{ marginTop: 10 }}>
+            <View style={{ marginTop: space.md }}>
               <DotTrack
                 testID={`goal-dot-track-${goal.id}`}
                 percentage={evaluation.progressPercent}
@@ -335,7 +338,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
           placeholder="10.000,00"
           testID="goal-form-target"
           themeMode={themeMode}
-          style={{ marginTop: 12 }}
+          style={{ marginTop: space.md }}
         />
 
         <LedgerInput
@@ -346,7 +349,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
           placeholder="0,00"
           testID="goal-form-monthly"
           themeMode={themeMode}
-          style={{ marginTop: 12 }}
+          style={{ marginTop: space.md }}
         />
 
         <TextField
@@ -356,10 +359,10 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
           placeholder="2028-12-31"
           testID="goal-form-target-date"
           themeMode={themeMode}
-          style={{ marginTop: 12 }}
+          style={{ marginTop: space.md }}
         />
 
-        <Text style={[styles.label, { color: c.muted, marginTop: 14 }]}>ORIGEM DO PROGRESSO</Text>
+        <Text style={[styles.label, { color: c.muted, marginTop: space.lg }]}>ORIGEM DO PROGRESSO</Text>
         <View style={styles.chipRow}>
           {SOURCE_OPTIONS.map((opt) => {
             const active = formSourceType === opt.type;
@@ -396,7 +399,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
         </View>
 
         {formSourceType === 'portfolio' && portfoliosList.length > 0 ? (
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: space.md }}>
             <Text style={[styles.label, { color: c.muted }]}>CARTEIRA & FATIA (%)</Text>
             <View style={styles.chipRow}>
               {portfoliosList.map((p) => {
@@ -430,7 +433,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
               placeholder="100"
               testID="goal-form-share-percent"
               themeMode={themeMode}
-              style={{ marginTop: 8 }}
+              style={{ marginTop: space.sm }}
             />
           </View>
         ) : null}
@@ -481,9 +484,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: space.sm,
     borderRadius: bento.tileRadius,
-    paddingVertical: 14,
+    paddingVertical: space.lg,
   },
   addBtnText: {
     fontFamily: typography.fontFamily,
@@ -494,17 +497,17 @@ const styles = StyleSheet.create({
   emptyText: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    padding: 16,
+    padding: space.lg,
     textAlign: 'center',
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: space.lg,
+    paddingTop: space.lg,
   },
-  titleWrap: { flex: 1, marginRight: 8 },
+  titleWrap: { flex: 1, marginRight: space.sm },
   goalName: {
     fontFamily: typography.fontFamily,
     fontSize: 16,
@@ -513,7 +516,7 @@ const styles = StyleSheet.create({
   sourceText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    marginTop: 2,
+    marginTop: space.xs,
   },
   pctText: {
     fontFamily: typography.fontFamily,
@@ -523,9 +526,9 @@ const styles = StyleSheet.create({
   valuesRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
-    paddingHorizontal: 16,
-    marginTop: 10,
+    gap: space.sm,
+    paddingHorizontal: space.lg,
+    marginTop: space.md,
   },
   valueMain: {
     fontFamily: typography.fontFamily,
@@ -537,18 +540,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   metaRow: {
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    marginTop: 6,
-    gap: 4,
+    paddingHorizontal: space.lg,
+    paddingBottom: space.lg,
+    marginTop: space.sm,
+    gap: space.xs,
   },
   reachedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: space.xs,
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xs,
     borderRadius: 10,
   },
   reachedText: {
@@ -569,10 +572,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    paddingVertical: 10,
+    gap: space.sm,
+    marginHorizontal: space.lg,
+    marginBottom: space.lg,
+    paddingVertical: space.md,
     borderRadius: 14,
     borderWidth: 1,
   },
@@ -585,35 +588,35 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 18,
     fontWeight: '700',
-    marginBottom: 14,
+    marginBottom: space.lg,
   },
   label: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: space.sm,
   },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space.sm,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     borderRadius: 12,
   },
   errorText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
     color: '#D96628',
-    marginTop: 10,
+    marginTop: space.md,
   },
   saveBtn: {
     borderRadius: bento.tileRadius,
-    paddingVertical: 16,
+    paddingVertical: space.lg,
     alignItems: 'center',
-    marginTop: 18,
+    marginTop: space.lg,
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,

@@ -346,3 +346,11 @@ npm run build:native                       # depois de mudar Go usado pelo Andro
 No web (`expo start --web`) o SQLite precisa de COOP/COEP + `SharedArrayBuffer`; sem isso use `?memdb=1` (banco em
 memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o serviço HTTP. Variáveis do Go:
 `PORT` (8080), `MARKET_DB_PATH` (`market.db`), `BRAPI_TOKEN` (opcional).
+
+## Espaçamento único dos dois módulos (Sprint 80)
+
+- Nenhuma tela ou folha de Finanças (nem `OpenFinanceScreen`, `StatementImportSheet`, `OpenFinanceInvestmentReconciliationSheet`, `FinListCard`) declara `padding*`, `margin*` ou `gap` com número solto: tudo vem de `space`, `layout` e `bento` (`src/theme/tokens.ts`). Exceção só com o comentário `// fora da escala: <motivo>` na mesma linha (hoje são 3). O teste `Sprint80SpacingTokens.test.ts` falha se um número solto voltar.
+- Mapeamento usado: 2–5 → `space.xs`; 6–9 → `space.sm`; 10–13 → `space.md`; 14–18 → `space.lg`; 20 → `layout.screenPadding` (margem de tela) ou `space.xl`; 22–26 → `space.xl`; 28–40 → `space.xxl`.
+- Tokens novos em `layout`: `safeBottomMin` (16), `dockClearance` (96 = barra de 60 + folga de 36), `fabClearance` (72 = botão de 56 + 16) e `chipGap` (8).
+- Padding inferior do conteúdo rolável: `dockContentPaddingBottom(insets.bottom, { withFab })` em `src/theme/layoutMetrics.ts` = `max(safe area, 16) + 96 (+ 72 com botão flutuante)`. Usado pela Home de Investimentos (`App.tsx`) e por todas as telas de Finanças; substitui os valores fixos 96/120/130/170.
+- Telas raiz de Finanças (Resumo, Lançamentos, Contas, Mais) usam `sharedStyles.scrollContent`: margem lateral `layout.tabScreenPaddingX` (16), respiro sob o header `layout.tabScreenPaddingTop` (4) e gap `bento.gap` (10), iguais aos da Home de Investimentos.

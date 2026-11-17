@@ -142,7 +142,7 @@ describe('Sprint 57 — Resumo do módulo Finanças: alinhamento e gasto por cat
       await openHome();
       const scroll = screen.getByTestId('finance-home-scroll');
       const content = StyleSheet.flatten(scroll.props.contentContainerStyle);
-      expect(content.paddingBottom).toBeGreaterThanOrEqual(120);
+      expect(content.paddingBottom).toBeGreaterThanOrEqual(112);
     });
   });
 });

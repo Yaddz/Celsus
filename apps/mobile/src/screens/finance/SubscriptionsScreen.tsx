@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   BentoGrid,
@@ -21,7 +23,7 @@ import type { FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, typography } from '../../theme/tokens';
+import { layout, space, typography } from '../../theme/tokens';
 import {
   FinEmptyState,
   FinErrorView,
@@ -29,6 +31,7 @@ import {
   FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
+  sharedStyles,
   resolveCategoryVisual,
 } from './finTheme';
 import { FREQUENCY_LABELS, RecurrenceFormSheet } from './RecurrencesScreen';
@@ -94,6 +97,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
   referenceDateIso,
   testID = 'subscriptions-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const ui = getFinUiColors(themeMode);
 
   const [loading, setLoading] = useState(true);
@@ -285,7 +289,7 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
       ) : error ? (
         <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <BentoGrid>
             <View
               testID="subscriptions-hero-tile"
@@ -438,20 +442,14 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: layout.tabScreenPaddingX,
-    paddingTop: 8,
-    paddingBottom: 170,
-    gap: 14,
-  },
   summaryRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginTop: 6,
+    gap: space.lg,
+    marginTop: space.sm,
   },
   summaryCol: {
     flex: 1,
-    gap: 4,
+    gap: space.xs,
   },
   summaryValue: {
     fontFamily: typography.fontFamily,
@@ -467,8 +465,8 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 2,
+    gap: space.sm,
+    marginTop: space.xs,
   },
   actionBtn: {
     flex: 1,
@@ -477,7 +475,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: space.md,
   },
   actionBtnText: {
     fontFamily: typography.fontFamily,
@@ -490,7 +488,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: space.lg,
   },
   resumeBtnText: {
     fontFamily: typography.fontFamily,

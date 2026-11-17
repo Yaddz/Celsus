@@ -1,4 +1,6 @@
 import React from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { XpMinimalHeader } from '../../components/ui';
@@ -6,6 +8,7 @@ import { FinListCard, FinListRow } from '../../components/ui/FinListCard';
 import { formatCentsBRL } from '../../domain/financeFlow';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
+import { space } from '../../theme/tokens';
 
 export type FinanceMoreRoute =
   | 'netWorth'
@@ -44,6 +47,7 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
   netWorthTotalCents = null,
   testID = 'finance-more-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const chevron = <MaterialIcons name="chevron-right" size={20} color={c.muted} />;
   const netWorthLabel =
@@ -68,8 +72,8 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
-      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}>
-        <FinListCard themeMode={themeMode} style={{ marginBottom: 12 }}>
+      <ScrollView testID="finance-more-scroll" contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}>
+        <FinListCard themeMode={themeMode} style={{ marginBottom: space.md }}>
           <FinListRow
             testID="finance-more-net-worth"
             icon="account-balance"

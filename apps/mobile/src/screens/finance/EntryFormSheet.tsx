@@ -476,7 +476,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
               />
 
               {receiptDraft ? (
-                <View style={{ gap: 8 }}>
+                <View style={{ gap: space.sm }}>
                   <View
                     testID="entry-form-ocr-review-banner"
                     style={[styles.ocrBanner, { borderColor: c.warning, backgroundColor: `${c.warning}18` }]}
@@ -489,7 +489,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   {receiptDraft.rawLines?.length &&
                   (receiptDraft.amountCents === null ||
                     receiptDraft.lowConfidenceFields.includes('amount')) ? (
-                    <View style={{ gap: 6 }}>
+                    <View style={{ gap: space.sm }}>
                       <TouchableOpacity
                         testID="entry-form-receipt-raw-text"
                         accessibilityRole="button"
@@ -505,8 +505,8 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                             borderWidth: 1,
                             borderColor: c.border,
                             borderRadius: 10,
-                            padding: 10,
-                            gap: 8,
+                            padding: space.md,
+                            gap: space.sm,
                             backgroundColor: c.surface,
                           }}
                         >
@@ -654,14 +654,14 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   </View>
 
                   {isCardSelected && formKind !== 'transfer' && cardBillHint ? (
-                    <View style={{ gap: 6, marginTop: 8 }}>
+                    <View style={{ gap: space.sm, marginTop: space.sm }}>
                       <Text testID="entry-form-bill-hint" style={[styles.helperText, { color: c.muted }]}>
                         {cardBillHint}
                       </Text>
                       {selectedAccount && hasEstimatedBillDates(selectedAccount) ? (
                         <View
                           testID="entry-form-estimated-dates-warning"
-                          style={{ gap: 4 }}
+                          style={{ gap: space.xs }}
                         >
                           <Text style={[styles.helperText, { color: c.warning }]}>
                             Cartão sem fechamento/vencimento definido — usando datas estimadas (fecha 1, vence 10).
@@ -686,7 +686,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   ) : null}
 
                   {accounts.length === 0 ? (
-                    <View style={{ gap: 6, marginTop: 6 }}>
+                    <View style={{ gap: space.sm, marginTop: space.sm }}>
                       <Text testID="entry-form-account-empty" style={[styles.helperText, { color: c.muted }]}>
                         Nenhuma conta cadastrada. Crie uma em Finanças › Contas para vincular o lançamento.
                       </Text>
@@ -708,7 +708,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   ) : null}
 
                   {accountPickerOpen ? (
-                    <View style={[sharedStyles.chipRow, { marginTop: 10 }]}>
+                    <View style={[sharedStyles.chipRow, { marginTop: space.md }]}>
                       {accounts.map((acc) => {
                         const selected = acc.id === accountId;
                         return (
@@ -743,7 +743,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
 
               {formKind === 'transfer' ? (
                 <BentoTile variant={tileVariant} title="TRANSFERÊNCIA" testID="entry-form-tile-transfer">
-                  <View style={{ gap: 10 }}>
+                  <View style={{ gap: space.md }}>
                     <Text style={[styles.metaLabel, { color: c.muted }]}>Conta de origem</Text>
                     <View testID="entry-transfer-from-picker" style={sharedStyles.chipRow}>
                       {accounts.map((acc) => {
@@ -822,7 +822,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                               backgroundColor: selected ? c.surfaceElevated : c.surfaceContainer,
                               borderWidth: 1,
                               borderColor: selected ? c.primary : c.border,
-                              paddingLeft: 8,
+                              paddingLeft: space.sm,
                             },
                           ]}
                         >
@@ -873,7 +873,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                         placeholderTextColor={c.muted}
                         style={[
                           styles.descInput,
-                          { color: c.text, borderBottomColor: c.primary, marginBottom: 8 },
+                          { color: c.text, borderBottomColor: c.primary, marginBottom: space.sm },
                         ]}
                       />
                       <View style={styles.quickSwatchRow}>
@@ -946,7 +946,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                       keyboardType="numeric"
                       placeholder="Número de parcelas (ex.: 12)"
                       placeholderTextColor={c.muted}
-                      style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: 6 }]}
+                      style={[styles.dateInput, { color: c.text, borderColor: c.border, marginTop: space.sm }]}
                     />
                   ) : null}
                 </View>
@@ -996,7 +996,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 11,
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: space.xs,
   },
   formBody: {
     gap: bento.gap,
@@ -1005,7 +1005,7 @@ const styles = StyleSheet.create({
   amountRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 8,
+    gap: space.sm,
   },
   currencyPrefix: {
     fontFamily: typography.fontFamily,
@@ -1017,20 +1017,20 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 32,
     fontWeight: '700',
-    paddingVertical: 2,
+    paddingVertical: space.xs,
   },
   errorText: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 6,
+    marginTop: space.sm,
   },
   descInput: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
     fontWeight: '700',
     borderBottomWidth: 2,
-    paddingVertical: 8,
-    marginBottom: 12,
+    paddingVertical: space.sm,
+    marginBottom: space.md,
   },
   sheetFill: {
     flex: 1,
@@ -1041,22 +1041,22 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   footer: {
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: space.sm,
+    paddingBottom: space.xs,
   },
   metaRow: {
     flexDirection: 'row',
-    gap: 16,
-    marginBottom: 4,
+    gap: space.lg,
+    marginBottom: space.xs,
   },
   metaField: {
     flex: 1,
-    gap: 2,
+    gap: space.xs,
   },
   metaValueInput: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    paddingVertical: 6,
+    paddingVertical: space.sm,
     paddingHorizontal: 0,
   },
   metaValueTouch: {
@@ -1072,8 +1072,8 @@ const styles = StyleSheet.create({
   metaLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
+    gap: space.sm,
+    marginBottom: space.sm,
   },
   metaLabel: {
     fontFamily: typography.fontFamily,
@@ -1085,8 +1085,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   miniAvatar: {
     width: 20,
@@ -1103,14 +1103,14 @@ const styles = StyleSheet.create({
   helperText: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 8,
+    marginTop: space.sm,
   },
   saveBtnContainer: {
     height: 56,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: space.xs,
   },
   saveBtnInner: {
     height: 56,
@@ -1120,15 +1120,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quickCatBox: {
-    marginTop: 12,
-    padding: 12,
+    marginTop: space.md,
+    padding: space.md,
     borderRadius: 16,
     borderWidth: 1,
-    gap: 10,
+    gap: space.md,
   },
   quickSwatchRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space.md,
   },
   quickSwatch: {
     width: 26,
@@ -1138,12 +1138,12 @@ const styles = StyleSheet.create({
   quickCatActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
-    marginTop: 4,
+    gap: space.sm,
+    marginTop: space.xs,
   },
   quickCatBtn: {
     height: 36,
-    paddingHorizontal: 14,
+    paddingHorizontal: space.lg,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -106,6 +108,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   referenceDateIso,
   testID = 'entries-list-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const isLight = themeMode === 'light';
   const { selectedMonth, filters } = useFinStore();
@@ -442,12 +445,12 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
               testID={`entry-of-badge-${entry.id}`}
               style={{
                 alignSelf: 'flex-start',
-                paddingHorizontal: 8,
-                paddingVertical: 2,
+                paddingHorizontal: space.sm,
+                paddingVertical: space.xs,
                 borderRadius: 6,
                 borderWidth: 1,
                 borderColor: c.income,
-                marginTop: 4,
+                marginTop: space.xs,
               }}
             >
               <Text style={{ fontSize: 10, fontWeight: '600', color: c.income }}>
@@ -513,7 +516,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         }
       />
 
-      <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
+      <ScrollView testID="entries-scroll" contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]}>
         <SegmentedControl<'all' | FinKind>
           testID="entries-kind-segmented"
           value={filters.kind}
@@ -704,7 +707,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             themeMode={themeMode}
           />
         ) : (
-          <View style={{ gap: bento.gap + 6 }}>
+          <View style={{ gap: space.lg }}>
             {grouped.overdueBills.length > 0 || grouped.overdueList.length > 0 ? (
               <FinListCard
                 testID="entries-section-overdue"
@@ -939,7 +942,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
             testID="pay-entry-confirm-btn"
             accessibilityRole="button"
             onPress={() => void handleConfirmPay()}
-            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary, paddingHorizontal: 28 }]}
+            style={[sharedStyles.primaryBtn, { backgroundColor: c.primary, paddingHorizontal: space.xxl }]}
           >
             <Text style={sharedStyles.primaryBtnText}>Confirmar</Text>
           </JellyPressable>
@@ -1013,7 +1016,7 @@ const styles = StyleSheet.create({
   headerMonthArrows: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: space.sm,
   },
   headerCircleBtn: {
     width: 40,
@@ -1024,8 +1027,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipsScroll: {
-    gap: 8,
-    paddingVertical: 2,
+    gap: space.sm,
+    paddingVertical: space.xs,
   },
   chipLabel: {
     fontFamily: typography.fontFamily,
@@ -1036,15 +1039,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: space.sm,
   },
   badgesRow: {
     flexDirection: 'row',
-    gap: 6,
+    gap: space.sm,
   },
   badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
     borderRadius: borders.radiusPill,
   },
   badgeText: {
@@ -1055,11 +1058,11 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: space.sm,
   },
   miniChip: {
     minHeight: 32,
-    paddingHorizontal: 12,
+    paddingHorizontal: space.md,
     borderRadius: 16,
     borderWidth: 1,
     alignItems: 'center',

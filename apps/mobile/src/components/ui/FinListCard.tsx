@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { bento, borders, colors, spacing, typography } from '../../theme/tokens';
+import { bento, borders, colors, space, spacing, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { JellyPressable } from './JellyPressable';
 
@@ -135,7 +135,7 @@ export const FinListRow: React.FC<FinListRowProps> = ({
 
   const rowContainerStyle: ViewStyle = {
     minHeight: 72,
-    paddingVertical: 12,
+    paddingVertical: space.md,
     justifyContent: 'center',
     borderBottomWidth: isLast ? 0 : borders.hairline,
     borderBottomColor: isLight ? '#F0EBE1' : '#26292C',
@@ -236,13 +236,13 @@ export const FinListRow: React.FC<FinListRowProps> = ({
 
 const styles = StyleSheet.create({
   wrapper: {
-    gap: 8,
+    gap: space.sm,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 2,
+    paddingHorizontal: space.xs,
   },
   sectionTitle: {
     fontFamily: typography.fontFamily,
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: bento.tileRadius,
     paddingHorizontal: bento.tilePadding,
-    paddingVertical: 6,
+    paddingVertical: 6, // fora da escala: respiro do tile de lista travado pelo teste S55-T02 (fidelidade ao canvas)
   },
   mainLine: {
     flexDirection: 'row',
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   avatar: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.sm + 4,
+    marginRight: space.md,
   },
   center: {
     flex: 1,
@@ -286,12 +286,12 @@ const styles = StyleSheet.create({
   subtitle: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space.xs,
   },
   rightCol: {
     alignItems: 'flex-end',
     justifyContent: 'center',
-    gap: 2,
+    gap: space.xs,
   },
   amount: {
     fontFamily: typography.fontFamily,
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   bottomWrap: {
-    marginTop: 10,
-    paddingLeft: 56,
+    marginTop: space.md,
+    paddingLeft: 56, // fora da escala: alinha com o texto (avatar de 44 + space.md)
   },
 });

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -17,7 +19,7 @@ import type { FinCategory, FinEntry } from '../../db/schema';
 import type { FinKind } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, typography } from '../../theme/tokens';
+import { layout, space, typography } from '../../theme/tokens';
 import {
   FIN_CATEGORY_ICONS,
   FIN_COLOR_SWATCHES,
@@ -26,6 +28,7 @@ import {
   FinFloatingAddButton,
   FinLoadingView,
   getFinUiColors,
+  sharedStyles,
   resolveApprovedColor,
   resolveCategoryVisual,
 } from './finTheme';
@@ -47,6 +50,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
   themeMode = 'dark',
   testID = 'categories-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const ui = getFinUiColors(themeMode);
 
   const [loading, setLoading] = useState(true);
@@ -184,7 +188,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
       ) : error ? (
         <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <SegmentedControl
             testID="categories-kind-segmented"
             themeMode={themeMode}
@@ -429,35 +433,29 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: layout.tabScreenPaddingX,
-    paddingTop: 8,
-    paddingBottom: 170,
-    gap: 14,
-  },
   rowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space.md,
   },
   rowArchiveTouch: {
-    padding: 4,
+    padding: space.xs,
   },
   editBody: {
-    gap: 12,
-    marginTop: 8,
+    gap: space.md,
+    marginTop: space.sm,
   },
   editInput: {
     fontFamily: typography.fontFamily,
     fontSize: 14,
     paddingHorizontal: 0,
-    paddingVertical: 8,
+    paddingVertical: space.sm,
     borderBottomWidth: 1,
     borderBottomColor: '#D96628',
   },
   swatchRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space.md,
     flexWrap: 'wrap',
   },
   swatch: {
@@ -467,8 +465,8 @@ const styles = StyleSheet.create({
   },
   editActions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 4,
+    gap: space.md,
+    marginTop: space.xs,
   },
   editArchiveBtn: {
     flex: 1,
@@ -498,13 +496,13 @@ const styles = StyleSheet.create({
     color: '#1A0E08',
   },
   sheetBody: {
-    gap: 14,
-    paddingBottom: 16,
+    gap: space.lg,
+    paddingBottom: space.lg,
   },
   iconRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space.sm,
   },
   iconChip: {
     width: 38,
@@ -520,7 +518,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: space.sm,
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,

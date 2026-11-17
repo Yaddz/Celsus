@@ -247,6 +247,14 @@ export const layout = {
   rowPadding: space.lg,
   /** Padding interno de blocos que ainda usam superfície (modais, avisos). */
   cardPadding: space.lg,
+  /** Piso do respiro inferior quando o aparelho não tem barra de gestos (safe area 0). */
+  safeBottomMin: space.lg,
+  /** Respiro do conteúdo rolável acima da nav bar: barra de 60 + folga de 36 (fora da escala por ser geometria da barra). */
+  dockClearance: 96,
+  /** Respiro extra quando a tela tem botão flutuante: botão de 56 + space.lg. */
+  fabClearance: 72,
+  /** Entre chips de filtro de uma mesma linha. */
+  chipGap: space.sm,
 } as const;
 
 /**

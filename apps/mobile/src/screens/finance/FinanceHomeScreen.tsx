@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { BackHandler, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
@@ -27,7 +29,7 @@ import { formatUpdatedAgo } from '../../domain/openFinance';
 import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
-import { bento, dock, typography } from '../../theme/tokens';
+import { bento, dock, layout, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { AccountsScreen } from './AccountsScreen';
 import { CardBillScreen } from './CardBillScreen';
@@ -142,6 +144,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   initialRoute = 'home',
   testID = 'finance-home-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const isLight = themeMode === 'light';
   const tileVariant = isLight ? 'light' : 'dark';
@@ -586,14 +589,14 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           testID="finance-home-scroll"
           contentContainerStyle={[
             sharedStyles.scrollContent,
-            { paddingBottom: dock.pillHeight + 76 },
+            { paddingBottom: dockContentPaddingBottom(insets.bottom) },
           ]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void handlePullRefresh()} />
           }
         >
           {hasOfItems ? (
-            <View style={{ marginBottom: 8 }}>
+            <View style={{ marginBottom: space.sm }}>
               <Text
                 testID="finance-of-updated-ago"
                 style={{ fontSize: 12, color: c.muted, textAlign: 'right' }}
@@ -604,15 +607,15 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                 <View
                   testID="finance-of-sync-error-banner"
                   style={{
-                    marginTop: 6,
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
+                    marginTop: space.sm,
+                    paddingHorizontal: space.md,
+                    paddingVertical: space.sm,
                     borderRadius: 10,
                     backgroundColor: c.surfaceContainer,
                     flexDirection: 'row',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: 8,
+                    gap: space.sm,
                   }}
                 >
                   <Text
@@ -695,7 +698,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       testID="finance-cashflow-forecast"
                       activeOpacity={0.75}
                       onPress={() => setIsCashflowModalOpen(true)}
-                      style={{ marginTop: 8 }}
+                      style={{ marginTop: space.sm }}
                     >
                       <Text style={[styles.heroSub, { color: c.primaryFg, opacity: 0.92 }]}>
                         {`Previsão para ${endDDMM}: ${formatCentsBRL(cashflowProjection.endBalanceCents, isPrivacyMode)} · menor saldo dia ${minDay}: ${formatCentsBRL(cashflowProjection.minBalanceCents, isPrivacyMode)}`}
@@ -703,7 +706,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       {cashflowProjection.isNegativeAlert ? (
                         <Text
                           testID="finance-cashflow-negative-warning"
-                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: '700', marginTop: 2 }]}
+                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: '700', marginTop: space.xs }]}
                         >
                           Aviso: menor saldo previsto negativo
                         </Text>
@@ -792,7 +795,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   {overdueIncomeCount > 0 ? (
                     <Text
                       testID="finance-overdue-income-line"
-                      style={[styles.pairCaption, { color: c.income, marginTop: 4 }]}
+                      style={[styles.pairCaption, { color: c.income, marginTop: space.xs }]}
                     >
                       {overdueIncomeCount} a receber em atraso
                     </Text>
@@ -1002,10 +1005,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             onPress={(e) => e.stopPropagation()}
             style={[
               styles.addMenuCard,
-              { backgroundColor: c.surface, borderColor: c.border, padding: 14, width: '100%' },
+              { backgroundColor: c.surface, borderColor: c.border, padding: space.lg, width: '100%' },
             ]}
           >
-            <Text style={[styles.addMenuOptionText, { color: c.text, marginBottom: 8 }]}>
+            <Text style={[styles.addMenuOptionText, { color: c.text, marginBottom: space.sm }]}>
               Previsão de saldo · {formatYearMonthPtBr(effectiveMonth)}
             </Text>
             <PriceAreaChart
@@ -1026,21 +1029,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
-    paddingHorizontal: 16,
-    paddingBottom: 96,
+    paddingHorizontal: space.lg,
+    paddingBottom: layout.dockClearance,
   },
   addMenuCard: {
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 6,
+    paddingVertical: space.sm,
     overflow: 'hidden',
   },
   addMenuOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    gap: space.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.lg,
   },
   addMenuOptionText: {
     fontFamily: typography.fontFamily,
@@ -1053,17 +1056,17 @@ const styles = StyleSheet.create({
   },
   attentionCell: {
     flex: 1,
-    paddingVertical: 2,
+    paddingVertical: space.xs,
   },
   attentionDivider: {
     width: 1,
-    marginHorizontal: 14,
+    marginHorizontal: space.lg,
   },
   attentionLabel: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
     letterSpacing: 1.0,
-    marginBottom: 6,
+    marginBottom: space.sm,
   },
   shell: {
     flex: 1,
@@ -1073,7 +1076,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderRadius: 14,
-    padding: 4,
+    padding: space.xs,
   },
   monthArrowBtn: {
     width: 38,
@@ -1097,7 +1100,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 11,
     color: '#1A0E08',
-    marginTop: 4,
+    marginTop: space.xs,
   },
   pairValue: {
     fontFamily: typography.fontFamily,
@@ -1107,14 +1110,14 @@ const styles = StyleSheet.create({
   pairCaption: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 4,
+    marginTop: space.xs,
   },
   overdueHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 14,
-    marginBottom: 10,
+    marginBottom: space.md,
   },
   overdueTitle: {
     fontFamily: typography.fontFamily,
@@ -1123,12 +1126,12 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dotList: {
-    gap: 12,
+    gap: space.md,
   },
   dotRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space.md,
   },
   dotCatName: {
     fontFamily: typography.fontFamily,
@@ -1145,7 +1148,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: space.xs,
   },
   dot: {
     width: 5,
@@ -1154,12 +1157,12 @@ const styles = StyleSheet.create({
   },
   shortcutTile: {
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: space.md,
   },
   shortcutContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: space.md,
   },
   shortcutTexts: {
     flex: 1,
@@ -1172,7 +1175,7 @@ const styles = StyleSheet.create({
   shortcutSub: {
     fontFamily: typography.fontFamily,
     fontSize: 10,
-    marginTop: 1,
+    marginTop: 1, // fora da escala: alinhamento óptico de 1 px entre título e subtítulo do atalho
   },
   entriesShortcutRow: {
     flexDirection: 'row',

@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -343,7 +345,7 @@ export const RecurrenceFormSheet: React.FC<RecurrenceFormSheetProps> = ({
           onPress={() => void handleSave()}
           style={[
             sharedStyles.primaryBtn,
-            { backgroundColor: c.primary, paddingHorizontal: 28, opacity: saving ? 0.6 : 1 },
+            { backgroundColor: c.primary, paddingHorizontal: space.xxl, opacity: saving ? 0.6 : 1 },
           ]}
         >
           <Text style={sharedStyles.primaryBtnText}>{saving ? 'Salvando...' : 'Salvar'}</Text>
@@ -370,6 +372,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
   themeMode = 'dark',
   testID = 'recurrences-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const tileVariant = themeMode === 'light' ? 'light' : 'dark';
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
@@ -518,7 +521,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={sharedStyles.scrollContent}>
+      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]}>
         {loading ? (
           <FinLoadingView themeMode={themeMode} />
         ) : error ? (
@@ -568,7 +571,7 @@ export const RecurrencesScreen: React.FC<RecurrencesScreenProps> = ({
                 themeMode={themeMode}
               />
             ) : (
-              <View style={{ gap: 16 }}>
+              <View style={{ gap: space.lg }}>
                 {activeList.length > 0 ? (
                   <FinListCard
                     testID="recurrences-active-list"
@@ -626,16 +629,16 @@ const styles = StyleSheet.create({
   summarySub: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 4,
+    marginTop: space.xs,
   },
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: space.sm,
   },
   miniBtn: {
     height: 32,
-    paddingHorizontal: 12,
+    paddingHorizontal: space.md,
     borderRadius: 11,
     borderWidth: 1,
     alignItems: 'center',
@@ -650,8 +653,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     borderRadius: 14,
     borderWidth: 1,
   },

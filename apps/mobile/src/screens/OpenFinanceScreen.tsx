@@ -46,7 +46,7 @@ import {
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { ThemeMode } from '../theme/palettes';
-import { bento, BentoVariant, colors, layout, typography } from '../theme/tokens';
+import { BentoVariant, bento, colors, layout, space, typography } from '../theme/tokens';
 
 export interface OpenFinanceScreenProps {
   onClose?: () => void;
@@ -704,7 +704,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                     testID={`open-finance-item-${item.id}`}
                     style={[styles.itemRow, { borderColor: border, backgroundColor: inset }]}
                   >
-                    <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flex: 1, gap: space.xs }}>
                       <Text style={[styles.itemTitle, { color: fg }]}>
                         {item.connector_name || item.id}
                       </Text>
@@ -747,7 +747,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 testID="open-finance-test-connection-btn"
                 onPress={handleTestConnection}
                 disabled={isTesting}
-                style={[styles.primaryBtn, { backgroundColor: accent, marginTop: 8 }]}
+                style={[styles.primaryBtn, { backgroundColor: accent, marginTop: space.sm }]}
               >
                 <Text style={styles.primaryBtnText}>
                   {isTesting ? 'Testando conexão...' : 'Testar conexão'}
@@ -758,7 +758,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 testID="open-finance-sync-finance-btn"
                 onPress={handleStartFinanceSync}
                 disabled={isSyncingFinance}
-                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: space.xs }]}
               >
                 <Text style={styles.primaryBtnText}>
                   {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
@@ -769,7 +769,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 testID="open-finance-sync-investments-btn"
                 onPress={handleStartInvestmentsSync}
                 disabled={isSyncingInvestments}
-                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: space.xs }]}
               >
                 <Text style={styles.primaryBtnText}>
                   {isSyncingInvestments ? 'Sincronizando investimentos...' : 'Sincronizar investimentos'}
@@ -801,7 +801,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                       <Text style={[styles.itemTitle, { color: fg }]}>
                         {prop.pluggyAccount.marketingName || prop.pluggyAccount.name} ({targetType === 'card' ? 'Cartão' : 'Conta'})
                       </Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm }}>
                         <TouchableOpacity
                           onPress={() =>
                             setReconcileChoices((prev) => ({
@@ -851,7 +851,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                   testID="open-finance-confirm-reconcile-btn"
                   onPress={handleConfirmReconciliation}
                   disabled={isSyncingFinance}
-                  style={[styles.primaryBtn, { backgroundColor: accent, marginTop: 8 }]}
+                  style={[styles.primaryBtn, { backgroundColor: accent, marginTop: space.sm }]}
                 >
                   <Text style={styles.primaryBtnText}>Confirmar e sincronizar</Text>
                 </TouchableOpacity>
@@ -875,7 +875,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 <Text style={[styles.sectionTitle, { color: fg }]}>Relatório de cobertura</Text>
                 {coverageReport.map((rep) => (
                   <View key={rep.itemId} style={[styles.itemRow, { borderColor: border, backgroundColor: inset }]}>
-                    <View style={{ flex: 1, gap: 4 }}>
+                    <View style={{ flex: 1, gap: space.xs }}>
                       <Text style={[styles.itemTitle, { color: fg }]}>{rep.connectorName}</Text>
                       {rep.error ? (
                         <Text style={styles.errorText}>{rep.error}</Text>
@@ -966,32 +966,32 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.voidFloor },
   containerLight: { backgroundColor: '#F4F1EA' },
-  scrollContent: { padding: layout.screenPadding, paddingTop: 12, paddingBottom: 40, alignItems: 'center' },
+  scrollContent: { padding: layout.screenPadding, paddingTop: space.md, paddingBottom: space.xxl, alignItems: 'center' },
   content: { width: '100%', maxWidth: 960, gap: bento.gap },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xs },
   title: { fontSize: 22, fontWeight: '700', fontFamily: typography.fontFamily },
   subtitle: { fontSize: 13 },
-  card: { padding: 16, gap: 12 },
+  card: { padding: space.lg, gap: space.md },
   sectionTitle: { fontSize: 16, fontWeight: '700' },
-  steps: { gap: 8 },
+  steps: { gap: space.sm },
   stepText: { fontSize: 13, lineHeight: 19 },
   bold: { fontWeight: '700' },
   caption: { fontSize: 12, lineHeight: 17 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   input: {
     flex: 1,
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: space.md,
+    paddingVertical: space.md,
     fontSize: 14,
   },
-  eyeBtn: { padding: 8 },
-  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  eyeBtn: { padding: space.sm },
+  actionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
   primaryBtn: {
     borderRadius: 9999,
-    paddingHorizontal: 18,
-    paddingVertical: 11,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -999,8 +999,8 @@ const styles = StyleSheet.create({
   secondaryBtn: {
     borderRadius: 9999,
     borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 11,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1008,17 +1008,17 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: space.sm,
     borderWidth: 1,
     borderRadius: 12,
-    padding: 12,
+    padding: space.md,
   },
   itemTitle: { fontSize: 14, fontWeight: '700' },
   smallBtn: {
     borderRadius: 9999,
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   errorText: { fontSize: 12, color: '#D94B4B', lineHeight: 17 },
 });

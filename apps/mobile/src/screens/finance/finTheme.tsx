@@ -5,6 +5,7 @@ import { Skeleton, SkeletonTile } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { formatCentsBRL } from '../../domain/financeFlow';
 import { bento, borders, colors, dock, layout, space, typography } from '../../theme/tokens';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import type { ThemeMode } from '../../theme/palettes';
 
 export function getFinUiColors(themeMode: ThemeMode = 'dark') {
@@ -165,7 +166,7 @@ export const FinLoadingView: React.FC<{ themeMode?: ThemeMode; testID?: string }
         {[0, 1, 2].map((i) => (
           <View key={i} style={sharedStyles.skeletonRow}>
             <Skeleton width={44} height={44} radius={22} themeMode={themeMode} />
-            <View style={{ flex: 1, gap: 6 }}>
+            <View style={{ flex: 1, gap: space.sm }}>
               <Skeleton width="48%" height={13} themeMode={themeMode} />
               <Skeleton width="32%" height={10} themeMode={themeMode} />
             </View>
@@ -253,7 +254,7 @@ export const sharedStyles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: layout.tabScreenPaddingX,
     paddingTop: layout.tabScreenPaddingTop,
-    paddingBottom: dock.pillHeight + 76,
+    paddingBottom: dockContentPaddingBottom(),
     gap: bento.gap,
   },
   stateContainer: {
@@ -262,17 +263,17 @@ export const sharedStyles = StyleSheet.create({
   skeletonListCard: {
     borderRadius: bento.tileRadius,
     paddingHorizontal: bento.tilePadding,
-    paddingVertical: 6,
+    paddingVertical: space.sm,
   },
   skeletonRow: {
     minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: space.md,
   },
   emptyBox: {
     borderRadius: bento.tileRadius,
-    padding: bento.tilePadding + 6,
+    padding: space.xl,
     alignItems: 'center',
     justifyContent: 'center',
     gap: space.sm,
@@ -334,12 +335,12 @@ export const sharedStyles = StyleSheet.create({
   },
   chip: {
     height: 32,
-    paddingHorizontal: 14,
+    paddingHorizontal: space.lg,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: space.sm,
   },
   sectionLabel: {
     fontFamily: typography.fontFamily,

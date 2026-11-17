@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import {
   ScrollView,
   StyleSheet,
@@ -23,6 +25,7 @@ import { finReminderService } from '../../services/finReminderService';
 import { useFinStore } from '../../stores/finStore';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors, sharedStyles } from './finTheme';
+import { space } from '../../theme/tokens';
 
 export interface BudgetScreenProps {
   onBack: () => void;
@@ -41,6 +44,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
   themeMode = 'dark',
   testID = 'budget-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const { selectedMonth } = useFinStore();
   const [categories, setCategories] = useState<FinCategory[]>([]);
@@ -110,7 +114,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
         onTogglePrivacy={onTogglePrivacy}
         themeMode={themeMode}
       />
-      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}>
+      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}>
         {categories.map((cat) => {
           const usage = usageByCategory.get(cat.id);
           const spentCents = usage?.spentCents ?? 0;
@@ -229,13 +233,13 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
 
 const styles = StyleSheet.create({
   tile: {
-    marginBottom: 12,
+    marginBottom: space.md,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: space.sm,
   },
   catName: {
     fontSize: 15,
@@ -249,7 +253,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: space.sm,
   },
   amountsText: {
     fontSize: 13,
@@ -260,28 +264,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   track: {
-    marginBottom: 8,
+    marginBottom: space.sm,
   },
   metaText: {
     fontSize: 12,
-    marginTop: 2,
+    marginTop: space.xs,
   },
   editorBox: {
-    marginTop: 10,
-    paddingTop: 10,
+    marginTop: space.md,
+    paddingTop: space.md,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   suggestionText: {
     fontSize: 12,
-    marginBottom: 6,
+    marginBottom: space.sm,
   },
   input: {
     borderWidth: 1,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     fontSize: 14,
-    marginBottom: 8,
+    marginBottom: space.sm,
   },
   editorActions: {
     flexDirection: 'row',
@@ -291,13 +295,13 @@ const styles = StyleSheet.create({
   scopeChip: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
   },
   saveBtn: {
     borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.sm,
   },
   saveBtnText: {
     color: '#FFFFFF',

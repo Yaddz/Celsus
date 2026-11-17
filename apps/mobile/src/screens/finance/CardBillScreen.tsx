@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import {
@@ -78,6 +80,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   themeMode = 'dark',
   testID = 'card-bill-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const ui = getFinUiColors(themeMode);
   const tileVariant = ui.isLight ? 'light' : 'dark';
   const todayIso = useMemo(() => getTodayIsoLocal(), []);
@@ -308,7 +311,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
       />
 
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: layout.tabScreenPaddingX }]}
+        contentContainerStyle={[styles.scrollContent, { paddingHorizontal: layout.tabScreenPaddingX }, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}
       >
         <View style={styles.monthRail}>
           <TouchableOpacity
@@ -338,7 +341,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
 
         <BentoGrid>
           <BentoTile variant={tileVariant} title="RESUMO DO CARTÃO">
-            <View style={{ gap: 4 }}>
+            <View style={{ gap: space.xs }}>
               <Text style={[styles.subText, { color: ui.muted }]}>
                 Limite total:{' '}
                 {card?.credit_limit_cents != null
@@ -357,7 +360,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
             {isEstimatedDates && card ? (
               <View
                 testID="card-statement-estimated-warning"
-                style={{ marginTop: 8, gap: 4 }}
+                style={{ marginTop: space.sm, gap: space.xs }}
               >
                 <Text style={[styles.subText, { color: ui.warning }]}>
                   Datas estimadas (fecha dia 1, vence dia 10). Configure as datas reais do cartão.
@@ -381,7 +384,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
             horizontal
             showsHorizontalScrollIndicator={false}
             testID="card-statement-bill-selector"
-            contentContainerStyle={{ gap: 8, paddingVertical: 4 }}
+            contentContainerStyle={{ gap: space.sm, paddingVertical: space.xs }}
           >
             {availableBillMonths.map((ym) => {
               const active = ym === billMonth;
@@ -491,7 +494,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
                   <View
                     key={group.dateIso}
                     testID={`card-statement-day-${group.dateIso}`}
-                    style={{ gap: 6 }}
+                    style={{ gap: space.sm }}
                   >
                     <Text style={[styles.subText, { color: ui.muted, fontWeight: '700' }]}>
                       {isoToBr(group.dateIso)}
@@ -646,17 +649,16 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
 
 const styles = StyleSheet.create({
   scrollContent: {
-    paddingBottom: 120,
-    gap: 12,
+    gap: space.md,
   },
   monthRail: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: space.sm,
   },
   monthArrow: {
-    padding: 8,
+    padding: space.sm,
   },
   monthLabel: {
     fontFamily: typography.fontFamily,
@@ -668,7 +670,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: space.xs,
   },
   heroValue: {
     fontFamily: typography.fontFamily,
@@ -676,8 +678,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs,
     borderRadius: 12,
   },
   statusText: {
@@ -688,7 +690,7 @@ const styles = StyleSheet.create({
   subText: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    marginTop: 2,
+    marginTop: space.xs,
   },
   metricValue: {
     fontFamily: typography.fontFamily,
@@ -700,7 +702,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    marginTop: space.xs,
   },
   payButtonText: {
     fontFamily: typography.fontFamily,
@@ -709,7 +711,7 @@ const styles = StyleSheet.create({
   },
   sheetBody: {
     padding: space.lg,
-    gap: 12,
+    gap: space.md,
   },
   fieldLabel: {
     fontFamily: typography.fontFamily,
@@ -719,11 +721,11 @@ const styles = StyleSheet.create({
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: space.sm,
   },
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: space.md,
+    paddingVertical: space.sm,
     borderRadius: 14,
     borderWidth: 1,
   },

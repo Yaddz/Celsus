@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { XpMinimalHeader } from '../../components/ui';
 import { FinListCard, FinListRow } from '../../components/ui/FinListCard';
@@ -8,7 +10,7 @@ import { formatCentsBRL, formatYearMonthPtBr } from '../../domain/financeFlow';
 import { finGoalsRepository } from '../../repositories/finGoalsRepository';
 import { finGoalsService } from '../../services/finGoalsService';
 import type { ThemeMode } from '../../theme/palettes';
-import { typography } from '../../theme/tokens';
+import { bento, space, typography } from '../../theme/tokens';
 import { getFinUiColors, sharedStyles } from './finTheme';
 
 export interface NetWorthScreenProps {
@@ -32,6 +34,7 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   referenceDateIso,
   testID = 'net-worth-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const c = getFinUiColors(themeMode);
   const [netWorth, setNetWorth] = useState<NetWorthResult>({
     accountsCents: 0,
@@ -70,8 +73,8 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
         themeMode={themeMode}
       />
 
-      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: 130 }]}>
-        <FinListCard themeMode={themeMode} style={{ marginBottom: 14 }}>
+      <ScrollView contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom) }]}>
+        <FinListCard themeMode={themeMode} style={{ marginBottom: space.lg }}>
           <View style={styles.heroWrap}>
             <Text style={[styles.heroLabel, { color: c.muted }]}>PATRIMÔNIO LÍQUIDO</Text>
             <Text testID="net-worth-total" style={[styles.heroValue, { color: c.text }]}>
@@ -80,7 +83,7 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
           </View>
         </FinListCard>
 
-        <FinListCard title="COMPOSIÇÃO" themeMode={themeMode} style={{ marginBottom: 14 }}>
+        <FinListCard title="COMPOSIÇÃO" themeMode={themeMode} style={{ marginBottom: space.lg }}>
           <FinListRow
             icon="account-balance-wallet"
             avatarColor="#AECDC5"
@@ -137,7 +140,7 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
 
 const styles = StyleSheet.create({
   heroWrap: {
-    padding: 18,
+    padding: bento.tilePadding,
   },
   heroLabel: {
     fontFamily: typography.fontFamily,
@@ -148,12 +151,12 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 28,
     fontWeight: '700',
-    marginTop: 4,
+    marginTop: space.xs,
   },
   emptyText: {
     fontFamily: typography.fontFamily,
     fontSize: 13,
-    padding: 16,
+    padding: space.lg,
     textAlign: 'center',
   },
 });

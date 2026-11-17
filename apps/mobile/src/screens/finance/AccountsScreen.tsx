@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   AnimatedModalSheet,
@@ -32,7 +34,7 @@ import {
 } from '../../domain/openFinance';
 import { finRepository } from '../../repositories/finRepository';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, typography } from '../../theme/tokens';
+import { layout, space, typography } from '../../theme/tokens';
 import {
   FIN_COLOR_SWATCHES,
   FinEmptyState,
@@ -41,6 +43,7 @@ import {
   FinLoadingView,
   formatSignedCentsBRL,
   getFinUiColors,
+  sharedStyles,
   resolveApprovedColor,
 } from './finTheme';
 
@@ -85,6 +88,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   themeMode = 'dark',
   testID = 'accounts-screen',
 }) => {
+  const insets = useSafeAreaInsets();
   const ui = getFinUiColors(themeMode);
 
   const [loading, setLoading] = useState(true);
@@ -466,7 +470,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       ) : error ? (
         <FinErrorView message={error} onRetry={loadData} themeMode={themeMode} />
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView testID="accounts-scroll" contentContainerStyle={[sharedStyles.scrollContent, { paddingBottom: dockContentPaddingBottom(insets.bottom, { withFab: true }) }]} showsVerticalScrollIndicator={false}>
           <BentoGrid>
             <View testID="accounts-total-tile">
               <BentoTile
@@ -666,36 +670,30 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: {
-    paddingHorizontal: layout.tabScreenPaddingX,
-    paddingTop: 8,
-    paddingBottom: 170,
-    gap: 14,
-  },
   totalValue: {
     fontFamily: typography.fontFamily,
     fontSize: 32,
     fontWeight: '700',
     color: '#1A0E08',
     fontVariant: ['tabular-nums'],
-    marginTop: 4,
+    marginTop: space.xs,
   },
   totalCaption: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
     color: '#1A0E08',
     opacity: 0.78,
-    marginTop: 4,
+    marginTop: space.xs,
   },
   rowActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: space.sm,
   },
   actionBtn: {
     height: 32,
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 12,
+    paddingHorizontal: space.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -708,12 +706,12 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   sheetBody: {
-    gap: 14,
-    paddingBottom: 16,
+    gap: space.lg,
+    paddingBottom: space.lg,
   },
   swatchRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: space.md,
     flexWrap: 'wrap',
   },
   swatch: {
@@ -727,7 +725,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 6,
+    marginTop: space.sm,
   },
   saveBtnText: {
     fontFamily: typography.fontFamily,
