@@ -101,6 +101,33 @@ export interface ReconcilePluggyOptions {
   accountTypesById?: Record<string, 'checking' | 'card'>;
 }
 
+export interface RemovedOpenFinanceCandidate {
+  entryId: string;
+  action: 'soft_delete' | 'mark_removed' | 'conflict';
+}
+
+export function detectRemovedOpenFinanceEntries(
+  _existing: Array<{
+    id: string;
+    source: string;
+    external_id?: string | null;
+    due_date: string;
+    status: string;
+    user_edited_fields?: string | null;
+    of_removed_at?: string | null;
+  }>,
+  _fetchedExternalIds: Set<string>,
+  _windowStartIso: string
+): RemovedOpenFinanceCandidate[] {
+  return [];
+}
+
+export function deduplicatePluggyAccountTransactions(
+  txs: PluggyTransaction[]
+): Array<{ tx: PluggyTransaction; externalId: string }> {
+  return txs.map((tx) => ({ tx, externalId: tx.id }));
+}
+
 const PLUGGY_L1_EXPENSE_CATEGORY_MAP: Record<string, string> = {
   groceries: 'cat-mercado',
   supermarket: 'cat-mercado',

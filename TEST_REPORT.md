@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **198 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 87 — Bancos e cartões: janela, exclusões e saldos (Fase A concluída)
+
+Especificação dos diagnósticos D14–D18 e regras R10 e R11.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/__tests__/Sprint87FinanceSync.test.ts` | S87-T01…T03, S87-T07…T09 | `4b023e0698d712bad54c2eeff5465d9446dde3899aa8690071127ce9f891bab9` | 5 FAIL / 1 PASS |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint87Removals.test.ts` | S87-T04…T06 | `b787883371ba8563055f617e9d62a82e8b1e3b3a373369a854861b81aade140a` | 2 FAIL / 1 PASS |
+
 ## Sprint 86 — Proventos completos (Fase B concluída)
 
 `PluggyClient.request` com `maxRetries` configurável (4 retentativas em `listInvestmentTransactions`), backoff exponencial com jitter e `Retry-After` até 30 s, concorrência 2 no sync de investimentos, status `PARTIAL` com `counts.failedInvestmentIds` preservando custo existente em falha, gravação de `INTEREST` independente do status de reconciliação (com migração ao confirmar), `income_events.item_id`/`asset_id` e `fin_entries.linked_income_id` (schema, migração e backup), `disconnectItemInvestments` isolado por `item_id`, `detectBankIncomeCandidate` (`OPEN_FINANCE_BANK`) integrado ao `pluggySyncService`, e aviso/botão `"Tentar de novo"` na `OpenFinanceScreen`.
