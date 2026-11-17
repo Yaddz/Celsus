@@ -3,7 +3,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { BackHandler, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { AnimatedModalSheet, BentoGrid, BentoRow, BentoTile, DotTrack, XpMinimalHeader } from '../../components/ui';
+import {
+  AnimatedModalSheet,
+  BentoGrid,
+  BentoRow,
+  BentoTile,
+  DotTrack,
+  MonthBalanceCarousel,
+  XpMinimalHeader,
+  type MonthBalanceSummary,
+} from '../../components/ui';
 import {
   FloatingBottomDock,
   type DockActionItem,
@@ -81,6 +90,7 @@ export interface FinanceHomeScreenProps {
   onNavigate?: (route: FinanceRoute) => void;
   referenceDateIso?: string;
   initialRoute?: FinanceRoute;
+  initialOpenStatementImport?: boolean;
   testID?: string;
 }
 
@@ -140,6 +150,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onNavigate,
   referenceDateIso,
   initialRoute = 'home',
+  initialOpenStatementImport = false,
   testID = 'finance-home-screen',
 }) => {
   const insets = useSafeAreaInsets();
@@ -175,7 +186,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [entryFormInitialKind, setEntryFormInitialKind] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
-  const [isStatementImportOpen, setIsStatementImportOpen] = useState(false);
+  const [isStatementImportOpen, setIsStatementImportOpen] = useState(Boolean(initialOpenStatementImport));
+
+  useEffect(() => {
+    if (initialOpenStatementImport) {
+      setIsStatementImportOpen(true);
+    }
+  }, [initialOpenStatementImport]);
 
   const loadData = useCallback(async () => {
     if (!hasLoadedOnceRef.current) {
@@ -268,6 +285,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   }, [runOpenFinanceSync]);
 
   const openEntriesWith = (filters: Partial<FinFilters>) => {
+    finStore.setSelectedMonth(effectiveMonth);
     finStore.resetFilters();
     finStore.setFilters(filters);
     navigateTo('entries');
@@ -290,11 +308,43 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     return () => sub.remove();
   }, [activeRoute]);
 
-  const handleStepMonth = (delta: number) => {
-    const next = addMonthsYearMonth(effectiveMonth, delta);
-    setLocalMonth(next);
-    finStore.setSelectedMonth(next);
-  };
+  const currentMonth = effectiveToday.slice(0, 7);
+  const maxSelectableMonth = useMemo(() => addMonthsYearMonth(currentMonth, 24), [currentMonth]);
+
+  const handleSelectMonth = useCallback(
+    (nextMonth: string) => {
+      if (nextMonth > maxSelectableMonth) return;
+      setLocalMonth(nextMonth);
+      finStore.setSelectedMonth(nextMonth);
+    },
+    [maxSelectableMonth]
+  );
+
+  const getMonthSummary = useCallback(
+    (yearMonth: string): MonthBalanceSummary => {
+      const summary = calculateMonthlySummary(entries, yearMonth);
+      const prev = addMonthsYearMonth(yearMonth, -1);
+      const prevSum = calculateMonthlySummary(entries, prev);
+      const { start, end } = getMonthDateRange(yearMonth);
+      const fromIso = effectiveToday > start && effectiveToday <= end ? effectiveToday : start;
+      const projection = projectCashflow(accounts, entries, fromIso, end, {
+        recurrences,
+        skips,
+      });
+      return {
+        month: yearMonth,
+        balanceCents: summary.balanceCents,
+        balanceDeltaCents: summary.balanceCents - prevSum.balanceCents,
+        prevMonthName: formatYearMonthPtBr(prev).split(' ')[0].toLowerCase(),
+        endBalanceCents: projection.endBalanceCents,
+        minBalanceCents: projection.minBalanceCents,
+        minBalanceDate: projection.minBalanceDate,
+        endDateDDMM: `${end.slice(8, 10)}/${end.slice(5, 7)}`,
+        isNegativeAlert: projection.isNegativeAlert,
+      };
+    },
+    [entries, accounts, recurrences, skips, effectiveToday]
+  );
 
   const categoryById = useMemo(() => {
     const map = new Map<string, FinCategory>();
@@ -635,107 +685,111 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
               ) : null}
             </View>
           ) : null}
-          {/* Seletor de mês */}
-          <View
-            testID="finance-home-month-rail"
-            style={[styles.monthRail, { backgroundColor: c.surfaceContainer }]}
-          >
-            <TouchableOpacity
-              testID="finance-home-month-prev"
-              accessibilityRole="button"
-              accessibilityLabel="Mês anterior"
-              onPress={() => handleStepMonth(-1)}
-              style={styles.monthArrowBtn}
-            >
-              <MaterialIcons name="chevron-left" size={20} color={c.muted} />
-            </TouchableOpacity>
-            <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
-              {formatYearMonthPtBr(effectiveMonth)}
-            </Text>
-            <TouchableOpacity
-              testID="finance-home-month-next"
-              accessibilityRole="button"
-              accessibilityLabel="Próximo mês"
-              onPress={() => handleStepMonth(1)}
-              style={styles.monthArrowBtn}
-            >
-              <MaterialIcons name="chevron-right" size={20} color={c.muted} />
-            </TouchableOpacity>
-          </View>
-
           {loading ? (
-            <LoadingState themeMode={themeMode} />
+            <>
+              <View
+                testID="finance-home-month-rail"
+                style={[styles.monthRail, { backgroundColor: c.surfaceContainer }]}
+              >
+                <TouchableOpacity
+                  testID="finance-home-month-prev"
+                  accessibilityRole="button"
+                  accessibilityLabel="Mês anterior"
+                  onPress={() => handleSelectMonth(addMonthsYearMonth(effectiveMonth, -1))}
+                  style={styles.monthArrowBtn}
+                >
+                  <MaterialIcons name="chevron-left" size={20} color={c.muted} />
+                </TouchableOpacity>
+                <Text testID="finance-home-month-label" style={[styles.monthLabel, { color: c.text }]}>
+                  {formatYearMonthPtBr(effectiveMonth)}
+                </Text>
+                <TouchableOpacity
+                  testID="finance-home-month-next"
+                  accessibilityRole="button"
+                  accessibilityLabel="Próximo mês"
+                  onPress={() => handleSelectMonth(addMonthsYearMonth(effectiveMonth, 1))}
+                  style={styles.monthArrowBtn}
+                >
+                  <MaterialIcons name="chevron-right" size={20} color={c.muted} />
+                </TouchableOpacity>
+              </View>
+              <LoadingState themeMode={themeMode} />
+            </>
           ) : error ? (
             <ErrorState message={error} onRetry={loadData} themeMode={themeMode} />
           ) : entries.length === 0 && accounts.length === 0 ? (
-            <EmptyState
-              testID="finance-empty-state"
-              icon="account-balance"
-              title="Nenhum lançamento registrado"
-              subtitle="Cadastre contas, receitas, despesas, assinaturas ou compras parceladas para ver o resumo do mês."
-              themeMode={themeMode}
-            />
+            <>
+              <MonthBalanceCarousel
+                month={effectiveMonth}
+                currentMonth={currentMonth}
+                maxMonth={maxSelectableMonth}
+                getMonthSummary={getMonthSummary}
+                onMonthChange={handleSelectMonth}
+                isPrivacyMode={isPrivacyMode}
+                themeMode={themeMode}
+              />
+              <EmptyState
+                testID="finance-empty-state"
+                icon="account-balance"
+                title="Nenhum lançamento registrado"
+                subtitle="Cadastre contas, receitas, despesas, assinaturas ou compras parceladas para ver o resumo do mês."
+                themeMode={themeMode}
+              />
+            </>
           ) : (
             <BentoGrid>
-              {/* Saldo do mês */}
-              <BentoTile variant="primary" title="SALDO DO MÊS">
-                <Text testID="finance-month-balance" style={[styles.heroValue, { color: c.primaryFg }]}>
-                  {formatCentsBRL(monthlySummary.balanceCents, isPrivacyMode)}
-                </Text>
-                <Text testID="finance-month-comparison" style={[styles.heroSub, { color: c.primaryMuted }]}>
-                  {isPrivacyMode
-                    ? 'R$ •••••• em relação a ' + prevMonthName
-                    : `${formatSignedCentsBRL(balanceDelta, balanceDelta >= 0 ? 'income' : 'expense', false)} em relação a ${prevMonthName}`}
-                </Text>
-                {(() => {
-                  const endIso = getMonthDateRange(effectiveMonth).end;
-                  const endDDMM = `${endIso.slice(8, 10)}/${endIso.slice(5, 7)}`;
-                  const minDay = cashflowProjection.minBalanceDate.slice(8, 10);
-                  return (
-                    <TouchableOpacity
-                      testID="finance-cashflow-forecast"
-                      activeOpacity={0.75}
-                      onPress={() => setIsCashflowModalOpen(true)}
-                      style={{ marginTop: space.sm }}
-                    >
-                      <Text style={[styles.heroSub, { color: c.primaryFg, opacity: 0.92 }]}>
-                        {`Previsão para ${endDDMM}: ${formatCentsBRL(cashflowProjection.endBalanceCents, isPrivacyMode)} · menor saldo dia ${minDay}: ${formatCentsBRL(cashflowProjection.minBalanceCents, isPrivacyMode)}`}
-                      </Text>
-                      {cashflowProjection.isNegativeAlert ? (
-                        <Text
-                          testID="finance-cashflow-negative-warning"
-                          style={[styles.heroSub, { color: '#FFE0B2', fontWeight: typography.weights.bold, marginTop: space.xs }]}
-                        >
-                          Aviso: menor saldo previsto negativo
-                        </Text>
-                      ) : null}
-                    </TouchableOpacity>
-                  );
-                })()}
-              </BentoTile>
+              {/* Saldo do mês em carrossel + indicador em pílulas */}
+              <MonthBalanceCarousel
+                month={effectiveMonth}
+                currentMonth={currentMonth}
+                maxMonth={maxSelectableMonth}
+                getMonthSummary={getMonthSummary}
+                onMonthChange={handleSelectMonth}
+                onCashflowPress={() => setIsCashflowModalOpen(true)}
+                isPrivacyMode={isPrivacyMode}
+                themeMode={themeMode}
+              />
 
               {/* Receitas x Despesas */}
               <BentoRow>
-                <BentoTile variant={tileVariant} title="RECEITAS">
-                  <Text
-                    testID="finance-month-income"
-                    style={[styles.pairValue, { color: c.income }]}
-                    numberOfLines={1}
-                  >
-                    {formatSignedCentsBRL(monthlySummary.totalIncomeCents, 'income', isPrivacyMode)}
-                  </Text>
+                <BentoTile
+                  variant={tileVariant}
+                  title="RECEITAS"
+                  testID="finance-month-income-tile"
+                  accessibilityLabel={`Ver receitas de ${formatYearMonthPtBr(effectiveMonth).toLowerCase()}`}
+                  onPress={() => openEntriesWith({ kind: 'income' })}
+                >
+                  <View style={styles.pairHeaderRow}>
+                    <Text
+                      testID="finance-month-income"
+                      style={[styles.pairValue, { color: c.income, flex: 1 }]}
+                      numberOfLines={1}
+                    >
+                      {formatSignedCentsBRL(monthlySummary.totalIncomeCents, 'income', isPrivacyMode)}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={16} color={c.muted} />
+                  </View>
                   <Text style={[styles.pairCaption, { color: c.muted }]}>
                     {pendingIncomeCount} a receber
                   </Text>
                 </BentoTile>
-                <BentoTile variant={tileVariant} title="DESPESAS">
-                  <Text
-                    testID="finance-month-expense"
-                    style={[styles.pairValue, { color: c.expense }]}
-                    numberOfLines={1}
-                  >
-                    {formatSignedCentsBRL(monthlySummary.totalExpenseCents, 'expense', isPrivacyMode)}
-                  </Text>
+                <BentoTile
+                  variant={tileVariant}
+                  title="DESPESAS"
+                  testID="finance-month-expense-tile"
+                  accessibilityLabel={`Ver despesas de ${formatYearMonthPtBr(effectiveMonth).toLowerCase()}`}
+                  onPress={() => openEntriesWith({ kind: 'expense' })}
+                >
+                  <View style={styles.pairHeaderRow}>
+                    <Text
+                      testID="finance-month-expense"
+                      style={[styles.pairValue, { color: c.expense, flex: 1 }]}
+                      numberOfLines={1}
+                    >
+                      {formatSignedCentsBRL(monthlySummary.totalExpenseCents, 'expense', isPrivacyMode)}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={16} color={c.muted} />
+                  </View>
                   <Text style={[styles.pairCaption, { color: c.muted }]}>
                     {pendingExpenseCount} pendentes
                   </Text>
@@ -818,15 +872,15 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       const hasBudget = budgetUsage?.limitCents != null;
                       const budgetColor =
                         budgetUsage?.status === 'estourado'
-                          ? '#D96628'
+                          ? c.overdue
                           : budgetUsage?.status === 'atencao'
-                          ? '#D4A83B'
+                          ? c.warning
                           : cat.color;
                       const textHighlight =
                         budgetUsage?.status === 'estourado'
-                          ? '#D96628'
+                          ? c.overdue
                           : budgetUsage?.status === 'atencao'
-                          ? '#D4A83B'
+                          ? c.warning
                           : c.text;
                       return (
                         <TouchableOpacity
@@ -1001,7 +1055,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           points={cashflowChartPoints}
           activeRange="30D"
           themeMode={themeMode}
-          accentColor={cashflowProjection.isNegativeAlert ? '#D96628' : '#2E7D5B'}
+          accentColor={cashflowProjection.isNegativeAlert ? c.negativeChart : c.positiveChart}
         />
       </AnimatedModalSheet>
     </View>
@@ -1058,6 +1112,12 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1,
   },
+  pairHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: space.xs,
+  },
   monthRail: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1081,12 +1141,10 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: typography.headlineLg.fontSize,
     fontWeight: typography.weights.bold,
-    color: '#1A0E08',
   },
   heroSub: {
     fontFamily: typography.fontFamily,
     fontSize: typography.sizes.subtitle,
-    color: '#1A0E08',
     marginTop: space.xs,
   },
   pairValue: {

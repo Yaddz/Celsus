@@ -99,7 +99,7 @@ describe('Sprint 55 — Reskin Visual do Módulo Finanças (Bento Design System)
       expect(light.muted).toBe('#6E6A63');
       expect(light.income).toBe('#1D6F5B');
       expect(light.expense).toBe('#C24D18');
-      expect(light.warning).toBe('#D4A83B');
+      expect(light.warning).toBe('#8C6200');
     });
 
     it('mapeia ícones Material e cores da paleta aprovada para todas as categorias padrão e contrasta sobre #2E4A44', () => {

@@ -45,8 +45,8 @@ import {
 } from '../domain/openFinance/diagnostics';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
-import { ThemeMode } from '../theme/palettes';
-import { BentoVariant, bento, colors, layout, space, typography } from '../theme/tokens';
+import { THEME_COLORS, ThemeMode } from '../theme/palettes';
+import { BentoVariant, bento, layout, space, typography } from '../theme/tokens';
 
 export interface OpenFinanceScreenProps {
   onClose?: () => void;
@@ -83,11 +83,12 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 }) => {
   const isLight = themeMode === 'light';
   const variant: BentoVariant = isLight ? 'light' : 'dark';
-  const fg = bento.variants[variant].foreground;
-  const muted = bento.variants[variant].muted;
-  const inset = isLight ? '#F6F2EA' : '#161819';
-  const border = isLight ? '#ECE6DA' : '#2A2D30';
-  const accent = '#D96628';
+  const t = THEME_COLORS[themeMode];
+  const fg = t.onSurface;
+  const muted = t.muted;
+  const inset = t.surfaceInset;
+  const border = t.border;
+  const accent = t.accent;
 
   const pluggyClient = useMemo(() => client ?? new PluggyClient(), [client]);
 
@@ -552,7 +553,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   };
 
   return (
-    <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
+    <View testID={testID} style={[styles.container, { backgroundColor: t.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <View style={styles.header}>
@@ -716,7 +717,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                       {daysLeft !== null && !expired ? (
                         <Text
                           testID={warnExpiry ? `open-finance-item-warning-badge-${item.id}` : undefined}
-                          style={[styles.caption, { color: warnExpiry ? '#D4A83B' : muted }]}
+                          style={[styles.caption, { color: warnExpiry ? t.warning : muted }]}
                         >
                           {`autorização vence em ${daysLeft} dias`}
                         </Text>
@@ -725,7 +726,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                       {expired ? (
                         <Text
                           testID={`open-finance-item-expired-error-${item.id}`}
-                          style={[styles.errorText]}
+                          style={[styles.errorText, { color: t.error }]}
                         >
                           Autorização expirada. Refaça a conexão no Dashboard da Pluggy (MeuPluggy).
                         </Text>
@@ -749,7 +750,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 disabled={isTesting}
                 style={[styles.primaryBtn, { backgroundColor: accent, marginTop: space.sm }]}
               >
-                <Text style={styles.primaryBtnText}>
+                <Text style={[styles.primaryBtnText, { color: t.onAccent }]}>
                   {isTesting ? 'Testando conexão...' : 'Testar conexão'}
                 </Text>
               </TouchableOpacity>
@@ -758,9 +759,9 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 testID="open-finance-sync-finance-btn"
                 onPress={handleStartFinanceSync}
                 disabled={isSyncingFinance}
-                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: space.xs }]}
+                style={[styles.primaryBtn, { backgroundColor: t.primaryButtonBg, marginTop: space.xs }]}
               >
-                <Text style={styles.primaryBtnText}>
+                <Text style={[styles.primaryBtnText, { color: t.onPrimaryButton }]}>
                   {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
                 </Text>
               </TouchableOpacity>
@@ -769,9 +770,9 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 testID="open-finance-sync-investments-btn"
                 onPress={handleStartInvestmentsSync}
                 disabled={isSyncingInvestments}
-                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: space.xs }]}
+                style={[styles.primaryBtn, { backgroundColor: t.primaryButtonBg, marginTop: space.xs }]}
               >
-                <Text style={styles.primaryBtnText}>
+                <Text style={[styles.primaryBtnText, { color: t.onPrimaryButton }]}>
                   {isSyncingInvestments ? 'Sincronizando investimentos...' : 'Sincronizar investimentos'}
                 </Text>
               </TouchableOpacity>
@@ -817,7 +818,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                             },
                           ]}
                         >
-                          <Text style={{ fontSize: 12, color: selected === 'CREATE_NEW' ? '#fff' : fg }}>
+                          <Text style={{ fontSize: 12, color: selected === 'CREATE_NEW' ? t.onAccent : fg }}>
                             Criar nova conta
                           </Text>
                         </TouchableOpacity>
@@ -838,7 +839,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                               },
                             ]}
                           >
-                            <Text style={{ fontSize: 12, color: selected === cand.id ? '#fff' : fg }}>
+                            <Text style={{ fontSize: 12, color: selected === cand.id ? t.onAccent : fg }}>
                               {cand.name}
                             </Text>
                           </TouchableOpacity>
@@ -860,7 +861,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 
             {errorMessage ? (
               <BentoTile variant={variant} style={styles.card}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Text style={[styles.errorText, { color: t.error }]}>{errorMessage}</Text>
               </BentoTile>
             ) : null}
 
@@ -878,7 +879,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                     <View style={{ flex: 1, gap: space.xs }}>
                       <Text style={[styles.itemTitle, { color: fg }]}>{rep.connectorName}</Text>
                       {rep.error ? (
-                        <Text style={styles.errorText}>{rep.error}</Text>
+                        <Text style={[styles.errorText, { color: t.error }]}>{rep.error}</Text>
                       ) : (
                         <>
                           <Text style={[styles.caption, { color: fg }]}>
@@ -895,7 +896,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                               Nenhum investimento retornado por este conector.
                             </Text>
                           )}
-                          <Text style={[styles.caption, { color: rep.hasB3VariableIncome ? '#2E8B57' : muted }]}>
+                          <Text style={[styles.caption, { color: rep.hasB3VariableIncome ? t.success : muted }]}>
                             {rep.hasB3VariableIncome
                               ? 'Renda variável B3 (ações/FIIs/ETFs) recebida via Open Finance.'
                               : 'Sem ações/FIIs da B3 neste conector (importação B3 continua necessária).'}
@@ -955,6 +956,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
           coverageByClass={computeClassCoverageReport(
             invReconcile.proposals.map((p) => p.pluggyInvestment)
           )}
+          themeMode={themeMode}
           onConfirm={handleConfirmInvestmentReconciliation}
           onClose={() => setInvReconcile(null)}
         />
@@ -964,8 +966,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.voidFloor },
-  containerLight: { backgroundColor: '#F4F1EA' },
+  container: { flex: 1 },
   scrollContent: { padding: layout.screenPadding, paddingTop: space.md, paddingBottom: space.xxl, alignItems: 'center' },
   content: { width: '100%', maxWidth: 960, gap: bento.gap },
   header: { flexDirection: 'row', alignItems: 'center', gap: space.md, marginBottom: space.xs },
@@ -995,7 +996,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  primaryBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 13 },
+  primaryBtnText: { fontWeight: '700', fontSize: 13 },
   secondaryBtn: {
     borderRadius: 9999,
     borderWidth: 1,
@@ -1020,7 +1021,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.md,
     paddingVertical: space.sm,
   },
-  errorText: { fontSize: 12, color: '#D94B4B', lineHeight: 17 },
+  errorText: { fontSize: 12, lineHeight: 17 },
 });
 
 export default OpenFinanceScreen;

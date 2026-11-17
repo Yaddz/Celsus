@@ -463,11 +463,18 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
 
   const visiblePaid = showAllPaid ? grouped.paidList : grouped.paidList.slice(0, 5);
 
+  const headerTitle =
+    filters.kind === 'income'
+      ? 'Receitas'
+      : filters.kind === 'expense'
+        ? 'Despesas'
+        : 'Lançamentos';
+
   return (
     <View testID={testID} style={[sharedStyles.screen, { backgroundColor: c.background }]}>
       <XpMinimalHeader
         module="finance"
-        title="Lançamentos"
+        title={headerTitle}
         subtitle={monthLabel}
         subtitleTestID="entries-month-label"
         onBack={onAvatarPress ? undefined : onBack}

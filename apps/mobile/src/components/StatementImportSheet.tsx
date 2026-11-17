@@ -345,7 +345,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
                   >
                     <Text
                       style={{
-                        color: active ? '#111315' : ui.text,
+                        color: active ? ui.onAccentText : ui.text,
                         fontWeight: '600',
                         fontSize: 13,
                       }}
@@ -362,7 +362,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
               onPress={handlePickFile}
               style={[styles.primaryBtn, { backgroundColor: ui.primary }]}
             >
-              <MaterialIcons name="upload-file" size={20} color="#111315" />
+              <MaterialIcons name="upload-file" size={20} color={ui.onAccentText} />
               <Text style={styles.primaryBtnText}>
                 Escolher arquivo OFX ou CSV
               </Text>
@@ -394,7 +394,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
                     },
                   ]}
                 >
-                  <Text style={{ color: manualDateCol === idx ? '#111315' : ui.text }}>
+                  <Text style={{ color: manualDateCol === idx ? ui.onAccentText : ui.text }}>
                     {h}
                   </Text>
                 </TouchableOpacity>
@@ -416,7 +416,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
                     },
                   ]}
                 >
-                  <Text style={{ color: manualDescCol === idx ? '#111315' : ui.text }}>
+                  <Text style={{ color: manualDescCol === idx ? ui.onAccentText : ui.text }}>
                     {h}
                   </Text>
                 </TouchableOpacity>
@@ -438,7 +438,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
                     },
                   ]}
                 >
-                  <Text style={{ color: manualAmountCol === idx ? '#111315' : ui.text }}>
+                  <Text style={{ color: manualAmountCol === idx ? ui.onAccentText : ui.text }}>
                     {h}
                   </Text>
                 </TouchableOpacity>
@@ -469,7 +469,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
               }}
               style={[styles.primaryBtn, { backgroundColor: ui.primary }]}
             >
-              <Text style={styles.primaryBtnText}>Aplicar colunas</Text>
+              <Text style={[styles.primaryBtnText, { color: ui.onAccentText }]}>Aplicar colunas</Text>
             </TouchableOpacity>
           </ScrollView>
         ) : null}
@@ -576,7 +576,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
                             >
                               <Text
                                 style={{
-                                  color: c.id === row.categoryId ? '#111315' : ui.text,
+                                  color: c.id === row.categoryId ? ui.onAccentText : ui.text,
                                   fontSize: 12,
                                 }}
                               >
@@ -628,7 +628,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
               onPress={onClose}
               style={[styles.primaryBtn, { backgroundColor: ui.primary, width: '100%' }]}
             >
-              <Text style={styles.primaryBtnText}>Concluir</Text>
+              <Text style={[styles.primaryBtnText, { color: ui.onAccentText }]}>Concluir</Text>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -673,7 +673,7 @@ const styles = StyleSheet.create({
     gap: space.sm,
     marginTop: space.sm,
   },
-  primaryBtnText: { color: '#111315', fontWeight: '700', fontSize: 15 },
+  primaryBtnText: { fontWeight: '700', fontSize: 15 },
   secondaryBtn: {
     height: 44,
     borderRadius: 999,

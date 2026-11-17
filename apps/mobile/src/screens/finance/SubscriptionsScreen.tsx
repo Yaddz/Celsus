@@ -224,10 +224,10 @@ export const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({
           <JellyPressable
             testID={`subscription-resume-btn-${sub.id}`}
             onPress={() => void handleTogglePause(sub)}
-            containerStyle={styles.resumeBtn}
+            containerStyle={[styles.resumeBtn, { backgroundColor: ui.primary }]}
             accessibilityLabel={`Retomar ${sub.description}`}
           >
-            <Text style={styles.resumeBtnText}>Retomar</Text>
+            <Text style={[styles.resumeBtnText, { color: ui.primaryFg }]}>Retomar</Text>
           </JellyPressable>
         </View>
       );
@@ -451,7 +451,6 @@ const styles = StyleSheet.create({
   resumeBtn: {
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: space.lg,
@@ -460,7 +459,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: typography.labelMd.fontSize,
     fontWeight: typography.weights.bold,
-    color: '#1A0E08',
   },
   canceledCard: {
     opacity: 0.7,

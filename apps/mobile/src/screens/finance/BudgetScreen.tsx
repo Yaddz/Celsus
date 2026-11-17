@@ -125,7 +125,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
             status === 'estourado'
               ? c.overdue
               : status === 'atencao'
-              ? '#D4A83B'
+              ? c.warning
               : c.income;
           const suggestedCents = suggestBudgetLimit(entries, cat.id, selectedMonth);
           const isEditing = editingCatId === cat.id;
@@ -209,7 +209,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
                         { borderColor: c.border, backgroundColor: onlyThisMonth ? c.primary : 'transparent' },
                       ]}
                     >
-                      <Text style={{ color: onlyThisMonth ? '#FFFFFF' : c.text, fontSize: typography.labelMd.fontSize }}>
+                      <Text style={{ color: onlyThisMonth ? c.onForest : c.text, fontSize: typography.labelMd.fontSize }}>
                         {onlyThisMonth ? 'Só este mês' : 'Todo mês'}
                       </Text>
                     </TouchableOpacity>
@@ -218,7 +218,7 @@ export const BudgetScreen: React.FC<BudgetScreenProps> = ({
                       onPress={() => handleSaveLimit(cat.id)}
                       style={[styles.saveBtn, { backgroundColor: c.primary }]}
                     >
-                      <Text style={styles.saveBtnText}>Salvar</Text>
+                      <Text style={[styles.saveBtnText, { color: c.onForest }]}>Salvar</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -304,7 +304,6 @@ const styles = StyleSheet.create({
     paddingVertical: space.sm,
   },
   saveBtnText: {
-    color: '#FFFFFF',
     fontWeight: typography.weights.bold,
     fontSize: typography.sizes.body,
   },

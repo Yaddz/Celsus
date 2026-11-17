@@ -40,7 +40,19 @@ export function getFinUiColors(themeMode: ThemeMode = 'dark') {
     income: isLight ? '#1D6F5B' : '#AECDC5',
     expense: isLight ? '#C24D18' : '#D96628',
     overdue: '#D96628',
-    warning: '#D4A83B',
+    warning: isLight ? '#8C6200' : '#D4A83B',
+    success: isLight ? '#1D6F5B' : '#4F9A65',
+    successSoftBg: isLight ? '#E8F5E9' : 'rgba(79, 154, 101, 0.18)',
+    error: isLight ? '#B83232' : '#E86F6F',
+    onPrimary: '#1A0E08',
+    onAccentText: '#111315',
+    onForest: '#FFFFFF',
+    switchTrackOff: isLight ? '#E5E7EB' : '#2A2D30',
+    selectionBorder: isLight ? '#111315' : '#E6DECA',
+    chipInactiveBg: isLight ? '#F3F4F6' : '#25282C',
+    inputBorder: isLight ? '#D1D5DB' : '#32363A',
+    negativeChart: '#D96628',
+    positiveChart: '#2E7D5B',
   };
 }
 

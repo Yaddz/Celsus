@@ -51,3 +51,14 @@ export const pillStretch = {
 
 export type SpringToken = keyof typeof springs;
 export type PressToken = keyof typeof press;
+
+/** Parâmetros de gesto e mola compartilhados entre `StackedWalletDeck` e `MonthBalanceCarousel`. */
+export const deckGesture = {
+  moveThresholdPx: 8,
+  distanceRatio: 0.5,
+  fallbackDistancePx: 50,
+  friction: 8,
+  tensionReturn: 40,
+  tensionAdvance: 45,
+  edgeResistance: 0.3,
+} as const;

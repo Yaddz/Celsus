@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { colors, typography, spacing } from '../../theme/tokens';
+import { deckGesture } from '../../theme/motion';
 import { Skeleton, SkeletonSwap } from './Skeleton';
 import { PORTFOLIO_PALETTES, getPortfolioPalette } from '../../theme/palettes';
 
@@ -200,12 +201,12 @@ const StackedWalletDeckContent: React.FC<Omit<StackedWalletDeckProps, 'loading'>
   };
 
   const springBack = (tension: number) =>
-    Animated.spring(panY, { toValue: 0, useNativeDriver: true, friction: 8, tension }).start();
+    Animated.spring(panY, { toValue: 0, useNativeDriver: true, friction: deckGesture.friction, tension }).start();
 
   const handleRelease = (e: any, gestureState?: PanResponderGestureState) => {
     const latest = latestRef.current;
     if (latest.items.length <= 1) {
-      springBack(40);
+      springBack(deckGesture.tensionReturn);
       return;
     }
 
@@ -213,23 +214,24 @@ const StackedWalletDeckContent: React.FC<Omit<StackedWalletDeckProps, 'loading'>
       gestureState?.dy !== 0 && gestureState?.dy !== undefined
         ? gestureState.dy
         : (e?.gestureState?.dy ?? e?.nativeEvent?.translationY ?? 0);
-    const effectiveThreshold = latest.cardHeight > 0 ? latest.cardHeight * 0.5 : 50;
+    const effectiveThreshold =
+      latest.cardHeight > 0 ? latest.cardHeight * deckGesture.distanceRatio : deckGesture.fallbackDistancePx;
 
     if (dy >= effectiveThreshold) {
       cycleNext();
-      springBack(45);
+      springBack(deckGesture.tensionAdvance);
     } else if (dy <= -effectiveThreshold) {
       cyclePrev();
-      springBack(45);
+      springBack(deckGesture.tensionAdvance);
     } else {
-      springBack(40);
+      springBack(deckGesture.tensionReturn);
     }
   };
 
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 8,
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > deckGesture.moveThresholdPx,
       onPanResponderMove: (_, gesture) => {
         panY.setValue(gesture.dy);
       },

@@ -641,7 +641,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                     style={[
                       styles.swatch,
                       { backgroundColor: swatch },
-                      selected && { borderWidth: 2, borderColor: ui.isLight ? '#111315' : '#E6DECA' },
+                      selected && { borderWidth: 2, borderColor: ui.selectionBorder },
                     ]}
                   />
                 );
@@ -702,7 +702,6 @@ const styles = StyleSheet.create({
   saveBtn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: space.sm,
@@ -711,6 +710,5 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: typography.labelLg.fontSize,
     fontWeight: typography.weights.bold,
-    color: '#1A0E08',
   },
 });
