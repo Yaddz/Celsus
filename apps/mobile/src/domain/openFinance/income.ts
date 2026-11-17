@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import type { PluggyTransaction } from '../../services/pluggy/types';
+import { toBrtDate } from './dates';
 import { normalizeInvestmentTicker } from './investments';
 
 export interface KnownIncomeAsset {
@@ -283,7 +284,7 @@ export function detectBankIncomeCandidate(
 
   return {
     ticker: finalTicker,
-    payDate: (tx.date || '').slice(0, 10),
+    payDate: toBrtDate(tx.date) ?? '',
     amount: new Decimal(tx.amount).abs().toFixed(2),
     kind,
     externalId: `pluggy-bank:${tx.id}`,

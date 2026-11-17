@@ -61,7 +61,7 @@ describe('Sprint 101 — UI de Conta Corrente, Cheque Especial, Reservado e Desp
 
     expect(screen.getByText(/Em processamento R\$\s*50,00/i)).toBeTruthy();
     expect(screen.getByText(/Saldo contábil R\$\s*1\.050,00/i)).toBeTruthy();
-    expect(screen.getByText('R$ 1.000,00')).toBeTruthy();
+    expect(screen.getAllByText('R$ 1.000,00').length).toBeGreaterThanOrEqual(1);
   });
 
   it('S101-T09 & S101-T10: Cheque especial usado e Reservado (caixinhas) aparecem na conta sem alterar saldo', async () => {
@@ -83,7 +83,7 @@ describe('Sprint 101 — UI de Conta Corrente, Cheque Especial, Reservado e Desp
 
     expect(screen.getByText(/Cheque especial usado R\$\s*230,00/i)).toBeTruthy();
     expect(screen.getByText(/Reservado \(caixinhas\) R\$\s*350,50/i)).toBeTruthy();
-    expect(screen.getByText(/-R\$\s*230,00/)).toBeTruthy();
+    expect(screen.getAllByText(/-R\$\s*230,00/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('S101-T12: D44 — FinanceHomeScreen mostra "Despesas futuras R$ 1.536,69" separado de "A vencer · 7 dias"', async () => {
@@ -128,6 +128,6 @@ describe('Sprint 101 — UI de Conta Corrente, Cheque Especial, Reservado e Desp
     await waitFor(() => {
       expect(screen.getByText(/Despesas futuras/i)).toBeTruthy();
     });
-    expect(screen.getByText(/R\$\s*1\.536,69/)).toBeTruthy();
+    expect(screen.getAllByText(/R\$\s*1\.536,69/).length).toBeGreaterThanOrEqual(1);
   });
 });

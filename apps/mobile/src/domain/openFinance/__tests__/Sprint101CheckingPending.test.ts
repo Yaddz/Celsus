@@ -173,7 +173,7 @@ describe('Sprint 101 — Pendentes da conta, datas BRT e entradas/saídas brutas
     expect(mapped.classReason).toBe('SCHEDULED');
 
     const entry = toFinEntry(mapped, 'e-sched');
-    expect(calculateAccountBalance([entry], 100000)).toBe(100000);
+    expect(calculateAccountBalance(100000, [entry])).toBe(100000);
 
     const due18 = detectOverdueAndDueSoonWithBills([entry], [acc], '2026-11-18', 7);
     expect(due18.dueSoon).toHaveLength(1);

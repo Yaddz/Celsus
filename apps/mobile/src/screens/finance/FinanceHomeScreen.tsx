@@ -25,6 +25,7 @@ import {
   addMonthsYearMonth,
   calculateBudgetUsage,
   calculateMonthlySummary,
+  computeAppPendingOutflowCents,
   detectOverdueAndDueSoonWithBills,
   formatCentsBRL,
   formatYearMonthPtBr,
@@ -390,6 +391,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const dueSoonExpensesCount = useMemo(
     () => dueAlerts.dueSoon.filter((e) => e.kind === 'expense').length + dueAlerts.dueSoonBills.length,
     [dueAlerts.dueSoon, dueAlerts.dueSoonBills]
+  );
+  const pendingOutflowCents = useMemo(
+    () => computeAppPendingOutflowCents(entries),
+    [entries]
   );
   const overdueExpensesCount = useMemo(
     () => dueAlerts.overdue.filter((e) => e.kind === 'expense').length + dueAlerts.overdueBills.length,
@@ -825,6 +830,14 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                     <Text style={[styles.pairCaption, { color: c.goldMuted }]}>
                       {dueSoonExpensesCount} {dueSoonExpensesCount === 1 ? 'conta' : 'contas'}
                     </Text>
+                    {pendingOutflowCents > 0 ? (
+                      <Text
+                        testID="finance-pending-outflow-line"
+                        style={[styles.pairCaption, { color: c.goldMuted, marginTop: space.xs }]}
+                      >
+                        Despesas futuras {formatCentsBRL(pendingOutflowCents, isPrivacyMode)}
+                      </Text>
+                    ) : null}
                   </TouchableOpacity>
                 </BentoTile>
 

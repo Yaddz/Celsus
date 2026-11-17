@@ -1,5 +1,7 @@
 import type { PluggyTransaction } from '../../services/pluggy/types';
+import { getTodayIsoLocal } from '../financeFlow';
 import { applyCategoryRules, type CategoryRuleLike } from '../statementImport';
+import { toBrtDate } from './dates';
 import { openFinanceWindowStart } from './stalePending';
 
 export { isStaleOpenFinancePending, openFinanceWindowStart, OPEN_FINANCE_WINDOW_DAYS } from './stalePending';
@@ -22,12 +24,16 @@ export type OpenFinanceClassReason =
   | 'CARD_BILL_PAYMENT_PAIRED'
   | 'CARD_BILL_PAYMENT_BILL_MATCH'
   | 'CARD_BILL_PAYMENT_UNMATCHED'
+  | 'PROCESSING'
+  | 'SCHEDULED'
   | 'SIGN';
 
 export interface ClassifyContext {
   rules?: CategoryRuleLike[];
   /** Crédito já reconhecido como provento (R9/R15): tem precedência sobre qualquer outra regra. */
   isIncomeLinked?: boolean;
+  /** Data de referência YYYY-MM-DD (BRT/local) para diferenciar PROCESSING vs SCHEDULED (R34). */
+  todayIso?: string;
   recentCardPurchases?: Array<{
     amountCents: number;
     dueDate: string;
@@ -256,7 +262,7 @@ export function classifyOpenFinanceCardEntry(
 
     if (tx.operationType === 'ESTORNO') {
       const absCents = Math.round(Math.abs(rawAmount) * 100);
-      const txDate = (tx.date ?? '').slice(0, 10);
+      const txDate = toBrtDate(tx.date) ?? '';
       let matchedCategoryId = 'cat-outros-receita';
       if (ctx.recentCardPurchases && txDate) {
         const txMs = Date.parse(`${txDate}T00:00:00Z`);
@@ -335,9 +341,10 @@ export function classifyOpenFinanceCardEntry(
  * (reconcilePluggyTransactions) é quem o converte em transferência.
  */
 export function classifyOpenFinanceBankEntry(
-  tx: Pick<PluggyTransaction, 'description' | 'descriptionRaw' | 'category' | 'categoryId' | 'type' | 'amount'> & {
-    amountInAccountCurrency?: number | null;
-  },
+  tx: Pick<PluggyTransaction, 'description' | 'descriptionRaw' | 'category' | 'categoryId' | 'type' | 'amount'> &
+    Partial<Pick<PluggyTransaction, 'status' | 'date'>> & {
+      amountInAccountCurrency?: number | null;
+    },
   ctx: ClassifyContext = {}
 ): ClassifyResult {
   const rules = ctx.rules ?? [];
@@ -367,12 +374,19 @@ export function classifyOpenFinanceBankEntry(
     };
   }
 
+  let pendingReason: OpenFinanceClassReason | null = null;
+  if (tx.status === 'PENDING') {
+    const todayIso = ctx.todayIso ?? getTodayIsoLocal();
+    const brtDate = tx.date ? toBrtDate(tx.date) : '';
+    pendingReason = brtDate > todayIso ? 'SCHEDULED' : 'PROCESSING';
+  }
+
   if (isDebit && isCardBillPayment(tx)) {
     return {
       kind: 'expense',
       categoryId: category.categoryId,
       matchedRuleId: category.matchedRuleId,
-      reason: 'CARD_BILL_PAYMENT_CANDIDATE',
+      reason: pendingReason ?? 'CARD_BILL_PAYMENT_CANDIDATE',
     };
   }
 
@@ -380,7 +394,7 @@ export function classifyOpenFinanceBankEntry(
     kind: signKind,
     categoryId: category.categoryId,
     matchedRuleId: category.matchedRuleId,
-    reason: 'SIGN',
+    reason: pendingReason ?? 'SIGN',
   };
 }
 

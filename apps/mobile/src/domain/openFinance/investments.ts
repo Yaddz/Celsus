@@ -4,6 +4,7 @@ import type {
   PluggyInvestment,
   PluggyInvestmentTransaction,
 } from '../../services/pluggy/types';
+import { toBrtDate } from './dates';
 import { buildInvestmentDisplay } from './naming';
 
 export type CostBasisSource = 'TRANSACTIONS' | 'INSTITUTION' | 'MANUAL' | 'UNKNOWN';
@@ -241,7 +242,7 @@ export function resolvePluggyFixedIncomeRates(
 
 function normalizeIsoDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
-  return dateStr.slice(0, 10);
+  return toBrtDate(dateStr);
 }
 
 /**
@@ -543,7 +544,7 @@ export function mapPluggyInvestmentTransaction(
     externalId: tx.id,
     investmentId,
     type: mappedType,
-    tradeDate: (tx.tradeDate || tx.date).slice(0, 10),
+    tradeDate: toBrtDate(tx.tradeDate || tx.date) ?? '',
     quantity: qtyDec.toString(),
     unitPrice: unitPriceDec.toFixed(8),
     fees: feesDec.toFixed(2),
@@ -940,7 +941,8 @@ export function mapPluggyIncomeEvent(
 ): MappedPluggyIncomeEvent {
   const rawVal = tx.netAmount !== null && tx.netAmount !== undefined ? tx.netAmount : (tx.amount ?? 0);
   const amount = new Decimal(rawVal).abs().toFixed(2);
-  const payDate = (tx.date || tx.tradeDate || '').slice(0, 10);
+  const rawPayDate = tx.date || tx.tradeDate;
+  const payDate = rawPayDate ? toBrtDate(rawPayDate) : '';
   const ticker =
     normalizeInvestmentTicker(investment.code) ||
     buildInvestmentDisplay(investment as PluggyInvestment).ticker;

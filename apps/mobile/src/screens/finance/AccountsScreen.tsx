@@ -21,6 +21,7 @@ import {
   calculateAccountBalance,
   formatCentsBRL,
   getTodayIsoLocal,
+  monthlyAccountFlows,
   parseBRLToCents,
   resolveBillMonth,
   summarizeBill,
@@ -369,6 +370,65 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
     const creditUsedCents = isCard ? acc.credit_used_cents ?? acc.reported_balance_cents ?? null : null;
     const openBillCents = isCard ? currentBillSummary?.totalCents ?? 0 : 0;
+
+    let checkingExtraParts: string[] = [];
+    if (!isCard && isOpenFinance && !isArchived) {
+      const accEntries = entries.filter((e) => e.account_id === acc.id && !e.of_removed_at);
+      let processingCents = 0;
+      let scheduledPayCents = 0;
+      let scheduledReceiveCents = 0;
+      for (const e of accEntries) {
+        if (e.status !== 'pending') continue;
+        if (e.of_class_reason === 'PROCESSING') {
+          processingCents += e.amount_cents;
+        } else if (e.of_class_reason === 'SCHEDULED') {
+          if (e.kind === 'expense' || e.kind === 'transfer_out') {
+            scheduledPayCents += e.amount_cents;
+          } else {
+            scheduledReceiveCents += e.amount_cents;
+          }
+        }
+      }
+      if (processingCents > 0) {
+        checkingExtraParts.push(`Em processamento ${formatCentsBRL(processingCents, isPrivacyMode)}`);
+      }
+      if (scheduledPayCents > 0 || scheduledReceiveCents > 0) {
+        const schedParts: string[] = [];
+        if (scheduledPayCents > 0) {
+          schedParts.push(`−${formatCentsBRL(scheduledPayCents, isPrivacyMode)} a pagar`);
+        }
+        if (scheduledReceiveCents > 0) {
+          schedParts.push(`+${formatCentsBRL(scheduledReceiveCents, isPrivacyMode)} a receber`);
+        }
+        checkingExtraParts.push(`Agendado: ${schedParts.join(' · ')}`);
+      }
+      if (acc.of_overdraft_used_cents != null && acc.of_overdraft_used_cents > 0) {
+        checkingExtraParts.push(
+          `Cheque especial usado ${formatCentsBRL(acc.of_overdraft_used_cents, isPrivacyMode)}`
+        );
+      }
+      if (acc.of_reserved_cents != null && acc.of_reserved_cents > 0) {
+        checkingExtraParts.push(
+          `Reservado (caixinhas) ${formatCentsBRL(acc.of_reserved_cents, isPrivacyMode)}`
+        );
+      }
+      if (acc.closing_balance_cents != null && acc.closing_balance_cents !== balance) {
+        checkingExtraParts.push(
+          `Saldo contábil ${formatCentsBRL(acc.closing_balance_cents, isPrivacyMode)}`
+        );
+      }
+      const flowMonth = todayIso.slice(0, 7);
+      const flows = monthlyAccountFlows(entries, acc.id, flowMonth);
+      if (flows.count > 0) {
+        checkingExtraParts.push(
+          `Entradas ${formatCentsBRL(flows.inflowCents, isPrivacyMode)} · Saídas ${formatCentsBRL(
+            flows.outflowCents,
+            isPrivacyMode
+          )} em ${flowMonth}`
+        );
+      }
+    }
+
     const baseSubtitle = isArchived
       ? undefined
       : isCard && isOpenFinance
@@ -394,7 +454,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       ? `Fatura atual • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
           availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
         }`
-      : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
+      : [
+          `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`,
+          ...checkingExtraParts,
+        ].join(' • ');
 
     const subtitle =
       baseSubtitle && reportedDateLabel

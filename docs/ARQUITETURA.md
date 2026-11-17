@@ -418,3 +418,11 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/financeFlow/index.ts` & `budgetsAndCashflow.ts`: exclusão de `CARD_DEBT_ROLLOVER` de `calculateMonthlySummary` e `calculateBudgetUsage` e abatimento de `CARD_REFUND` no gasto da categoria.
 - `services/pluggy/pluggyClassificationService.ts` & `pluggySyncService.ts`: deduplicação de pagamento sintético (`CARD_PAYMENT_DUPLICATE`), `pairCardBillPayments` (`R30`: `of-cardpay-`, `CARD_BILL_PAYMENT_BILL_MATCH`, `CARD_BILL_PAYMENT_UNMATCHED`) e reclassificação única `fin:of:reclassify:s100`.
 - `repositories/finRepository.ts`: semeadura idempotente de `cat-taxas-bancarias` e `cat-emprestimos` (`fin:categories:seeded:s100`).
+
+## Conta Corrente, Saldos, Pendentes e Datas BRT (Sprint 101)
+
+- `domain/openFinance/index.ts`, `classification.ts`, `income.ts`, `investments.ts`, `services/pluggy/pluggySyncService.ts` & `pluggyDiagnosticsService.ts`: substituição de `slice(0, 10)`/`slice(0, 7)` em timestamps da Pluggy por `toBrtDate`/`toBrtMonth` (D34); `classifyOpenFinanceBankEntry` diferencia `PROCESSING` vs `SCHEDULED` em `PENDING` de conta (`R34`).
+- `domain/financeFlow/index.ts` & `budgetsAndCashflow.ts`: `monthlyAccountFlows` (`D35`), `computeAppPendingOutflowCents` (`D44`) e exclusão de `PROCESSING` em `detectOverdueAndDueSoon*` e `projectCashflow`.
+- `domain/openFinance/pluggyTruth.ts`: `collectAppNumbers` e `reconcileAppVsPluggy` passam a conferir fluxos mensais por conta e `pendingOutflowCents`.
+- `services/pluggy/pluggySyncService.ts`: migração única `fin:of:brtdates:s101` (`fin:of:brtdates:s101:log`) preservando `due_date` editado.
+- `screens/finance/AccountsScreen.tsx` & `FinanceHomeScreen.tsx`: exibição informativa de processamento, agendamentos, cheque especial, reservado, saldo contábil, fluxo mensal e `"Despesas futuras"`.

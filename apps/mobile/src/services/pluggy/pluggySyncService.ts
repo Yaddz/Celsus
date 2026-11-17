@@ -15,6 +15,7 @@ import {
   type ReconcilableOpenFinanceEntry,
 } from '../../domain/openFinance';
 import { transactionBaseFingerprint } from '../../domain/openFinance/identity';
+import { toBrtDate, toBrtMonth } from '../../domain/openFinance/dates';
 import {
   assignBillMonth,
   deriveCardCalendar,
@@ -72,6 +73,8 @@ export const OF_DEDUPE_S98_META_KEY = 'fin:of:dedupe:s98';
 export const OF_DEDUPE_S98_LOG_KEY = 'fin:of:dedupe:s98:log';
 export const OF_BILLMONTH_S99_META_KEY = 'fin:of:billmonth:s99';
 export const OF_BILLMONTH_S99_LOG_KEY = 'fin:of:billmonth:s99:log';
+export const OF_BRT_DATES_S101_META_KEY = 'fin:of:brtdates:s101';
+export const OF_BRT_DATES_S101_LOG_KEY = 'fin:of:brtdates:s101:log';
 
 export interface PluggySyncResult {
   runId: string;
@@ -321,9 +324,9 @@ export const pluggySyncService = {
               await finRepository.upsertBill({
                 accountId: localAcc.id,
                 externalId: b.id,
-                billMonth: b.dueDate.slice(0, 7),
-                closingDate: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
-                dueDate: b.dueDate.slice(0, 10),
+                billMonth: toBrtMonth(b.dueDate) ?? b.dueDate.slice(0, 7),
+                closingDate: b.billClosingDate ? toBrtDate(b.billClosingDate) : null,
+                dueDate: toBrtDate(b.dueDate) ?? b.dueDate.slice(0, 10),
                 totalAmountCents: toCentsDecimal(b.totalAmount),
                 minimumPaymentCents:
                   b.minimumPaymentAmount != null ? toCentsDecimal(b.minimumPaymentAmount) : null,
@@ -381,6 +384,7 @@ export const pluggySyncService = {
               forecastOffset,
               rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
               externalIdOverride: externalId,
+              todayIso: toBrtDate(nowIso) ?? nowIso.slice(0, 10),
             };
             mapOptionsByExternalId.set(externalId, mapOptions);
             allMapped.push(mapPluggyTransaction(tx, mapOptions));
@@ -1005,6 +1009,42 @@ export const pluggySyncService = {
           await appMetaRepository.set(
             OF_BILLMONTH_S99_LOG_KEY,
             JSON.stringify({ bySource, at: nowIso })
+          );
+        }
+
+        // Sprint 101: migração única fin:of:brtdates:s101 (D34)
+        if ((await appMetaRepository.get(OF_BRT_DATES_S101_META_KEY)) !== '1') {
+          const allEntriesForBrt = await finRepository.listAllEntries();
+          let updatedCount = 0;
+          let skippedEditedCount = 0;
+          for (const e of allEntriesForBrt) {
+            if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) continue;
+            let edited: string[] = [];
+            try {
+              edited = JSON.parse(e.user_edited_fields || '[]');
+            } catch {
+              edited = [];
+            }
+            if (edited.includes('due_date')) {
+              skippedEditedCount += 1;
+              continue;
+            }
+            if (e.of_created_at && e.due_date === e.of_created_at.slice(0, 10)) {
+              const brt = toBrtDate(e.of_created_at);
+              if (brt && brt !== e.due_date) {
+                const patch: Partial<typeof e> = { due_date: brt };
+                if (e.paid_date && e.paid_date === e.due_date) {
+                  patch.paid_date = brt;
+                }
+                await finRepository.updateEntry(e.id, patch);
+                updatedCount += 1;
+              }
+            }
+          }
+          await appMetaRepository.set(OF_BRT_DATES_S101_META_KEY, '1');
+          await appMetaRepository.set(
+            OF_BRT_DATES_S101_LOG_KEY,
+            JSON.stringify({ updatedCount, skippedEditedCount, at: nowIso })
           );
         }
 

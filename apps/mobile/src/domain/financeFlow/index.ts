@@ -429,16 +429,49 @@ export interface AccountMonthlyFlows {
   count: number;
 }
 
+/** D35: fluxo mensal efetivado (entradas vs saídas, incluindo transferências) por conta. */
 export function monthlyAccountFlows(
-  _entries: FinEntry[],
-  _accountId: string,
-  _yearMonth: string
+  entries: FinEntry[],
+  accountId: string,
+  yearMonth: string
 ): AccountMonthlyFlows {
-  throw new Error('NOT_IMPLEMENTED');
+  let inflowCents = 0;
+  let outflowCents = 0;
+  let count = 0;
+  for (const e of entries) {
+    if (e.account_id !== accountId) continue;
+    if (e.of_removed_at) continue;
+    if (e.status !== 'paid') continue;
+    if (!e.due_date.startsWith(yearMonth)) continue;
+    if (e.kind === 'income' || e.kind === 'transfer_in') {
+      inflowCents += e.amount_cents;
+      count += 1;
+    } else if (e.kind === 'expense' || e.kind === 'transfer_out') {
+      outflowCents += e.amount_cents;
+      count += 1;
+    }
+  }
+  return { month: yearMonth, inflowCents, outflowCents, count };
 }
 
-export function computeAppPendingOutflowCents(_entries: FinEntry[]): number {
-  throw new Error('NOT_IMPLEMENTED');
+/** D44 / R34: total de despesas futuras (agendadas `SCHEDULED` ou pendentes `of_raw_status === 'PENDING'`, excluindo `PROCESSING`). */
+export function computeAppPendingOutflowCents(entries: FinEntry[]): number {
+  let total = 0;
+  for (const e of entries) {
+    if (e.of_removed_at) continue;
+    if (e.of_class_reason === 'PROCESSING') continue;
+    const isScheduledOut =
+      e.status === 'pending' &&
+      e.of_class_reason === 'SCHEDULED' &&
+      (e.kind === 'expense' || e.kind === 'transfer_out');
+    const isRawPendingDebit =
+      e.of_raw_status === 'PENDING' &&
+      (e.of_raw_type === 'DEBIT' || e.kind === 'expense');
+    if (isScheduledOut || isRawPendingDebit) {
+      total += e.amount_cents;
+    }
+  }
+  return total;
 }
 
 export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, todayIso?: string): MonthlySummary {
@@ -552,6 +585,7 @@ export function detectOverdueAndDueSoon(
 
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
+    if (entry.of_class_reason === 'PROCESSING') continue;
     if (isStaleOpenFinancePending(entry, todayIso)) continue;
     const status = classifyEntryDueStatus(entry, todayIso, horizonDays);
     if (status === 'overdue') {
@@ -754,6 +788,7 @@ export function detectOverdueAndDueSoonWithBills(
   const nonCardEntries = entries.filter(
     (e) =>
       !e.of_removed_at &&
+      e.of_class_reason !== 'PROCESSING' &&
       !cardAccountIds.has(e.account_id) &&
       e.kind !== 'transfer_out' &&
       e.kind !== 'transfer_in'

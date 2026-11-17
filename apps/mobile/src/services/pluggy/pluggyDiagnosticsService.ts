@@ -11,7 +11,7 @@ import {
 } from '../../db/schema';
 import { isUnknownCost } from '../../domain/finance/averagePrice';
 import { getTodayIsoLocal } from '../../domain/financeFlow';
-import { toBrtMonth } from '../../domain/openFinance/dates';
+import { toBrtDate, toBrtMonth } from '../../domain/openFinance/dates';
 import { redactDiagnosticDescription } from '../../domain/openFinance/diagnostics';
 import {
   collectAppNumbers,
@@ -371,12 +371,12 @@ export const pluggyDiagnosticsService = {
         if (acc.type === 'CREDIT') {
           const billById = new Map(bills.map((b) => [b.id, b]));
           billsDiag = bills.map((b) => ({
-            dueDate: (b.dueDate || '').slice(0, 10),
-            closingDate: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
+            dueDate: toBrtDate(b.dueDate) ?? '',
+            closingDate: b.billClosingDate ? toBrtDate(b.billClosingDate) : null,
             totalAmount: b.totalAmount,
             minimumPaymentAmount: b.minimumPaymentAmount ?? null,
             payments: (b.payments ?? []).map((p) => ({
-              paymentDate: (p.paymentDate || '').slice(0, 10),
+              paymentDate: toBrtDate(p.paymentDate) ?? '',
               amount: p.amount,
               valueType: p.valueType ?? null,
               paymentMode: p.paymentMode ?? null,
@@ -485,7 +485,7 @@ export const pluggyDiagnosticsService = {
             type: t.type,
             status: t.status,
             amount: t.amount,
-            date: (t.date || '').slice(0, 10),
+            date: toBrtDate(t.date) ?? '',
             category: t.category ?? null,
             categoryId: t.categoryId ?? null,
             description: truncate40(

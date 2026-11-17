@@ -24,7 +24,7 @@ import {
 } from './classification';
 import { matchFetchedToExisting, type MatchMethod } from './identity';
 import { assignBillMonth, assignPaymentBillMonth } from './cardBills';
-import { toBrtDate } from './dates';
+import { toBrtDate, toBrtMonth } from './dates';
 
 export { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory };
 
@@ -98,6 +98,8 @@ export interface MapPluggyTransactionOptions {
   externalIdOverride?: string;
   /** Crédito já reconhecido como provento (R9/R15). */
   isIncomeLinked?: boolean;
+  /** Data de referência YYYY-MM-DD (BRT/local) para diferenciar PROCESSING vs SCHEDULED (R34). */
+  todayIso?: string;
   recentCardPurchases?: Array<{
     amountCents: number;
     dueDate: string;
@@ -206,7 +208,7 @@ export function deduplicatePluggyAccountTransactions(
   const result: Array<{ tx: PluggyTransaction; externalId: string }> = [];
 
   for (const tx of txs) {
-    const dateIso = (tx.date || '').slice(0, 10);
+    const dateIso = toBrtDate(tx.date) ?? '';
     const amountCents = toCentsDecimal(tx.amountInAccountCurrency ?? tx.amount);
     const prev = seenById.get(tx.id);
     if (!prev) {
@@ -293,7 +295,7 @@ export function mapPluggyAccount(
       : null;
   const ofBalanceDueDate =
     isCredit && creditData?.balanceDueDate
-      ? creditData.balanceDueDate.slice(0, 10)
+      ? toBrtDate(creditData.balanceDueDate)
       : null;
   const ofOverdraftUsedCents =
     !isCredit && account.bankData?.overdraftUsedLimit != null
@@ -353,11 +355,12 @@ export function mapPluggyTransaction(
     entryClass = classifyOpenFinanceBankEntry(tx, {
       rules: options.rules ?? [],
       isIncomeLinked: options.isIncomeLinked,
+      todayIso: options.todayIso,
     });
     kind = entryClass.kind;
   }
 
-  const dueDate = tx.date.slice(0, 10);
+  const dueDate = toBrtDate(tx.date) ?? '';
   const rawPaidDate = rawStatus === 'paid' ? dueDate : null;
   const rawPaidAmountCents = rawStatus === 'paid' ? amountCents : null;
 
@@ -369,9 +372,9 @@ export function mapPluggyTransaction(
       const payBillMonth = assignPaymentBillMonth(
         toBrtDate(tx.date),
         options.bills.map((b) => ({
-          bill_month: b.dueDate.slice(0, 7),
-          closing_date: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
-          due_date: b.dueDate.slice(0, 10),
+          bill_month: toBrtMonth(b.dueDate) ?? '',
+          closing_date: b.billClosingDate ? toBrtDate(b.billClosingDate) : null,
+          due_date: toBrtDate(b.dueDate) ?? '',
         }))
       );
       if (payBillMonth) {
@@ -443,7 +446,7 @@ export function mapPluggyTransaction(
       ? tx.creditCardMetadata.billForecastDate.slice(0, 7)
       : null,
     ofBillPostDate: tx.creditCardMetadata?.billPostDate
-      ? tx.creditCardMetadata.billPostDate.slice(0, 10)
+      ? toBrtDate(tx.creditCardMetadata.billPostDate)
       : null,
     ofOperationType: tx.operationType ?? null,
     ofRawStatus: tx.status ?? null,

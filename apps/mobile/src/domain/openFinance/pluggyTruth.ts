@@ -8,6 +8,8 @@ import type {
   PluggyTransaction,
 } from '../../services/pluggy/types';
 import {
+  computeAppPendingOutflowCents,
+  monthlyAccountFlows,
   resolveAccountBalance,
   resolveBillMonth,
   summarizeCardAccountForScreen,
@@ -150,6 +152,11 @@ export interface AppNumbersCardBill {
 
 export interface AppNumbersResult {
   bankBalancesByOfAccountId: Record<string, number>;
+  bankMonthlyFlowsByOfAccountId?: Record<
+    string,
+    Record<string, { inflowCents: number; outflowCents: number; count: number }>
+  >;
+  pendingOutflowCents?: number;
   cardsByOfAccountId: Record<
     string,
     {
@@ -524,12 +531,29 @@ export function collectAppNumbers(inputs: {
   todayIso: string;
 }): AppNumbersResult {
   const bankBalancesByOfAccountId: Record<string, number> = {};
+  const bankMonthlyFlowsByOfAccountId: NonNullable<AppNumbersResult['bankMonthlyFlowsByOfAccountId']> = {};
   const cardsByOfAccountId: AppNumbersResult['cardsByOfAccountId'] = {};
 
   for (const acc of inputs.accounts) {
     if (acc.source !== 'OPEN_FINANCE' || !acc.of_account_id) continue;
     if (acc.type === 'checking') {
       bankBalancesByOfAccountId[acc.of_account_id] = resolveAccountBalance(acc, inputs.entries);
+      const months = new Set<string>();
+      for (const e of inputs.entries) {
+        if (e.account_id === acc.id && !e.of_removed_at && e.status === 'paid' && e.due_date.length >= 7) {
+          months.add(e.due_date.slice(0, 7));
+        }
+      }
+      const accFlows: Record<string, { inflowCents: number; outflowCents: number; count: number }> = {};
+      for (const m of months) {
+        const flow = monthlyAccountFlows(inputs.entries, acc.id, m);
+        accFlows[m] = {
+          inflowCents: flow.inflowCents,
+          outflowCents: flow.outflowCents,
+          count: flow.count,
+        };
+      }
+      bankMonthlyFlowsByOfAccountId[acc.of_account_id] = accFlows;
     } else if (acc.type === 'card') {
       const cardSummary = summarizeCardAccountForScreen(acc, inputs.entries, inputs.todayIso);
       const closedBillsByMonth: Record<string, AppNumbersCardBill> = {};
@@ -575,6 +599,8 @@ export function collectAppNumbers(inputs: {
 
   return {
     bankBalancesByOfAccountId,
+    bankMonthlyFlowsByOfAccountId,
+    pendingOutflowCents: computeAppPendingOutflowCents(inputs.entries),
     cardsByOfAccountId,
   };
 }
@@ -597,6 +623,46 @@ export function reconcileAppVsPluggy(
         reason: 'APP_RECOMPUTED',
       });
     }
+    const appAccFlows = appNumbers.bankMonthlyFlowsByOfAccountId?.[accId];
+    if (appAccFlows) {
+      for (const [month, truthFlow] of Object.entries(bankTruth.monthlyFlows)) {
+        const appFlow = appAccFlows[month] ?? { inflowCents: 0, outflowCents: 0, count: 0 };
+        if (appFlow.inflowCents !== truthFlow.inflowCents) {
+          diffs.push({
+            scope: 'BANK',
+            key: `${accId}:${month}:inflow`,
+            pluggyCents: truthFlow.inflowCents,
+            appCents: appFlow.inflowCents,
+            diffCents: appFlow.inflowCents - truthFlow.inflowCents,
+            reason: 'APP_RECOMPUTED',
+          });
+        }
+        if (appFlow.outflowCents !== truthFlow.outflowCents) {
+          diffs.push({
+            scope: 'BANK',
+            key: `${accId}:${month}:outflow`,
+            pluggyCents: truthFlow.outflowCents,
+            appCents: appFlow.outflowCents,
+            diffCents: appFlow.outflowCents - truthFlow.outflowCents,
+            reason: 'APP_RECOMPUTED',
+          });
+        }
+      }
+    }
+  }
+
+  if (
+    appNumbers.pendingOutflowCents !== undefined &&
+    appNumbers.pendingOutflowCents !== truth.totals.pendingOutflowCents
+  ) {
+    diffs.push({
+      scope: 'BANK',
+      key: 'pending_outflow',
+      pluggyCents: truth.totals.pendingOutflowCents,
+      appCents: appNumbers.pendingOutflowCents,
+      diffCents: appNumbers.pendingOutflowCents - truth.totals.pendingOutflowCents,
+      reason: 'APP_RECOMPUTED',
+    });
   }
 
   for (const [accId, cardTruth] of Object.entries(truth.cardAccounts)) {
