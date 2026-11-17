@@ -692,3 +692,13 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Transações já gravadas com a taxa inflada são corrigidas na próxima sincronização (atualização por `external_id`), e o preço médio é recalculado.
   - Resultado: Sprint 95 — 2 suítes / 13 testes PASS. Suíte geral: 200 suítes / 1310 testes, 1309 PASS; falha só `receiptFlow` (instável sob carga, passa isolado 5/5). `tsc --noEmit`: zero erros em produção; os 5 erros a mais em relação à Sprint 93 estão em `Sprint94FileSystemNewApi.test.tsx` (tipos de Node), não nesta sprint. `expo lint` nos arquivos alterados: 0 erros. `test-lock verify` OK (216 arquivos).
   - Não validado: sync real no aparelho.
+
+
+## Sprint 96 — Nome real da instituição (Meu Pluggy), recibos de subscrição e ações da linha de conta
+- Origem: backup de 17/11/2026 19:50 (depois da Sprint 95: rentabilidade −2,49% e 14 proventos, confirmando a 95). Restam: contas "MeuPluggy · Conta corrente ·· 3671" e carteiras "Corretora 6ef1"/"Corretora d2f7" (o conector é sempre "MeuPluggy"; o COMPE do banco está em `bankData.transferNumber` e não era usado); MXRF12/MXRF13 vêm com subtype STOCK e aparecem como ação; na tela de Contas, a fileira de pílulas (Open Finance, Dif. calculado, Informar fechamento, Arquivar) não quebra linha e vaza do cartão.
+- Fase A (Red Phase & Lock), sem parada entre fases:
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint96InstitutionNames.test.ts` — `S96-T01` COMPE do transferNumber → instituição (348/102 XP, 260 Nubank, 208 BTG Pactual, 033 Santander, 341 Itaú); `S96-T02` conta Meu Pluggy usa o banco do próprio transferNumber; `S96-T03` cartão usa a instituição da conexão e não repete banco já citado; `S96-T04` "MeuPluggy" nunca entra no nome; `S96-T05` ordem: conector real → investimentos (COMPE, depois nome) → contas; `S96-T06` carteira da conexão com o nome da corretora; `S96-T07` final 12–15 é FII (direito/recibo de subscrição), units e ações continuam ação; `S96-T08` nome "Recibo/Direito de subscrição MXRF11".
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint96InstitutionNamesSync.test.ts` — `S96-T09` sync nomeia conta e cartão pelo COMPE e mantém nome editado; `S96-T10` nome genérico já gravado é trocado; `S96-T11` carteira "Corretora xxxx" vira "BTG Pactual" e renomeada pelo usuário fica; `S96-T12` recibo já gravado como ação passa a FII.
+  - `apps/mobile/src/screens/__tests__/Sprint96AccountRowActions.test.tsx` — `S96-T13` contêiner `account-actions-<id>` com `flexWrap: 'wrap'` e `rowGap`.
+  - Stub de compilação: `domain/openFinance/institutions.ts`.
+  - Execução Fase A: 3 suítes / 13 testes falhando (Red Phase esperado).
