@@ -78,6 +78,7 @@ export interface InvestmentCostBasisResult {
   costBasisSource: CostBasisSource;
   coveredByHistory: boolean;
   openingAdjustment: OpeningAdjustment | null;
+  closingAdjustment: OpeningAdjustment | null;
 }
 
 export interface InvestmentMatchCandidate {
@@ -267,8 +268,10 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
 export function mapPluggyInvestment(
   inv: PluggyInvestment,
   existingTickers?: Set<string>,
-  existingNames?: Set<string>
+  existingNames?: Set<string>,
+  txPriceFactors?: Array<number | null | undefined>
 ): MappedPluggyInvestment {
+  void txPriceFactors;
   const { assetClass, isEtf } = resolvePluggyAssetClass(inv);
   const status = inv.status || 'ACTIVE';
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
@@ -486,8 +489,10 @@ function subtractOneDay(isoDate: string): string {
 
 export function calculateInvestmentCostBasis(
   inv: PluggyInvestment,
-  txs: MappedPluggyInvestmentTransaction[]
+  txs: MappedPluggyInvestmentTransaction[],
+  txPriceFactors?: Array<number | null | undefined>
 ): InvestmentCostBasisResult {
+  void txPriceFactors;
   const { assetClass } = resolvePluggyAssetClass(inv);
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
   const targetQty =
@@ -548,6 +553,7 @@ export function calculateInvestmentCostBasis(
       costBasisSource: 'TRANSACTIONS',
       coveredByHistory: true,
       openingAdjustment: null,
+      closingAdjustment: null,
     };
   }
 
@@ -580,6 +586,7 @@ export function calculateInvestmentCostBasis(
       costBasisSource: 'INSTITUTION',
       coveredByHistory: false,
       openingAdjustment,
+      closingAdjustment: null,
     };
   }
 
@@ -589,6 +596,7 @@ export function calculateInvestmentCostBasis(
     costBasisSource: 'UNKNOWN',
     coveredByHistory: false,
     openingAdjustment: null,
+    closingAdjustment: null,
   };
 }
 

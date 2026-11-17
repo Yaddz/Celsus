@@ -10,7 +10,16 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **186/186 suítes PASS** (após merge 87+88) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **202 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **204 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 89 — Correções da validação Pluggy (Fase A concluída)
+
+Especificação de `priceFactor` na posição (`R12`), `OPENING_BALANCE` sem `amountOriginal` e `closingAdjustment` quando livro > posição (`R13`), e `isUnknownCost` nos consumidores fora do `marketSyncService` (`R14`).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint89PluggyValidationFixes.test.ts` | S89-T01…T05 | `36ddf00cc3d97898d7d0ed9a3efecec9304457c27fdf4c63d0ec3acf1fb300a0` | 5 FAIL |
+| `apps/mobile/src/services/__tests__/Sprint89UnknownCostConsumers.test.tsx` | S89-T06…T08 | `0b64324db1623394fc156ca055c6f4b693a2794db16febac29f20bfe37c2a0e2` | 3 FAIL |
 
 ## Sprint 88 — Diagnóstico com dados reais e auditoria de outliers (Fase B concluída)
 

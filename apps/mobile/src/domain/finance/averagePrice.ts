@@ -178,3 +178,14 @@ export function calculatePositionFromTransactions(
     realizedPnl: formatCurrency(totalRealizedPnl),
   };
 }
+
+/**
+ * Indica se o ativo possui custo médio desconhecido (não deve entrar no denominador de rentabilidade).
+ */
+export function isUnknownCost(asset: {
+  cost_basis_source?: string | null;
+  average_price?: string | number | null;
+}): boolean {
+  void asset;
+  return false;
+}
