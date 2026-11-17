@@ -50,6 +50,9 @@ export interface SyncInvestmentsCounts {
   transactionsArchived: number;
   transactionsCreated: number;
   investmentErrors?: number;
+  incomesCreated?: number;
+  incomesMatched?: number;
+  incomesSkipped?: number;
 }
 
 export interface SyncInvestmentsResult {
@@ -72,6 +75,7 @@ export interface B3ConflictWarning {
 export interface DisconnectInvestmentsResult {
   revertedAssets: number;
   restoredTransactions: number;
+  removedIncomes?: number;
 }
 
 function generateRunId(): string {

@@ -438,6 +438,25 @@ export function computeClassCoverageReport(
   });
 }
 
+export interface MappedPluggyIncomeEvent {
+  ticker: string;
+  payDate: string;
+  amount: string;
+  kind: string;
+  quantity: string | null;
+  unitAmount: string | null;
+  notes: string | null;
+  externalId: string;
+  source: 'OPEN_FINANCE';
+}
+
+export function mapPluggyIncomeEvent(
+  _tx: PluggyInvestmentTransaction,
+  _investment: Pick<PluggyInvestment, 'id' | 'type' | 'subtype' | 'code' | 'name' | 'issuer' | 'dueDate' | 'rate' | 'rateType'>
+): MappedPluggyIncomeEvent {
+  throw new Error('Not implemented (Sprint 72 Phase A stub)');
+}
+
 export function formatMissingSinceLabel(missingSinceIso: string): string {
   const datePart = missingSinceIso.slice(0, 10);
   const [, month, day] = datePart.split('-');

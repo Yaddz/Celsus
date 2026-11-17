@@ -10,7 +10,20 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **163 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **167 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 72 — Pluggy: sincronizar proventos (Fase A concluída)
+
+Mapeamento de movimentações `INTEREST` para `income_events`, classificação de `kind` (`JCP`, `DIVIDENDO`, `RENDIMENTO`, `PROVENTO`), deduplicação cruzada Pluggy × B3 × Manual (`findEquivalentIncome`), limpeza de duplicatas antigas, desconexão seletiva e backup ida e volta.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint72PluggyIncome.test.ts` | S72-T01…T06 | `af87fdc03b252bde620e09fd7841d1ec91e80548884f4f6ee68fdb041324ddd2` | 6 FAIL |
+| `apps/mobile/src/domain/finance/__tests__/Sprint72IncomeDedup.test.ts` | S72-T07…T13 | `61afb73593e230f359212d27285fc42bf2f7572dc4ae12a18235d112a06fb8c9` | 7 FAIL |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint72IncomeSync.test.ts` | S72-T14…T17 | `400b966d7cc108f92021363517a3ba61908cdfdf3bd6ca929808323769e5f0f7` | 3 FAIL, 1 PASS |
+| `apps/mobile/src/services/__tests__/Sprint72B3AndPluggyTogether.test.ts` | S72-T18…T20 | `ef69284a443834728989d0cbe6cfdc87ed90ac19594a205f8dfdd04c2f35f8e5` | 3 FAIL |
+
+Execução da Fase A: `npx jest Sprint72 --no-coverage` → 19 falhando, 1 passando (20 testes, 4 suítes). 167 arquivos travados.
 
 ## Sprint 71 — Pluggy: diagnosticar e corrigir a importação (Fase B concluída)
 
