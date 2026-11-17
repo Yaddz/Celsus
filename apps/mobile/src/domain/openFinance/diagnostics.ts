@@ -619,9 +619,61 @@ export interface DiagnosticRedactionContext {
   categoryId?: string | null;
 }
 
+const OWNER_STOPWORDS = new Set(['DE', 'DA', 'DO', 'DOS', 'DAS', 'E']);
+
+function stripDiagAccents(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+/**
+ * R21: Remove PII de descrições de amostra no diagnóstico Pluggy:
+ * - para categoryId 04* / 05*, mascara contraparte após "|", " para " ou " de "
+ * - remove CPF/CNPJ formatados
+ * - remove palavras do nome do titular (sem acento)
+ * - substitui sequências de 4+ dígitos por "####", preservando datas e tickers
+ */
 export function redactDiagnosticDescription(
   desc: string | null | undefined,
-  _ctx?: DiagnosticRedactionContext
+  ctx?: DiagnosticRedactionContext
 ): string {
-  return (desc || '').replace(/\s+/g, ' ').trim();
+  let result = (desc || '').replace(/\s+/g, ' ').trim();
+  if (!result) return '';
+
+  const catId = (ctx?.categoryId || '').trim();
+  if (catId.startsWith('04') || catId.startsWith('05')) {
+    result = result.replace(/(\s*\|\s*|\s+para\s+|\s+de\s+).+$/i, '$1<contraparte>');
+  }
+
+  // Remove CPF e CNPJ formatados
+  result = result
+    .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, '')
+    .replace(/\b\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}\b/g, '');
+
+  // Remove palavras do nome do titular (comparação sem acento)
+  const ownerWords = new Set<string>();
+  for (const owner of ctx?.ownerNames ?? []) {
+    if (!owner) continue;
+    const words = stripDiagAccents(owner)
+      .toUpperCase()
+      .replace(/[^A-Z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter((w) => w.length >= 2 && !OWNER_STOPWORDS.has(w));
+    for (const w of words) {
+      ownerWords.add(w);
+    }
+  }
+  if (ownerWords.size > 0) {
+    result = result.replace(/[A-Za-zÀ-ÖØ-öø-ÿ0-9]+/g, (word) => {
+      const norm = stripDiagAccents(word).toUpperCase();
+      return ownerWords.has(norm) ? '' : word;
+    });
+  }
+
+  // Troca 4+ dígitos por "####", preservando datas dd/mm/aaaa, yyyy-mm-dd e tickers [A-Z]{4}\d{1,2}
+  result = result.replace(
+    /\b\d{2}\/\d{2}\/\d{4}\b|\b\d{4}-\d{2}-\d{2}\b|\b[A-Z]{4}\d{1,2}\b|\d{4,}/gi,
+    (match) => (/^\d{4,}$/.test(match) ? '####' : match)
+  );
+
+  return result.replace(/\s+/g, ' ').trim();
 }

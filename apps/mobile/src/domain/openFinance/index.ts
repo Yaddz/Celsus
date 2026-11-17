@@ -103,6 +103,7 @@ export interface ReconcilePluggyResult {
 
 export interface ReconcilePluggyOptions {
   accountTypesById?: Record<string, 'checking' | 'card'>;
+  incomeExternalIds?: Set<string>;
 }
 
 export interface RemovedOpenFinanceCandidate {
@@ -533,10 +534,12 @@ export function reconcilePluggyTransactions(
   const transferPairs: TransferPairMatch[] = [];
   const pairedExternalIds = new Set<string>();
   const accountTypesById = options?.accountTypesById ?? {};
+  const incomeExternalIds = options?.incomeExternalIds;
 
   for (let i = 0; i < transactions.length; i += 1) {
     const outTx = transactions[i];
     if (pairedExternalIds.has(outTx.externalId)) continue;
+    if (incomeExternalIds?.has(outTx.externalId)) continue;
     if (outTx.kind !== 'expense') continue;
     const outAccType = accountTypesById[outTx.accountId] ?? 'checking';
     if (outAccType !== 'checking') continue;
@@ -545,6 +548,7 @@ export function reconcilePluggyTransactions(
       if (i === j) continue;
       const inTx = transactions[j];
       if (pairedExternalIds.has(inTx.externalId)) continue;
+      if (incomeExternalIds?.has(inTx.externalId)) continue;
       if (inTx.accountId === outTx.accountId) continue;
       if (inTx.kind !== 'income' && inTx.kind !== 'transfer_in') continue;
       if (inTx.amountCents !== outTx.amountCents) continue;

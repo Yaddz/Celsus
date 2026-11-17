@@ -14,7 +14,11 @@ import {
   type MappedPluggyTransaction,
   type ReconcilableOpenFinanceEntry,
 } from '../../domain/openFinance';
-import { detectBankIncomeCandidate } from '../../domain/openFinance/income';
+import {
+  detectBankIncomeCandidate,
+  type BankIncomeCandidate,
+  type KnownIncomeAsset,
+} from '../../domain/openFinance/income';
 import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { finRepository } from '../../repositories/finRepository';
 import { incomeRepository } from '../../repositories/incomeRepository';
@@ -32,6 +36,7 @@ export interface PluggySyncCounts {
   billsSynced: number;
   entriesRemoved?: number;
   removalConflicts?: number;
+  ambiguousIncomeCount?: number;
 }
 
 export interface PluggySyncResult {
@@ -86,6 +91,7 @@ export const pluggySyncService = {
       transactionsSettled: 0,
       transfersMatched: 0,
       billsSynced: 0,
+      ambiguousIncomeCount: 0,
     };
 
     try {
@@ -287,6 +293,49 @@ export const pluggySyncService = {
           }
         }
 
+        // R9 / R15 / R16: Detectar proventos ANTES de qualquer classificação de transferência
+        const detectedIncomeByExternalId = new Map<string, BankIncomeCandidate>();
+        const dbForIncome = getDatabase();
+        const [allAssets, allPortfolios, existingIncomes] =
+          rawTxByExternalId.size > 0
+            ? await Promise.all([
+                dbForIncome.select().from(assets),
+                dbForIncome.select().from(portfolios),
+                dbForIncome.select().from(incomeEvents),
+              ])
+            : [[], [], []];
+        const workingIncomes = [...existingIncomes];
+        const knownIncomeAssets: KnownIncomeAsset[] = allAssets.map((a) => ({
+          ticker: a.ticker,
+          name: a.name,
+          status: a.of_status,
+        }));
+        const assetTickersUpper = new Set(allAssets.map((a) => a.ticker.trim().toUpperCase()));
+        for (const inc of workingIncomes) {
+          const t = inc.ticker.trim().toUpperCase();
+          if (t && !assetTickersUpper.has(t)) {
+            knownIncomeAssets.push({ ticker: t, name: null, status: null });
+          }
+        }
+        const brokerPortfolioId =
+          allPortfolios.find((p) => p.of_item_id === itemId)?.id ??
+          allAssets.find((a) => a.institution_id === itemId)?.portfolio_id ??
+          allPortfolios[0]?.id ??
+          null;
+
+        if (brokerPortfolioId && knownIncomeAssets.length > 0) {
+          for (const [extId, rawTx] of rawTxByExternalId) {
+            const candidate = detectBankIncomeCandidate(rawTx, knownIncomeAssets, {
+              onAmbiguous: () => {
+                counts.ambiguousIncomeCount = (counts.ambiguousIncomeCount ?? 0) + 1;
+              },
+            });
+            if (candidate) {
+              detectedIncomeByExternalId.set(extId, candidate);
+            }
+          }
+        }
+
         const reconcilable: ReconcilableOpenFinanceEntry[] = existingEntries.map((e) => ({
           id: e.id,
           account_id: e.account_id,
@@ -307,6 +356,7 @@ export const pluggySyncService = {
 
         const reconciled = reconcilePluggyTransactions(allMapped, reconcilable, {
           accountTypesById,
+          incomeExternalIds: new Set(detectedIncomeByExternalId.keys()),
         });
         counts.transfersMatched = reconciled.transferPairs.length;
 
@@ -411,81 +461,62 @@ export const pluggySyncService = {
           }
         }
 
-        // R9: Detectar proventos creditados na conta da corretora (OPEN_FINANCE_BANK)
-        if (syncedEntryRefs.length > 0) {
-          const db = getDatabase();
-          const [allAssets, allPortfolios, existingIncomes] = await Promise.all([
-            db.select().from(assets),
-            db.select().from(portfolios),
-            db.select().from(incomeEvents),
-          ]);
-          const workingIncomes = [...existingIncomes];
-          const knownTickers = new Set<string>([
-            ...allAssets.map((a) => a.ticker),
-            ...workingIncomes.map((i) => i.ticker),
-          ]);
-          const brokerPortfolioId =
-            allPortfolios.find((p) => p.of_item_id === itemId)?.id ??
-            allAssets.find((a) => a.institution_id === itemId)?.portfolio_id ??
-            allPortfolios[0]?.id ??
-            null;
+        // R9 / R15 / R16: Persistir proventos detectados e vincular fin_entries.linked_income_id
+        if (syncedEntryRefs.length > 0 && brokerPortfolioId && detectedIncomeByExternalId.size > 0) {
+          for (const ref of syncedEntryRefs) {
+            const candidate = detectedIncomeByExternalId.get(ref.externalId);
+            if (!candidate) continue;
 
-          if (brokerPortfolioId && knownTickers.size > 0) {
-            for (const ref of syncedEntryRefs) {
-              const rawTx = rawTxByExternalId.get(ref.externalId);
-              if (!rawTx) continue;
-              const candidate = detectBankIncomeCandidate(rawTx, knownTickers);
-              if (!candidate) continue;
-
-              const byExt = workingIncomes.find((e) => e.external_id === candidate.externalId);
-              const equiv =
-                byExt ??
-                findEquivalentIncome(
-                  {
-                    ticker: candidate.ticker,
-                    payDate: candidate.payDate,
-                    amount: candidate.amount,
-                    kind: candidate.kind,
-                  },
-                  workingIncomes.map((e) => ({
-                    id: e.id,
-                    portfolioId: e.portfolio_id,
-                    ticker: e.ticker,
-                    payDate: e.pay_date,
-                    amount: e.amount,
-                    kind: e.kind,
-                    source: e.source,
-                    externalId: e.external_id,
-                    notes: e.notes,
-                    quantity: e.quantity,
-                    unitAmount: e.unit_amount,
-                    createdAt: e.created_at,
-                  }))
-                );
-
-              let linkedIncomeId: string;
-              if (equiv && equiv.id) {
-                linkedIncomeId = equiv.id;
-              } else {
-                const createdInc = await incomeRepository.addIncome({
-                  portfolioId: brokerPortfolioId,
+            const byExt = workingIncomes.find((e) => e.external_id === candidate.externalId);
+            const equiv =
+              byExt ??
+              findEquivalentIncome(
+                {
                   ticker: candidate.ticker,
                   payDate: candidate.payDate,
                   amount: candidate.amount,
-                  notes: candidate.notes ?? undefined,
-                  source: 'OPEN_FINANCE_BANK',
-                  externalId: candidate.externalId,
                   kind: candidate.kind,
-                  itemId,
-                });
-                workingIncomes.push(createdInc);
-                linkedIncomeId = createdInc.id;
-              }
+                },
+                workingIncomes.map((e) => ({
+                  id: e.id,
+                  portfolioId: e.portfolio_id,
+                  ticker: e.ticker,
+                  payDate: e.pay_date,
+                  amount: e.amount,
+                  kind: e.kind,
+                  source: e.source,
+                  externalId: e.external_id,
+                  notes: e.notes,
+                  quantity: e.quantity,
+                  unitAmount: e.unit_amount,
+                  createdAt: e.created_at,
+                }))
+              );
 
-              await finRepository.updateEntry(ref.entryId, {
-                linked_income_id: linkedIncomeId,
+            let linkedIncomeId: string;
+            if (equiv && equiv.id) {
+              linkedIncomeId = equiv.id;
+            } else {
+              const createdInc = await incomeRepository.addIncome({
+                portfolioId: brokerPortfolioId,
+                ticker: candidate.ticker,
+                payDate: candidate.payDate,
+                amount: candidate.amount,
+                notes: candidate.notes ?? undefined,
+                source: 'OPEN_FINANCE_BANK',
+                externalId: candidate.externalId,
+                kind: candidate.kind,
+                quantity: candidate.quantity ?? undefined,
+                unitAmount: candidate.unitAmount ?? undefined,
+                itemId,
               });
+              workingIncomes.push(createdInc);
+              linkedIncomeId = createdInc.id;
             }
+
+            await finRepository.updateEntry(ref.entryId, {
+              linked_income_id: linkedIncomeId,
+            });
           }
         }
 

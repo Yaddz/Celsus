@@ -7,19 +7,27 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **188/188 suítes PASS** (**1240/1240 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **190/190 suítes PASS** (**1250/1250 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (153 erros pré-existentes apenas em arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **204 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (148 erros pré-existentes apenas em 41 arquivos `__tests__` antigos) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **206 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 90 — Proventos por nome do fundo e diagnóstico sem PII (Fase A travada)
+## Sprint 90 — Proventos por nome do fundo e diagnóstico sem PII (Fase B concluída)
 
-Especificação TDD para `R15` (identificação de provento pelo nome do fundo, quantidade `"S/ <n>"`, prioridade antes de transferência incluindo `categoryId 04000000` e contagem de ambiguidade), `R16` (recibo `TOTAL_WITHDRAWAL` → ativo-base `ACTIVE` sufixo `11`) e `R21` (`redactDiagnosticDescription`, bloco `app` e `name` por investimento e `entriesLast90d` por conta).
+Identificação de provento pelo nome do fundo (`s/` ou `FII`, normalizado sem stopwords, prefixos/iniciais em ordem e fallback pela raiz de 4 letras do ticker), extração de quantidade `"S/ <n>"` e `unit_amount` em 8 casas (`decimal.js`), execução antes da classificação de transferências incluindo `categoryId 04000000` e contagem de ambiguidade em `counts.ambiguousIncomeCount` (`R15`), redirecionamento de recibo em `TOTAL_WITHDRAWAL` para o ativo-base `ACTIVE` sufixo `11` com `"recibo <ticker>"` em `notes` (`R16`), e diagnóstico Pluggy sem PII (`redactDiagnosticDescription`) com `name` e bloco `app` por investimento e `entriesLast90d` por conta (`R21`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/domain/openFinance/__tests__/Sprint90IncomeNames.test.ts` | S90-T01…T06, S90-T08 | `f3032d0b727609971b7f77978954dadb377816bf59bf713e12dc26d590ba828d` | 7 FAIL |
-| `apps/mobile/src/services/pluggy/__tests__/Sprint90IncomeNames.test.ts` | S90-T03 (sync), S90-T07, S90-T09 | `0bc89dc4ab144a933b6f73db054741f5af391c7098dbedad0392c3262d15c674` | 3 FAIL |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint90IncomeNames.test.ts` | S90-T03 (sync), S90-T07, S90-T09 | `497900d23872b5c2244a4ecd8d9eb152f3e1bd5f50218823aee41af4ab28846b` | 3 FAIL |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/services/pluggy/__tests__/Sprint90IncomeNames.test.ts:207-214`: ajustados os nomes dos parâmetros da fixture `finRepository.createAccount` de `initial_balance_cents`/`of_account_id` para `initialBalanceCents`/`ofAccountId` (camelCase exigido pela assinatura do repositório).
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **190/190 suítes PASS** (**1250/1250 testes PASS**, 37.638 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros** em produção (148 pré-existentes em 41 arquivos `__tests__` antigos)
+- `node scripts/test-lock.js verify`: **206 arquivos íntegros**
 
 ## Sprint 89 — Correções da validação Pluggy (Fase B concluída)
 

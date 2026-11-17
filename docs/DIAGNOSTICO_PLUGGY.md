@@ -9,11 +9,31 @@ Este documento descreve como exportar o relatório anonimizado do Open Finance n
 1. Abra o app Celsus e acesse **Perfil → Open Finance**.
 2. Role até a seção **Qualidade dos dados**.
 3. Toque em **Exportar diagnóstico**.
-4. O app consulta os endpoints da Pluggy em modo **somente leitura** (nada é gravado em `assets` ou `fin_entries`), remove todos os dados pessoais (`owner`, `taxNumber`, `number`, `itemId` substituído por hash curto, descrições livres truncadas em 40 caracteres) e abre o compartilhamento do sistema para você salvar ou enviar o JSON.
+4. O app consulta os endpoints da Pluggy em modo **somente leitura** (nada é gravado em `assets` ou `fin_entries`), remove todos os dados pessoais (`owner`, `taxNumber`, `number`, `itemId` substituído por hash curto), aplica `redactDiagnosticDescription` em `sampleTransactions[].description` (remove CPF/CNPJ, palavras do nome do titular, contrapartes em categorias `04*`/`05*` → `<contraparte>`, e sequências de 4+ dígitos → `####` preservando datas e tickers), trunca em 40 caracteres e abre o compartilhamento do sistema para você salvar ou enviar o JSON.
 
 ---
 
-## 2. Significado dos alertas locais
+## 2. Campos estendidos do relatório (Sprint 90 — R21)
+
+### Por investimento (`items[].investments[]`)
+- `name`: nome do ativo retornado pela Pluggy (útil para conferir casamento de proventos por nome de fundo).
+- `app`: bloco com a visão local do ativo no Celsus (`null` quando o ativo ainda não foi sincronizado):
+  - `ledgerQuantity`: quantidade líquida calculada pelo livro de transações (`BUY` + `TRANSFER` − `SELL`, ignorando arquivadas).
+  - `hasAveragePrice`: `true` quando há custo médio válido (`!isUnknownCost(asset)`).
+  - `costBasisSource`: origem do custo (`TRANSACTIONS` | `INSTITUTION` | `MANUAL` | `UNKNOWN`).
+  - `valueSource`: origem do valor de mercado (`QUOTE` | `INSTITUTION` | `MANUAL`).
+  - `displayedValue`: valor de mercado exibido pelo app (`of_reported_value`/`manual_position_value` ou `cotação × quantidade` quando `QUOTE`).
+  - `incomeCount12m`: quantidade de proventos (`income_events`) nos últimos 12 meses para o ativo.
+
+### Por conta (`items[].accounts[]`)
+- `entriesLast90d`: resumo dos lançamentos locais ativos (`of_removed_at` nulo) dos últimos 90 dias:
+  - `total`: total de lançamentos no período.
+  - `byKind`: contagem agrupada por `kind` (`expense`, `income`, `transfer_out`, `transfer_in`).
+  - `outrosCount` e `outrosPct`: contagem e percentual de lançamentos categorizados em `cat-outros-*`.
+
+---
+
+## 3. Significado dos alertas locais
 
 | Alerta | Severidade | O que significa |
 | :--- | :--- | :--- |

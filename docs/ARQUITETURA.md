@@ -370,3 +370,9 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 
 - `domain/openFinance/investments.ts`: `resolvePositionPriceFactor` aplica `priceFactor` também na posição (`R12`), e `calculateInvestmentCostBasis` produz `openingAdjustment` sem `amountOriginal` (`UNKNOWN`) e `closingAdjustment` (`SELL` sintético `pluggy-closing-adj:<id>`) quando o livro excede a posição (`R13`), ambos gerenciados em `pluggyInvestmentsSyncService.ts`.
 - `domain/finance/averagePrice.ts` (`isUnknownCost`): helper puro compartilhado entre `marketSyncService.ts`, `finGoalsService.ts`, `PortfolioManagementScreen.tsx` e `IncomeHistoryScreen.tsx` (`R14`).
+
+## Proventos por Nome de Fundo e Diagnóstico Estendido (Sprint 90)
+
+- `domain/openFinance/income.ts` (`detectBankIncomeCandidate`): aceita `KnownIncomeAsset[]` (`{ ticker, name, status }`), executando busca por ticker → nome do fundo (após `"s/"` ou `"FII"`, normalizado sem stopwords) → raiz de 4 letras do ticker (`R15`), extração de `quantity`/`unitAmount` em `"S/ <n>"` (8 casas) e redirecionamento de recibos `TOTAL_WITHDRAWAL` para o ativo-base `ACTIVE` sufixo `11` (`R16`).
+- `services/pluggy/pluggySyncService.ts` + `domain/openFinance/index.ts`: detecção de proventos executada antes de `reconcilePluggyTransactions` (inclusive para `categoryId 04000000`), excluindo proventos do pareamento de transferências e contabilizando `counts.ambiguousIncomeCount`.
+- `domain/openFinance/diagnostics.ts` (`redactDiagnosticDescription`) + `services/pluggy/pluggyDiagnosticsService.ts`: redação de PII em `sampleTransactions[].description`, inclusão de `name` e bloco `app` por investimento e `entriesLast90d` por conta (`R21`).

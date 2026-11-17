@@ -207,9 +207,9 @@ describe('Sprint 90 — Proventos por nome e diagnóstico estendido (Fase A)', (
     const localAcc = await finRepository.createAccount({
       name: 'Conta Diag',
       type: 'checking',
-      initial_balance_cents: 0,
+      initialBalanceCents: 0,
       color: '#000000',
-      of_account_id: acc.id,
+      ofAccountId: acc.id,
       source: 'OPEN_FINANCE',
     });
 

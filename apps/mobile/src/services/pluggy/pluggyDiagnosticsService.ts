@@ -1,4 +1,15 @@
 import Decimal from 'decimal.js';
+import { getDatabase } from '../../db/client';
+import {
+  assets,
+  finAccounts,
+  finEntries,
+  incomeEvents,
+  marketPriceCache,
+  transactions,
+} from '../../db/schema';
+import { isUnknownCost } from '../../domain/finance/averagePrice';
+import { redactDiagnosticDescription } from '../../domain/openFinance/diagnostics';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { PluggyClient } from './pluggyClient';
 import type {
@@ -20,6 +31,12 @@ export interface AnonymizedAccountSummary {
   creditLimit: number | null;
   availableCreditLimit: number | null;
   billsCount: number;
+  entriesLast90d: {
+    total: number;
+    byKind: Record<string, number>;
+    outrosCount: number;
+    outrosPct: number;
+  };
   sampleTransactions: Array<{
     type: string;
     status: string;
@@ -31,9 +48,19 @@ export interface AnonymizedAccountSummary {
   }>;
 }
 
+export interface AnonymizedInvestmentAppSummary {
+  ledgerQuantity: string;
+  hasAveragePrice: boolean;
+  costBasisSource: string | null;
+  valueSource: string | null;
+  displayedValue: string | null;
+  incomeCount12m: number;
+}
+
 export interface AnonymizedInvestmentSummary {
   type: string;
   subtype: string | null;
+  name: string;
   code: string | null;
   isin: string | null;
   quantity: number | null;
@@ -46,6 +73,7 @@ export interface AnonymizedInvestmentSummary {
   fixedAnnualRate: number | null;
   priceFactor: number | null;
   status: string | null;
+  app: AnonymizedInvestmentAppSummary | null;
   transactionsSummary: {
     total: number;
     byType: Record<string, number>;
@@ -81,6 +109,11 @@ function truncate40(text: string | null | undefined): string {
   const cleaned = (text || '').replace(/\s+/g, ' ').trim();
   if (cleaned.length <= 40) return cleaned;
   return `${cleaned.slice(0, 37)}...`;
+}
+
+function daysAgoIso(days: number): string {
+  const d = new Date(Date.now() - days * 86_400_000);
+  return d.toISOString().slice(0, 10);
 }
 
 function summarizeInvestmentTransactions(
@@ -144,6 +177,28 @@ export const pluggyDiagnosticsService = {
       options?.itemIds ??
       (await openFinanceRepository.listItems()).map((it) => it.id);
 
+    const db = getDatabase();
+    const [localAssets, localTxs, localIncomes, localFinAccounts, localFinEntries, priceCache] =
+      await Promise.all([
+        db.select().from(assets),
+        db.select().from(transactions),
+        db.select().from(incomeEvents),
+        db.select().from(finAccounts),
+        db.select().from(finEntries),
+        db.select().from(marketPriceCache),
+      ]);
+
+    const assetByExternalId = new Map(
+      localAssets.filter((a) => a.external_id).map((a) => [a.external_id!, a])
+    );
+    const localAccByOfId = new Map(
+      localFinAccounts.filter((a) => a.of_account_id).map((a) => [a.of_account_id!, a])
+    );
+    const priceByTicker = new Map(priceCache.map((p) => [p.ticker, p.current_price]));
+
+    const cutoff90d = daysAgoIso(90);
+    const cutoff12m = daysAgoIso(365);
+
     const items: AnonymizedItemDiagnostics[] = [];
 
     for (const itemId of itemIds) {
@@ -157,6 +212,11 @@ export const pluggyDiagnosticsService = {
           ? await anyClient.listInvestments(itemId)
           : [];
 
+      const ownerNames = [
+        ...accounts.map((a) => a.owner),
+        ...investments.map((i) => i.owner),
+      ].filter((o): o is string => Boolean(o && o.trim()));
+
       const anonymizedAccounts: AnonymizedAccountSummary[] = [];
       for (const acc of accounts) {
         const txs: PluggyTransaction[] =
@@ -168,6 +228,25 @@ export const pluggyDiagnosticsService = {
             ? await anyClient.listBills(acc.id).catch(() => [])
             : [];
 
+        const localAcc = localAccByOfId.get(acc.id);
+        const byKind: Record<string, number> = {};
+        let total90d = 0;
+        let outrosCount = 0;
+        if (localAcc) {
+          for (const e of localFinEntries) {
+            if (e.account_id !== localAcc.id) continue;
+            if (e.of_removed_at) continue;
+            if (e.due_date < cutoff90d) continue;
+            total90d += 1;
+            byKind[e.kind] = (byKind[e.kind] ?? 0) + 1;
+            if (e.category_id.startsWith('cat-outros-')) {
+              outrosCount += 1;
+            }
+          }
+        }
+        const outrosPct =
+          total90d > 0 ? Math.round((outrosCount / total90d) * 1000) / 10 : 0;
+
         anonymizedAccounts.push({
           type: acc.type,
           subtype: acc.subtype,
@@ -178,6 +257,12 @@ export const pluggyDiagnosticsService = {
           creditLimit: acc.creditData?.creditLimit ?? null,
           availableCreditLimit: acc.creditData?.availableCreditLimit ?? null,
           billsCount: bills.length,
+          entriesLast90d: {
+            total: total90d,
+            byKind,
+            outrosCount,
+            outrosPct,
+          },
           sampleTransactions: txs.slice(0, 20).map((t) => ({
             type: t.type,
             status: t.status,
@@ -185,7 +270,12 @@ export const pluggyDiagnosticsService = {
             date: (t.date || '').slice(0, 10),
             category: t.category ?? null,
             categoryId: t.categoryId ?? null,
-            description: truncate40(t.description),
+            description: truncate40(
+              redactDiagnosticDescription(t.description, {
+                ownerNames,
+                categoryId: t.categoryId,
+              })
+            ),
           })),
         });
       }
@@ -197,9 +287,50 @@ export const pluggyDiagnosticsService = {
             ? await anyClient.listInvestmentTransactions(inv.id).catch(() => [])
             : [];
 
+        const localAsset = assetByExternalId.get(inv.id);
+        let appSummary: AnonymizedInvestmentAppSummary | null = null;
+        if (localAsset) {
+          let ledgerQty = new Decimal(0);
+          for (const lt of localTxs) {
+            if (lt.asset_id !== localAsset.id || lt.archived_at) continue;
+            if (lt.type === 'BUY' || lt.type === 'TRANSFER') {
+              ledgerQty = ledgerQty.plus(new Decimal(lt.quantity || '0'));
+            } else if (lt.type === 'SELL') {
+              ledgerQty = ledgerQty.minus(new Decimal(lt.quantity || '0'));
+            }
+          }
+
+          let displayedValue: string | null =
+            localAsset.of_reported_value ?? localAsset.manual_position_value ?? null;
+          if (localAsset.value_source === 'QUOTE') {
+            const cachedPrice = priceByTicker.get(localAsset.ticker);
+            if (cachedPrice) {
+              displayedValue = new Decimal(cachedPrice)
+                .mul(new Decimal(localAsset.quantity || '0'))
+                .toFixed(2);
+            }
+          }
+
+          const incomeCount12m = localIncomes.filter(
+            (inc) =>
+              inc.pay_date >= cutoff12m &&
+              (inc.asset_id === localAsset.id || inc.ticker === localAsset.ticker)
+          ).length;
+
+          appSummary = {
+            ledgerQuantity: ledgerQty.toString(),
+            hasAveragePrice: !isUnknownCost(localAsset),
+            costBasisSource: localAsset.cost_basis_source ?? null,
+            valueSource: localAsset.value_source ?? null,
+            displayedValue,
+            incomeCount12m,
+          };
+        }
+
         anonymizedInvestments.push({
           type: inv.type,
           subtype: inv.subtype ?? null,
+          name: inv.name ?? '',
           code: inv.code ?? null,
           isin: inv.isin ?? null,
           quantity: inv.quantity ?? null,
@@ -212,6 +343,7 @@ export const pluggyDiagnosticsService = {
           fixedAnnualRate: inv.fixedAnnualRate ?? null,
           priceFactor: inv.priceFactor ?? null,
           status: inv.status ?? null,
+          app: appSummary,
           transactionsSummary: summarizeInvestmentTransactions(invTxs),
         });
       }
