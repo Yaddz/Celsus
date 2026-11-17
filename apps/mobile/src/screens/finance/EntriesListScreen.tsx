@@ -252,7 +252,10 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     if (!deleteConfirmEntry) return;
     const target = deleteConfirmEntry;
     setDeleteConfirmEntry(null);
-    if (target.recurrence_id) {
+    if (target.transfer_group_id) {
+      // Transferência tem duas pernas: apagar só uma deixaria o saldo da outra conta errado
+      await finService.deleteTransferGroup(target.transfer_group_id);
+    } else if (target.recurrence_id) {
       await finService.deleteRecurrenceOccurrence(target.id, 'only_this');
     } else {
       await finRepository.deleteEntry(target.id);
@@ -285,6 +288,10 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     setIsFormOpen(true);
   };
 
+  // Transferência não se edita nem se reabre perna a perna: exclui-se o par e lança-se de novo
+  const actionIsTransfer =
+    actionEntry?.kind === 'transfer_in' || actionEntry?.kind === 'transfer_out';
+
   const monthLabel = formatYearMonthPtBr(selectedMonth);
   const selectedCategoryName = filters.categoryId ? categoryById.get(filters.categoryId)?.name : null;
   const selectedAccountName = filters.accountId ? accountNameById.get(filters.accountId) : null;
@@ -316,8 +323,14 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     } else if (entry.recurrence_id) {
       subtitle = `${formatTxDate(entry.due_date)} • Recorrente`;
     }
+    const isTransfer = entry.kind === 'transfer_in' || entry.kind === 'transfer_out';
+    if (isTransfer) {
+      subtitle = `${formatTxDate(entry.paid_date ?? entry.due_date)} • Transferência • ${accountName}`;
+    }
 
-    const kind: FinKind = entry.kind === 'income' ? 'income' : 'expense';
+    // Entrada de transferência soma no saldo da conta: sinal positivo, como uma receita
+    const kind: FinKind =
+      entry.kind === 'income' || entry.kind === 'transfer_in' ? 'income' : 'expense';
     const amountColor = kind === 'income' ? c.income : c.expense;
 
     return (
@@ -332,6 +345,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         subtitle={subtitle}
         subtitleColor={dueStatus === 'overdue' ? c.overdue : c.muted}
         amountText={formatSignedCentsBRL(displayCents, kind, isPrivacyMode)}
+        amountTestID={`entry-amount-${entry.id}`}
         amountColor={amountColor}
         isLast={index === total - 1}
         themeMode={themeMode}
@@ -674,7 +688,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         />
         {actionEntry ? (
           <View style={styles.scopeList}>
-            {actionEntry.status === 'pending' ? (
+            {actionIsTransfer ? null : actionEntry.status === 'pending' ? (
               <JellyPressable
                 testID={`entry-action-pay-${actionEntry.id}`}
                 accessibilityRole="button"
@@ -703,18 +717,20 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
                 <Text style={[sharedStyles.secondaryBtnText, { color: c.text }]}>Reabrir</Text>
               </JellyPressable>
             )}
-            <JellyPressable
-              testID={`entry-action-edit-${actionEntry.id}`}
-              accessibilityRole="button"
-              onPress={() => {
-                const target = actionEntry;
-                setActionEntry(null);
-                handleEditPress(target);
-              }}
-              style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
-            >
-              <Text style={[sharedStyles.secondaryBtnText, { color: c.text }]}>Editar</Text>
-            </JellyPressable>
+            {actionIsTransfer ? null : (
+              <JellyPressable
+                testID={`entry-action-edit-${actionEntry.id}`}
+                accessibilityRole="button"
+                onPress={() => {
+                  const target = actionEntry;
+                  setActionEntry(null);
+                  handleEditPress(target);
+                }}
+                style={[sharedStyles.secondaryBtn, { borderColor: c.border, justifyContent: 'flex-start' }]}
+              >
+                <Text style={[sharedStyles.secondaryBtnText, { color: c.text }]}>Editar</Text>
+              </JellyPressable>
+            )}
             <JellyPressable
               testID={`entry-action-delete-${actionEntry.id}`}
               accessibilityRole="button"
@@ -856,6 +872,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         cancelLabel="Cancelar"
         destructive={true}
         themeMode={themeMode}
+        confirmTestID="entry-delete-confirm-btn"
         onCancel={() => setDeleteConfirmEntry(null)}
         onConfirm={() => void handleConfirmDeleteSingle()}
       />

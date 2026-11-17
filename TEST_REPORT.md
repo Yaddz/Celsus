@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 70 — Correções médias da revisão (Fase A concluída — Red Phase)
+## Sprint 70 — Correções médias da revisão (Fase B concluída)
 
 Transferências na lista de lançamentos, pagamento de fatura vindo do Open Finance, patrimônio pelo valor de
 posição, previsão de caixa com atrasados e edição de parcelas/lançamentos no cartão.
@@ -24,6 +24,16 @@ posição, previsão de caixa com atrasados e edição de parcelas/lançamentos 
 | `apps/mobile/src/screens/__tests__/Sprint70TransfersInEntriesList.test.tsx` | S70-U01…U03 | `100a3ec888ce280ed3389cc15c6a6fe95df2ca03f14cb290dbe9c028f969c767` | 3 FAIL |
 
 Execução da Fase A: `npx jest Sprint70` → 14 falhando, 4 passando (18 testes, 3 suítes). 158 arquivos travados.
+
+Execução da Fase B:
+
+| Verificação | Resultado |
+| :--- | :--- |
+| `npx jest Sprint70` | **18/18 PASS** (3 suítes) |
+| `npx jest` (suíte completa) | 966/969 testes, 140/144 suítes. Falham as mesmas 4 suítes de antes (2 fixtures contadas como suíte, `receiptFlow.test.tsx`, `Sprint39GeneralBugsAndHardening`) |
+| Instabilidade observada | Em 2 de 3 execuções completas, testes sensíveis a tempo falharam e passaram ao rodar isolados: `incomeHistory` S48-T05 (limite de 50 ms), `profileStore` S42-T30 e `Sprint69OpenFinanceInvestmentsUI` (3/3 PASS isolado) |
+| `npx tsc --noEmit` (produção) | 2 erros pré-existentes (`DotMatrixAllocationCard.tsx:41`, `PortfolioManagementScreen.tsx:1579`) |
+| `node scripts/test-lock.js verify` | 158 arquivos íntegros |
 
 ## Sprint 69 — Correções da revisão das sprints 59–68 (Fase B concluída)
 

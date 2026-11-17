@@ -371,7 +371,7 @@ export class FinService {
         throw new Error(`Parcela não encontrada: ${entryId}`);
       }
       if (!target.installment_group_id || scope === 'only_this') {
-        await finRepository.updateEntry(entryId, patch);
+        await this.updateEntryRecalculatingBill(entryId, patch);
         return;
       }
 
@@ -382,10 +382,61 @@ export class FinService {
           ? group.filter((item) => (item.installment_number ?? 0) >= anchorNum)
           : group;
 
+      // A data nova vale para a parcela editada; as demais mantêm o espaçamento mensal:
+      // deslocam o mesmo número de meses e adotam o novo dia (limitado ao tamanho do mês).
+      const { due_date: newDueDate, ...restPatch } = patch;
+      let monthDelta = 0;
+      let newDay = 0;
+      if (newDueDate !== undefined) {
+        const from = parseIsoDate(target.due_date);
+        const to = parseIsoDate(newDueDate);
+        monthDelta = to.year * 12 + to.month - (from.year * 12 + from.month);
+        newDay = to.day;
+      }
+
       for (const item of targets) {
-        await finRepository.updateEntry(item.id, patch);
+        const itemPatch: typeof patch = { ...restPatch };
+        if (newDueDate !== undefined) {
+          if (item.id === target.id) {
+            itemPatch.due_date = newDueDate;
+          } else {
+            const shiftedYm = addMonthsYearMonth(item.due_date.slice(0, 7), monthDelta);
+            const { year, month } = parseIsoDate(`${shiftedYm}-01`);
+            itemPatch.due_date = formatIsoDate(year, month, clampDayOfMonth(year, month, newDay));
+          }
+        }
+        await this.updateEntryRecalculatingBill(item.id, itemPatch);
       }
     });
+  }
+
+  /**
+   * Atualiza um lançamento mantendo o mês da fatura coerente: recalcula quando a data ou a conta
+   * mudam e a conta é cartão, limpa quando sai do cartão. Lançamento do Open Finance preserva o
+   * mês informado pelo banco.
+   */
+  async updateEntryRecalculatingBill(
+    entryId: string,
+    patch: Partial<Omit<FinEntry, 'id' | 'created_at'>>
+  ): Promise<FinEntry> {
+    const current = await finRepository.getEntryById(entryId);
+    if (!current) {
+      throw new Error(`Lançamento não encontrado: ${entryId}`);
+    }
+    const nextPatch = { ...patch };
+    const nextAccountId = patch.account_id ?? current.account_id;
+    const nextDueDate = patch.due_date ?? current.due_date;
+    const changedPlacement =
+      nextAccountId !== current.account_id || nextDueDate !== current.due_date;
+
+    if (changedPlacement && current.source !== 'OPEN_FINANCE' && patch.bill_month === undefined) {
+      const account = await finRepository.getAccountById(nextAccountId);
+      nextPatch.bill_month =
+        account?.type === 'card'
+          ? resolveBillMonth(nextDueDate, account.closing_day ?? 1, account.due_day)
+          : null;
+    }
+    return finRepository.updateEntry(entryId, nextPatch);
   }
 
   async deleteRecurrenceOccurrence(entryId: string, scope: InstallmentScope = 'only_this'): Promise<void> {

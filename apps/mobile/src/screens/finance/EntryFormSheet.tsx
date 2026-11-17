@@ -294,7 +294,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
             if (patch.category_id !== editingEntry.category_id) editedFields.push('category_id');
             if (patch.description !== editingEntry.description) editedFields.push('description');
           }
-          await finRepository.updateEntry(editingEntry.id, {
+          await finService.updateEntryRecalculatingBill(editingEntry.id, {
             ...patch,
             kind,
             ...(editedFields.length > 0

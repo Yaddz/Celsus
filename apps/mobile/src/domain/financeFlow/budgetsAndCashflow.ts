@@ -312,9 +312,10 @@ export function projectCashflow(
     if (entry.status !== 'pending') continue;
     if (cardAccountIds.has(entry.account_id)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
-    if (entry.due_date < todayIso || entry.due_date > untilIso) continue;
+    if (entry.due_date > untilIso) continue;
     const signed = entry.kind === 'income' ? entry.amount_cents : -entry.amount_cents;
-    addDelta(entry.due_date, signed);
+    // Atrasado continua devido: entra na previsão como se fosse quitado hoje
+    addDelta(entry.due_date < todayIso ? todayIso : entry.due_date, signed);
   }
 
   // 2. Faturas de cartão pelo vencimento

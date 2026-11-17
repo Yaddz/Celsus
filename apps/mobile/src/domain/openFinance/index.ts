@@ -30,7 +30,7 @@ export interface MappedPluggyTransaction {
   externalId: string;
   source: 'OPEN_FINANCE';
   accountId: string;
-  kind: FinKind;
+  kind: FinKind | 'transfer_in';
   status: FinEntryStatus;
   amountCents: number;
   dueDate: string;
@@ -235,6 +235,16 @@ export function mapPluggyCategory(
   };
 }
 
+const CARD_PAYMENT_DESCRIPTION_RE =
+  /\bpag(amento|to|mto)?\b.*\b(fatura|recebido|efetuado|realizado)\b|\bpayment received\b/;
+const CARD_PAYMENT_CATEGORY_RE = /credit card payment|pagamento de cartao/;
+
+/** Lançamento de crédito no cartão que representa o pagamento da fatura (e não um estorno). */
+export function isCardBillPayment(tx: Pick<PluggyTransaction, 'description' | 'category'>): boolean {
+  if (tx.category && CARD_PAYMENT_CATEGORY_RE.test(normalizeKey(tx.category))) return true;
+  return CARD_PAYMENT_DESCRIPTION_RE.test(normalizeKey(tx.description ?? ''));
+}
+
 export function mapPluggyTransaction(
   tx: PluggyTransaction,
   options: MapPluggyTransactionOptions
@@ -243,9 +253,14 @@ export function mapPluggyTransaction(
   const amountCents = Math.abs(toCentsDecimal(rawAmount));
   const status: FinEntryStatus = tx.status === 'POSTED' ? 'paid' : 'pending';
 
-  let kind: FinKind;
+  let kind: FinKind | 'transfer_in';
   if (options.accountType === 'card') {
-    kind = rawAmount >= 0 ? 'expense' : 'income';
+    if (rawAmount >= 0) {
+      kind = 'expense';
+    } else {
+      // Crédito no cartão: pagamento da fatura é transferência recebida; o resto é estorno (receita)
+      kind = isCardBillPayment(tx) ? 'transfer_in' : 'income';
+    }
   } else {
     kind = tx.type === 'DEBIT' || rawAmount < 0 ? 'expense' : 'income';
   }
@@ -269,12 +284,15 @@ export function mapPluggyTransaction(
     }
   }
 
-  const { categoryId, matchedRuleId } = mapPluggyCategory(
-    tx.category,
-    kind === 'income' ? 'income' : 'expense',
-    options.rules ?? [],
-    tx.description
-  );
+  const { categoryId, matchedRuleId } =
+    kind === 'transfer_in'
+      ? { categoryId: 'cat-outros-receita', matchedRuleId: undefined }
+      : mapPluggyCategory(
+          tx.category,
+          kind === 'income' ? 'income' : 'expense',
+          options.rules ?? [],
+          tx.description
+        );
 
   return {
     externalId: tx.id,
@@ -341,7 +359,7 @@ export function reconcilePluggyTransactions(
           date: row.dueDate,
           description: row.description,
           amountCents: row.amountCents,
-          direction: row.kind === 'income' ? 'in' : 'out',
+          direction: row.kind === 'expense' ? 'out' : 'in',
           externalId: row.externalId,
           categoryId: row.categoryId,
         },
@@ -406,7 +424,7 @@ export function reconcilePluggyTransactions(
       const inTx = transactions[j];
       if (pairedExternalIds.has(inTx.externalId)) continue;
       if (inTx.accountId === outTx.accountId) continue;
-      if (inTx.kind !== 'income') continue;
+      if (inTx.kind !== 'income' && inTx.kind !== 'transfer_in') continue;
       if (inTx.amountCents !== outTx.amountCents) continue;
       if (daysBetweenIso(outTx.dueDate, inTx.dueDate) > 2) continue;
 

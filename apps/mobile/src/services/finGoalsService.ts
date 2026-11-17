@@ -23,6 +23,7 @@ import {
 import {
   resolveAccountBalance,
   getTodayIsoLocal,
+  resolveBillMonth,
   summarizeBill,
 } from '../domain/financeFlow';
 
@@ -73,7 +74,17 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
   let openCardBillsCents = 0;
   const cardAccounts = allAccounts.filter((a) => !a.archived && a.type === 'card');
   for (const card of cardAccounts) {
-    const cardEntries = normalizedEntries.filter((e) => e.account_id === card.id);
+    // Lançamento sem mês de fatura gravado (recorrência no cartão) entra pela regra de fechamento
+    const cardEntries = normalizedEntries
+      .filter((e) => e.account_id === card.id)
+      .map((e) =>
+        e.bill_month
+          ? e
+          : {
+              ...e,
+              bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day),
+            }
+      );
     const months = new Set(
       cardEntries.map((e) => e.bill_month).filter((m): m is string => Boolean(m))
     );
@@ -103,7 +114,14 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
       const unitPrice = new Decimal(
         a.manual_price_override ?? priceMap.get(a.ticker) ?? a.average_price ?? 0
       );
-      const valReais = qty.mul(unitPrice);
+      // Valor de posição informado (Open Finance / manual) vence quantidade × preço, como na carteira
+      const hasPositionValue =
+        a.manual_position_value !== null &&
+        a.manual_position_value !== undefined &&
+        a.manual_position_value !== '';
+      const valReais = hasPositionValue
+        ? new Decimal(a.manual_position_value as string)
+        : qty.mul(unitPrice);
       const costReais = qty.mul(new Decimal(a.average_price || 0));
       totalReais = totalReais.plus(valReais);
       totalCostReais = totalCostReais.plus(costReais);
