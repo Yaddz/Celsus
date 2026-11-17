@@ -12,6 +12,19 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 70 — Correções médias da revisão (Fase A concluída — Red Phase)
+
+Transferências na lista de lançamentos, pagamento de fatura vindo do Open Finance, patrimônio pelo valor de
+posição, previsão de caixa com atrasados e edição de parcelas/lançamentos no cartão.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint70BillPaymentAndForecast.test.ts` | S70-T01…T08 | `d18a9b4c9a0b3d2e30ced981507382ce305e3a9625b92cf6d795cf8eaa5145e3` | 4 FAIL, 4 PASS (guardas de regressão) |
+| `apps/mobile/src/services/__tests__/Sprint70MediumFixes.test.ts` | S70-S01…S07 | `519fbfdc2804de84a2c92f0ad5138c9bfb7b5a3e3fcf25581f838632269421b7` | 7 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint70TransfersInEntriesList.test.tsx` | S70-U01…U03 | `100a3ec888ce280ed3389cc15c6a6fe95df2ca03f14cb290dbe9c028f969c767` | 3 FAIL |
+
+Execução da Fase A: `npx jest Sprint70` → 14 falhando, 4 passando (18 testes, 3 suítes). 158 arquivos travados.
+
 ## Sprint 69 — Correções da revisão das sprints 59–68 (Fase B concluída)
 
 Quatro correções: mês da fatura quando o cartão fecha depois do dia do vencimento, saldo de conta vinda do
