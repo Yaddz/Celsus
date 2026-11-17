@@ -67,6 +67,10 @@ export type FinanceRoute =
 
 export interface FinanceHomeScreenProps {
   onBack: () => void;
+  onSwitchModule?: () => void;
+  onAvatarPress?: () => void;
+  userName?: string;
+  userInitials?: string;
   onOpenPortfolioTransaction?: (portfolioId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;

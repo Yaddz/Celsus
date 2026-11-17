@@ -74,6 +74,7 @@ export interface PortfolioManagementScreenProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   onProfilePress?: () => void;
+  onSwitchModule?: () => void;
   modalOnly?: boolean;
   /** Chamado sempre que Nova Carteira / Adicionar Ativo fecham, para o pai resetar seus gatilhos. */
   onSubModalClosed?: () => void;

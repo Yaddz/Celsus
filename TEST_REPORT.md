@@ -10,7 +10,20 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **174 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **178 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 76 — Casca compartilhada: header, nav bar única e troca de módulo (Fase A travada)
+
+`AppModule` (`show-chart` / `account-balance`), `XpMinimalHeader` sem Alert e com ícone do módulo ativo, `FloatingBottomDock` configurável por props (`tabs`, `actions`, prefixos) usado também em Finanças, avatar nas 4 telas raiz de Finanças abrindo `SettingsBackupScreen`, e `switchModule()` em `App.tsx` preservando aba e rota.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/components/ui/__tests__/Sprint76SharedHeader.test.tsx` | S76-T01…T02 | `0843eede0b11d847b5b005367baaf1d3ae5af16d1c9b71a50e82c489fb886261` | 2 FAIL |
+| `apps/mobile/src/components/ui/__tests__/Sprint76ConfigurableDock.test.tsx` | S76-T03…T04 | `72ba90c64f2b19b19bb4fc4cfb9a4561425fc8803063137d0f1199fa0223c35a` | 1 FAIL / 1 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint76ModuleSwitchEverywhere.test.tsx` | S76-T05…T06 | `2f45a51d806e4647e44f76621d4de04bdf167a042ef49f5fa473513ba9b3ac9c` | 2 FAIL |
+| `apps/mobile/src/navigation/__tests__/Sprint76BackNavigation.test.ts` | S76-T07 | `de2073c3b0a9972ef34e7e0b9e89689b6cfcb0a517bd4a30c8d37264` | 1 PASS |
+
+Execução da Fase A: `npx jest --no-coverage Sprint76SharedHeader Sprint76ConfigurableDock Sprint76ModuleSwitchEverywhere Sprint76BackNavigation` → 5 falhando, 2 passando (7 testes, 4 suítes). 178 arquivos travados em `tests.lock.json`.
 
 ## Sprint 75 — Leitor de cupom: valor total e chave de 44 dígitos (Fase B concluída)
 

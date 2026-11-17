@@ -4,8 +4,11 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { PortfolioPalette, ThemeMode, PORTFOLIO_PALETTES, THEME_COLORS } from '../../theme/palettes';
 import { typography } from '../../theme/tokens';
 import { deriveInitials } from '../../domain/profile';
+import type { AppModule } from '../../navigation/appModule';
 
 export interface XpMinimalHeaderProps {
+  module?: AppModule;
+  onSwitchModule?: () => void;
   userName?: string;
   userInitials?: string;
   isPrivacyModeEnabled?: boolean;

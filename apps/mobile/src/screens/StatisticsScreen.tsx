@@ -51,6 +51,7 @@ export interface StatisticsScreenProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   onProfilePress?: () => void;
+  onSwitchModule?: () => void;
   onClassPress?: (assetClass: any) => void;
   themeMode?: 'dark' | 'light';
   testID?: string;

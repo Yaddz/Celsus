@@ -24,6 +24,7 @@ import { useProfile } from '../stores/profileStore';
 export interface SearchAssetsScreenProps {
   onSelectAsset: (ticker: string) => void;
   onProfilePress?: () => void;
+  onSwitchModule?: () => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: 'dark' | 'light';

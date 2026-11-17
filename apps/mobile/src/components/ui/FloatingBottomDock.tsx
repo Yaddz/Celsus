@@ -28,9 +28,29 @@ import { JellyPressable } from './JellyPressable';
 
 export type DockTab = 'home' | 'stats' | 'search' | 'wallets';
 
-export interface FloatingBottomDockProps {
-  activeTab?: DockTab;
-  onTabChange?: (tab: DockTab) => void;
+export interface DockTabItem<T extends string = string> {
+  id: T;
+  iconName: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+}
+
+export interface DockActionItem {
+  id: string;
+  testID: string;
+  icon: keyof typeof MaterialIcons.glyphMap;
+  label: string;
+  sub: string;
+  tint: string;
+  onPress?: () => void;
+}
+
+export interface FloatingBottomDockProps<T extends string = DockTab> {
+  activeTab?: T;
+  onTabChange?: (tab: T) => void;
+  tabs?: DockTabItem<T>[];
+  actions?: DockActionItem[];
+  tabTestIdPrefix?: string;
+  actionButtonTestID?: string;
   onActionPress?: () => void;
   onNovoAportePress?: () => void;
   onNovaCarteiraPress?: () => void;
@@ -717,6 +737,10 @@ const styles = StyleSheet.create({
 });
 
 /** Memoizado: só re-renderiza quando as props mudam (troca de carteira não refaz o resto da Home). */
-export const FloatingBottomDock = React.memo(FloatingBottomDockBase);
+export const FloatingBottomDock = React.memo(FloatingBottomDockBase) as <
+  T extends string = DockTab,
+>(
+  props: FloatingBottomDockProps<T>
+) => React.ReactElement;
 
 export default FloatingBottomDock;
