@@ -11,12 +11,28 @@ export type OpenFinanceClassReason =
   | 'OWN_ACCOUNT_PAIRED'
   | 'CARD_TOPUP'
   | 'CARD_BILL_PAYMENT'
+  | 'CARD_REFUND'
+  | 'CARD_CASHBACK'
+  | 'CARD_FEE'
+  | 'CARD_DEBT_ROLLOVER'
+  | 'CARD_LOAN'
+  | 'CARD_CREDIT_OTHER'
+  | 'CARD_PAYMENT_DUPLICATE'
+  | 'CARD_BILL_PAYMENT_CANDIDATE'
+  | 'CARD_BILL_PAYMENT_PAIRED'
+  | 'CARD_BILL_PAYMENT_BILL_MATCH'
+  | 'CARD_BILL_PAYMENT_UNMATCHED'
   | 'SIGN';
 
 export interface ClassifyContext {
   rules?: CategoryRuleLike[];
   /** Crédito já reconhecido como provento (R9/R15): tem precedência sobre qualquer outra regra. */
   isIncomeLinked?: boolean;
+  recentCardPurchases?: Array<{
+    amountCents: number;
+    dueDate: string;
+    categoryId: string;
+  }>;
 }
 
 export interface ClassifyResult {
@@ -24,6 +40,7 @@ export interface ClassifyResult {
   categoryId: string;
   matchedRuleId?: string;
   reason: OpenFinanceClassReason;
+  notes?: string;
 }
 
 export function normalizeKey(raw: string): string {
@@ -193,6 +210,24 @@ export function isTransferCompatibleCategoryId(categoryId: string | null | undef
 
 export function isInvestmentMoveDescription(description: string | null | undefined): boolean {
   return INVESTMENT_DESCRIPTION_RE.test(normalizeKey(description ?? ''));
+}
+
+export function classifyOpenFinanceCardEntry(
+  _tx: Pick<
+    PluggyTransaction,
+    | 'description'
+    | 'descriptionRaw'
+    | 'category'
+    | 'categoryId'
+    | 'type'
+    | 'amount'
+    | 'date'
+    | 'operationType'
+    | 'creditCardMetadata'
+  > & { amountInAccountCurrency?: number | null },
+  _ctx: ClassifyContext = {}
+): ClassifyResult {
+  throw new Error('NOT_IMPLEMENTED');
 }
 
 /**

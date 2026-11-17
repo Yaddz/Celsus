@@ -753,3 +753,12 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
     - `apps/mobile/src/services/__tests__/Sprint65PluggySyncService.test.ts:193,200` (`S65-S02`): `accountsNeedingClosingDay` passou a `0` e `closing_day` não-nulo porque a fixture traz fatura em `/bills` (`deriveCardCalendar`, `R26`).
     - `apps/mobile/src/domain/openFinance/__tests__/Sprint99CardBills.test.ts:291,351`: ajustes de setup de `S99-T11` (sem `billForecastDate` sobrescrevendo o calendário 3/10) e `S99-T12` (`projection.days`).
   - Resultado: Sprint 99 — 3 suítes / 17 testes PASS. Suíte geral: **209/211 suítes PASS** na execução em paralelo (`Sprint65PluggySyncService` corrigido e PASS 5/5 após o ajuste; `receiptFlow` instável sob carga, PASS 5/5 isolado). `tsc --noEmit`: 0 erros em produção. `test-lock verify`: OK (227 arquivos protegidos).
+
+
+## Sprint 100 — Pagamento de fatura, estorno, cashback, tarifa e rotativo
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D26, D30, D33; R29, R30).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint100CardPayments.test.ts` (SHA-256 `0cb06dc966f091df669db19b12eecdf025755078b3159cab548ead44a32aff56`) — `S100-T01` D26 "Pgto fatura" sem `operationType`; `S100-T02`/`S100-T03` regex + `PAGAMENTO_FATURA`; `S100-T04` `ESTORNO` (`CARD_REFUND`) abatendo categoria; `S100-T05` `CASHBACK`; `S100-T06` `TARIFA` (`CARD_FEE`); `S100-T07` `CARD_DEBT_ROLLOVER` fora do resumo/orçamento; `S100-T13` D37 sinal invertido.
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint100CardPaymentsSync.test.ts` (SHA-256 `005570f923282d12b84a6037e56ac2529007fdb2130ef41dd2c68ab1eda9563b`) — `S100-T08` deduplicação pagamento sintético; `S100-T09`..`S100-T11` R30 passos 1–3 (`of-cardpay-`, `CARD_BILL_PAYMENT_BILL_MATCH`, `CARD_BILL_PAYMENT_UNMATCHED`); `S100-T12` `fin:of:reclassify:s100` preservando `kind` editado; `S100-T14` conferência sem diferença.
+  - Stub de compilação: `classifyOpenFinanceCardEntry` em `domain/openFinance/classification.ts`.
+  - Execução Fase A: 2 suítes / 12 FAIL, 2 PASS (`S100-T02`, `S100-T14`).
