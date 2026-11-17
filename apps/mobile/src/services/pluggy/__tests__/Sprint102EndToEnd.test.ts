@@ -38,19 +38,21 @@ describe('Sprint 102 — Sync ponta a ponta com pluggyRealSnapshot', () => {
     // 1 lançamentos sumiu da busca -> active count = entries1.length - 1 (nenhuma duplicação nos 3 ids trocados)
     expect(activeEntries2).toHaveLength(entries1.length - 1);
 
-    const truth = computePluggyTruth({
-      item: snap2.item,
-      accounts: [snap2.bankAccount, snap2.cardAccount],
-      transactionsByAccountId: {
-        [snap2.bankAccount.id]: snap2.bankTransactions,
-        [snap2.cardAccount.id]: snap2.cardTransactions,
+    const truth = computePluggyTruth(
+      {
+        item: snap2.item,
+        accounts: [snap2.bankAccount, snap2.cardAccount],
+        transactionsByAccount: {
+          [snap2.bankAccount.id]: snap2.bankTransactions,
+          [snap2.cardAccount.id]: snap2.cardTransactions,
+        },
+        billsByAccount: {
+          [snap2.cardAccount.id]: snap2.bills,
+        },
+        investments: snap2.investments,
       },
-      billsByAccountId: {
-        [snap2.cardAccount.id]: snap2.bills,
-      },
-      investments: snap2.investments,
-      todayIso: '2026-11-25',
-    });
+      '2026-11-25'
+    );
 
     const appNumbers = collectAppNumbers({
       accounts,

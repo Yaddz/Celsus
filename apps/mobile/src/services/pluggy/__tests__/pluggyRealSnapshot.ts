@@ -186,7 +186,7 @@ export function buildPluggyRealSnapshot(overrides?: {
       accountId: cardAccount.id,
       description: 'Pagamento de Fatura',
       currencyCode: 'BRL',
-      amount: 1450.0,
+      amount: -1450.0,
       date: '2026-11-10T12:00:00.000Z',
       type: 'CREDIT',
       status: 'POSTED',

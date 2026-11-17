@@ -59,6 +59,7 @@ export interface EntriesListScreenProps {
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
   referenceDateIso?: string;
+  hideFab?: boolean;
   testID?: string;
 }
 
@@ -104,6 +105,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
   onTogglePrivacy,
   themeMode = 'dark',
   referenceDateIso,
+  hideFab = false,
   testID = 'entries-list-screen',
 }) => {
   const insets = useSafeAreaInsets();
@@ -788,15 +790,17 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         )}
       </ScrollView>
 
-      <FinFloatingAddButton
-        testID="entries-add-btn"
-        accessibilityLabel="Novo lançamento"
-        onPress={() => {
-          setEditingEntry(null);
-          setEditingScope(undefined);
-          setIsFormOpen(true);
-        }}
-      />
+      {!hideFab ? (
+        <FinFloatingAddButton
+          testID="entries-add-btn"
+          accessibilityLabel="Novo lançamento"
+          onPress={() => {
+            setEditingEntry(null);
+            setEditingScope(undefined);
+            setIsFormOpen(true);
+          }}
+        />
+      ) : null}
 
       <EntryFormSheet
         visible={isFormOpen}

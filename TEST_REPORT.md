@@ -795,3 +795,14 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Fixture de apoio: `apps/mobile/src/services/pluggy/__tests__/pluggyRealSnapshot.ts`.
   - Stubs de compilação: `domain/openFinance/itemStatus.ts`, `domain/openFinance/warnings.ts`, `screens/OpenFinanceReconciliationScreen.tsx`.
   - Execução Fase A: 3 suítes / 7 FAIL (Red Phase esperado). `test-lock verify`: OK (235 arquivos protegidos).
+- Fase B (Green Phase & Report):
+  - Implementação: `domain/openFinance/itemStatus.ts` (`formatPluggyItemStatus`, `formatPluggyExecutionStatus`, `formatPluggyLastUpdatedBrt`, tabela A.7), `domain/openFinance/warnings.ts` (`translatePluggyWarning`, `collectItemWarningsPtBr`, tabela A.8), `screens/OpenFinanceScreen.tsx` (timestamp BRT do Meu Pluggy, próxima atualização, nota de 24 h, avisos por produto, banners amarelo/vermelho de consentimento com passo `MeuPluggy` e botão `"Conferir com o Meu Pluggy"`), `screens/OpenFinanceReconciliationScreen.tsx` (conferência somente-leitura conta/cartão/fatura/contagem de transações/itens locais × fatura + seção informativa de Investimentos `D46`/`D47` + exportação sem PII), `screens/finance/AccountsScreen.tsx`, `EntriesListScreen.tsx` & `FinanceHomeScreen.tsx` (`hideFab` para FAB único D42), e `services/pluggy/pluggySyncService.ts` (exclusão de `action === 'update'` de `candidatesForRemoval` para não remover itens casados por `providerId`/fingerprint na mesma sync).
+  - Ajuste em teste da própria Sprint 102 (autorizado pelo usuário):
+    - `Sprint102ReconciliationUI.test.tsx:43,71`: `getAllByText(/Dados do Meu Pluggy.../i)` (dois itens com o mesmo timestamp) e `manual_price_override: '8.81608'` (coluna persistida em `assets`).
+    - `Sprint102EndToEnd.test.ts:54`: 2º argumento `string` em `computePluggyTruth(snapshot, '2026-11-25')`.
+  - Resultado: Sprint 102 — 3 suítes / 7 testes PASS; `Sprint64OpenFinanceScreen` PASS. Suíte geral: **217/219 suítes PASS** em paralelo (`Sprint64OpenFinanceScreen` corrigido e PASS após o ajuste no texto; `receiptFlow` instável sob carga paralela, PASS isolado). `tsc --noEmit`: 0 erros em produção. `expo lint`: 0 erros nos arquivos novos da Sprint 102. `test-lock verify`: OK (235 arquivos protegidos).
+  - Checklist manual no aparelho (comparação lado a lado com o app Meu Pluggy):
+    - [ ] Para cada conta corrente: confirmar saldo disponível, em processamento, agendado (a pagar / a receber), cheque especial usado, reservado (caixinhas) e entradas/saídas do mês (`[✓/✗]`).
+    - [ ] Para cada cartão de crédito: confirmar limite usado, disponível, valor da fatura atual, próximas faturas e valor + situação da última fatura fechada (`[✓/✗]`).
+    - [ ] Para compras parceladas futuras e despesas futuras: confirmar total exibido no Resumo (`[✓/✗]`).
+    - [ ] Caso qualquer item marque `✗`: tocar em `"Exportar conferência"` na tela `"Conferir com o Meu Pluggy"` e anexar o relatório anonimizado.

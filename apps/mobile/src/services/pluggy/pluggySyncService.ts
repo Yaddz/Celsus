@@ -751,13 +751,17 @@ export const pluggySyncService = {
           }
         }
 
-        const settledEntryIds = new Set(
+        const matchedEntryIds = new Set(
           reconciled.transactions
-            .filter((r) => r.action === 'settle_pending' && r.matchedEntryId)
+            .filter(
+              (r) =>
+                (r.action === 'settle_pending' || r.action === 'update') &&
+                r.matchedEntryId
+            )
             .map((r) => r.matchedEntryId!)
         );
         const candidatesForRemoval = existingEntries.filter(
-          (e) => eligibleRemovalAccountIds.has(e.account_id) && !settledEntryIds.has(e.id)
+          (e) => eligibleRemovalAccountIds.has(e.account_id) && !matchedEntryIds.has(e.id)
         );
         const removals = detectRemovedOpenFinanceEntries(
           candidatesForRemoval,

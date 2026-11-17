@@ -42,6 +42,12 @@ import {
 } from '../services/pluggy/pluggyInvestmentsSyncService';
 import { computeClassCoverageReport } from '../domain/openFinance/investments';
 import {
+  formatPluggyItemStatus,
+  formatPluggyLastUpdatedBrt,
+} from '../domain/openFinance/itemStatus';
+import { collectItemWarningsPtBr } from '../domain/openFinance/warnings';
+import { OpenFinanceReconciliationScreen } from './OpenFinanceReconciliationScreen';
+import {
   auditOpenFinanceOutliers,
   buildSyncDiagnostics,
   formatDiagnosticsReportText,
@@ -74,7 +80,11 @@ function computeDaysUntilExpiry(iso: string | null | undefined, nowMs: number = 
 }
 
 function isItemExpired(item: OfItemRecord, nowMs: number = Date.now()): boolean {
-  if (item.execution_status === 'USER_AUTHORIZATION_EXPIRED' || item.status === 'LOGIN_ERROR') {
+  if (
+    item.execution_status === 'USER_AUTHORIZATION_EXPIRED' ||
+    item.error_code === 'USER_AUTHORIZATION_EXPIRED' ||
+    item.status === 'LOGIN_ERROR'
+  ) {
     return true;
   }
   const days = computeDaysUntilExpiry(item.consent_expires_at, nowMs);
@@ -127,6 +137,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [failedInvestmentsByItem, setFailedInvestmentsByItem] = useState<Record<string, string[]>>({});
   const [outlierAlerts, setOutlierAlerts] = useState<OutlierAlert[]>([]);
   const [isExportingDiagnostics, setIsExportingDiagnostics] = useState(false);
+  const [isReconciliationOpen, setIsReconciliationOpen] = useState(false);
   const [isSyncingInvestments, setIsSyncingInvestments] = useState(false);
   const [invReconcile, setInvReconcile] = useState<{
     itemId: string;
@@ -758,6 +769,17 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
     setStatusMessage('Credenciais removidas do SecureStore.');
   };
 
+  if (isReconciliationOpen) {
+    return (
+      <OpenFinanceReconciliationScreen
+        onClose={() => setIsReconciliationOpen(false)}
+        themeMode={themeMode}
+        client={pluggyClient}
+        onCopyReport={onCopyReport}
+      />
+    );
+  }
+
   return (
     <View testID={testID} style={[styles.container, { backgroundColor: t.background }]}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -904,6 +926,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 const daysLeft = computeDaysUntilExpiry(item.consent_expires_at);
                 const expired = isItemExpired(item);
                 const warnExpiry = !expired && daysLeft !== null && daysLeft <= EXPIRY_WARNING_DAYS;
+                const itemWarnings = collectItemWarningsPtBr(item.status_detail_json);
 
                 return (
                   <View
@@ -916,26 +939,45 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                         {item.connector_name || item.id}
                       </Text>
                       <Text style={[styles.caption, { color: muted }]}>
-                        Status: {item.status ?? 'Não verificado'} · Última atualização:{' '}
-                        {item.last_synced_at ? item.last_synced_at.slice(0, 10) : '—'}
+                        {formatPluggyLastUpdatedBrt(item.last_updated_at ?? item.last_synced_at)}
+                      </Text>
+                      <Text style={[styles.caption, { color: muted }]}>
+                        {formatPluggyItemStatus(item.status, item.execution_status)}
+                        {item.next_auto_sync_at
+                          ? ` · Próxima atualização: ${formatPluggyLastUpdatedBrt(item.next_auto_sync_at).replace('Dados do Meu Pluggy de ', '')}`
+                          : ''}
                       </Text>
 
-                      {daysLeft !== null && !expired ? (
+                      {itemWarnings.map((w, wIdx) => (
                         <Text
-                          testID={warnExpiry ? `open-finance-item-warning-badge-${item.id}` : undefined}
-                          style={[styles.caption, { color: warnExpiry ? t.warning : muted }]}
+                          key={`${item.id}-warn-${wIdx}`}
+                          style={[styles.caption, { color: t.warning }]}
                         >
-                          {`autorização vence em ${daysLeft} dias`}
+                          {w.text}
+                          {w.detail ? ` (${w.detail})` : ''}
                         </Text>
+                      ))}
+
+                      {daysLeft !== null && !expired ? (
+                        <View testID={warnExpiry ? `of-consent-warning-${item.id}` : undefined}>
+                          <Text
+                            testID={warnExpiry ? `open-finance-item-warning-badge-${item.id}` : undefined}
+                            style={[styles.caption, { color: warnExpiry ? t.warning : muted }]}
+                          >
+                            {`autorização vence em ${daysLeft} dias`}
+                          </Text>
+                        </View>
                       ) : null}
 
                       {expired ? (
-                        <Text
-                          testID={`open-finance-item-expired-error-${item.id}`}
-                          style={[styles.errorText, { color: t.error }]}
-                        >
-                          Autorização expirada. Refaça a conexão no Dashboard da Pluggy (MeuPluggy).
-                        </Text>
+                        <View testID={`of-consent-expired-${item.id}`}>
+                          <Text
+                            testID={`open-finance-item-expired-error-${item.id}`}
+                            style={[styles.errorText, { color: t.error }]}
+                          >
+                            Autorização expirada. Dashboard Pluggy → Aplicações → Demo → Conectar Conta → escolha MeuPluggy, não o seu banco; após a nova autorização, sincronize; se a conexão aparecer com outro código, vincule as contas existentes.
+                          </Text>
+                        </View>
                       ) : null}
                     </View>
 
@@ -949,6 +991,20 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                   </View>
                 );
               })}
+
+              <Text style={[styles.caption, { color: muted, marginTop: space.xs }]}>
+                O Meu Pluggy atualiza seus bancos a cada 24 h; sincronizar aqui só busca o que já está lá.
+              </Text>
+
+              <TouchableOpacity
+                testID="of-open-reconciliation-btn"
+                onPress={() => setIsReconciliationOpen(true)}
+                style={[styles.primaryBtn, { backgroundColor: inset, borderWidth: 1, borderColor: border, marginTop: space.sm }]}
+              >
+                <Text style={[styles.primaryBtnText, { color: fg }]}>
+                  Conferir com o Meu Pluggy
+                </Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
                 testID="open-finance-test-connection-btn"

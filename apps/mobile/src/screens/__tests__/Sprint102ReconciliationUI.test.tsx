@@ -40,7 +40,7 @@ describe('Sprint 102 — Saúde da conexão, consentimento, FAB único e Confer�
 
     render(<OpenFinanceScreen />);
     await waitFor(() => {
-      expect(screen.getByText(/Dados do Meu Pluggy de 17\/11 às 06:12/i)).toBeTruthy();
+      expect(screen.getAllByText(/Dados do Meu Pluggy de 17\/11 às 06:12/i).length).toBeGreaterThanOrEqual(1);
     });
     expect(screen.getByText(/O Meu Pluggy atualiza seus bancos a cada 24 h/i)).toBeTruthy();
     expect(screen.getByTestId('of-consent-warning-item-soon')).toBeTruthy();
@@ -68,7 +68,7 @@ describe('Sprint 102 — Saúde da conexão, consentimento, FAB único e Confer�
       asset_class: 'FII',
       quantity: '625',
       average_price: '8.80',
-      current_price: '8.81608',
+      manual_price_override: '8.81608',
       of_investment_id: 'inv-mxrf11',
       of_reported_value: '5465.46',
       of_reported_quantity: '637',

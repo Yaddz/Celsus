@@ -57,6 +57,7 @@ export interface AccountsScreenProps {
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
+  hideFab?: boolean;
   testID?: string;
 }
 
@@ -86,6 +87,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   isPrivacyMode = false,
   onTogglePrivacy,
   themeMode = 'dark',
+  hideFab = false,
   testID = 'accounts-screen',
 }) => {
   const insets = useSafeAreaInsets();
@@ -679,11 +681,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         </ScrollView>
       )}
 
-      <FinFloatingAddButton
-        testID="accounts-add-btn"
-        accessibilityLabel="Nova conta"
-        onPress={openCreateModal}
-      />
+      {!hideFab ? (
+        <FinFloatingAddButton
+          testID="accounts-add-btn"
+          accessibilityLabel="Nova conta"
+          onPress={openCreateModal}
+        />
+      ) : null}
 
       <AnimatedModalSheet
         visible={formOpen}

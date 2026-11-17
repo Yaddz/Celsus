@@ -426,3 +426,11 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/openFinance/pluggyTruth.ts`: `collectAppNumbers` e `reconcileAppVsPluggy` passam a conferir fluxos mensais por conta e `pendingOutflowCents`.
 - `services/pluggy/pluggySyncService.ts`: migração única `fin:of:brtdates:s101` (`fin:of:brtdates:s101:log`) preservando `due_date` editado.
 - `screens/finance/AccountsScreen.tsx` & `FinanceHomeScreen.tsx`: exibição informativa de processamento, agendamentos, cheque especial, reservado, saldo contábil, fluxo mensal e `"Despesas futuras"`.
+
+## Saúde da Conexão e Conferência com o Meu Pluggy (Sprint 102)
+
+- `domain/openFinance/itemStatus.ts` & `warnings.ts`: tradução pt-BR de `status`/`executionStatus` (A.7), formatação BRT `formatPluggyLastUpdatedBrt` e tradução de `statusDetail.*.warnings[]` (A.8).
+- `screens/OpenFinanceScreen.tsx`: cabeçalho com timestamp do Meu Pluggy, nota de 24 h, avisos por produto, banners de consentimento (amarelo/vermelho) e acesso à tela de conferência.
+- `screens/OpenFinanceReconciliationScreen.tsx`: tela `"Conferir com o Meu Pluggy"` somente-leitura comparando contas, cartões, faturas, contagens de transações, seção informativa de investimentos (`D46`/`D47`) e exportação sem PII.
+- `screens/finance/AccountsScreen.tsx`, `EntriesListScreen.tsx` & `FinanceHomeScreen.tsx`: `hideFab` para evitar FAB duplicado quando renderizadas sob o `FloatingBottomDock` (`D42`).
+- `services/pluggy/__tests__/pluggyRealSnapshot.ts`: fixture ponta a ponta anonimizada baseada em `docs/json.json` e números da revisão.

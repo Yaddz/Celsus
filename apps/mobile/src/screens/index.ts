@@ -10,4 +10,5 @@ export * from './SearchAssetsScreen';
 export * from './AssetDetailScreen';
 export * from './LockScreen';
 export * from './OpenFinanceScreen';
+export * from './OpenFinanceReconciliationScreen';
 export * from './onboarding';

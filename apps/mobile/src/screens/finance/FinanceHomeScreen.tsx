@@ -488,6 +488,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
           referenceDateIso={effectiveToday}
+          hideFab
         />
       );
     }
@@ -583,6 +584,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             setSelectedCardBillMonth(undefined);
             navigateTo('cardBill');
           }}
+          hideFab
           isPrivacyMode={isPrivacyMode}
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
