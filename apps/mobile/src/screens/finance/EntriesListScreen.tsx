@@ -46,6 +46,7 @@ import {
 
 export interface EntriesListScreenProps {
   onBack: () => void;
+  onOpenCardBill?: (accountId: string, billMonth: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;

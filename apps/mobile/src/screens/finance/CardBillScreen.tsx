@@ -47,6 +47,7 @@ export interface CardBillScreenProps {
   accountId: string;
   initialBillMonth?: string;
   onBack: () => void;
+  onEditCardAccount?: (accountId: string) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;

@@ -10,7 +10,42 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **167 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **170 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 74 — Cartão de crédito: compra sem vencimento próprio e extrato por fatura (Fase A travada)
+
+Regra centralizada (`normalizeCardEntry`) em cartão (`due_date` = data da compra, `status = 'paid'`, `paid_date = due_date`, `bill_month` obrigatório), migração idempotente, fontes (formulário, parcelamento, Pluggy, arquivo, cupom), lista de lançamentos por fatura e evolução de `CardBillScreen` para extrato completo.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/financeFlow/__tests__/Sprint74CardEntryRule.test.ts` | S74-T01…T05 | `b2547fe1fe11846859410ed1f48f909015686e9512f61ac05b55a30018762ead` | 4 FAIL / 1 PASS |
+| `apps/mobile/src/services/__tests__/Sprint74CardMigrationAndSources.test.ts` | S74-T06…T09 | `f7c9c5ece736f76cc23752fa2445a4b9d2cf395aebe2748f77069a6db9a21d47` | 3 FAIL / 1 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint74CardStatement.test.tsx` | S74-T10…T13 | `328a4e83900fcbd4e6e6721438d423bb3a8e01a18da8d54b287f08a75972129a` | 4 FAIL |
+
+Execução da Fase A: `npx jest --no-coverage Sprint74CardEntryRule Sprint74CardMigrationAndSources Sprint74CardStatement` → 11 falhando, 2 passando (13 testes, 3 suítes). 170 arquivos travados em `tests.lock.json`.
+
+## Sprint 73 — Pluggy: botão único "Sincronizar" e carteira automática por corretora (Fase B concluída)
+
+Vínculo `portfolios.of_item_id`, serviço `ensurePortfolioForItem` (reaproveitamento/vinculação por nome/criação automática, proteção de nome renomeado), roteamento em `syncInvestments`, botão único `"Sincronizar"` com progresso por conexão, resumo final, isolamento de erros e reload de `walletsStore`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint73PortfolioPerBroker.test.ts` | S73-T01…T06 | `c02651d33d3ba1dedea62bf7287db72dd1789bccc45a476b34c26f4114ec99c9` | 6 FAIL |
+| `apps/mobile/src/db/__tests__/Sprint73PortfolioItemLinkMigration.test.ts` | S73-T07…T08 | `33fccf7fa5f52049705e6c04d671d607378f5224cce34572ccf7581f1553eca8` | 2 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint73UnifiedSync.test.tsx` | S73-T09…T10 | `46980d5e0de181f70c519f03c31534a1e4f0c87c2d85dde2074c11df710b6387` | 2 FAIL |
+
+Execução da Fase A: `npx jest Sprint73 --no-coverage` → 10 falhando, 0 passando (10 testes, 3 suítes). 170 arquivos travados.
+
+**Testes antigos atualizados com autorização explícita do usuário:**
+- `Sprint69OpenFinanceInvestmentsUI.test.tsx` (`S69-U01`, `S69-U02`, `S69-U03`): adicionado clique em `open-finance-advanced-toggle` antes de `open-finance-sync-investments-btn`.
+- `Sprint71OpenFinanceSyncFlow.test.tsx` (`S71-T23`): adicionado clique em `open-finance-advanced-toggle` antes de `open-finance-sync-finance-btn`.
+
+Execução da Fase B:
+- `npx jest Sprint69OpenFinanceInvestmentsUI Sprint71 Sprint72 Sprint73 --no-coverage`: **13/13 suítes PASS** (59/59 testes)
+- `npx jest --no-coverage` (suíte completa): **149/153 suítes PASS** (**1011/1014 testes PASS**; as únicas 4 falhas são as pré-existentes: `pluggyFixtures.ts`, `receipt/__tests__/fixtures.ts`, `receiptFlow.test.tsx` e `Sprint39GeneralBugsAndHardening.test.tsx`)
+- `npx tsc --noEmit`: **0 erros** nos arquivos de produção e nos testes das Sprints 71–73
+- `npx expo export --platform web`: **778 módulos** empacotados sem erros
+- `node scripts/test-lock.js verify`: **170 arquivos íntegros**
 
 ## Sprint 72 — Pluggy: sincronizar proventos (Fase B concluída)
 

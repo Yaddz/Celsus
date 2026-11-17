@@ -142,3 +142,78 @@ export function availableLimit(
   }
   return limitCents - Math.max(0, openBillsTotalCents);
 }
+
+export const DEFAULT_CARD_CLOSING_DAY = 1;
+export const DEFAULT_CARD_DUE_DAY = 10;
+
+export interface NormalizeCardEntryInput {
+  kind: 'income' | 'expense' | 'transfer_out' | 'transfer_in';
+  dueDate: string;
+  amountCents: number;
+  status?: 'pending' | 'paid';
+  paidDate?: string | null;
+  paidAmountCents?: number | null;
+  billMonth?: string | null;
+}
+
+export interface NormalizeCardEntryAccount {
+  type: string;
+  closing_day?: number | null;
+  due_day?: number | null;
+}
+
+export interface NormalizedCardEntryFields {
+  due_date: string;
+  status: 'pending' | 'paid';
+  paid_date: string | null;
+  paid_amount_cents: number | null;
+  bill_month: string | null;
+}
+
+export function hasEstimatedBillDates(
+  _account: Pick<FinAccount, 'closing_day' | 'due_day'> | null | undefined
+): boolean {
+  return false;
+}
+
+export function normalizeCardEntry(
+  input: NormalizeCardEntryInput,
+  _account: NormalizeCardEntryAccount | null | undefined
+): NormalizedCardEntryFields {
+  return {
+    due_date: input.dueDate,
+    status: input.status ?? 'pending',
+    paid_date: input.paidDate ?? null,
+    paid_amount_cents: input.paidAmountCents ?? null,
+    bill_month: input.billMonth ?? null,
+  };
+}
+
+export interface BillPeriodInfo {
+  startIso: string;
+  endIso: string;
+  closingIso: string;
+  dueIso: string;
+}
+
+export function getBillPeriod(
+  billMonth: string,
+  _closingDay: number,
+  _dueDay?: number | null
+): BillPeriodInfo {
+  return {
+    startIso: `${billMonth}-01`,
+    endIso: `${billMonth}-01`,
+    closingIso: `${billMonth}-01`,
+    dueIso: `${billMonth}-10`,
+  };
+}
+
+export interface BillDayGroup {
+  dateIso: string;
+  entries: FinEntry[];
+}
+
+export function groupBillEntriesByDay(_entries: FinEntry[]): BillDayGroup[] {
+  return [];
+}

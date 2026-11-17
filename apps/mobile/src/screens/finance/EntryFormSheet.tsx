@@ -39,6 +39,7 @@ export interface EntryFormSheetProps {
   onClose: () => void;
   onSaved?: () => void;
   onRequestCreateAccount?: () => void;
+  onEditCardAccount?: (accountId: string) => void;
   editingEntry?: FinEntry | null;
   receiptDraft?: ReceiptDraft | null;
   installmentScope?: InstallmentScope;
