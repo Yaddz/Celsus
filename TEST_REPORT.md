@@ -707,3 +707,13 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Contas e ativos já gravados com nome automático são renomeados na próxima sincronização (nome = `auto_name`).
   - Resultado: Sprint 96 — 3 suítes / 13 testes PASS. Suíte geral: 203 suítes / 1323 testes, 1322 PASS; falha só `receiptFlow` (instável sob carga, passa isolado 5/5). `tsc --noEmit`: zero erros em produção (154, os mesmos da Sprint 95). `expo lint`: 1 erro pré-existente (`set-state-in-effect`, `AccountsScreen.tsx:126`, linha não alterada). `test-lock verify` OK (219 arquivos).
   - Não validado: o formato real de `transferNumber` nas contas Meu Pluggy (documentação: `<compe>/<agência>/<conta>`). Se vier vazio, os nomes caem para "Conta corrente ·· 3671" sem "MeuPluggy".
+
+
+## Sprint 97 — Contrato completo, campos crus e conferência Pluggy × app (sem mudar nenhum número)
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D36, D37; R23, R24, R35 só a função).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint97PluggyTruth.test.ts` (SHA-256 `fc6558d2448b762906fbff28a452f5c6652c7882074102a1f7a4df33d2948ea6`) — `S97-T01` `toBrtDate`/`toBrtMonth`; `S97-T05` limites do cartão 7ccce4de; `S97-T06` soma de itens da fatura vs `totalAmount` (`itemsVsTotalDiffCents`); `S97-T07` conta bancária `POSTED` por mês BRT e `PENDING` futuro em `scheduled.toPayCents`; `S97-T08` `reconcileAppVsPluggy` (`APP_RECOMPUTED` e lista vazia); `S97-T09` `SIGN_MISMATCH`; `S97-T12` regressão `calculateMonthlySummary`/`summarizeBill`; `S97-T13` totais "como o Meu Pluggy".
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint97RawContract.test.ts` (SHA-256 `a593f33c9d023cadf7bc55835044372ed34bb8e64d12a0f40fd88644d3f54d39`) — `S97-T02` sync grava `of_*` e re-sync atualiza in-place; `S97-T03` fixture sem campos OF grava `null`; `S97-T04` `upsertBill` grava `payments_json`, `payments_total_cents`, `allows_installments` e `chargeable_charges_cents`; `S97-T11` backup preserva colunas novas e aceita backup antigo sem elas.
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint97DiagnosticsV3.test.ts` (SHA-256 `4a1fc102ea80a2ac03fe31c68a38ed0c447b0b46a71a08d79c5363237fc17ab3`) — `S97-T10` diagnóstico v3 (`fieldPresence`, `bills`, `forecastVsBill`, `categoryMap`, sem PII); `S97-T14` `txCount`, `txCountByYear` e `localEntriesSummary`.
+  - Stubs de compilação: `services/pluggy/types.ts`, `domain/openFinance/dates.ts`, `domain/openFinance/pluggyTruth.ts`.
+  - Execução Fase A: 3 suítes / 13 FAIL, 1 PASS (S97-T12 regressão).

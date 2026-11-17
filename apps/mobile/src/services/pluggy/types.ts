@@ -16,7 +16,12 @@ export interface PluggyConnector {
   type?: string;
   country?: string;
   hasMFA?: boolean;
+  isOpenFinance?: boolean | null;
   products?: string[];
+  health?: {
+    status?: string | null;
+    incidents?: unknown[];
+  } | null;
 }
 
 export type PluggyItemStatus =
@@ -42,7 +47,31 @@ export type PluggyExecutionStatus =
 export interface PluggyItemError {
   code?: string;
   message?: string;
-  providerMessage?: string;
+  providerMessage?: string | null;
+  data?: unknown;
+}
+
+export interface PluggyItemWarning {
+  code?: string;
+  message?: string;
+  providerMessage?: string | null;
+}
+
+export interface PluggyItemProductStatus {
+  isUpdated?: boolean | null;
+  lastUpdatedAt?: string | null;
+  warnings?: PluggyItemWarning[] | null;
+}
+
+export interface PluggyItemStatusDetail {
+  accounts?: PluggyItemProductStatus | null;
+  creditCards?: PluggyItemProductStatus | null;
+  transactions?: PluggyItemProductStatus | null;
+  investments?: PluggyItemProductStatus | null;
+  investmentsTransactions?: PluggyItemProductStatus | null;
+  identity?: PluggyItemProductStatus | null;
+  paymentData?: PluggyItemProductStatus | null;
+  loans?: PluggyItemProductStatus | null;
 }
 
 export interface PluggyItem {
@@ -51,6 +80,7 @@ export interface PluggyItem {
   status: PluggyItemStatus;
   executionStatus: PluggyExecutionStatus;
   error?: PluggyItemError | null;
+  statusDetail?: PluggyItemStatusDetail | null;
   webhookUrl?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -70,10 +100,37 @@ export type PluggyAccountSubtype =
   | 'CHECKING_ACCOUNT'
   | 'CREDIT_CARD';
 
+export interface PluggyReservedBalanceAmount {
+  amount: number;
+  currencyCode?: string | null;
+  remuneration?: unknown;
+}
+
+export interface PluggyReservedBalance {
+  name?: string | null;
+  identification?: string | null;
+  availableAmounts?: PluggyReservedBalanceAmount[] | null;
+}
+
 export interface PluggyBankData {
   transferNumber?: string | null;
   closingBalance?: number | null;
   automaticallyInvestedBalance?: number | null;
+  overdraftContractedLimit?: number | null;
+  overdraftUsedLimit?: number | null;
+  unarrangedOverdraftAmount?: number | null;
+  hasReservedBalance?: boolean | null;
+  reservedBalances?: PluggyReservedBalance[] | null;
+}
+
+export interface PluggyDisaggregatedCreditLimit {
+  creditLineLimitType?: string | null;
+  consolidationType?: string | null;
+  lineName?: string | null;
+  usedAmount?: number | null;
+  limitAmount?: number | null;
+  availableAmount?: number | null;
+  isLimitFlexible?: boolean | null;
 }
 
 export interface PluggyCreditData {
@@ -86,7 +143,11 @@ export interface PluggyCreditData {
   balanceForeignCurrency?: number | null;
   minimumPayment?: number | null;
   creditLimit?: number | null;
+  isLimitFlexible?: boolean | null;
   status?: string | null;
+  holderType?: 'MAIN' | 'ADDITIONAL' | (string & {}) | null;
+  additionalCards?: Array<{ number?: string | null }> | null;
+  disaggregatedCreditLimits?: PluggyDisaggregatedCreditLimit[] | null;
 }
 
 export interface PluggyAccount {
@@ -122,12 +183,69 @@ export interface PluggyCursorPageResponse<T> {
 export type PluggyTransactionType = 'DEBIT' | 'CREDIT';
 export type PluggyTransactionStatus = 'POSTED' | 'PENDING';
 
+export type PluggyPaymentType =
+  | 'SINGLE'
+  | 'INSTALLMENT'
+  | 'A_VISTA'
+  | 'A_PRAZO'
+  | (string & {});
+
 export interface PluggyCreditCardMetadata {
   installmentNumber?: number | null;
   totalInstallments?: number | null;
+  totalAmount?: number | null;
+  purchaseDate?: string | null;
   payeeMCC?: number | null;
   cardNumber?: string | null;
   billId?: string | null;
+  billForecastDate?: string | null;
+  billPostDate?: string | null;
+  paymentType?: PluggyPaymentType | null;
+  transactionDateTime?: string | null;
+  feeType?: string | null;
+  feeTypeAdditionalInfo?: string | null;
+  otherCreditsType?: string | null;
+  otherCreditsAdditionalInfo?: string | null;
+}
+
+export interface PluggyPaymentParty {
+  name?: string | null;
+  branchNumber?: string | null;
+  accountNumber?: string | null;
+  routingNumber?: string | null;
+  routingNumberISPB?: string | null;
+  documentNumber?: {
+    type?: 'CPF' | 'CNPJ' | (string & {}) | null;
+    value?: string | null;
+  } | null;
+}
+
+export interface PluggyBoletoMetadata {
+  digitableLine?: string | null;
+  barcode?: string | null;
+  baseAmount?: number | null;
+  interestAmount?: number | null;
+  penaltyAmount?: number | null;
+  discountAmount?: number | null;
+}
+
+export interface PluggyPaymentData {
+  payer?: PluggyPaymentParty | null;
+  receiver?: PluggyPaymentParty | null;
+  paymentMethod?: 'PIX' | 'TED' | 'DOC' | 'TEV' | 'BOLETO' | (string & {}) | null;
+  referenceNumber?: string | null;
+  receiverReferenceId?: string | null;
+  authenticationCode?: string | null;
+  reason?: string | null;
+  boletoMetadata?: PluggyBoletoMetadata | null;
+}
+
+export interface PluggyMerchant {
+  name?: string | null;
+  businessName?: string | null;
+  cnpj?: string | null;
+  cnae?: string | null;
+  category?: string | null;
 }
 
 export interface PluggyTransaction {
@@ -145,12 +263,40 @@ export interface PluggyTransaction {
   category?: string | null;
   categoryId?: string | null;
   creditCardMetadata?: PluggyCreditCardMetadata | null;
+  paymentData?: PluggyPaymentData | null;
+  merchant?: PluggyMerchant | null;
   operationType?: string | null;
+  operationTypeAdditionalInfo?: string | null;
   providerId?: string | null;
   accountId: string;
   order?: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type PluggyBillFinanceChargeType =
+  | 'LATE_PAYMENT_REMUNERATIVE_INTEREST'
+  | 'LATE_PAYMENT_FEE'
+  | 'LATE_PAYMENT_INTEREST'
+  | 'IOF'
+  | 'OTHER'
+  | (string & {});
+
+export interface PluggyBillFinanceCharge {
+  id?: string | null;
+  type: PluggyBillFinanceChargeType;
+  amount: number;
+  currencyCode?: string | null;
+  additionalInfo?: string | null;
+}
+
+export interface PluggyBillPayment {
+  id?: string | null;
+  valueType?: 'FULL_PAYMENT' | 'INSTALLMENT_PAYMENT' | 'OTHER_PAYMENT' | (string & {}) | null;
+  paymentDate: string;
+  paymentMode?: 'DEBIT_ACCOUNT' | 'BANK_SLIP' | 'PAYROLL_DEDUCTION' | 'PIX' | (string & {}) | null;
+  amount: number;
+  currencyCode?: string | null;
 }
 
 export interface PluggyBill {
@@ -161,7 +307,8 @@ export interface PluggyBill {
   totalAmountCurrencyCode: string;
   minimumPaymentAmount?: number | null;
   allowsInstallments?: boolean | null;
-  financeCharges?: unknown[];
+  financeCharges?: PluggyBillFinanceCharge[];
+  payments?: PluggyBillPayment[];
 }
 
 export type PluggyInvestmentType =
