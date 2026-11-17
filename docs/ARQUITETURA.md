@@ -411,3 +411,10 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/openFinance/cardBills.ts`: `inferForecastOffset`, `assignBillMonth`, `assignPaymentBillMonth`, `deriveCardCalendar`, `summarizeOpenFinanceBill` (`R25`–`R27`).
 - `db/schema.ts`, `db/client.ts`, `services/backupService.ts`: `fin_accounts.calendar_source` (`'USER' | 'PLUGGY_BILLS' | 'DEFAULT'`).
 - `domain/financeFlow/cards.ts`, `budgetsAndCashflow.ts`, `index.ts`, `services/finGoalsService.ts`, `screens/finance/AccountsScreen.tsx`, `CardBillScreen.tsx`, `FinanceHomeScreen.tsx`: consumo de `fin_bills` para total/pago/situação das faturas fechadas e limites da instituição para cartões Open Finance (`R28`).
+
+## Pagamento de Fatura, Estorno, Cashback, Tarifa e Rotativo (Sprint 100)
+
+- `domain/openFinance/classification.ts`: `classifyOpenFinanceCardEntry` (`R29`), `isCardBillPayment` atualizado (`PAGAMENTO_FATURA` + regex expandida) e `CARD_BILL_PAYMENT_CANDIDATE` em `classifyOpenFinanceBankEntry`.
+- `domain/financeFlow/index.ts` & `budgetsAndCashflow.ts`: exclusão de `CARD_DEBT_ROLLOVER` de `calculateMonthlySummary` e `calculateBudgetUsage` e abatimento de `CARD_REFUND` no gasto da categoria.
+- `services/pluggy/pluggyClassificationService.ts` & `pluggySyncService.ts`: deduplicação de pagamento sintético (`CARD_PAYMENT_DUPLICATE`), `pairCardBillPayments` (`R30`: `of-cardpay-`, `CARD_BILL_PAYMENT_BILL_MATCH`, `CARD_BILL_PAYMENT_UNMATCHED`) e reclassificação única `fin:of:reclassify:s100`.
+- `repositories/finRepository.ts`: semeadura idempotente de `cat-taxas-bancarias` e `cat-emprestimos` (`fin:categories:seeded:s100`).

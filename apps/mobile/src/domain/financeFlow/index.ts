@@ -431,9 +431,27 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, 
 
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
+    if (entry.of_class_reason === 'CARD_DEBT_ROLLOVER') continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
     if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
     if (todayIso && isStaleOpenFinancePending(entry, todayIso)) continue;
+
+    if (
+      entry.kind === 'income' &&
+      entry.of_class_reason === 'CARD_REFUND' &&
+      entry.category_id !== 'cat-outros-receita'
+    ) {
+      const realCents =
+        entry.status === 'paid' ? entry.paid_amount_cents ?? entry.amount_cents : entry.amount_cents;
+      if (entry.status === 'paid') {
+        paidExpenseCents = Math.max(0, paidExpenseCents - realCents);
+      } else {
+        pendingExpenseCents = Math.max(0, pendingExpenseCents - realCents);
+      }
+      const nextCat = Math.max(0, (categoryTotals.get(entry.category_id) ?? 0) - realCents);
+      categoryTotals.set(entry.category_id, nextCat);
+      continue;
+    }
 
     if (entry.status === 'paid') {
       const realCents = entry.paid_amount_cents ?? entry.amount_cents;

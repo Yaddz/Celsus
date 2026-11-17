@@ -16,9 +16,11 @@ import {
 import { buildAccountName, cleanTransactionDescription } from './naming';
 import {
   classifyOpenFinanceBankEntry,
+  classifyOpenFinanceCardEntry,
   isCardBillPayment,
   isTransferCompatibleCategoryId,
   mapPluggyCategory,
+  type ClassifyResult,
 } from './classification';
 import { matchFetchedToExisting, type MatchMethod } from './identity';
 import { assignBillMonth, assignPaymentBillMonth } from './cardBills';
@@ -96,6 +98,11 @@ export interface MapPluggyTransactionOptions {
   externalIdOverride?: string;
   /** Crédito já reconhecido como provento (R9/R15). */
   isIncomeLinked?: boolean;
+  recentCardPurchases?: Array<{
+    amountCents: number;
+    dueDate: string;
+    categoryId: string;
+  }>;
 }
 
 export interface ReconcilableOpenFinanceEntry {
@@ -335,20 +342,19 @@ export function mapPluggyTransaction(
   const rawStatus: FinEntryStatus = tx.status === 'POSTED' ? 'paid' : 'pending';
 
   let kind: FinKind | 'transfer_in' | 'transfer_out';
-  let bankClass: ReturnType<typeof classifyOpenFinanceBankEntry> | null = null;
+  let entryClass: ClassifyResult;
   if (options.accountType === 'card') {
-    if (rawAmount >= 0) {
-      kind = 'expense';
-    } else {
-      // Crédito no cartão: pagamento da fatura é transferência recebida; o resto é estorno (receita)
-      kind = isCardBillPayment(tx) ? 'transfer_in' : 'income';
-    }
+    entryClass = classifyOpenFinanceCardEntry(tx, {
+      rules: options.rules ?? [],
+      recentCardPurchases: options.recentCardPurchases,
+    });
+    kind = entryClass.kind;
   } else {
-    bankClass = classifyOpenFinanceBankEntry(tx, {
+    entryClass = classifyOpenFinanceBankEntry(tx, {
       rules: options.rules ?? [],
       isIncomeLinked: options.isIncomeLinked,
     });
-    kind = bankClass.kind;
+    kind = entryClass.kind;
   }
 
   const dueDate = tx.date.slice(0, 10);
@@ -406,17 +412,10 @@ export function mapPluggyTransaction(
   const billMonth = normalized.bill_month;
 
   const rawOriginal = tx.descriptionRaw ?? tx.description ?? null;
-  const { categoryId, matchedRuleId } = bankClass
-    ? { categoryId: bankClass.categoryId, matchedRuleId: bankClass.matchedRuleId }
-    : kind === 'transfer_in'
-      ? { categoryId: 'cat-outros-receita', matchedRuleId: undefined }
-      : mapPluggyCategory(
-          tx.category,
-          kind === 'income' ? 'income' : 'expense',
-          options.rules ?? [],
-          rawOriginal || tx.description,
-          tx.categoryId
-        );
+  const { categoryId, matchedRuleId } = {
+    categoryId: entryClass.categoryId,
+    matchedRuleId: entryClass.matchedRuleId,
+  };
 
   return {
     externalId: options.externalIdOverride ?? tx.id,
@@ -433,7 +432,7 @@ export function mapPluggyTransaction(
     categoryId,
     ...(matchedRuleId ? { matchedRuleId } : {}),
     ofCategoryId: tx.categoryId ?? null,
-    classReason: bankClass?.reason ?? null,
+    classReason: entryClass.reason ?? null,
     installmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
     installmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
     billId,

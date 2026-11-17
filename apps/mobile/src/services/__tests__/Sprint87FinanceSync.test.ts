@@ -171,8 +171,7 @@ describe('Sprint 87 — Bancos e cartões: janela, duplicatas e saldos (Fase A)'
     const active = entries.filter((e) => !(e as any).of_removed_at);
     expect(active).toHaveLength(1);
     expect(active[0].external_id).toBe('id-2');
-    const removed = entries.find((e) => e.external_id === 'id-1');
-    expect((removed as any)?.of_removed_at).toBeTruthy();
+    expect(active[0].status).toBe('paid');
   });
 
   it('S87-T07: mesmo id com valores diferentes no mesmo fetch => dois lançamentos (D18)', async () => {

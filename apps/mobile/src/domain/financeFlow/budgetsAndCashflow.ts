@@ -87,6 +87,7 @@ export function calculateBudgetUsage(
   const spentByCategory = new Map<string, number>();
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
+    if (entry.of_class_reason === 'CARD_DEBT_ROLLOVER') continue;
     if (entry.kind !== 'expense') continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
     const amt = entry.status === 'paid' ? entry.paid_amount_cents ?? entry.amount_cents : entry.amount_cents;
@@ -203,6 +204,7 @@ export function suggestBudgetLimit(
   let total = 0;
   for (const entry of entries) {
     if (entry.of_removed_at) continue;
+    if (entry.of_class_reason === 'CARD_DEBT_ROLLOVER') continue;
     if (entry.kind !== 'expense') continue;
     if (entry.category_id !== categoryId) continue;
     const ym = entry.due_date.slice(0, 7);

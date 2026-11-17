@@ -37,7 +37,9 @@ import { appMetaRepository } from './appMetaRepository';
 export const FIN_CATEGORIES_SEED_META_KEY = 'fin:categories:seeded:v1';
 /** Sprint 91: Alimentação, Educação, Serviços e Compras entram uma única vez em bases já semeadas. */
 export const FIN_CATEGORIES_SEED_S91_META_KEY = 'fin:categories:seeded:s91';
+export const FIN_CATEGORIES_SEED_S100_META_KEY = 'fin:categories:seeded:s100';
 const SPRINT91_CATEGORY_IDS = ['cat-alimentacao', 'cat-educacao', 'cat-servicos', 'cat-compras'];
+const SPRINT100_CATEGORY_IDS = ['cat-taxas-bancarias', 'cat-emprestimos'];
 
 export interface DefaultFinCategorySeed {
   id: string;
@@ -58,6 +60,8 @@ export const DEFAULT_FIN_CATEGORIES: DefaultFinCategorySeed[] = [
   { id: 'cat-educacao', name: 'Educação', kind: 'expense', icon: 'school', color: '#7E9CB0' },
   { id: 'cat-servicos', name: 'Serviços', kind: 'expense', icon: 'build', color: '#9A8FB0' },
   { id: 'cat-compras', name: 'Compras', kind: 'expense', icon: 'shopping-bag', color: '#B07A8E' },
+  { id: 'cat-taxas-bancarias', name: 'Taxas bancárias', kind: 'expense', icon: 'account-balance', color: '#A38B78' },
+  { id: 'cat-emprestimos', name: 'Empréstimos', kind: 'expense', icon: 'request-quote', color: '#C47D6A' },
   { id: 'cat-outros-despesa', name: 'Outros', kind: 'expense', icon: 'category', color: '#8A8A8E' },
   { id: 'cat-salario', name: 'Salário', kind: 'income', icon: 'payments', color: '#AECDC5' },
   { id: 'cat-outros-receita', name: 'Outros recebimentos', kind: 'income', icon: 'attach-money', color: '#2E4A44' },
@@ -284,9 +288,10 @@ export class FinRepository {
     const existing = await this.listCategories(true);
 
     const s91Done = await appMetaRepository.get(FIN_CATEGORIES_SEED_S91_META_KEY);
+    const s100Done = await appMetaRepository.get(FIN_CATEGORIES_SEED_S100_META_KEY);
     const previouslySeeded = alreadySeeded === '1' && existing.length > 0;
 
-    if (previouslySeeded && s91Done === '1') {
+    if (previouslySeeded && s91Done === '1' && s100Done === '1') {
       return existing;
     }
 
@@ -295,7 +300,9 @@ export class FinRepository {
 
     const toInsert: NewFinCategory[] = DEFAULT_FIN_CATEGORIES.filter(
       (cat) =>
-        (!previouslySeeded || SPRINT91_CATEGORY_IDS.includes(cat.id)) &&
+        (!previouslySeeded ||
+          SPRINT91_CATEGORY_IDS.includes(cat.id) ||
+          SPRINT100_CATEGORY_IDS.includes(cat.id)) &&
         !existingIds.has(cat.id) &&
         !existingKeys.has(`${cat.kind}:${cat.name.trim().toLowerCase()}`)
     ).map((cat) => ({
@@ -315,6 +322,7 @@ export class FinRepository {
 
     await appMetaRepository.set(FIN_CATEGORIES_SEED_META_KEY, '1');
     await appMetaRepository.set(FIN_CATEGORIES_SEED_S91_META_KEY, '1');
+    await appMetaRepository.set(FIN_CATEGORIES_SEED_S100_META_KEY, '1');
     return this.listCategories(true);
   }
 

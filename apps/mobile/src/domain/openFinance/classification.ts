@@ -176,12 +176,24 @@ export function resolveCategoryByPluggyId(input: {
 // ---------------------------------------------------------------- pagamento de fatura
 
 const CARD_PAYMENT_DESCRIPTION_RE =
-  /\bpag(amento|to|mto)?\b.*\b(fatura|recebido|efetuado|realizado)\b|\bpayment received\b/;
+  /\b(pag(amento|to|mto)?|pgto|pgt|pagt[oa]?)\b.*\b(fatura|recebido|efetuado|realizado|cartao)\b|\bpayment received\b|^pagamento recebido$/;
 const CARD_PAYMENT_CATEGORY_RE = /credit card payment|pagamento de cartao/;
 
 /** Lançamento de crédito no cartão que representa o pagamento da fatura (e não um estorno). */
-export function isCardBillPayment(tx: Pick<PluggyTransaction, 'description' | 'category'>): boolean {
+export function isCardBillPayment(
+  tx: Pick<PluggyTransaction, 'description' | 'category'> & {
+    operationType?: string | null;
+    descriptionTranslated?: string | null;
+  }
+): boolean {
+  if (tx.operationType === 'PAGAMENTO_FATURA') return true;
   if (tx.category && CARD_PAYMENT_CATEGORY_RE.test(normalizeKey(tx.category))) return true;
+  if (
+    tx.descriptionTranslated &&
+    CARD_PAYMENT_CATEGORY_RE.test(normalizeKey(tx.descriptionTranslated))
+  ) {
+    return true;
+  }
   return CARD_PAYMENT_DESCRIPTION_RE.test(normalizeKey(tx.description ?? ''));
 }
 
@@ -213,7 +225,7 @@ export function isInvestmentMoveDescription(description: string | null | undefin
 }
 
 export function classifyOpenFinanceCardEntry(
-  _tx: Pick<
+  tx: Pick<
     PluggyTransaction,
     | 'description'
     | 'descriptionRaw'
@@ -224,10 +236,96 @@ export function classifyOpenFinanceCardEntry(
     | 'date'
     | 'operationType'
     | 'creditCardMetadata'
-  > & { amountInAccountCurrency?: number | null },
-  _ctx: ClassifyContext = {}
+  > & { amountInAccountCurrency?: number | null; descriptionTranslated?: string | null },
+  ctx: ClassifyContext = {}
 ): ClassifyResult {
-  throw new Error('NOT_IMPLEMENTED');
+  const rules = ctx.rules ?? [];
+  const rawAmount = tx.amountInAccountCurrency ?? tx.amount;
+  // D37: decide direção por `type` no cartão (`CREDIT` = crédito/pagamento/estorno; `DEBIT` = compra/tarifa)
+  const isCredit = tx.type ? tx.type === 'CREDIT' : rawAmount < 0;
+  const description = tx.descriptionRaw ?? tx.description ?? '';
+
+  if (isCredit) {
+    if (isCardBillPayment(tx)) {
+      return {
+        kind: 'transfer_in',
+        categoryId: 'cat-outros-receita',
+        reason: 'CARD_BILL_PAYMENT',
+      };
+    }
+
+    if (tx.operationType === 'ESTORNO') {
+      const absCents = Math.round(Math.abs(rawAmount) * 100);
+      const txDate = (tx.date ?? '').slice(0, 10);
+      let matchedCategoryId = 'cat-outros-receita';
+      if (ctx.recentCardPurchases && txDate) {
+        const txMs = Date.parse(`${txDate}T00:00:00Z`);
+        const match = ctx.recentCardPurchases.find((p) => {
+          if (p.amountCents !== absCents) return false;
+          const pMs = Date.parse(`${p.dueDate}T00:00:00Z`);
+          const diffDays = (txMs - pMs) / 86400000;
+          return diffDays >= 0 && diffDays <= 90;
+        });
+        if (match) matchedCategoryId = match.categoryId;
+      }
+      return {
+        kind: 'income',
+        categoryId: matchedCategoryId,
+        reason: 'CARD_REFUND',
+      };
+    }
+
+    if (tx.operationType === 'CASHBACK') {
+      return {
+        kind: 'income',
+        categoryId: 'cat-outros-receita',
+        reason: 'CARD_CASHBACK',
+      };
+    }
+
+    return {
+      kind: 'income',
+      categoryId: 'cat-outros-receita',
+      reason: 'CARD_CREDIT_OTHER',
+    };
+  }
+
+  // Débito no cartão
+  if (tx.operationType === 'TARIFA') {
+    const feeType = tx.creditCardMetadata?.feeType;
+    return {
+      kind: 'expense',
+      categoryId: 'cat-taxas-bancarias',
+      reason: 'CARD_FEE',
+      ...(feeType ? { notes: `feeType: ${feeType}` } : {}),
+    };
+  }
+
+  if (tx.operationType === 'OPERACOES_CREDITO_CONTRATADAS_CARTAO') {
+    const otherType = tx.creditCardMetadata?.otherCreditsType;
+    if (otherType === 'BILL_INSTALLMENT' || otherType === 'REVOLVING_CREDIT') {
+      return {
+        kind: 'expense',
+        categoryId: 'cat-outros-despesa',
+        reason: 'CARD_DEBT_ROLLOVER',
+      };
+    }
+    if (otherType === 'LOAN') {
+      return {
+        kind: 'expense',
+        categoryId: 'cat-emprestimos',
+        reason: 'CARD_LOAN',
+      };
+    }
+  }
+
+  const category = mapPluggyCategory(tx.category, 'expense', rules, description, tx.categoryId);
+  return {
+    kind: 'expense',
+    categoryId: category.categoryId,
+    matchedRuleId: category.matchedRuleId,
+    reason: 'SIGN',
+  };
 }
 
 /**
@@ -266,6 +364,15 @@ export function classifyOpenFinanceBankEntry(
       kind: isDebit ? 'transfer_out' : 'transfer_in',
       categoryId: isDebit ? 'cat-outros-despesa' : 'cat-outros-receita',
       reason: 'OWN_ACCOUNT_UNPAIRED',
+    };
+  }
+
+  if (isDebit && isCardBillPayment(tx)) {
+    return {
+      kind: 'expense',
+      categoryId: category.categoryId,
+      matchedRuleId: category.matchedRuleId,
+      reason: 'CARD_BILL_PAYMENT_CANDIDATE',
     };
   }
 

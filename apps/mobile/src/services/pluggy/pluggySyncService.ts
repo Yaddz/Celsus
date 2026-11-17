@@ -866,6 +866,47 @@ export const pluggySyncService = {
         });
         counts.ownTransfersPaired = globalPairing.paired;
         counts.cardTopupsPaired = globalPairing.topups;
+
+        // R29: deduplicação de pagamento sintético "Pagamento recebido" vs pagamento informado pelo banco (até 3 dias)
+        const entriesForSynthDedup = await finRepository.listAllEntries();
+        for (const accId of syncedAccountIds) {
+          if (accountTypesById[accId] !== 'card') continue;
+          const cardPayEntries = entriesForSynthDedup.filter(
+            (e) =>
+              e.account_id === accId &&
+              e.source === 'OPEN_FINANCE' &&
+              !e.of_removed_at &&
+              e.kind === 'transfer_in' &&
+              e.of_class_reason === 'CARD_BILL_PAYMENT'
+          );
+          const bankPays = cardPayEntries.filter(
+            (e) => (e.description_raw ?? e.description).trim().toLowerCase() !== 'pagamento recebido'
+          );
+          const synthPays = cardPayEntries.filter(
+            (e) => (e.description_raw ?? e.description).trim().toLowerCase() === 'pagamento recebido'
+          );
+          for (const synth of synthPays) {
+            const synthMs = Date.parse(`${synth.due_date}T00:00:00Z`);
+            const hasBankMatch = bankPays.some((b) => {
+              if (b.amount_cents !== synth.amount_cents) return false;
+              const bMs = Date.parse(`${b.due_date}T00:00:00Z`);
+              return Math.abs(Math.round((synthMs - bMs) / 86400000)) <= 3;
+            });
+            if (hasBankMatch) {
+              await finRepository.updateEntry(synth.id, {
+                of_removed_at: nowIso,
+                of_class_reason: 'CARD_PAYMENT_DUPLICATE',
+              });
+            }
+          }
+        }
+
+        // R30: pareamento de pagamento de fatura na conta corrente + reclassificação s100
+        await pluggyClassificationService.pairCardBillPayments(nowIso.slice(0, 10), {
+          windowStart: fetchedFullHistory ? firstDateFrom : undefined,
+        });
+        await pluggyClassificationService.reclassifyOpenFinanceEntriesS100(nowIso.slice(0, 10));
+
         const reclassification = await pluggyClassificationService.reclassifyOpenFinanceEntries();
         if (reclassification.ran) {
           counts.reclassified = reclassification.changed;

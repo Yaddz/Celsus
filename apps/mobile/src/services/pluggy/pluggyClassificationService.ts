@@ -4,17 +4,22 @@ import {
   classifyOpenFinanceBankEntry,
   findCardTopupPairs,
   findOwnTransferPairs,
+  isCardBillPayment,
   isTransferCompatibleCategoryId,
   type OwnTransferCandidate,
   type OwnTransferPair,
 } from '../../domain/openFinance/classification';
+import { toBrtDate } from '../../domain/openFinance/dates';
+import { toCentsDecimal } from '../../domain/openFinance';
 import type { CategoryRuleLike } from '../../domain/statementImport';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { finRepository } from '../../repositories/finRepository';
-import type { PluggyTransaction } from './types';
+import type { PluggyBillPayment, PluggyTransaction } from './types';
 
 export const OF_RECLASSIFY_META_KEY = 'fin:of:reclassify:s91';
 export const OF_RECLASSIFY_LOG_META_KEY = 'fin:of:reclassify:s91:log';
+export const OF_RECLASSIFY_S100_META_KEY = 'fin:of:reclassify:s100';
+export const OF_RECLASSIFY_S100_LOG_META_KEY = 'fin:of:reclassify:s100:log';
 
 function editedFields(raw: string | null): string[] {
   if (!raw) return [];
@@ -186,5 +191,172 @@ export const pluggyClassificationService = {
     await appMetaRepository.set(OF_RECLASSIFY_LOG_META_KEY, JSON.stringify({ changed, byReason }));
     await appMetaRepository.set(OF_RECLASSIFY_META_KEY, '1');
     return { ran: true, changed, byReason };
+  },
+
+  /**
+   * R30: pareamento de pagamento de fatura na conta corrente com cartão conectado ou payments_json.
+   */
+  async pairCardBillPayments(
+    todayIso: string = getTodayIsoLocal(),
+    options: { windowStart?: string } = {}
+  ): Promise<{ paired: number; billMatched: number; unmatched: number }> {
+    const [accounts, entries, bills] = await Promise.all([
+      finRepository.listAccounts(true),
+      finRepository.listAllEntries(),
+      finRepository.listAllBills(),
+    ]);
+    const typeById = new Map(accounts.map((a) => [a.id, a.type]));
+    const windowStart =
+      options.windowStart ??
+      new Date(Date.parse(`${todayIso}T00:00:00Z`) - 40 * 86400000).toISOString().slice(0, 10);
+
+    const daysDiff = (a: string, b: string) =>
+      Math.abs(Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 86400000));
+
+    const checkingCandidates = entries.filter((e) => {
+      if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) return false;
+      if (typeById.get(e.account_id) === 'card') return false;
+      if (e.transfer_group_id || e.linked_income_id) return false;
+      if (e.due_date < windowStart) return false;
+      if (editedFields(e.user_edited_fields).includes('kind')) return false;
+      return (
+        e.of_class_reason === 'CARD_BILL_PAYMENT_CANDIDATE' ||
+        e.of_class_reason === 'CARD_BILL_PAYMENT_UNMATCHED' ||
+        (e.kind === 'expense' &&
+          isCardBillPayment({
+            description: e.description_raw ?? e.description,
+            category: null,
+            operationType: e.of_operation_type,
+          }))
+      );
+    });
+
+    const cardPaymentCredits = entries.filter((e) => {
+      if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) return false;
+      if (typeById.get(e.account_id) !== 'card') return false;
+      if (e.kind !== 'transfer_in' || e.of_class_reason !== 'CARD_BILL_PAYMENT') return false;
+      if (e.transfer_group_id) return false;
+      if (editedFields(e.user_edited_fields).includes('kind')) return false;
+      return true;
+    });
+
+    const usedCardIds = new Set<string>();
+    const billPayments: Array<{ amountCents: number; date: string }> = [];
+    for (const b of bills) {
+      if (!b.payments_json) continue;
+      try {
+        const parsed = JSON.parse(b.payments_json) as PluggyBillPayment[];
+        if (Array.isArray(parsed)) {
+          for (const p of parsed) {
+            billPayments.push({
+              amountCents: toCentsDecimal(p.amount),
+              date: toBrtDate(p.paymentDate),
+            });
+          }
+        }
+      } catch {
+        // ignore invalid json
+      }
+    }
+
+    let paired = 0;
+    let billMatched = 0;
+    let unmatched = 0;
+
+    for (const out of checkingCandidates) {
+      const cardMatch = cardPaymentCredits
+        .filter(
+          (c) =>
+            !usedCardIds.has(c.id) &&
+            c.amount_cents === out.amount_cents &&
+            daysDiff(c.due_date, out.due_date) <= 5
+        )
+        .sort((a, b) => daysDiff(a.due_date, out.due_date) - daysDiff(b.due_date, out.due_date))[0];
+
+      if (cardMatch) {
+        usedCardIds.add(cardMatch.id);
+        const groupId = `of-cardpay-${out.id}-${cardMatch.id}`;
+        await finRepository.updateEntry(out.id, {
+          kind: 'transfer_out',
+          transfer_group_id: groupId,
+          of_class_reason: 'CARD_BILL_PAYMENT_PAIRED',
+        });
+        await finRepository.updateEntry(cardMatch.id, {
+          kind: 'transfer_in',
+          transfer_group_id: groupId,
+          of_class_reason: 'CARD_BILL_PAYMENT',
+        });
+        paired += 1;
+        continue;
+      }
+
+      const billMatch = billPayments.some(
+        (bp) => bp.amountCents === out.amount_cents && daysDiff(bp.date, out.due_date) <= 3
+      );
+      if (billMatch) {
+        await finRepository.updateEntry(out.id, {
+          kind: 'transfer_out',
+          of_class_reason: 'CARD_BILL_PAYMENT_BILL_MATCH',
+        });
+        billMatched += 1;
+        continue;
+      }
+
+      if (out.of_class_reason !== 'CARD_BILL_PAYMENT_UNMATCHED') {
+        await finRepository.updateEntry(out.id, {
+          of_class_reason: 'CARD_BILL_PAYMENT_UNMATCHED',
+        });
+      }
+      unmatched += 1;
+    }
+
+    return { paired, billMatched, unmatched };
+  },
+
+  /**
+   * Sprint 100: reclassificação única fin:of:reclassify:s100.
+   */
+  async reclassifyOpenFinanceEntriesS100(
+    todayIso: string = getTodayIsoLocal()
+  ): Promise<{ ran: boolean; cardFixed: number; bankFixed: number }> {
+    const done = await appMetaRepository.get(OF_RECLASSIFY_S100_META_KEY);
+    if (done === '1') return { ran: false, cardFixed: 0, bankFixed: 0 };
+
+    const [accounts, entries] = await Promise.all([
+      finRepository.listAccounts(true),
+      finRepository.listAllEntries(),
+    ]);
+    const typeById = new Map(accounts.map((a) => [a.id, a.type]));
+    let cardFixed = 0;
+
+    for (const e of entries) {
+      if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) continue;
+      if (editedFields(e.user_edited_fields).includes('kind')) continue;
+      if (typeById.get(e.account_id) === 'card' && e.kind === 'income') {
+        if (
+          isCardBillPayment({
+            description: e.description_raw ?? e.description,
+            category: null,
+            operationType: e.of_operation_type,
+          })
+        ) {
+          await finRepository.updateEntry(e.id, {
+            kind: 'transfer_in',
+            of_class_reason: 'CARD_BILL_PAYMENT',
+          });
+          cardFixed += 1;
+        }
+      }
+    }
+
+    const r30 = await this.pairCardBillPayments(todayIso);
+    const bankFixed = r30.paired + r30.billMatched;
+
+    await appMetaRepository.set(
+      OF_RECLASSIFY_S100_LOG_META_KEY,
+      JSON.stringify({ cardFixed, bankFixed, unmatched: r30.unmatched })
+    );
+    await appMetaRepository.set(OF_RECLASSIFY_S100_META_KEY, '1');
+    return { ran: true, cardFixed, bankFixed };
   },
 };
