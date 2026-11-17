@@ -264,7 +264,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                       placeholderTextColor={ui.muted}
                       style={[
                         styles.editInput,
-                        { color: ui.text },
+                        { color: ui.text, borderBottomColor: ui.primary },
                       ]}
                     />
 
@@ -402,7 +402,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                       { backgroundColor: swatch },
                       selected && {
                         borderWidth: 2,
-                        borderColor: ui.isLight ? '#111315' : '#E6DECA',
+                        borderColor: ui.selectionBorder,
                       },
                     ]}
                   />
@@ -453,7 +453,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#D96628',
   },
   swatchRow: {
     flexDirection: 'row',
@@ -487,7 +486,6 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -495,7 +493,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 13,
     fontWeight: '700',
-    color: '#1A0E08',
   },
   sheetBody: {
     gap: 14,
@@ -517,7 +514,6 @@ const styles = StyleSheet.create({
   saveBtn: {
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 6,
@@ -526,6 +522,5 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A0E08',
   },
 });

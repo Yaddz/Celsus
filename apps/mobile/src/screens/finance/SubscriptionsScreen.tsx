@@ -457,13 +457,11 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 24,
     fontWeight: '700',
-    color: '#E6DECA',
     fontVariant: ['tabular-nums'],
   },
   summaryLabel: {
     fontFamily: typography.fontFamily,
     fontSize: 11,
-    color: '#AECDC5',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -487,7 +485,6 @@ const styles = StyleSheet.create({
   resumeBtn: {
     height: 36,
     borderRadius: 11,
-    backgroundColor: '#D96628',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -496,7 +493,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 12,
     fontWeight: '700',
-    color: '#1A0E08',
   },
   canceledCard: {
     opacity: 0.7,

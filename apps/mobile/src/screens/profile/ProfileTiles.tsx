@@ -18,6 +18,7 @@ import { profileRepository as defaultProfileRepository, ProfileRepository } from
 import { sessionStore } from '../../stores/sessionStore';
 import { profileStore } from '../../stores/profileStore';
 import { resetDatabase } from '../../db/client';
+import { MODULE_META, type AppModule } from '../../navigation/appModule';
 import { LocalWalletSummary, StatusBanner } from './useProfileSettings';
 
 // ---------------------------------------------------------------------------------------------
@@ -44,6 +45,78 @@ export const GroupLabel: React.FC<{ label: string; isLight: boolean; testID?: st
   <Text testID={testID} accessibilityRole="header" style={[s.groupLabel, { color: usePalette(isLight).muted }]}>
     {label}
   </Text>
+);
+
+export interface ModuleSectionHeaderProps {
+  module: AppModule;
+  subtitle?: string;
+  isLight: boolean;
+  collapsible?: boolean;
+  expanded?: boolean;
+  onToggle?: () => void;
+  testID?: string;
+}
+
+/** Cabeçalho de seção por módulo no Perfil: ícone do módulo em círculo, nome e linha de apoio. */
+export const ModuleSectionHeader: React.FC<ModuleSectionHeaderProps> = ({
+  module,
+  subtitle,
+  isLight,
+  collapsible = false,
+  expanded = true,
+  onToggle,
+  testID,
+}) => {
+  const p = usePalette(isLight);
+  const meta = MODULE_META[module];
+  const sectionTestID = testID ?? `profile-section-${module}`;
+
+  return (
+    <View testID={sectionTestID} style={s.moduleSectionHeaderWrap}>
+      <TouchableOpacity
+        testID={`profile-section-${module}-toggle`}
+        accessibilityRole="button"
+        accessibilityLabel={`${meta.label}${subtitle ? `, ${subtitle}` : ''}`}
+        accessibilityState={{ expanded, disabled: !collapsible }}
+        disabled={!collapsible}
+        activeOpacity={0.75}
+        onPress={onToggle}
+        style={s.moduleSectionHeaderBtn}
+      >
+        <View style={[s.moduleIconCircle, { backgroundColor: colors.primary + (isLight ? '1A' : '24') }]}>
+          <MaterialIcons name={meta.icon} size={16} color={colors.primary} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[s.moduleSectionTitle, { color: p.fg }]}>{meta.label}</Text>
+          {subtitle ? (
+            <Text style={[s.moduleSectionSubtitle, { color: p.muted }]}>{subtitle}</Text>
+          ) : null}
+        </View>
+        {collapsible ? (
+          <MaterialIcons
+            name={expanded ? 'expand-less' : 'expand-more'}
+            size={20}
+            color={p.muted}
+          />
+        ) : null}
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+export interface ProfileActionRowProps {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  title: string;
+  subtitle?: string;
+  isLight: boolean;
+  first?: boolean;
+  onPress?: () => void;
+  testID?: string;
+}
+
+/** Atalho de navegação/ação dentro de uma seção do Perfil. */
+export const ProfileActionRow: React.FC<ProfileActionRowProps> = (props) => (
+  <ListRow {...props} />
 );
 
 interface ListRowProps {
@@ -281,11 +354,18 @@ export const IdentityTile: React.FC<IdentityTileProps> = ({
 
 // ---------------------------------------------------------------------------------------------
 
-export const WalletsTile: React.FC<{ isLight: boolean; isPrivacyMode: boolean; wallets: LocalWalletSummary[]; first?: boolean }> = ({
+export const WalletsTile: React.FC<{
+  isLight: boolean;
+  isPrivacyMode: boolean;
+  wallets: LocalWalletSummary[];
+  first?: boolean;
+  onOpenWallets?: () => void;
+}> = ({
   isLight,
   isPrivacyMode,
   wallets,
   first,
+  onOpenWallets,
 }) => {
   const p = usePalette(isLight);
   return (
@@ -298,32 +378,46 @@ export const WalletsTile: React.FC<{ isLight: boolean; isPrivacyMode: boolean; w
         first={first}
         rowTestID="wallets-row"
         content={
-          wallets.length === 0 ? (
-            <Text testID="wallets-empty-state" style={[s.rowSubtitle, { color: p.muted, paddingVertical: 4 }]}>
-              Nenhuma carteira cadastrada ainda.
-            </Text>
-          ) : (
-            wallets.map((w, i) => (
-              <View
-                key={w.id}
-                testID={`wallet-summary-${w.id}`}
-                style={[s.walletRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.divider }]}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={[s.panelActionText, { color: p.fg }]}>{w.name}</Text>
-                  <Text style={[s.rowSubtitle, { color: p.muted }]}>{`${w.assetCount} ${w.assetCount === 1 ? 'ativo' : 'ativos'}`}</Text>
-                </View>
-                {w.patrimonyGoal ? (
-                  <View style={{ alignItems: 'flex-end' }}>
-                    <Text style={[s.caption, { color: p.muted }]}>Meta</Text>
-                    <Text style={[s.panelActionText, { color: p.fg }]}>
-                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatBRL(w.patrimonyGoal)}
-                    </Text>
+          <>
+            {wallets.length === 0 ? (
+              <Text testID="wallets-empty-state" style={[s.rowSubtitle, { color: p.muted, paddingVertical: 4 }]}>
+                Nenhuma carteira cadastrada ainda.
+              </Text>
+            ) : (
+              wallets.map((w, i) => (
+                <View
+                  key={w.id}
+                  testID={`wallet-summary-${w.id}`}
+                  style={[s.walletRow, i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: p.divider }]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.panelActionText, { color: p.fg }]}>{w.name}</Text>
+                    <Text style={[s.rowSubtitle, { color: p.muted }]}>{`${w.assetCount} ${w.assetCount === 1 ? 'ativo' : 'ativos'}`}</Text>
                   </View>
-                ) : null}
+                  {w.patrimonyGoal ? (
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={[s.caption, { color: p.muted }]}>Meta</Text>
+                      <Text style={[s.panelActionText, { color: p.fg }]}>
+                        {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatBRL(w.patrimonyGoal)}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              ))
+            )}
+            {onOpenWallets ? (
+              <View style={[s.panelGroup, { backgroundColor: isLight ? '#FFFFFF' : '#1C1E20', borderColor: p.divider, marginTop: 8 }]}>
+                <PanelAction
+                  first
+                  icon="open-in-new"
+                  label="Abrir aba Carteiras"
+                  isLight={isLight}
+                  testID="profile-open-wallets-btn"
+                  onPress={onOpenWallets}
+                />
               </View>
-            ))
-          )
+            ) : null}
+          </>
         }
       />
     </View>
@@ -854,23 +948,12 @@ export const BackupTile: React.FC<BackupTileProps> = ({
           onPress={onOpenOpenFinance}
         />
       ) : null}
-      {onImportB3 ? (
-        <ListRow
-          icon="account-balance"
-          isLight={isLight}
-          first={!onOpenOpenFinance}
-          testID="import-b3-btn"
-          title="Importar extrato B3"
-          subtitle="Planilha da Área do Investidor"
-          onPress={onImportB3}
-        />
-      ) : null}
       <ExpandableRow
         icon="inventory-2"
         title="Backup e restauração"
         subtitle="Arquivo .celsus.zip"
         isLight={isLight}
-        first={!onImportB3 && !onOpenOpenFinance}
+        first={!onOpenOpenFinance}
         rowTestID="backup-row"
         content={
           <View style={{ gap: 12 }}>
@@ -917,7 +1000,6 @@ export const BackupTile: React.FC<BackupTileProps> = ({
                 testID="import-dossier-btn"
                 onPress={onImport}
               />
-              <PanelAction icon="table-chart" label="Importar dados da planilha" isLight={isLight} testID="import-spreadsheet-btn" onPress={onImportSpreadsheet} />
             </View>
           </View>
         }
@@ -1036,6 +1118,11 @@ export const RemindersTile: React.FC<{ isLight: boolean }> = ({ isLight }) => {
 
 const s = StyleSheet.create({
   groupLabel: { fontFamily: typography.fontFamily, fontSize: 11, fontWeight: '700', letterSpacing: 1.2, marginTop: 10, marginLeft: 6 },
+  moduleSectionHeaderWrap: { marginTop: 12, marginLeft: 4 },
+  moduleSectionHeaderBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4 },
+  moduleIconCircle: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  moduleSectionTitle: { fontFamily: typography.fontFamily, fontSize: 13, fontWeight: '700', letterSpacing: 0.4 },
+  moduleSectionSubtitle: { fontFamily: typography.fontFamily, fontSize: 11, marginTop: 1 },
   groupCard: { paddingVertical: 2, paddingHorizontal: 16 },
   listRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60, paddingVertical: 10 },
   iconChip: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },

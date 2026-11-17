@@ -17,8 +17,17 @@ export interface ThemeModeColors {
   background: string;
   surface: string;
   surfaceContainer: string;
+  surfaceInset: string;
   onSurface: string;
   muted: string;
+  border: string;
+  accent: string;
+  onAccent: string;
+  primaryButtonBg: string;
+  onPrimaryButton: string;
+  success: string;
+  warning: string;
+  error: string;
 }
 
 export interface AssetClassColors {
@@ -88,15 +97,33 @@ export const THEME_COLORS: Record<ThemeMode, ThemeModeColors> = {
     background: '#111315',
     surface: '#191B1D',
     surfaceContainer: '#202224',
+    surfaceInset: '#161819',
     onSurface: '#E6DECA',
     muted: '#8A8A8E',
+    border: '#2A2D30',
+    accent: '#D96628',
+    onAccent: '#1A0E08',
+    primaryButtonBg: '#2E4A44',
+    onPrimaryButton: '#FFFFFF',
+    success: '#4F9A65',
+    warning: '#D4A83B',
+    error: '#E86F6F',
   },
   light: {
     background: '#F4F1EA',
     surface: '#FFFFFF',
     surfaceContainer: '#EAE4D7',
+    surfaceInset: '#F6F2EA',
     onSurface: '#191B1D',
     muted: '#6E6A63',
+    border: '#ECE6DA',
+    accent: '#D96628',
+    onAccent: '#1A0E08',
+    primaryButtonBg: '#2E4A44',
+    onPrimaryButton: '#FFFFFF',
+    success: '#1D6F5B',
+    warning: '#8C6200',
+    error: '#B83232',
   },
 };
 

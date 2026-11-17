@@ -209,7 +209,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
           onPress={openCreateForm}
           style={[styles.addBtn, { backgroundColor: colors.primary }]}
         >
-          <MaterialIcons name="add" size={18} color="#1A0E08" />
+          <MaterialIcons name="add" size={18} color={c.onPrimary} />
           <Text style={styles.addBtnText}>Nova meta</Text>
         </TouchableOpacity>
 
@@ -240,7 +240,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                 testID={`goal-dot-track-${goal.id}`}
                 percentage={evaluation.progressPercent}
                 color={goal.color || colors.primary}
-                trackColor={isLight ? '#E5E7EB' : '#2A2D30'}
+                trackColor={c.switchTrackOff}
               />
             </View>
 
@@ -259,12 +259,12 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                   style={[
                     styles.reachedBadge,
                     {
-                      backgroundColor: isLight ? '#E8F5E9' : 'rgba(79, 154, 101, 0.18)',
+                      backgroundColor: c.successSoftBg,
                       opacity: reducedMotion ? 1 : 1,
                     },
                   ]}
                 >
-                  <MaterialIcons name="check-circle" size={14} color="#4F9A65" />
+                  <MaterialIcons name="check-circle" size={14} color={c.success} />
                   <Text style={styles.reachedText}>
                     {evaluation.projectedLabel ?? 'Meta atingida'}
                   </Text>
@@ -295,7 +295,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                 onPress={() => handleContributePress({ goal, evaluation })}
                 style={[
                   styles.contributeBtn,
-                  { borderColor: isLight ? '#D1D5DB' : '#32363A' },
+                  { borderColor: c.inputBorder },
                 ]}
               >
                 <MaterialIcons name="add-circle-outline" size={16} color={colors.primary} />
@@ -374,9 +374,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                   {
                     backgroundColor: active
                       ? colors.primary
-                      : isLight
-                      ? '#F3F4F6'
-                      : '#25282C',
+                      : c.chipInactiveBg,
                   },
                 ]}
               >
@@ -385,7 +383,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                     fontFamily: typography.fontFamily,
                     fontSize: 12,
                     fontWeight: '600',
-                    color: active ? '#1A0E08' : c.text,
+                    color: active ? c.onPrimary : c.text,
                   }}
                 >
                   {opt.label}
@@ -410,13 +408,11 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                       {
                         backgroundColor: active
                           ? colors.primary
-                          : isLight
-                          ? '#F3F4F6'
-                          : '#25282C',
+                          : c.chipInactiveBg,
                       },
                     ]}
                   >
-                    <Text style={{ fontSize: 12, color: active ? '#1A0E08' : c.text }}>
+                    <Text style={{ fontSize: 12, color: active ? c.onPrimary : c.text }}>
                       {p.name}
                     </Text>
                   </TouchableOpacity>
@@ -489,7 +485,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A0E08',
   },
   emptyText: {
     fontFamily: typography.fontFamily,
@@ -555,7 +550,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 12,
     fontWeight: '600',
-    color: '#4F9A65',
   },
   etaText: {
     fontFamily: typography.fontFamily,
@@ -606,7 +600,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontFamily: typography.fontFamily,
     fontSize: 12,
-    color: '#D96628',
     marginTop: 10,
   },
   saveBtn: {
@@ -619,6 +612,5 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     fontSize: 14,
     fontWeight: '700',
-    color: '#1A0E08',
   },
 });

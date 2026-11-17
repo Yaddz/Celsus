@@ -149,7 +149,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                 >
                   <Text
                     style={{
-                      color: matchTypeInput === mt ? '#111315' : c.text,
+                      color: matchTypeInput === mt ? c.onAccentText : c.text,
                       fontSize: 12,
                     }}
                   >
@@ -177,7 +177,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                   >
                     <Text
                       style={{
-                        color: categoryIdInput === cat.id ? '#111315' : c.text,
+                        color: categoryIdInput === cat.id ? c.onAccentText : c.text,
                         fontSize: 12,
                       }}
                     >
@@ -199,7 +199,7 @@ export const CategoryRulesScreen: React.FC<CategoryRulesScreenProps> = ({
                 onPress={handleSaveEdit}
                 style={[styles.btn, { backgroundColor: c.primary }]}
               >
-                <Text style={{ color: '#111315', fontWeight: '700' }}>
+                <Text style={{ color: c.onAccentText, fontWeight: '700' }}>
                   Salvar
                 </Text>
               </TouchableOpacity>

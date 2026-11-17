@@ -10,7 +10,58 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **178 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **185 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 79 — Tema claro em todas as telas (Fase B concluída)
+
+Papéis semânticos completos em `THEME_COLORS` e `getFinUiColors` com contraste WCAG >= 4,5:1, refatoração de `OpenFinanceInvestmentReconciliationSheet` (`AnimatedModalSheet` + `themeMode`), `OpenFinanceScreen`, `StatementImportSheet`, `ReceiptScannerSheet` e telas de Finanças para eliminar cores literais soltas. `app.json` já possui `"userInterfaceStyle": "automatic"` (efeito nativo depende de novo build; o tema exibido continua sendo o selecionado no Perfil).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/theme/__tests__/Sprint79ThemeRolesAndContrast.test.ts` | S79-T01…T02 | `ec1df65954392371116630548ab406c8e0f386bd86eb878b583d3f67bb9e3a11` | 2 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint79LightThemeCoverage.test.tsx` | S79-T03…T05 | `ca09e464c13f13827536ef9dfd22f0461ba6d6f0e7727657e91372cc8474371e` | 1 FAIL / 2 PASS |
+| `apps/mobile/src/__tests__/Sprint79NoLooseColors.test.ts` | S79-T06 | `f0e2cc45c1a9b6c9b109df28125acf00602310398f0b1cc9aa882a8cb0ee2e48` | 1 FAIL |
+
+Execução da Fase B:
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint79ThemeRolesAndContrast Sprint79LightThemeCoverage Sprint79NoLooseColors`: **3/3 suítes PASS** (**6/6 testes PASS**)
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint64OpenFinanceScreen Sprint69OpenFinanceInvestmentsUI Sprint62StatementImportScreen Sprint67BudgetForecastProfileScreens Sprint56FinanceFidelity`: **5/5 suítes PASS** (**36/36 testes PASS**)
+- `node scripts/test-lock.js verify`: **185 arquivos íntegros**
+
+## Sprint 78 — Perfil: estrutura base comum e seções por módulo (Fase B concluída)
+
+Separação do Perfil (`SettingsBackupScreen` / `ProfileTiles`) em base comum (`Identidade`, `GERAL`, `PROTEÇÃO`, `CONEXÕES E DADOS`) e seções por módulo (`Investimentos` e `Finanças`) com `ModuleSectionHeader`, ordenação e colapso por `originModule`, layout em 2 colunas com ambas abertas, unicidade de itens, preservação de `testIDs` e navegação direta para rotas dos dois módulos.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/screens/__tests__/Sprint78ProfileSections.test.tsx` | S78-T01…T04 | `4ca17d14aa83cd3f79696b16c7271bb35b2670d15a4aaf65459c986e7428c12b` | 4 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint78ProfileNavigation.test.tsx` | S78-T05…T07 | `37c6af9f28b53a03da3cce83ec0d714d9da6fa416ebab3e45e024d48c4ca4231` | 3 FAIL |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `Sprint78ProfileSections.test.tsx`: usa `jest.spyOn(RN.Dimensions, 'get')` para largura (`390` e `820`), `within(col)` para inspecionar colunas e expande `backup-row` antes de verificar `export-dossier-btn`.
+- `Sprint78ProfileNavigation.test.tsx`: verifica `settings-backup-screen` em vez de `profile-settings-modal` (o mock de `SafeAreaView` no Jest não repassa `testID`).
+
+Execução da Fase B:
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint78ProfileSections Sprint78ProfileNavigation`: **2/2 suítes PASS** (**7/7 testes PASS**)
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint19XpSettingsAndLightModeAudit Sprint26PrivacyContrastAndNavbarStabilization Sprint45SecurityProfile Sprint64OpenFinanceScreen Sprint67BudgetForecastProfileScreens`: **5/5 suítes PASS** (**42/42 testes PASS**)
+- `node scripts/test-lock.js verify`: **182 arquivos íntegros**
+
+## Sprint 77 — Resumo de Finanças: saldo do mês em carrossel e tiles Receitas/Despesas navegáveis (Fase B concluída)
+
+Carrossel horizontal `MonthBalanceCarousel` com `PanResponder + Animated` (mesmos limiares e mola de `StackedWalletDeck`), indicador em pílulas (`finance-month-pills`), atalho "Hoje" (`finance-month-today-btn`), limite de 24 meses à frente, suporte a `useReducedMotion` e modo privacidade, e tiles Receitas/Despesas navegáveis para `EntriesListScreen` com título dinâmico ("Receitas"/"Despesas"/"Lançamentos").
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/components/ui/__tests__/Sprint77MonthBalanceCarousel.test.tsx` | S77-T01…T06 | `4ee84a45034ceb0e62ae694704f13a9d351566119d1152cbfca175383e51b235` | 6 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint77FinanceHomeMonthAndTiles.test.tsx` | S77-T07…T08 | `bf7f1ee95d283f81c7864e7483180768a131db33225f60e104691ce86aa4e377` | 2 FAIL |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `Sprint77FinanceHomeMonthAndTiles.test.tsx` (`S77-T08`): usa `getAllByText('Receitas')` / `getAllByText('Lançamentos')` (header + controle segmentado) e aguarda carregamento assíncrono de `EntriesListScreen` com `waitFor`.
+
+Execução da Fase B:
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint77MonthBalanceCarousel Sprint77FinanceHomeMonthAndTiles`: **2/2 suítes PASS** (**8/8 testes PASS**)
+- `npm --prefix apps/mobile test -- --watchAll=false Sprint56FinanceFidelity Sprint55FinanceReskin Sprint60FinanceArtifactFidelity FinanceModuleScreens Sprint36ActiveWalletSwitch`: **5/5 suítes PASS** (**60/60 testes PASS**)
+- `npx tsc --noEmit`: **0 erros** nos arquivos de produção e testes da Sprint 77
+- `node scripts/test-lock.js verify`: **180 arquivos íntegros**
 
 ## Sprint 76 — Casca compartilhada: header, nav bar única e troca de módulo (Fase B concluída)
 

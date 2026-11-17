@@ -299,6 +299,7 @@ function AppContent(props: {
   const [isIncomeHistoryOpen, setIsIncomeHistoryOpen] = useState(false);
   const [isFinanceOpen, setIsFinanceOpen] = useState(false);
   const [financeInitialRoute, setFinanceInitialRoute] = useState<FinanceRoute>('home');
+  const [financeOpenStatementImport, setFinanceOpenStatementImport] = useState(false);
   const [lastFinanceRoute, setLastFinanceRoute] = useState<FinanceRoute>('home');
 
   useEffect(() => {
@@ -1190,6 +1191,35 @@ function AppContent(props: {
             onDataRestored={() => refreshAppData()}
             onOpenB3Import={openB3Import}
             onOpenOpenFinance={() => setIsOpenFinanceOpen(true)}
+            onOpenWallets={() => {
+              setIsOpenFinanceOpen(false);
+              setIsSettingsBackupModalOpen(false);
+              setIsFinanceOpen(false);
+              setActiveTab('wallets');
+            }}
+            onOpenIncomeHistory={() => {
+              setIsOpenFinanceOpen(false);
+              setIsSettingsBackupModalOpen(false);
+              setIsFinanceOpen(false);
+              setIsIncomeHistoryOpen(true);
+            }}
+            onOpenFinanceRoute={(route) => {
+              setIsOpenFinanceOpen(false);
+              setIsSettingsBackupModalOpen(false);
+              setFinanceOpenStatementImport(false);
+              setFinanceInitialRoute(route);
+              setLastFinanceRoute(route);
+              setIsFinanceOpen(true);
+            }}
+            onOpenFinanceStatementImport={() => {
+              setIsOpenFinanceOpen(false);
+              setIsSettingsBackupModalOpen(false);
+              setFinanceInitialRoute('home');
+              setLastFinanceRoute('home');
+              setFinanceOpenStatementImport(true);
+              setIsFinanceOpen(true);
+            }}
+            originModule={isFinanceOpen ? 'finance' : 'investments'}
             themeMode={themeMode}
             onThemeModeChange={(mode) => {
               setThemeMode(mode);
@@ -1248,6 +1278,7 @@ function AppContent(props: {
           onBack={() => {
             setFinanceInitialRoute('home');
             setLastFinanceRoute('home');
+            setFinanceOpenStatementImport(false);
             setIsFinanceOpen(false);
           }}
           onSwitchModule={switchModule}
@@ -1259,6 +1290,7 @@ function AppContent(props: {
           onTogglePrivacy={homeTogglePrivacy}
           themeMode={themeMode}
           initialRoute={financeInitialRoute}
+          initialOpenStatementImport={financeOpenStatementImport}
         />
       </SafeAreaView>
     );
