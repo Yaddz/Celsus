@@ -450,11 +450,54 @@ export interface MappedPluggyIncomeEvent {
   source: 'OPEN_FINANCE';
 }
 
+export function classifyPluggyIncomeKind(
+  description: string | null | undefined,
+  investment: Pick<PluggyInvestment, 'type' | 'subtype'>
+): string {
+  const norm = (description || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+  if (norm.includes('jcp') || norm.includes('juros sobre capital')) {
+    return 'JCP';
+  }
+  if (norm.includes('dividend')) {
+    return 'DIVIDENDO';
+  }
+  const { assetClass } = resolvePluggyAssetClass(investment as PluggyInvestment);
+  if (norm.includes('rendimento') || assetClass === 'FII') {
+    return 'RENDIMENTO';
+  }
+  return 'PROVENTO';
+}
+
 export function mapPluggyIncomeEvent(
-  _tx: PluggyInvestmentTransaction,
-  _investment: Pick<PluggyInvestment, 'id' | 'type' | 'subtype' | 'code' | 'name' | 'issuer' | 'dueDate' | 'rate' | 'rateType'>
+  tx: PluggyInvestmentTransaction,
+  investment: Pick<PluggyInvestment, 'id' | 'type' | 'subtype' | 'code' | 'name' | 'issuer' | 'dueDate' | 'rate' | 'rateType'>
 ): MappedPluggyIncomeEvent {
-  throw new Error('Not implemented (Sprint 72 Phase A stub)');
+  const rawVal = tx.netAmount !== null && tx.netAmount !== undefined ? tx.netAmount : (tx.amount ?? 0);
+  const amount = new Decimal(rawVal).abs().toFixed(2);
+  const payDate = (tx.date || tx.tradeDate || '').slice(0, 10);
+  const ticker =
+    normalizeInvestmentTicker(investment.code) ||
+    buildInvestmentDisplay(investment as PluggyInvestment).ticker;
+  const quantity =
+    tx.quantity !== null && tx.quantity !== undefined ? new Decimal(tx.quantity).toString() : null;
+  const unitAmount =
+    tx.value !== null && tx.value !== undefined ? new Decimal(tx.value).toFixed(2) : null;
+
+  return {
+    ticker,
+    payDate,
+    amount,
+    kind: classifyPluggyIncomeKind(tx.description, investment),
+    quantity,
+    unitAmount,
+    notes: tx.description ? tx.description.trim() : null,
+    externalId: `pluggy:${tx.id}`,
+    source: 'OPEN_FINANCE',
+  };
 }
 
 export function formatMissingSinceLabel(missingSinceIso: string): string {

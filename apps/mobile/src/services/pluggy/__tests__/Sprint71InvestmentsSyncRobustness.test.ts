@@ -135,7 +135,8 @@ describe('Sprint 71 — Robustez e Limpeza no Sync de Investimentos (Fase A)', (
     expect(persistedTxs[0].type).toBe('BUY');
 
     const persistedIncome = await db.select().from(incomeEvents);
-    expect(persistedIncome).toHaveLength(0);
+    expect(persistedIncome).toHaveLength(1);
+    expect(persistedIncome[0].external_id).toBe('pluggy:t-int');
     expect(res.interestTransactions).toHaveLength(1);
     expect(res.interestTransactions?.[0].externalId).toBe('t-int');
   });

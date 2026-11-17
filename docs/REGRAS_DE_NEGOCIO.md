@@ -317,7 +317,10 @@ inclusive depois de "Apagar todos os dados".
   - `AMORTIZATION`: reduz o custo total (`totalCost = max(0, totalCost - amount)`) sem alterar a quantidade (`Q`).
   - `TAX`: não altera a quantidade (`Q`) nem é gravado como movimentação de livro-razão.
   - `TRANSFER`: só entra no custo e na quantidade quando possuir `quantity > 0` e `unitPrice > 0`, e nunca duplica uma `BUY` já contada na mesma data/quantidade/preço.
-  - `INTEREST` (dividendos, JCP, rendimentos): devolvido em campo separado do resultado sem persistência em `transactions` ou `income_events` nesta etapa.
+  - `INTEREST` (dividendos, JCP, rendimentos): classificado por descrição (`JCP`, `DIVIDENDO`, `RENDIMENTO`, `PROVENTO`) e persistido em `income_events` com `external_id = 'pluggy:<id>'`, `source = 'OPEN_FINANCE'`, usando `netAmount` (ou `amount`) sempre positivo em 2 casas.
+- **Deduplicação cruzada de proventos (`domain/finance/incomeDedup.ts`, Sprint 72)**:
+  - Dois proventos são equivalentes quando têm ticker normalizado igual (`PETR4F` === `PETR4`), `kind` compatível (`PROVENTO`/`OUTRO`/vazio casa com qualquer um), data de pagamento a até **3 dias corridos** e valor a até **R$ 0,01** (ou relação bruto × líquido de 15% de IR com tolerância de 1% para `JCP`), em **todas as carteiras**.
+  - Em `syncInvestments` e `b3ImportService`, equivalentes de outra origem não são duplicados: a linha existente é mantida, tem campos vazios completados e recebe `"Confirmado pelo Open Finance"` em `notes`. Na desconexão (`disconnectItemInvestments`), apenas proventos com `source = 'OPEN_FINANCE'` daquela conexão são removidos.
 - **Taxas de movimentação**: usa a soma dos campos numéricos de `expenses` quando presente; só recorre a `|netAmount| − |amount|` quando `expenses` é nulo.
 - **Posição e `manual_position_value`**:
   - Ações, FIIs, BDRs e ETFs usam a quantidade informada pela instituição (0 se nula) e mantêm `manual_position_value = NULL`, para que a cotação de mercado seja sempre a fonte do valor.

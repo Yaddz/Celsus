@@ -2,6 +2,7 @@ import { openDatabaseSync, SQLiteDatabase } from 'expo-sqlite';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { getTableName } from 'drizzle-orm';
 import * as schema from './schema';
+import { findEquivalentIncome } from '../domain/finance/incomeDedup';
 
 export const DATABASE_NAME = 'celsus.db';
 
@@ -588,6 +589,111 @@ export function applySchemaUpgrades(raw: SQLiteDatabase) {
     inMemoryStore.transactions = inMemoryStore.transactions.filter(
       (t) => !(t.source === 'OPEN_FINANCE' && !VALID_LEDGER_TYPES.has(t.type))
     );
+  }
+  deduplicateIncomeEventsInMemory();
+  deduplicateIncomeEventsSqlite(raw);
+}
+
+function deduplicateIncomeEventsInMemory() {
+  const rows = inMemoryStore.income_events;
+  if (!Array.isArray(rows) || rows.length < 2) return;
+  const sorted = [...rows].sort((a, b) =>
+    String(a.created_at || '').localeCompare(String(b.created_at || ''))
+  );
+  const kept: any[] = [];
+  let removed = 0;
+
+  for (const row of sorted) {
+    const equiv = findEquivalentIncome(
+      {
+        id: row.id,
+        portfolioId: row.portfolio_id,
+        ticker: row.ticker,
+        payDate: row.pay_date,
+        amount: row.amount,
+        kind: row.kind,
+      },
+      kept.map((k) => ({
+        id: k.id,
+        portfolioId: k.portfolio_id,
+        ticker: k.ticker,
+        payDate: k.pay_date,
+        amount: k.amount,
+        kind: k.kind,
+      }))
+    );
+    if (equiv) {
+      const keeper = kept.find((k) => k.id === equiv.id)!;
+      keeper.kind = keeper.kind || row.kind || null;
+      keeper.quantity = keeper.quantity || row.quantity || null;
+      keeper.unit_amount = keeper.unit_amount || row.unit_amount || null;
+      removed += 1;
+    } else {
+      kept.push(row);
+    }
+  }
+
+  if (removed > 0) {
+    inMemoryStore.income_events = kept;
+    const meta = (inMemoryStore.app_meta = inMemoryStore.app_meta || []);
+    const existingMeta = meta.find((m) => m.key === 'migration:income_dedup_removed');
+    if (existingMeta) {
+      existingMeta.value = String(removed);
+    } else {
+      meta.push({ key: 'migration:income_dedup_removed', value: String(removed) });
+    }
+  }
+}
+
+function deduplicateIncomeEventsSqlite(raw: SQLiteDatabase) {
+  if (isTestEnvironment() || isWebMemoryDbOptIn()) return;
+  try {
+    const rows = raw.getAllSync<any>('SELECT * FROM income_events ORDER BY created_at ASC');
+    if (!rows || rows.length < 2) return;
+    const kept: any[] = [];
+    let removed = 0;
+    for (const row of rows) {
+      const equiv = findEquivalentIncome(
+        {
+          id: row.id,
+          portfolioId: row.portfolio_id,
+          ticker: row.ticker,
+          payDate: row.pay_date,
+          amount: row.amount,
+          kind: row.kind,
+        },
+        kept.map((k) => ({
+          id: k.id,
+          portfolioId: k.portfolio_id,
+          ticker: k.ticker,
+          payDate: k.pay_date,
+          amount: k.amount,
+          kind: k.kind,
+        }))
+      );
+      if (equiv) {
+        const keeper = kept.find((k) => k.id === equiv.id)!;
+        const nextKind = keeper.kind || row.kind || null;
+        const nextQty = keeper.quantity || row.quantity || null;
+        const nextUnit = keeper.unit_amount || row.unit_amount || null;
+        raw
+          .prepareSync(
+            'UPDATE income_events SET kind = ?, quantity = ?, unit_amount = ? WHERE id = ?'
+          )
+          .executeSync(nextKind, nextQty, nextUnit, keeper.id);
+        raw.prepareSync('DELETE FROM income_events WHERE id = ?').executeSync(row.id);
+        removed += 1;
+      } else {
+        kept.push(row);
+      }
+    }
+    if (removed > 0) {
+      raw
+        .prepareSync('INSERT OR REPLACE INTO app_meta (key, value) VALUES (?, ?)')
+        .executeSync('migration:income_dedup_removed', String(removed));
+    }
+  } catch {
+    // Ignora caso tabela ainda não exista ou em mock
   }
 }
 

@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **167 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 72 — Pluggy: sincronizar proventos (Fase A concluída)
+## Sprint 72 — Pluggy: sincronizar proventos (Fase B concluída)
 
 Mapeamento de movimentações `INTEREST` para `income_events`, classificação de `kind` (`JCP`, `DIVIDENDO`, `RENDIMENTO`, `PROVENTO`), deduplicação cruzada Pluggy × B3 × Manual (`findEquivalentIncome`), limpeza de duplicatas antigas, desconexão seletiva e backup ida e volta.
 
@@ -24,6 +24,13 @@ Mapeamento de movimentações `INTEREST` para `income_events`, classificação d
 | `apps/mobile/src/services/__tests__/Sprint72B3AndPluggyTogether.test.ts` | S72-T18…T20 | `ef69284a443834728989d0cbe6cfdc87ed90ac19594a205f8dfdd04c2f35f8e5` | 3 FAIL |
 
 Execução da Fase A: `npx jest Sprint72 --no-coverage` → 19 falhando, 1 passando (20 testes, 4 suítes). 167 arquivos travados.
+
+**Teste antigo atualizado com autorização explícita do usuário:**
+- `Sprint71InvestmentsSyncRobustness.test.ts` (`S71-T09`, linha 138): atualizado de `toHaveLength(0)` para `toHaveLength(1)` porque a Sprint 72 passou a persistir `INTEREST` em `income_events`.
+
+Execução da Fase B:
+- `npx jest Sprint71 Sprint72 b3ImportService --no-coverage`: **10/10 suítes PASS** (55/55 testes)
+- `node scripts/test-lock.js verify`: **167 arquivos íntegros**
 
 ## Sprint 71 — Pluggy: diagnosticar e corrigir a importação (Fase B concluída)
 

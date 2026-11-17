@@ -120,7 +120,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
     portfolios: Array<{ id: string; name: string }>;
     existingAssets: Array<{ id: string; ticker: string; name: string; assetClass: string }>;
     pendingItemIds: string[];
-    totals: { created: number; updated: number };
+    totals: { created: number; updated: number; incomesCreated?: number; incomesMatched?: number };
   } | null>(null);
 
   const loadState = useCallback(async () => {
@@ -196,7 +196,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
    */
   const runInvestmentsSync = async (
     itemIds: string[],
-    totals: { created: number; updated: number }
+    totals: { created: number; updated: number; incomesCreated?: number; incomesMatched?: number }
   ) => {
     for (let i = 0; i < itemIds.length; i += 1) {
       const itemId = itemIds[i];
@@ -237,9 +237,17 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
       });
       totals.created += res.counts.assetsCreated;
       totals.updated += res.counts.assetsUpdated;
+      totals.incomesCreated = (totals.incomesCreated ?? 0) + (res.counts.incomesCreated ?? 0);
+      totals.incomesMatched = (totals.incomesMatched ?? 0) + (res.counts.incomesMatched ?? 0);
     }
+    const incNew = totals.incomesCreated ?? 0;
+    const incMatched = totals.incomesMatched ?? 0;
+    const incSuffix =
+      incNew > 0 || incMatched > 0
+        ? ` · ${incNew} proventos novos, ${incMatched} já existentes confirmados`
+        : '';
     setStatusMessage(
-      `Investimentos sincronizados: ${totals.created} novos, ${totals.updated} atualizados.`
+      `Investimentos sincronizados: ${totals.created} novos, ${totals.updated} atualizados${incSuffix}.`
     );
   };
 
@@ -279,6 +287,8 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
       const nextTotals = {
         created: totals.created + res.counts.assetsCreated,
         updated: totals.updated + res.counts.assetsUpdated,
+        incomesCreated: (totals.incomesCreated ?? 0) + (res.counts.incomesCreated ?? 0),
+        incomesMatched: (totals.incomesMatched ?? 0) + (res.counts.incomesMatched ?? 0),
       };
       await runInvestmentsSync(pendingItemIds, nextTotals);
     } catch (err) {

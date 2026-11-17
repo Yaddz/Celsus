@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
 import { ImportPlan, ImportPlanItem, normalizeInstitutionName } from '../domain/b3';
+import { findEquivalentIncome } from '../domain/finance/incomeDedup';
 import { readStatementFile } from './b3/readStatementFile';
 import { buildImportPlan } from '../domain/b3';
 import { getDatabase } from '../db/client';
@@ -85,6 +86,7 @@ export class B3ImportService {
 
     const db = getDatabase();
     const existingIds = new Set<string>();
+    let existingIncomesList: Array<typeof incomeEvents.$inferSelect> = [];
 
     if (db) {
       try {
@@ -93,6 +95,7 @@ export class B3ImportService {
           if (t.external_id) existingIds.add(t.external_id);
         }
         const incs = await db.select().from(incomeEvents);
+        existingIncomesList = incs;
         for (const i of incs) {
           if (i.external_id) existingIds.add(i.external_id);
         }
@@ -106,11 +109,59 @@ export class B3ImportService {
       } catch {}
     }
 
-    return buildImportPlan({
+    const plan = buildImportPlan({
       rows: rawRows,
       existingExternalIds: existingIds,
       existingAssets,
     });
+
+    if (existingIncomesList.length > 0) {
+      const mappedExisting = existingIncomesList
+        .filter((e) => e.source !== 'B3_IMPORT')
+        .map((e) => ({
+          id: e.id,
+          portfolioId: e.portfolio_id,
+          ticker: e.ticker,
+          payDate: e.pay_date,
+          amount: e.amount,
+          kind: e.kind,
+          source: e.source,
+        }));
+      const remaining: ImportPlanItem[] = [];
+      for (const item of plan.chronologicalItems) {
+        if (item.kind === 'INCOME') {
+          const lower = item.rawMovement.toLowerCase();
+          let b3Kind = 'OUTRO';
+          if (lower.includes('rendimento')) b3Kind = 'RENDIMENTO';
+          else if (lower.includes('dividendo')) b3Kind = 'DIVIDENDO';
+          else if (lower.includes('juros') || lower.includes('jcp')) b3Kind = 'JCP';
+
+          const equiv = findEquivalentIncome(
+            {
+              ticker: item.ticker,
+              payDate: item.tradeDate,
+              amount: item.operationValue || '0',
+              kind: b3Kind,
+            },
+            mappedExisting
+          );
+          if (equiv) {
+            plan.duplicates.push({
+              ...item,
+              reason:
+                equiv.source === 'OPEN_FINANCE'
+                  ? 'já sincronizado pelo Open Finance'
+                  : 'Provento equivalente já lançado',
+            });
+            continue;
+          }
+        }
+        remaining.push(item);
+      }
+      plan.chronologicalItems = remaining;
+    }
+
+    return plan;
   }
 
   async apply(
@@ -260,22 +311,55 @@ export class B3ImportService {
               else if (lower.includes('dividendo')) kind = 'DIVIDENDO';
               else if (lower.includes('juros') || lower.includes('jcp')) kind = 'JCP';
 
-              const created = await incomeRepository.addIncome({
-                portfolioId: portId,
-                ticker: item.ticker,
-                payDate: item.tradeDate,
-                amount: item.operationValue || '0',
-                notes: `lote:${batchId} · ${item.rawMovement}`,
-                source: 'B3_IMPORT',
-                externalId: item.externalId,
-                kind,
-                quantity: item.quantity,
-                unitAmount: item.unitPrice || undefined,
-              });
+              const allExistingIncs = await incomeRepository.listAll();
+              const equiv = findEquivalentIncome(
+                {
+                  ticker: item.ticker,
+                  payDate: item.tradeDate,
+                  amount: item.operationValue || '0',
+                  kind,
+                },
+                allExistingIncs
+                  .filter((e) => e.source !== 'B3_IMPORT')
+                  .map((e) => ({
+                    id: e.id,
+                    portfolioId: e.portfolio_id,
+                    ticker: e.ticker,
+                    payDate: e.pay_date,
+                    amount: e.amount,
+                    kind: e.kind,
+                    source: e.source,
+                    quantity: e.quantity,
+                    unitAmount: e.unit_amount,
+                  }))
+              );
 
-              importedIncomes++;
-              actualIncomesSum = actualIncomesSum.plus(new Decimal(created.amount));
-              existingIds.add(item.externalId);
+              if (equiv && equiv.id) {
+                await incomeRepository.updateIncome(equiv.id, {
+                  kind: equiv.kind || kind,
+                  quantity: equiv.quantity || item.quantity,
+                  unitAmount: equiv.unitAmount || item.unitPrice || undefined,
+                });
+                dupIncomes++;
+                existingIds.add(item.externalId);
+              } else {
+                const created = await incomeRepository.addIncome({
+                  portfolioId: portId,
+                  ticker: item.ticker,
+                  payDate: item.tradeDate,
+                  amount: item.operationValue || '0',
+                  notes: `lote:${batchId} · ${item.rawMovement}`,
+                  source: 'B3_IMPORT',
+                  externalId: item.externalId,
+                  kind,
+                  quantity: item.quantity,
+                  unitAmount: item.unitPrice || undefined,
+                });
+
+                importedIncomes++;
+                actualIncomesSum = actualIncomesSum.plus(new Decimal(created.amount));
+                existingIds.add(item.externalId);
+              }
             } catch (err) {
               failures.push({
                 item,
@@ -509,22 +593,55 @@ export class B3ImportService {
           else if (lower.includes('dividendo')) kind = 'DIVIDENDO';
           else if (lower.includes('juros') || lower.includes('jcp')) kind = 'JCP';
 
-          const created = await incomeRepository.addIncome({
-            portfolioId,
-            ticker: item.ticker,
-            payDate: item.tradeDate,
-            amount: item.operationValue || '0',
-            notes: `lote:${batchId} · ${item.rawMovement}`,
-            source: 'B3_IMPORT',
-            externalId: item.externalId,
-            kind,
-            quantity: item.quantity,
-            unitAmount: item.unitPrice || undefined,
-          });
+          const allExistingIncs = await incomeRepository.listAll();
+          const equiv = findEquivalentIncome(
+            {
+              ticker: item.ticker,
+              payDate: item.tradeDate,
+              amount: item.operationValue || '0',
+              kind,
+            },
+            allExistingIncs
+              .filter((e) => e.source !== 'B3_IMPORT')
+              .map((e) => ({
+                id: e.id,
+                portfolioId: e.portfolio_id,
+                ticker: e.ticker,
+                payDate: e.pay_date,
+                amount: e.amount,
+                kind: e.kind,
+                source: e.source,
+                quantity: e.quantity,
+                unitAmount: e.unit_amount,
+              }))
+          );
 
-          importedIncomes++;
-          actualIncomesSum = actualIncomesSum.plus(new Decimal(created.amount));
-          existingIds.add(item.externalId);
+          if (equiv && equiv.id) {
+            await incomeRepository.updateIncome(equiv.id, {
+              kind: equiv.kind || kind,
+              quantity: equiv.quantity || item.quantity,
+              unitAmount: equiv.unitAmount || item.unitPrice || undefined,
+            });
+            dupIncomes++;
+            existingIds.add(item.externalId);
+          } else {
+            const created = await incomeRepository.addIncome({
+              portfolioId,
+              ticker: item.ticker,
+              payDate: item.tradeDate,
+              amount: item.operationValue || '0',
+              notes: `lote:${batchId} · ${item.rawMovement}`,
+              source: 'B3_IMPORT',
+              externalId: item.externalId,
+              kind,
+              quantity: item.quantity,
+              unitAmount: item.unitPrice || undefined,
+            });
+
+            importedIncomes++;
+            actualIncomesSum = actualIncomesSum.plus(new Decimal(created.amount));
+            existingIds.add(item.externalId);
+          }
         } catch (err) {
           failures.push({
             item,

@@ -1,12 +1,18 @@
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../../db/client';
-import { assets, transactions } from '../../db/schema';
+import { assets, incomeEvents, transactions } from '../../db/schema';
 import { assetRepository } from '../../repositories/assetRepository';
+import { incomeRepository } from '../../repositories/incomeRepository';
 import { transactionRepository } from '../../repositories/transactionRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import {
+  findEquivalentIncome,
+  normalizeTickerForIncomeDedup,
+} from '../../domain/finance/incomeDedup';
+import {
   calculateInvestmentCostBasis,
   computeClassCoverageReport,
+  mapPluggyIncomeEvent,
   mapPluggyInvestment,
   mapPluggyInvestmentTransaction,
   matchInvestmentToAsset,
@@ -197,6 +203,9 @@ export const pluggyInvestmentsSyncService = {
       transactionsArchived: 0,
       transactionsCreated: 0,
       investmentErrors: 0,
+      incomesCreated: 0,
+      incomesMatched: 0,
+      incomesSkipped: 0,
     };
     const interestTransactions: MappedPluggyInvestmentTransaction[] = [];
 
@@ -211,6 +220,7 @@ export const pluggyInvestmentsSyncService = {
       const coverageByClass = computeClassCoverageReport(pluggyInvs);
 
       const txsByInvId: Record<string, MappedPluggyInvestmentTransaction[]> = {};
+      const rawInterestByInvId: Record<string, PluggyInvestmentTransaction[]> = {};
       await mapWithConcurrency(pluggyInvs, 3, async (inv) => {
         try {
           const rawTxs = await fetchInvestmentTxsFromClient(client, inv.id);
@@ -218,6 +228,7 @@ export const pluggyInvestmentsSyncService = {
             mapPluggyInvestmentTransaction(t, inv.id)
           );
           txsByInvId[inv.id] = mapped;
+          rawInterestByInvId[inv.id] = rawTxs.filter((t) => t.type === 'INTEREST');
           for (const mtx of mapped) {
             if (mtx.type === 'INCOME') {
               interestTransactions.push(mtx);
@@ -226,6 +237,7 @@ export const pluggyInvestmentsSyncService = {
         } catch {
           counts.investmentErrors = (counts.investmentErrors ?? 0) + 1;
           txsByInvId[inv.id] = [];
+          rawInterestByInvId[inv.id] = [];
         }
       });
 
@@ -240,6 +252,7 @@ export const pluggyInvestmentsSyncService = {
       await runInTransaction(async () => {
         const db = await getDatabase();
         const allAssets = await db.select().from(assets);
+        const workingIncomes = [...(await db.select().from(incomeEvents))];
         const syncedExternalIds = new Set<string>();
         const usedTickers = new Set<string>();
 
@@ -407,6 +420,83 @@ export const pluggyInvestmentsSyncService = {
               existingExtTxIds.add(mtx.externalId);
               counts.transactionsCreated++;
             }
+
+            // Persistir proventos INTEREST em income_events com deduplicação cruzada
+            const rawInterests = rawInterestByInvId[inv.id] ?? [];
+            for (const rawInt of rawInterests) {
+              const mappedInc = mapPluggyIncomeEvent(rawInt, inv);
+              if (workingIncomes.some((e) => e.external_id === mappedInc.externalId)) {
+                counts.incomesSkipped = (counts.incomesSkipped ?? 0) + 1;
+                continue;
+              }
+
+              const equiv = findEquivalentIncome(
+                {
+                  ticker: mappedInc.ticker,
+                  payDate: mappedInc.payDate,
+                  amount: mappedInc.amount,
+                  kind: mappedInc.kind,
+                },
+                workingIncomes.map((e) => ({
+                  id: e.id,
+                  portfolioId: e.portfolio_id,
+                  ticker: e.ticker,
+                  payDate: e.pay_date,
+                  amount: e.amount,
+                  kind: e.kind,
+                  source: e.source,
+                  externalId: e.external_id,
+                  notes: e.notes,
+                  quantity: e.quantity,
+                  unitAmount: e.unit_amount,
+                  createdAt: e.created_at,
+                }))
+              );
+
+              if (equiv && equiv.id) {
+                const existingRow = workingIncomes.find((e) => e.id === equiv.id)!;
+                const nextKind = existingRow.kind || mappedInc.kind;
+                const nextQty = existingRow.quantity || mappedInc.quantity;
+                const nextUnit = existingRow.unit_amount || mappedInc.unitAmount;
+                const confirmTag = 'Confirmado pelo Open Finance';
+                const nextNotes = existingRow.notes
+                  ? existingRow.notes.includes(confirmTag)
+                    ? existingRow.notes
+                    : `${existingRow.notes} · ${confirmTag}`
+                  : confirmTag;
+
+                await db
+                  .update(incomeEvents)
+                  .set({
+                    kind: nextKind,
+                    quantity: nextQty,
+                    unit_amount: nextUnit,
+                    notes: nextNotes,
+                  })
+                  .where(eq(incomeEvents.id, existingRow.id));
+
+                existingRow.kind = nextKind;
+                existingRow.quantity = nextQty;
+                existingRow.unit_amount = nextUnit;
+                existingRow.notes = nextNotes;
+                counts.incomesMatched = (counts.incomesMatched ?? 0) + 1;
+              } else {
+                const createdInc = await incomeRepository.addIncome({
+                  portfolioId: targetPortfolioId,
+                  ticker: mappedInc.ticker,
+                  payDate: mappedInc.payDate,
+                  amount: mappedInc.amount,
+                  notes: mappedInc.notes ?? undefined,
+                  source: 'OPEN_FINANCE',
+                  externalId: mappedInc.externalId,
+                  kind: mappedInc.kind,
+                  quantity: mappedInc.quantity ?? undefined,
+                  unitAmount: mappedInc.unitAmount ?? undefined,
+                });
+                workingIncomes.push(createdInc);
+                counts.incomesCreated = (counts.incomesCreated ?? 0) + 1;
+              }
+            }
           }
         }
 
@@ -470,6 +560,7 @@ export const pluggyInvestmentsSyncService = {
   ): Promise<DisconnectInvestmentsResult> {
     let revertedAssets = 0;
     let restoredTransactions = 0;
+    let removedIncomes = 0;
     const nowIso = new Date().toISOString();
 
     await runInTransaction(async () => {
@@ -478,6 +569,9 @@ export const pluggyInvestmentsSyncService = {
         .select()
         .from(assets)
         .where(and(eq(assets.institution_id, itemId), eq(assets.source, 'OPEN_FINANCE')));
+
+      const itemPortfolioIds = new Set(itemAssets.map((a) => a.portfolio_id));
+      const itemTickers = new Set(itemAssets.map((a) => normalizeTickerForIncomeDedup(a.ticker)));
 
       for (const a of itemAssets) {
         await db
@@ -505,9 +599,25 @@ export const pluggyInvestmentsSyncService = {
           }
         }
       }
+
+      if (itemAssets.length > 0) {
+        const ofIncomes = await db
+          .select()
+          .from(incomeEvents)
+          .where(eq(incomeEvents.source, 'OPEN_FINANCE'));
+        for (const inc of ofIncomes) {
+          if (
+            itemPortfolioIds.has(inc.portfolio_id) &&
+            itemTickers.has(normalizeTickerForIncomeDedup(inc.ticker))
+          ) {
+            await db.delete(incomeEvents).where(eq(incomeEvents.id, inc.id));
+            removedIncomes++;
+          }
+        }
+      }
     });
 
-    return { revertedAssets, restoredTransactions };
+    return { revertedAssets, restoredTransactions, removedIncomes };
   },
 
   async checkB3ImportConflicts(
