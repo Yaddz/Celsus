@@ -66,6 +66,9 @@ export class AssetRepository {
       taxes: params.taxes ?? null,
       taxes2: params.taxes2 ?? null,
       auto_name: params.auto_name ?? null,
+      of_reported_value: params.of_reported_value ?? null,
+      of_reported_at: params.of_reported_at ?? null,
+      value_source: params.value_source ?? null,
       created_at: now,
       updated_at: now,
     };

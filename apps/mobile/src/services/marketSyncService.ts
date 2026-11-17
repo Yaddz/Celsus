@@ -5,6 +5,7 @@ import { TransactionRepository, transactionRepository } from '../repositories/tr
 import { IMarketApiService, marketApiService, MarketQuote } from './marketApi';
 import { Asset } from '../db/schema';
 import { reconcileCorporateEvents, ReconciledEvent } from '../domain/finance/corporateEvents';
+import { resolveVariableIncomeValueSource } from '../domain/openFinance/investments';
 
 export interface PortfolioSyncSummary {
   portfolioId: string;
@@ -344,14 +345,31 @@ export class MarketSyncService {
       totalInvested = totalInvested.plus(invested);
 
       let assetMarket = new Decimal(0);
-      if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
+      if (a.value_source === 'INSTITUTION' && a.of_reported_value) {
+        assetMarket = new Decimal(a.of_reported_value);
+      } else if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
         assetMarket = new Decimal(a.manual_position_value);
       } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
         assetMarket = qty.mul(new Decimal(a.manual_price_override));
       } else {
         const cached = await this.marketApi.getCachedQuote(a.ticker);
         if (cached && cached.currentPrice) {
-          assetMarket = qty.mul(new Decimal(cached.currentPrice));
+          if (
+            a.of_reported_value &&
+            (a.asset_class === 'STOCK' || a.asset_class === 'FII') &&
+            resolveVariableIncomeValueSource({
+              ticker: a.ticker,
+              quantity: a.quantity,
+              balance: a.of_reported_value,
+              quote: cached.currentPrice,
+            }) === 'INSTITUTION'
+          ) {
+            assetMarket = new Decimal(a.of_reported_value);
+          } else {
+            assetMarket = qty.mul(new Decimal(cached.currentPrice));
+          }
+        } else if (a.of_reported_value) {
+          assetMarket = new Decimal(a.of_reported_value);
         } else {
           assetMarket = invested;
         }
@@ -405,7 +423,9 @@ export class MarketSyncService {
       investedCapitalDec = investedCapitalDec.plus(invested);
 
       let assetMarket = new Decimal(0);
-      if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
+      if (a.value_source === 'INSTITUTION' && a.of_reported_value) {
+        assetMarket = new Decimal(a.of_reported_value);
+      } else if (a.manual_position_value !== null && a.manual_position_value !== undefined && a.manual_position_value !== '') {
         assetMarket = new Decimal(a.manual_position_value);
       } else if (a.manual_price_override !== null && a.manual_price_override !== undefined && a.manual_price_override !== '') {
         assetMarket = qty.mul(new Decimal(a.manual_price_override));
@@ -413,7 +433,22 @@ export class MarketSyncService {
         const norm = a.ticker.trim().toUpperCase();
         const quote = quotesMap[norm];
         if (quote && quote.currentPrice) {
-          assetMarket = qty.mul(new Decimal(quote.currentPrice));
+          if (
+            a.of_reported_value &&
+            (a.asset_class === 'STOCK' || a.asset_class === 'FII') &&
+            resolveVariableIncomeValueSource({
+              ticker: a.ticker,
+              quantity: a.quantity,
+              balance: a.of_reported_value,
+              quote: quote.currentPrice,
+            }) === 'INSTITUTION'
+          ) {
+            assetMarket = new Decimal(a.of_reported_value);
+          } else {
+            assetMarket = qty.mul(new Decimal(quote.currentPrice));
+          }
+        } else if (a.of_reported_value) {
+          assetMarket = new Decimal(a.of_reported_value);
         } else {
           assetMarket = invested;
         }

@@ -7,19 +7,23 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2` | **180/180 suítes PASS** (**1211/1211 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **193 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **196 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 85 — Investimentos: valor de mercado, identidade e histórico (Fase A concluída)
+## Sprint 85 — Investimentos: valor de mercado, identidade e histórico (Fase B concluída)
 
-Especificação dos diagnósticos D1, D2, D6, D7 e D8 e regras R4 (`OPENING_BALANCE`), R5, R6 e R7.
+Implementação de `assets.of_reported_value`, `assets.of_reported_at`, `assets.value_source`, `transactions.is_synthetic` (schema, migrações e backup), transação sintética `OPENING_BALANCE` (`pluggy-opening:<investmentId>`, removida se o livro fechar — `R4`), `resolveVariableIncomeValueSource` com tolerância de 15% e `OPTION`/`DERIVATIVES` em `FUNDS` (`R5`), isolamento de identidade por `itemId`/`external_id` e sufixo de colisão apenas no nome (`R7`), histórico patrimonial usando `ofReportedValue`/`manualPositionValue` apenas a partir de `ofReportedAt` (`R6`), e reparo automático de ativos sequestrados (`counts_json.assetsRepaired`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/services/pluggy/__tests__/Sprint85MarketValueIdentity.test.ts` | S85-T01…T07, S85-T10 | `67a8a08214f527d2b06adcce2e4f73cd118d494b8da5df35160d8264611ee814` | 8 FAIL |
 | `apps/mobile/src/domain/finance/__tests__/Sprint85PortfolioHistory.test.ts` | S85-T08…T09 | `2aeba4e73e73d470c2466116cbfa833a0386280efc46465035a1ee8e01702431` | 2 FAIL |
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2`: **180/180 suítes PASS** (**1211/1211 testes PASS**)
+- `node scripts/test-lock.js verify`: **196 arquivos íntegros**
 
 ## Sprint 84 — Investimentos: números corretos (Fase B concluída)
 

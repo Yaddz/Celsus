@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS assets (
   missing_since TEXT,
   is_etf INTEGER NOT NULL DEFAULT 0,
   of_status TEXT,
+  of_reported_value TEXT,
+  of_reported_at TEXT,
+  value_source TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
@@ -80,6 +83,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   source TEXT NOT NULL DEFAULT 'MANUAL',
   external_id TEXT,
   archived_at TEXT,
+  is_synthetic INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE,
   FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
@@ -567,6 +571,10 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'assets', column: 'taxes2', ddl: 'ALTER TABLE assets ADD COLUMN taxes2 TEXT' },
   { table: 'assets', column: 'auto_name', ddl: 'ALTER TABLE assets ADD COLUMN auto_name TEXT' },
   { table: 'assets', column: 'rf_indexer_pct', ddl: 'ALTER TABLE assets ADD COLUMN rf_indexer_pct REAL' },
+  { table: 'assets', column: 'of_reported_value', ddl: 'ALTER TABLE assets ADD COLUMN of_reported_value TEXT' },
+  { table: 'assets', column: 'of_reported_at', ddl: 'ALTER TABLE assets ADD COLUMN of_reported_at TEXT' },
+  { table: 'assets', column: 'value_source', ddl: 'ALTER TABLE assets ADD COLUMN value_source TEXT' },
+  { table: 'transactions', column: 'is_synthetic', ddl: 'ALTER TABLE transactions ADD COLUMN is_synthetic INTEGER NOT NULL DEFAULT 0' },
   { table: 'fin_accounts', column: 'masked_number', ddl: 'ALTER TABLE fin_accounts ADD COLUMN masked_number TEXT' },
   { table: 'fin_accounts', column: 'owner', ddl: 'ALTER TABLE fin_accounts ADD COLUMN owner TEXT' },
   { table: 'fin_accounts', column: 'auto_name', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_name TEXT' },
@@ -911,7 +919,8 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'source', 'external_id', 'institution_id', 'last_synced_at',
               'isin', 'gross_amount', 'cost_basis_source', 'missing_since',
               'is_etf', 'of_status', 'issuer_cnpj', 'issue_date', 'purchase_date',
-              'taxes', 'taxes2', 'auto_name', 'created_at', 'updated_at',
+              'taxes', 'taxes2', 'auto_name', 'of_reported_value', 'of_reported_at', 'value_source',
+              'created_at', 'updated_at',
             ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(fin_accounts)')) {
@@ -926,7 +935,7 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
             return [
               'id', 'portfolio_id', 'asset_id', 'type', 'trade_date',
               'quantity', 'unit_price', 'fees', 'total_amount', 'notes',
-              'source', 'external_id', 'archived_at', 'created_at',
+              'source', 'external_id', 'archived_at', 'is_synthetic', 'created_at',
             ].map((name) => ({ name }));
           }
           return [];

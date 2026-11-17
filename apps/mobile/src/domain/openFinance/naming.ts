@@ -224,7 +224,8 @@ function resolveCollision(
 
 export function buildInvestmentDisplay(
   inv: PluggyInvestment,
-  existingTickers?: Set<string>
+  existingTickers?: Set<string>,
+  existingNames?: Set<string>
 ): InvestmentDisplay {
   const isVariableIncome =
     inv.type === 'EQUITY' ||
@@ -245,10 +246,22 @@ export function buildInvestmentDisplay(
       .split(/\s+/)
       .filter(Boolean);
     const rawTicker = codeTicker || (fallbackWords[0] ? fallbackWords[0].slice(0, 8) : 'ATIVO');
-    const ticker = resolveCollision(rawTicker, inv, existingTickers);
-    const displayName = inv.name?.trim()
+    // R7: ticker real nunca recebe sufixo de colisão; o sufixo vai apenas para o nome exibido
+    const ticker = rawTicker;
+    let displayName = inv.name?.trim()
       ? toNormalCapitalization(inv.name.trim(), true)
       : ticker;
+    if (existingTickers?.has(ticker) || existingNames?.has(displayName)) {
+      const numDigits = (inv.number || '').replace(/\D/g, '');
+      const tag = numDigits.length >= 2 ? numDigits.slice(-4) : inv.id.slice(-4);
+      let candidate = `${displayName} · ${tag}`;
+      let idx = 2;
+      while (existingNames?.has(candidate)) {
+        candidate = `${displayName} · ${tag}-${idx}`;
+        idx += 1;
+      }
+      displayName = candidate;
+    }
     return { ticker, name: displayName };
   }
 

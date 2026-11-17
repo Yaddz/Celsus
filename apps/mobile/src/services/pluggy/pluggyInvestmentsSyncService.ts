@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js';
 import { and, eq, isNull } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../../db/client';
 import { assets, incomeEvents, transactions } from '../../db/schema';
@@ -54,6 +55,7 @@ export interface SyncInvestmentsCounts {
   assetsUpdated: number;
   assetsClosed: number;
   assetsMarkedMissing: number;
+  assetsRepaired?: number;
   transactionsArchived: number;
   transactionsCreated: number;
   investmentErrors?: number;
@@ -172,10 +174,11 @@ export const pluggyInvestmentsSyncService = {
       rfRate: a.rf_rate,
       externalId: a.external_id,
       source: a.source,
+      institutionId: a.institution_id,
     }));
 
     return pluggyInvs.map((inv: PluggyInvestment) => {
-      const match = matchInvestmentToAsset(inv, candidates);
+      const match = matchInvestmentToAsset(inv, candidates, itemId);
       const matched = match.matchedAssetId
         ? candidates.find((c) => c.id === match.matchedAssetId)
         : null;
@@ -271,9 +274,11 @@ export const pluggyInvestmentsSyncService = {
       await runInTransaction(async () => {
         const db = await getDatabase();
         const allAssets = await db.select().from(assets);
+        const allTransactions = await db.select().from(transactions);
         const workingIncomes = [...(await db.select().from(incomeEvents))];
         const syncedExternalIds = new Set<string>();
         const usedTickers = new Set<string>();
+        const usedNames = new Set<string>();
         const matchCandidates: InvestmentMatchCandidate[] = allAssets.map((a) => ({
           id: a.id,
           portfolioId: a.portfolio_id,
@@ -286,28 +291,42 @@ export const pluggyInvestmentsSyncService = {
           rfRate: a.rf_rate,
           externalId: a.external_id,
           source: a.source,
+          institutionId: a.institution_id,
         }));
 
         for (const inv of pluggyInvs) {
           syncedExternalIds.add(inv.id);
-          const mapped = mapPluggyInvestment(inv, usedTickers);
+          const mapped = mapPluggyInvestment(inv, usedTickers, usedNames);
           usedTickers.add(mapped.ticker);
+          usedNames.add(mapped.name);
           const mappedTxs = txsByInvId[inv.id] || [];
           const cost = calculateInvestmentCostBasis(inv, mappedTxs);
 
           const existingByExt = allAssets.find((a) => a.external_id === inv.id);
           const choice = choicesByInvId.get(inv.id);
 
+          // Reparo de ativo sequestrado (D8): transações desta posição presas em outro ativo OPEN_FINANCE
+          const invTxExtSet = new Set(mappedTxs.map((t) => t.externalId));
+          const hijackedTxs = !existingByExt && invTxExtSet.size > 0
+            ? allTransactions.filter(
+                (t) =>
+                  t.source === 'OPEN_FINANCE' &&
+                  t.external_id &&
+                  invTxExtSet.has(t.external_id)
+              )
+            : [];
+          const isHijackedRepair = hijackedTxs.length > 0;
+
           let targetAssetId: string | null = existingByExt?.id ?? null;
           let targetPortfolioId: string | null =
             existingByExt?.portfolio_id ?? choice?.targetPortfolioId ?? defaultPortId;
 
-          if (!existingByExt && choice?.action === 'MATCH' && choice.targetAssetId) {
+          if (!existingByExt && !isHijackedRepair && choice?.action === 'MATCH' && choice.targetAssetId) {
             targetAssetId = choice.targetAssetId;
             const matchedAsset = allAssets.find((a) => a.id === choice.targetAssetId);
             if (matchedAsset) targetPortfolioId = matchedAsset.portfolio_id;
-          } else if (!existingByExt && !choice) {
-            const match = matchInvestmentToAsset(inv, matchCandidates);
+          } else if (!existingByExt && !isHijackedRepair && !choice) {
+            const match = matchInvestmentToAsset(inv, matchCandidates, itemId);
             if (match.matchedAssetId && match.confidence === 'HIGH') {
               targetAssetId = match.matchedAssetId;
               const matchedAsset = allAssets.find((a) => a.id === match.matchedAssetId);
@@ -385,6 +404,9 @@ export const pluggyInvestmentsSyncService = {
                 purchase_date: mapped.purchaseDate ?? null,
                 taxes: mapped.taxes ?? null,
                 taxes2: mapped.taxes2 ?? null,
+                of_reported_value: mapped.ofReportedValue,
+                of_reported_at: mapped.ofReportedAt,
+                value_source: mapped.valueSource,
                 updated_at: nowIso,
               })
               .where(eq(assets.id, targetAssetId));
@@ -426,8 +448,23 @@ export const pluggyInvestmentsSyncService = {
               purchase_date: mapped.purchaseDate ?? null,
               taxes: mapped.taxes ?? null,
               taxes2: mapped.taxes2 ?? null,
+              of_reported_value: mapped.ofReportedValue,
+              of_reported_at: mapped.ofReportedAt,
+              value_source: mapped.valueSource,
             });
             targetAssetId = created.id;
+            if (isHijackedRepair) {
+              for (const htx of hijackedTxs) {
+                await db
+                  .update(transactions)
+                  .set({
+                    asset_id: targetAssetId,
+                    portfolio_id: targetPortfolioId,
+                  })
+                  .where(eq(transactions.id, htx.id));
+              }
+              counts.assetsRepaired = (counts.assetsRepaired ?? 0) + 1;
+            }
             if (isWithdrawn) {
               counts.assetsClosed++;
             } else {
@@ -503,6 +540,48 @@ export const pluggyInvestmentsSyncService = {
                 created_at: nowIso,
               });
               counts.transactionsCreated++;
+            }
+
+            // R4: Transação sintética OPENING_BALANCE (pluggy-opening:<investmentId>)
+            const openingExtId = `pluggy-opening:${inv.id}`;
+            const existingOpening = existingExtTxByExtId.get(openingExtId);
+            if (cost.openingAdjustment) {
+              const adj = cost.openingAdjustment;
+              const adjQtyDec = new Decimal(adj.quantity);
+              const adjTotalDec = new Decimal(adj.totalCost);
+              const adjUnitPrice = adjQtyDec.gt(0)
+                ? adjTotalDec.div(adjQtyDec).toFixed(8)
+                : adjTotalDec.toFixed(8);
+              if (existingOpening) {
+                await db
+                  .update(transactions)
+                  .set({
+                    trade_date: adj.tradeDate,
+                    quantity: adj.quantity,
+                    unit_price: adjUnitPrice,
+                    fees: '0.00',
+                    total_amount: adj.totalCost,
+                    is_synthetic: 1,
+                  })
+                  .where(eq(transactions.id, existingOpening.id));
+              } else {
+                await transactionRepository.createTransaction({
+                  portfolio_id: targetPortfolioId,
+                  asset_id: targetAssetId,
+                  type: 'BUY',
+                  trade_date: adj.tradeDate,
+                  quantity: adj.quantity,
+                  unit_price: adjUnitPrice,
+                  fees: '0.00',
+                  total_amount: adj.totalCost,
+                  notes: 'Saldo inicial Open Finance',
+                  source: 'OPEN_FINANCE',
+                  external_id: openingExtId,
+                  is_synthetic: 1,
+                });
+              }
+            } else if (existingOpening) {
+              await db.delete(transactions).where(eq(transactions.id, existingOpening.id));
             }
 
             // Persistir proventos INTEREST em income_events com deduplicação cruzada

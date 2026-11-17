@@ -75,6 +75,9 @@ export const assets = sqliteTable('assets', {
   taxes: text('taxes'),
   taxes2: text('taxes2'),
   auto_name: text('auto_name'),
+  of_reported_value: text('of_reported_value'),
+  of_reported_at: text('of_reported_at'),
+  value_source: text('value_source'), // QUOTE | INSTITUTION | MANUAL
 
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
@@ -104,6 +107,7 @@ export const transactions = sqliteTable('transactions', {
   source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE | YAHOO
   external_id: text('external_id'),
   archived_at: text('archived_at'),
+  is_synthetic: integer('is_synthetic').notNull().default(0),
 
   created_at: text('created_at').notNull(),
 });

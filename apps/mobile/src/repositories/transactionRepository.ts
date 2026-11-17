@@ -53,6 +53,7 @@ export class TransactionRepository {
       source: params.source ?? 'MANUAL',
       external_id: params.external_id ?? null,
       archived_at: params.archived_at ?? null,
+      is_synthetic: params.is_synthetic ?? 0,
       created_at: now,
     };
 

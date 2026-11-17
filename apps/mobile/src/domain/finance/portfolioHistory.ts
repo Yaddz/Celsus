@@ -37,6 +37,10 @@ export interface HistoricalAssetInput {
   rfMaturityDate?: string | null;
   manualPriceOverride?: string | number | null;
   manualPositionValue?: string | number | null;
+  ofReportedValue?: string | number | null;
+  ofReportedAt?: string | null;
+  valueSource?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface HistoricalTransactionInput {
@@ -209,14 +213,26 @@ export function calculateDailyPatrimonyCurve(
       totalInvested = totalInvested.plus(activeCost);
       const earliestDate = st.txs[0].tradeDate;
 
-      // Determine Market Value for this asset
+      // Determine Market Value for this asset (R6: of_reported_value / manualPositionValue só a partir de of_reported_at / updatedAt)
+      const reportedDate = (asset.ofReportedAt || asset.updatedAt || '').slice(0, 10);
+      const canUseReportedOrManual = !reportedDate || date >= reportedDate;
+      const reportedVal =
+        asset.valueSource === 'INSTITUTION' &&
+        asset.ofReportedValue !== null &&
+        asset.ofReportedValue !== undefined &&
+        asset.ofReportedValue !== ''
+          ? asset.ofReportedValue
+          : asset.manualPositionValue;
+
       if (
-        asset.manualPositionValue !== null &&
-        asset.manualPositionValue !== undefined &&
-        asset.manualPositionValue !== ''
+        canUseReportedOrManual &&
+        reportedVal !== null &&
+        reportedVal !== undefined &&
+        reportedVal !== ''
       ) {
-        totalMarketValue = totalMarketValue.plus(new Decimal(asset.manualPositionValue));
+        totalMarketValue = totalMarketValue.plus(new Decimal(reportedVal));
       } else if (
+        canUseReportedOrManual &&
         asset.manualPriceOverride !== null &&
         asset.manualPriceOverride !== undefined &&
         asset.manualPriceOverride !== ''

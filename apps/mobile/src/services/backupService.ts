@@ -518,6 +518,9 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'taxes',
   'taxes2',
   'auto_name',
+  'of_reported_value',
+  'of_reported_at',
+  'value_source',
   'created_at',
   'updated_at',
 ];
@@ -536,6 +539,7 @@ const TRANSACTIONS_COLUMNS: (keyof Transaction)[] = [
   'source',
   'external_id',
   'archived_at',
+  'is_synthetic',
   'created_at',
 ];
 
@@ -1059,6 +1063,9 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     taxes: !r.taxes || r.taxes === '' ? null : r.taxes,
     taxes2: !r.taxes2 || r.taxes2 === '' ? null : r.taxes2,
     auto_name: !r.auto_name || r.auto_name === '' ? null : r.auto_name,
+    of_reported_value: !r.of_reported_value || r.of_reported_value === '' ? null : r.of_reported_value,
+    of_reported_at: !r.of_reported_at || r.of_reported_at === '' ? null : r.of_reported_at,
+    value_source: !r.value_source || r.value_source === '' ? null : r.value_source,
     created_at: r.created_at,
     updated_at: r.updated_at,
   }));
@@ -1079,6 +1086,7 @@ function parseTransactionsFromCsv(csv: string): Transaction[] {
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id,
     archived_at: !r.archived_at || r.archived_at === '' ? null : r.archived_at,
+    is_synthetic: Number(r.is_synthetic || 0),
     created_at: r.created_at,
   }));
 }

@@ -442,6 +442,8 @@ function AppContent(props: {
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
               manualPriceOverride: a.manual_price_override,
               manualPositionValue: a.manual_position_value,
+              ofReportedValue: a.of_reported_value,
+              valueSource: a.value_source,
             };
           }),
           classTargets: pTargets.map((ct) => ({
@@ -705,6 +707,8 @@ function AppContent(props: {
               currentPrice: a.manual_price_override || quotePrice || a.average_price,
               manualPriceOverride: a.manual_price_override,
               manualPositionValue: a.manual_position_value,
+              ofReportedValue: a.of_reported_value,
+              valueSource: a.value_source,
             };
           });
           apply.push(() => setCachedQuotes(quoteCacheMap));

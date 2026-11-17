@@ -11,6 +11,8 @@ export interface PortfolioAssetInput {
   currentPrice?: string | number | null;
   manualPriceOverride?: string | number | null;
   manualPositionValue?: string | number | null;
+  ofReportedValue?: string | number | null;
+  valueSource?: string | null;
 }
 
 export interface PortfolioClassTargetInput {
@@ -180,6 +182,14 @@ export function consolidatePortfolios(
       let price = avgPrice;
       let mv: Decimal;
       if (
+        asset.valueSource === 'INSTITUTION' &&
+        asset.ofReportedValue !== null &&
+        asset.ofReportedValue !== undefined &&
+        asset.ofReportedValue !== ''
+      ) {
+        mv = new Decimal(asset.ofReportedValue);
+        price = qty.gt(0) ? mv.div(qty) : new Decimal(0);
+      } else if (
         asset.manualPositionValue !== null &&
         asset.manualPositionValue !== undefined &&
         asset.manualPositionValue !== ''

@@ -44,6 +44,9 @@ export interface MappedPluggyInvestment {
   rfMaturityDate: string | null;
   rfIssuer: string | null;
   rfIsTaxExempt: boolean;
+  ofReportedValue: string;
+  ofReportedAt: string;
+  valueSource: ValueSource;
   status: 'ACTIVE' | 'PENDING' | 'TOTAL_WITHDRAWAL';
   source: 'OPEN_FINANCE';
   warnings: string[];
@@ -63,11 +66,18 @@ export interface MappedPluggyInvestmentTransaction {
   warnings: string[];
 }
 
+export interface OpeningAdjustment {
+  quantity: string;
+  totalCost: string;
+  tradeDate: string;
+}
+
 export interface InvestmentCostBasisResult {
   averagePrice: string | null;
   totalInvested: string | null;
   costBasisSource: CostBasisSource;
   coveredByHistory: boolean;
+  openingAdjustment: OpeningAdjustment | null;
 }
 
 export interface InvestmentMatchCandidate {
@@ -82,6 +92,7 @@ export interface InvestmentMatchCandidate {
   rfRate?: number | null;
   externalId?: string | null;
   source?: string | null;
+  institutionId?: string | null;
 }
 
 export type InvestmentMatchStrategy =
@@ -106,13 +117,44 @@ export interface ClassCoverageStatus {
 
 export type ValueSource = 'QUOTE' | 'INSTITUTION' | 'MANUAL';
 
-export function resolveVariableIncomeValueSource(_params: {
+const VALID_B3_TICKER_RE = /^[A-Z]{4}\d{1,2}$/;
+
+export function resolveVariableIncomeValueSource(params: {
   ticker: string | null | undefined;
   quantity: string | number | null | undefined;
   balance: string | number | null | undefined;
   quote: string | number | null | undefined;
 }): ValueSource {
-  return 'QUOTE';
+  const cleanTicker = (params.ticker || '').trim().toUpperCase();
+  if (!cleanTicker || !VALID_B3_TICKER_RE.test(cleanTicker)) {
+    return 'INSTITUTION';
+  }
+  if (
+    params.quote === null ||
+    params.quote === undefined ||
+    params.quote === '' ||
+    params.balance === null ||
+    params.balance === undefined ||
+    params.balance === '' ||
+    params.quantity === null ||
+    params.quantity === undefined ||
+    params.quantity === ''
+  ) {
+    return 'INSTITUTION';
+  }
+  try {
+    const qty = new Decimal(params.quantity);
+    const bal = new Decimal(params.balance);
+    const quote = new Decimal(params.quote);
+    if (qty.lte(0) || bal.lte(0) || quote.lte(0)) {
+      return 'INSTITUTION';
+    }
+    const quoteTotal = quote.mul(qty);
+    const diffRatio = quoteTotal.minus(bal).abs().div(bal);
+    return diffRatio.lte(new Decimal('0.15')) ? 'QUOTE' : 'INSTITUTION';
+  } catch {
+    return 'INSTITUTION';
+  }
 }
 
 export function normalizeInvestmentTicker(ticker: string | null | undefined): string {
@@ -201,6 +243,9 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
   const type = inv.type;
   const subtype = inv.subtype || 'OTHER';
 
+  if (subtype === 'OPTION' || subtype === 'DERIVATIVES') {
+    return { assetClass: 'FUNDS', isEtf: false };
+  }
   if (type === 'ETF' || subtype === 'ETF' || subtype === 'ETF_FUND') {
     return { assetClass: 'STOCK', isEtf: true };
   }
@@ -221,13 +266,14 @@ export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: As
 
 export function mapPluggyInvestment(
   inv: PluggyInvestment,
-  existingTickers?: Set<string>
+  existingTickers?: Set<string>,
+  existingNames?: Set<string>
 ): MappedPluggyInvestment {
   const { assetClass, isEtf } = resolvePluggyAssetClass(inv);
   const status = inv.status || 'ACTIVE';
   const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
 
-  const display = buildInvestmentDisplay(inv, existingTickers);
+  const display = buildInvestmentDisplay(inv, existingTickers, existingNames);
 
   let qtyNum = 0;
   if (status !== 'TOTAL_WITHDRAWAL') {
@@ -239,7 +285,17 @@ export function mapPluggyInvestment(
   }
 
   const balanceDec = new Decimal(status === 'TOTAL_WITHDRAWAL' ? 0 : inv.balance ?? 0);
-  const marketValue = isVariableIncome ? null : balanceDec.toFixed(2);
+  const ofReportedValue = balanceDec.toFixed(2);
+  const ofReportedAt =
+    normalizeIsoDate(inv.date) ||
+    normalizeIsoDate(inv.updatedAt) ||
+    new Date().toISOString().slice(0, 10);
+
+  const hasValidVariableTicker =
+    Boolean(inv.code?.trim() || inv.isin?.trim()) && VALID_B3_TICKER_RE.test(display.ticker);
+  const valueSource: ValueSource =
+    isVariableIncome && hasValidVariableTicker ? 'QUOTE' : 'INSTITUTION';
+  const marketValue = valueSource === 'QUOTE' ? null : ofReportedValue;
   const grossDec =
     inv.amount !== null && inv.amount !== undefined ? new Decimal(inv.amount).toFixed(2) : null;
   const origDec =
@@ -279,6 +335,9 @@ export function mapPluggyInvestment(
     rfMaturityDate: normalizeIsoDate(inv.dueDate),
     rfIssuer: inv.issuer ? inv.issuer.trim() : null,
     rfIsTaxExempt: Boolean(inv.taxExempt),
+    ofReportedValue,
+    ofReportedAt,
+    valueSource,
     status,
     source: 'OPEN_FINANCE',
     warnings: rfRates.warnings,
@@ -419,11 +478,24 @@ export function mapPluggyInvestmentTransaction(
   };
 }
 
+function subtractOneDay(isoDate: string): string {
+  const d = new Date(`${isoDate.slice(0, 10)}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
 export function calculateInvestmentCostBasis(
   inv: PluggyInvestment,
   txs: MappedPluggyInvestmentTransaction[]
 ): InvestmentCostBasisResult {
-  const targetQty = new Decimal(inv.quantity ?? 0);
+  const { assetClass } = resolvePluggyAssetClass(inv);
+  const isVariableIncome = assetClass === 'STOCK' || assetClass === 'FII';
+  const targetQty =
+    inv.quantity !== null && inv.quantity !== undefined
+      ? new Decimal(inv.quantity)
+      : !isVariableIncome && (inv.balance ?? 0) > 0
+      ? new Decimal(1)
+      : new Decimal(0);
   const sorted = [...txs].sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
 
   let qty = new Decimal(0);
@@ -475,6 +547,7 @@ export function calculateInvestmentCostBasis(
       totalInvested: totalCost.toFixed(2),
       costBasisSource: 'TRANSACTIONS',
       coveredByHistory: true,
+      openingAdjustment: null,
     };
   }
 
@@ -483,11 +556,30 @@ export function calculateInvestmentCostBasis(
     const orig = new Decimal(inv.amountOriginal);
     const denom = targetQty.gt(0) ? targetQty : new Decimal(1);
     const avg = orig.div(denom);
+
+    let openingAdjustment: OpeningAdjustment | null = null;
+    const remainingQty = targetQty.minus(qty);
+    const remainingCost = orig.minus(totalCost);
+    if (remainingQty.gt(0) && remainingCost.gte(0)) {
+      const tradeDate =
+        normalizeIsoDate(inv.purchaseDate) ??
+        normalizeIsoDate(inv.issueDate) ??
+        (sorted.length > 0 ? subtractOneDay(sorted[0].tradeDate) : null) ??
+        normalizeIsoDate(inv.date) ??
+        new Date().toISOString().slice(0, 10);
+      openingAdjustment = {
+        quantity: remainingQty.toString(),
+        totalCost: remainingCost.toFixed(2),
+        tradeDate,
+      };
+    }
+
     return {
       averagePrice: avg.toFixed(8),
       totalInvested: orig.toFixed(2),
       costBasisSource: 'INSTITUTION',
       coveredByHistory: false,
+      openingAdjustment,
     };
   }
 
@@ -496,12 +588,14 @@ export function calculateInvestmentCostBasis(
     totalInvested: null,
     costBasisSource: 'UNKNOWN',
     coveredByHistory: false,
+    openingAdjustment: null,
   };
 }
 
 export function matchInvestmentToAsset(
   inv: PluggyInvestment,
-  existingAssets: InvestmentMatchCandidate[]
+  existingAssets: InvestmentMatchCandidate[],
+  itemId?: string
 ): InvestmentMatchResult {
   // 0. External ID direto
   const byExt = existingAssets.find((a) => a.externalId && a.externalId === inv.id);
@@ -509,10 +603,18 @@ export function matchInvestmentToAsset(
     return { matchedAssetId: byExt.id, strategy: 'EXTERNAL_ID', confidence: 'HIGH' };
   }
 
+  // R7: ignorar candidatos OPEN_FINANCE de outro item ou com external_id diferente
+  const eligible = existingAssets.filter((a) => {
+    if (a.source !== 'OPEN_FINANCE') return true;
+    if (itemId && a.institutionId && a.institutionId !== itemId) return false;
+    if (a.externalId && a.externalId !== inv.id) return false;
+    return true;
+  });
+
   // 1. ISIN
   const invIsin = (inv.isin || '').trim().toUpperCase();
   if (invIsin) {
-    const byIsin = existingAssets.find(
+    const byIsin = eligible.find(
       (a) => a.isin && a.isin.trim().toUpperCase() === invIsin
     );
     if (byIsin) {
@@ -523,7 +625,7 @@ export function matchInvestmentToAsset(
   // 2. Ticker normalizado
   const invTicker = normalizeInvestmentTicker(inv.code);
   if (invTicker) {
-    const byTicker = existingAssets.find(
+    const byTicker = eligible.find(
       (a) => normalizeInvestmentTicker(a.ticker) === invTicker
     );
     if (byTicker) {
@@ -539,7 +641,7 @@ export function matchInvestmentToAsset(
     const { rfRate: invRate } = resolvePluggyFixedIncomeRates(inv);
 
     if (invIssuer && invDue && invRate !== null) {
-      const byRf = existingAssets.find((a) => {
+      const byRf = eligible.find((a) => {
         if (a.assetClass !== 'FIXED_INCOME') return false;
         const aIssuer = (a.rfIssuer || '').trim().toLowerCase();
         const aDue = normalizeIsoDate(a.rfMaturityDate);
