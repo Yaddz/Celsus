@@ -55,4 +55,5 @@ export interface ReceiptDraft {
   cnpj?: string | null;
   paymentMethod?: ReceiptPaymentMethod | null;
   duplicateEntryId?: string | null;
+  rawLines?: string[];
 }

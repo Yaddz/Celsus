@@ -78,4 +78,8 @@ export const receiptService = {
       duplicateEntryId: existing?.id ?? null,
     };
   },
+
+  async processAccessCode(code: string): Promise<ReceiptDraft> {
+    return this.processNfceQr(code);
+  },
 };

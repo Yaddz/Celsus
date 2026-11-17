@@ -17,7 +17,7 @@ import { space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { getFinUiColors } from './finTheme';
 
-export type ReceiptScannerMode = 'ocr' | 'qr';
+export type ReceiptScannerMode = 'ocr' | 'qr' | 'key';
 
 export interface ReceiptScannerSheetProps {
   visible: boolean;

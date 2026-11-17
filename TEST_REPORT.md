@@ -10,7 +10,20 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **170 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **174 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 75 — Leitor de cupom: valor total e chave de 44 dígitos (Fase A travada)
+
+Parser de chave de acesso de 44 dígitos (`parseAccessKey`, modelos 65/55/59), extração de total por pontuação (colunas, troco, confirmação), código de barras `code128`, entrada manual de chave, consulta opcional à SEFAZ (`nfceLookupService`), captura de total por OCR após QR/chave e diagnóstico de texto lido.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/receipt/__tests__/Sprint75AccessKey.test.ts` | S75-T01…T02 | `d1f618ae1f42ce0f58b119409c529ffd29b3ebf883189d6755f2b2a363dffc6d` | 2 FAIL |
+| `apps/mobile/src/domain/receipt/__tests__/Sprint75TotalExtraction.test.ts` | S75-T03…T05 | `84cbb9795e41ae9c04722f01e5e58ed8b519d5cff4f065cab37c89d89dea3fa9` | 2 FAIL / 1 PASS |
+| `apps/mobile/src/services/__tests__/Sprint75ReceiptFlows.test.ts` | S75-T06…T08 | `bcfc2936508faf61febfe5260a5c70450b159dfcf9dcd7bd4108b47c2f69626c` | 3 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint75ReceiptScannerModes.test.tsx` | S75-T09…T11 | `823cdd3447f44ba17d5ec57e0fbe18c205d6b6e9182bb7365a8373333b962cd1` | 3 FAIL |
+
+Execução da Fase A: `npx jest --no-coverage Sprint75AccessKey Sprint75TotalExtraction Sprint75ReceiptFlows Sprint75ReceiptScannerModes` → 10 falhando, 1 passando (11 testes, 4 suítes). 174 arquivos travados em `tests.lock.json`.
 
 ## Sprint 74 — Cartão de crédito: compra sem vencimento próprio e extrato por fatura (Fase B concluída)
 
