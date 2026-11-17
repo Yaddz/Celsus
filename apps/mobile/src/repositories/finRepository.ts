@@ -103,6 +103,7 @@ export class FinRepository {
     ofBalanceDueDate?: string | null;
     ofOverdraftUsedCents?: number | null;
     ofReservedCents?: number | null;
+    calendarSource?: string | null;
   }): Promise<FinAccount> {
     const db = getDatabase();
     const isCard = params.type === 'card';
@@ -132,6 +133,7 @@ export class FinRepository {
       of_balance_due_date: isCard ? (params.ofBalanceDueDate ?? null) : null,
       of_overdraft_used_cents: !isCard ? (params.ofOverdraftUsedCents ?? null) : null,
       of_reserved_cents: !isCard ? (params.ofReservedCents ?? null) : null,
+      calendar_source: isCard ? (params.calendarSource ?? null) : null,
       created_at: new Date().toISOString(),
     };
     await db.insert(finAccounts).values(record);
@@ -165,6 +167,7 @@ export class FinRepository {
       of_balance_due_date: string | null;
       of_overdraft_used_cents: number | null;
       of_reserved_cents: number | null;
+      calendar_source: string | null;
     }>
   ): Promise<FinAccount> {
     const db = getDatabase();
@@ -252,6 +255,11 @@ export class FinRepository {
   async listBillsByAccount(accountId: string) {
     const db = getDatabase();
     return db.select().from(finBills).where(eq(finBills.account_id, accountId));
+  }
+
+  async listAllBills() {
+    const db = getDatabase();
+    return db.select().from(finBills);
   }
 
   async archiveAccount(id: string): Promise<FinAccount> {

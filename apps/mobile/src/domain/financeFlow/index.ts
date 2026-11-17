@@ -1,9 +1,11 @@
-import type { FinAccount, FinEntry, FinRecurrence } from '../../db/schema';
+import type { FinAccount, FinBill, FinEntry, FinRecurrence } from '../../db/schema';
+import { summarizeOpenFinanceBill } from '../openFinance/cardBills';
 import { isStaleOpenFinancePending } from '../openFinance/stalePending';
 import {
   billDueDate,
   resolveBillMonth,
   summarizeBill,
+  type BillStatus,
   type CardBillDueItem,
 } from './cards';
 
@@ -706,7 +708,8 @@ export function detectOverdueAndDueSoonWithBills(
   entries: FinEntry[],
   accounts: FinAccount[],
   todayIso: string,
-  horizonDays = 7
+  horizonDays = 7,
+  options?: { bills?: FinBill[] }
 ): OverdueAndDueSoonWithBillsResult {
   const cardAccounts = accounts.filter((a) => a.type === 'card' && a.archived === 0);
   const cardAccountIds = new Set(cardAccounts.map((a) => a.id));
@@ -728,7 +731,11 @@ export function detectOverdueAndDueSoonWithBills(
 
   for (const card of cardAccounts) {
     const cardEntries = entries.filter((e) => e.account_id === card.id && !e.of_removed_at);
-    const months = new Set<string>();
+    const cardBills = (options?.bills ?? [])
+      .filter((b) => b.account_id === card.id)
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const billByMonth = new Map(cardBills.map((b, idx) => [b.bill_month, { bill: b, idx }]));
+    const months = new Set<string>(cardBills.map((b) => b.bill_month));
     for (const e of cardEntries) {
       const bm = e.bill_month ?? resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day);
       months.add(bm);
@@ -738,32 +745,60 @@ export function detectOverdueAndDueSoonWithBills(
     );
 
     for (const billMonth of months) {
-      const dueDate = billDueDate(billMonth, card.due_day ?? 10);
-      const summary = summarizeBill(normalizedEntries, billMonth, {
-        dueDate,
-        todayIso,
-        closingDay: card.closing_day ?? undefined,
-      });
-      if (summary.openCents <= 0) continue;
+      const ofBillInfo = billByMonth.get(billMonth);
+      let dueDate: string;
+      let openCents: number;
+      let status: BillStatus;
+      if (card.source === 'OPEN_FINANCE' && ofBillInfo) {
+        dueDate = ofBillInfo.bill.due_date;
+        const nextBill =
+          ofBillInfo.idx + 1 < cardBills.length ? cardBills[ofBillInfo.idx + 1] : null;
+        const ofSummary = summarizeOpenFinanceBill(
+          ofBillInfo.bill,
+          nextBill,
+          normalizedEntries,
+          todayIso,
+          { firstSyncIso: card.of_linked_at }
+        );
+        if (
+          ofSummary.status === 'paga' ||
+          ofSummary.status === 'sem saldo' ||
+          ofSummary.status === 'sem dados de pagamento'
+        ) {
+          continue;
+        }
+        openCents = Math.max(0, ofSummary.totalCents - ofSummary.paidCents);
+        status = ofSummary.status;
+      } else {
+        dueDate = billDueDate(billMonth, card.due_day ?? 10);
+        const summary = summarizeBill(normalizedEntries, billMonth, {
+          dueDate,
+          todayIso,
+          closingDay: card.closing_day ?? undefined,
+        });
+        openCents = summary.openCents;
+        status = summary.status;
+      }
+      if (openCents <= 0) continue;
 
       if (dueDate < todayIso) {
         overdueBills.push({
           account: card,
           billMonth,
           dueDate,
-          openCents: summary.openCents,
-          status: summary.status,
+          openCents,
+          status,
         });
-        overdueBillsTotalCents += summary.openCents;
+        overdueBillsTotalCents += openCents;
       } else if (dueDate <= horizonLimit) {
         dueSoonBills.push({
           account: card,
           billMonth,
           dueDate,
-          openCents: summary.openCents,
-          status: summary.status,
+          openCents,
+          status,
         });
-        dueSoonBillsTotalCents += summary.openCents;
+        dueSoonBillsTotalCents += openCents;
       }
     }
   }

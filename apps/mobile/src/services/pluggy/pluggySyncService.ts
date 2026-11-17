@@ -16,6 +16,11 @@ import {
 } from '../../domain/openFinance';
 import { transactionBaseFingerprint } from '../../domain/openFinance/identity';
 import {
+  assignBillMonth,
+  deriveCardCalendar,
+  inferForecastOffset,
+} from '../../domain/openFinance/cardBills';
+import {
   detectBankIncomeCandidate,
   type BankIncomeCandidate,
   type KnownIncomeAsset,
@@ -65,6 +70,8 @@ export const OF_HISTORY_BACKFILL_META_PREFIX = 'fin:of:backfill:s92:';
 export const OF_FULL_HISTORY_S98_META_PREFIX = 'fin:of:fullhistory:s98:';
 export const OF_DEDUPE_S98_META_KEY = 'fin:of:dedupe:s98';
 export const OF_DEDUPE_S98_LOG_KEY = 'fin:of:dedupe:s98:log';
+export const OF_BILLMONTH_S99_META_KEY = 'fin:of:billmonth:s99';
+export const OF_BILLMONTH_S99_LOG_KEY = 'fin:of:billmonth:s99:log';
 
 export interface PluggySyncResult {
   runId: string;
@@ -237,6 +244,10 @@ export const pluggySyncService = {
               localAcc.name !== localAcc.auto_name;
             const updatedClosingDay =
               localAcc.closing_day ?? choice?.closingDay ?? mapped.closingDay ?? null;
+            const nextCalendarSource =
+              choice?.closingDay != null
+                ? 'USER'
+                : localAcc.calendar_source ?? (localAcc.closing_day != null ? 'USER' : null);
             localAcc = await finRepository.updateAccount(localAcc.id, {
               name: shouldPreserveName ? localAcc.name : mapped.name,
               auto_name: mapped.name,
@@ -261,6 +272,7 @@ export const pluggySyncService = {
                     of_balance_due_date: mapped.ofBalanceDueDate,
                     due_day: mapped.dueDay ?? localAcc.due_day,
                     closing_day: updatedClosingDay,
+                    ...(nextCalendarSource ? { calendar_source: nextCalendarSource } : {}),
                   }
                 : {}),
             });
@@ -269,6 +281,8 @@ export const pluggySyncService = {
             }
           } else {
             const createdClosingDay = choice?.closingDay ?? mapped.closingDay;
+            const createdCalendarSource =
+              choice?.closingDay != null ? 'USER' : mapped.closingDay != null ? 'DEFAULT' : null;
             localAcc = await finRepository.createAccount({
               name: mapped.name,
               type: mapped.type,
@@ -293,6 +307,7 @@ export const pluggySyncService = {
               ofBalanceDueDate: mapped.ofBalanceDueDate,
               ofOverdraftUsedCents: mapped.ofOverdraftUsedCents,
               ofReservedCents: mapped.ofReservedCents,
+              calendarSource: createdCalendarSource,
             });
             if (mapped.type === 'checking') {
               newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
@@ -317,6 +332,15 @@ export const pluggySyncService = {
                 financeCharges: b.financeCharges ?? null,
               });
             }
+            // R26: calendário do cartão vindo das faturas (não sobrescreve 'USER')
+            const derivedCal = deriveCardCalendar(bills);
+            if (derivedCal && localAcc.calendar_source !== 'USER') {
+              localAcc = await finRepository.updateAccount(localAcc.id, {
+                closing_day: derivedCal.closingDay,
+                due_day: derivedCal.dueDay,
+                calendar_source: 'PLUGGY_BILLS',
+              });
+            }
           }
 
           localAccountByPgId.set(pgAcc.id, localAcc);
@@ -338,6 +362,13 @@ export const pluggySyncService = {
           if (!localAcc) continue;
           const txs = txsByAccount.get(pgAcc.id) ?? [];
           const bills = billsByAccount.get(pgAcc.id) ?? [];
+          const forecastOffset =
+            localAcc.type === 'card'
+              ? inferForecastOffset(
+                  txs.map((t) => t.tx),
+                  bills
+                )
+              : 0;
           for (const { tx, externalId } of txs) {
             fetchedExternalIds.add(externalId);
             rawTxByExternalId.set(externalId, tx);
@@ -347,6 +378,7 @@ export const pluggySyncService = {
               closingDay: localAcc.closing_day,
               dueDay: localAcc.due_day,
               bills,
+              forecastOffset,
               rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
               externalIdOverride: externalId,
             };
@@ -485,6 +517,21 @@ export const pluggySyncService = {
               : row.classReason ?? null;
             const nextOfCategoryId = row.ofCategoryId ?? existing.of_category_id ?? null;
 
+            const editedSet = (() => {
+              try {
+                const arr = JSON.parse(existing.user_edited_fields || '[]');
+                return new Set(Array.isArray(arr) ? arr : []);
+              } catch {
+                return new Set<string>();
+              }
+            })();
+            const nextBillMonth = editedSet.has('bill_month')
+              ? existing.bill_month
+              : row.billMonth;
+            const nextBillMonthSource = editedSet.has('bill_month')
+              ? existing.of_bill_month_source ?? null
+              : row.ofBillMonthSource ?? existing.of_bill_month_source ?? null;
+
             const hasChanges =
               externalIdChanged ||
               isRestored ||
@@ -497,6 +544,8 @@ export const pluggySyncService = {
               existing.description !== preserved.description ||
               existing.kind !== nextKind ||
               existing.transfer_group_id !== nextTransferGroupId ||
+              existing.bill_month !== nextBillMonth ||
+              (existing.of_bill_month_source ?? null) !== nextBillMonthSource ||
               (existing.of_class_reason ?? null) !== nextClassReason ||
               (existing.of_category_id ?? null) !== nextOfCategoryId ||
               (existing.of_provider_id ?? null) !== row.ofProviderId ||
@@ -522,7 +571,8 @@ export const pluggySyncService = {
                 category_id: preserved.category_id,
                 description: preserved.description,
                 description_raw: row.descriptionRaw,
-                bill_month: row.billMonth,
+                bill_month: nextBillMonth,
+                of_bill_month_source: nextBillMonthSource,
                 installment_number: row.installmentNumber,
                 installment_total: row.installmentTotal,
                 transfer_group_id: nextTransferGroupId,
@@ -837,6 +887,84 @@ export const pluggySyncService = {
               initial_balance_cents: reportedCents - paidNetCents,
             });
           }
+        }
+
+        // Sprint 99: migração única fin:of:billmonth:s99
+        if ((await appMetaRepository.get(OF_BILLMONTH_S99_META_KEY)) !== '1') {
+          const accountsAfter = await finRepository.listAccounts(true);
+          const cardAccountsMap = new Map(
+            accountsAfter
+              .filter((a) => a.type === 'card' && a.source === 'OPEN_FINANCE')
+              .map((a) => [a.id, a])
+          );
+          const billsByLocalAccId = new Map<string, PluggyBill[]>();
+          for (const [accId] of cardAccountsMap) {
+            const dbBills = await finRepository.listBillsByAccount(accId);
+            billsByLocalAccId.set(
+              accId,
+              dbBills.map((b) => ({
+                id: b.external_id ?? b.id,
+                dueDate: `${b.due_date}T00:00:00.000Z`,
+                billClosingDate: b.closing_date ? `${b.closing_date}T00:00:00.000Z` : null,
+                totalAmount: b.total_amount_cents / 100,
+                totalAmountCurrencyCode: 'BRL',
+              }))
+            );
+          }
+          const entriesForBillMig = await finRepository.listAllEntries();
+          const bySource: Record<string, number> = {};
+          for (const e of entriesForBillMig) {
+            if (e.source !== 'OPEN_FINANCE' || e.of_removed_at) continue;
+            const cardAcc = cardAccountsMap.get(e.account_id);
+            if (!cardAcc) continue;
+            let edited: string[] = [];
+            try {
+              edited = JSON.parse(e.user_edited_fields || '[]');
+            } catch {
+              edited = [];
+            }
+            if (edited.includes('bill_month')) continue;
+            const accBills = billsByLocalAccId.get(cardAcc.id) ?? [];
+            const assigned = assignBillMonth(
+              {
+                id: e.external_id ?? e.id,
+                accountId: cardAcc.of_account_id ?? cardAcc.id,
+                description: e.description,
+                currencyCode: 'BRL',
+                amount: (e.of_raw_amount_cents ?? e.amount_cents) / 100,
+                date: `${e.due_date}T00:00:00.000Z`,
+                type: e.kind === 'income' || e.kind === 'transfer_in' ? 'CREDIT' : 'DEBIT',
+                status: 'POSTED',
+                createdAt: e.of_created_at ?? e.created_at,
+                updatedAt: e.created_at,
+                creditCardMetadata: {
+                  billId: e.of_bill_id ?? null,
+                  billForecastDate: e.of_bill_forecast_month ?? null,
+                  billPostDate: e.of_bill_post_date ?? null,
+                },
+              },
+              {
+                bills: accBills,
+                closingDay: cardAcc.closing_day ?? 1,
+                dueDay: cardAcc.due_day ?? 10,
+              }
+            );
+            bySource[assigned.source] = (bySource[assigned.source] ?? 0) + 1;
+            if (
+              e.bill_month !== assigned.billMonth ||
+              (e.of_bill_month_source ?? null) !== assigned.source
+            ) {
+              await finRepository.updateEntry(e.id, {
+                bill_month: assigned.billMonth,
+                of_bill_month_source: assigned.source,
+              });
+            }
+          }
+          await appMetaRepository.set(OF_BILLMONTH_S99_META_KEY, '1');
+          await appMetaRepository.set(
+            OF_BILLMONTH_S99_LOG_KEY,
+            JSON.stringify({ bySource, at: nowIso })
+          );
         }
 
         if (fetchedFullHistory) {

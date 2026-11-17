@@ -15,15 +15,19 @@ import {
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import type { FinAccount, FinEntry } from '../../db/schema';
+import type { FinAccount, FinBill, FinEntry } from '../../db/schema';
 import {
+  billDueDate,
   calculateAccountBalance,
   formatCentsBRL,
   getTodayIsoLocal,
   parseBRLToCents,
+  resolveBillMonth,
+  summarizeBill,
   summarizeCardAccountForScreen,
   type FinAccountType,
 } from '../../domain/financeFlow';
+import { summarizeOpenFinanceBill } from '../../domain/openFinance/cardBills';
 import {
   computeBalanceDivergence,
   formatReportedBalanceDate,
@@ -90,6 +94,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [entries, setEntries] = useState<FinEntry[]>([]);
+  const [bills, setBills] = useState<FinBill[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<FinAccount | null>(null);
@@ -106,12 +111,14 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [accs, allEntries] = await Promise.all([
+      const [accs, allEntries, allBills] = await Promise.all([
         finRepository.listAccounts(true),
         finRepository.listAllEntries(),
+        finRepository.listAllBills(),
       ]);
       setAccounts(accs);
       setEntries(allEntries);
+      setBills(allBills);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar contas');
     } finally {
@@ -280,13 +287,57 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
 
   const renderAccountRow = (acc: FinAccount, isLast: boolean, isArchived: boolean) => {
     const isCard = acc.type === 'card';
-    const cardScreenSummary = isCard
-      ? summarizeCardAccountForScreen(acc, entries, getTodayIsoLocal())
-      : null;
-    const currentBillSummary = cardScreenSummary?.currentBillSummary ?? null;
-    const availLimitCents = cardScreenSummary?.availLimitCents ?? null;
-
     const isOpenFinance = acc.source === 'OPEN_FINANCE';
+    const todayIso = getTodayIsoLocal();
+
+    let currentBillSummary: ReturnType<typeof summarizeBill> | null = null;
+    let availLimitCents: number | null = null;
+    let futureBillsCents = 0;
+    let closedUnpaidCents = 0;
+
+    if (isCard && isOpenFinance) {
+      const cardEntries = entries
+        .filter((e) => e.account_id === acc.id && !e.of_removed_at)
+        .map((e) =>
+          e.bill_month
+            ? e
+            : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1, acc.due_day) }
+        );
+      const cardBills = bills
+        .filter((b) => b.account_id === acc.id)
+        .sort((a, b) => a.due_date.localeCompare(b.due_date));
+      const closedMonths = new Set(cardBills.map((b) => b.bill_month));
+      const currentBillMonth = resolveBillMonth(todayIso, acc.closing_day ?? 1, acc.due_day);
+      currentBillSummary = summarizeBill(cardEntries, currentBillMonth, {
+        dueDate: billDueDate(currentBillMonth, acc.due_day ?? 10),
+        todayIso,
+        closingDay: acc.closing_day ?? undefined,
+      });
+      availLimitCents = acc.of_available_limit_cents ?? null;
+
+      for (let i = 0; i < cardBills.length; i += 1) {
+        const b = cardBills[i];
+        const nextB = i + 1 < cardBills.length ? cardBills[i + 1] : null;
+        const ofSum = summarizeOpenFinanceBill(b, nextB, cardEntries, todayIso, {
+          firstSyncIso: acc.of_linked_at,
+        });
+        if (ofSum.status === 'fechada' || ofSum.status === 'parcial' || ofSum.status === 'atrasada') {
+          closedUnpaidCents += Math.max(0, ofSum.totalCents - ofSum.paidCents);
+        }
+      }
+
+      const entryMonths = new Set(cardEntries.map((e) => e.bill_month).filter(Boolean) as string[]);
+      for (const bm of entryMonths) {
+        if (bm > currentBillMonth && !closedMonths.has(bm)) {
+          futureBillsCents += summarizeBill(cardEntries, bm).totalCents;
+        }
+      }
+    } else if (isCard) {
+      const cardScreenSummary = summarizeCardAccountForScreen(acc, entries, todayIso);
+      currentBillSummary = cardScreenSummary.currentBillSummary;
+      availLimitCents = cardScreenSummary.availLimitCents;
+    }
+
     const calculatedBalance = isCard
       ? currentBillSummary?.openCents ?? cardMonthSpendMap.get(acc.id) ?? 0
       : balanceMap.get(acc.id) ?? 0;
@@ -294,9 +345,10 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     const balance = hasReportedBalance
       ? (acc.reported_balance_cents as number)
       : calculatedBalance;
-    const divergence = hasReportedBalance
-      ? computeBalanceDivergence(acc.reported_balance_cents, calculatedBalance)
-      : { hasDivergence: false, diffCents: 0 };
+    const divergence =
+      hasReportedBalance && !isCard
+        ? computeBalanceDivergence(acc.reported_balance_cents, calculatedBalance)
+        : { hasDivergence: false, diffCents: 0 };
     const monthDelta = monthDeltaMap.get(acc.id) ?? 0;
     const entryCount = entryCountByAccount.get(acc.id) ?? 0;
     const avatarColor = isArchived
@@ -315,16 +367,32 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         ? formatReportedBalanceDate(acc.reported_balance_at)
         : null;
 
-    const creditUsedCents = isCard ? (acc as any).credit_used_cents ?? null : null;
+    const creditUsedCents = isCard ? acc.credit_used_cents ?? acc.reported_balance_cents ?? null : null;
+    const openBillCents = isCard ? currentBillSummary?.totalCents ?? 0 : 0;
     const baseSubtitle = isArchived
       ? undefined
+      : isCard && isOpenFinance
+      ? [
+          creditUsedCents !== null
+            ? `Limite usado ${formatCentsBRL(creditUsedCents, isPrivacyMode)}`
+            : null,
+          `Disponível ${
+            availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
+          }`,
+          `Fatura atual ${formatCentsBRL(openBillCents, isPrivacyMode)}`,
+          futureBillsCents > 0
+            ? `Próximas ${formatCentsBRL(futureBillsCents, isPrivacyMode)}`
+            : null,
+          closedUnpaidCents > 0
+            ? `Fechada a pagar ${formatCentsBRL(closedUnpaidCents, isPrivacyMode)}`
+            : null,
+          `Venc. dia ${acc.due_day ?? '—'}`,
+        ]
+          .filter(Boolean)
+          .join(' • ')
       : isCard
-      ? `${isOpenFinance ? 'Total em aberto' : 'Fatura atual'} • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
+      ? `Fatura atual • Venc. dia ${acc.due_day ?? '—'} • Limite disp. ${
           availLimitCents !== null ? formatCentsBRL(availLimitCents, isPrivacyMode) : '—'
-        }${
-          isOpenFinance && creditUsedCents !== null
-            ? ` • Limite usado ${formatCentsBRL(creditUsedCents, isPrivacyMode)}`
-            : ''
         }`
       : `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`;
 
@@ -490,17 +558,46 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                 </FinListCard>
               )}
 
-              {activeCardAccounts.length > 0 && (
-                <FinListCard
-                  title="CARTÕES"
-                  testID="accounts-section-cards"
-                  themeMode={themeMode}
-                >
-                  {activeCardAccounts.map((acc, idx) =>
-                    renderAccountRow(acc, idx === activeCardAccounts.length - 1, false)
-                  )}
-                </FinListCard>
-              )}
+              {activeCardAccounts.length > 0 && (() => {
+                const ofCards = activeCardAccounts.filter((a) => a.source === 'OPEN_FINANCE');
+                const cardsDebtCents = ofCards.reduce(
+                  (sum, a) => sum + (a.credit_used_cents ?? a.reported_balance_cents ?? 0),
+                  0
+                );
+                const cardsLimitCents = ofCards.reduce(
+                  (sum, a) => sum + (a.credit_limit_cents ?? 0),
+                  0
+                );
+                const cardsUsagePct =
+                  cardsLimitCents > 0 ? Math.round((cardsDebtCents / cardsLimitCents) * 100) : 0;
+                return (
+                  <FinListCard
+                    title="CARTÕES"
+                    testID="accounts-section-cards"
+                    themeMode={themeMode}
+                  >
+                    {ofCards.length > 0 && cardsLimitCents > 0 ? (
+                      <Text
+                        testID="accounts-cards-total-summary"
+                        style={[
+                          {
+                            color: ui.muted,
+                            fontSize: typography.labelMd.fontSize,
+                            paddingHorizontal: space.md,
+                            paddingTop: space.xs,
+                            paddingBottom: space.sm,
+                          },
+                        ]}
+                      >
+                        Total nos cartões {formatCentsBRL(cardsDebtCents, isPrivacyMode)} · {cardsUsagePct}% do limite de {formatCentsBRL(cardsLimitCents, isPrivacyMode)}
+                      </Text>
+                    ) : null}
+                    {activeCardAccounts.map((acc, idx) =>
+                      renderAccountRow(acc, idx === activeCardAccounts.length - 1, false)
+                    )}
+                  </FinListCard>
+                );
+              })()}
 
               {archivedAccounts.length > 0 && (
                 <FinListCard

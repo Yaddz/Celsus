@@ -21,6 +21,8 @@ import {
   mapPluggyCategory,
 } from './classification';
 import { matchFetchedToExisting, type MatchMethod } from './identity';
+import { assignBillMonth, assignPaymentBillMonth } from './cardBills';
+import { toBrtDate } from './dates';
 
 export { classifyOpenFinanceBankEntry, isCardBillPayment, mapPluggyCategory };
 
@@ -89,6 +91,7 @@ export interface MapPluggyTransactionOptions {
   closingDay?: number | null;
   dueDay?: number | null;
   bills?: PluggyBill[];
+  forecastOffset?: number;
   rules?: CategoryRuleLike[];
   externalIdOverride?: string;
   /** Crédito já reconhecido como provento (R9/R15). */
@@ -353,11 +356,33 @@ export function mapPluggyTransaction(
   const rawPaidAmountCents = rawStatus === 'paid' ? amountCents : null;
 
   const billId = tx.creditCardMetadata?.billId ?? null;
-  const matchingBill =
-    options.accountType === 'card' && billId
-      ? options.bills?.find((b) => b.id === billId)
-      : undefined;
-  const explicitBillMonth = matchingBill?.dueDate ? matchingBill.dueDate.slice(0, 7) : undefined;
+  let explicitBillMonth: string | undefined;
+  let ofBillMonthSource: string | null = null;
+  if (options.accountType === 'card') {
+    if (kind === 'transfer_in' && options.bills && options.bills.length > 0) {
+      const payBillMonth = assignPaymentBillMonth(
+        toBrtDate(tx.date),
+        options.bills.map((b) => ({
+          bill_month: b.dueDate.slice(0, 7),
+          closing_date: b.billClosingDate ? b.billClosingDate.slice(0, 10) : null,
+          due_date: b.dueDate.slice(0, 10),
+        }))
+      );
+      if (payBillMonth) {
+        explicitBillMonth = payBillMonth;
+        ofBillMonthSource = 'PAYMENT_CYCLE';
+      }
+    } else {
+      const assigned = assignBillMonth(tx, {
+        bills: options.bills ?? [],
+        closingDay: options.closingDay ?? 1,
+        dueDay: options.dueDay ?? null,
+        forecastOffset: options.forecastOffset,
+      });
+      explicitBillMonth = assigned.billMonth;
+      ofBillMonthSource = assigned.source;
+    }
+  }
 
   const normalized = normalizeCardEntry(
     {
@@ -428,7 +453,7 @@ export function mapPluggyTransaction(
     ofCreatedAt: tx.createdAt ?? null,
     ofInstallmentNumber: tx.creditCardMetadata?.installmentNumber ?? null,
     ofInstallmentTotal: tx.creditCardMetadata?.totalInstallments ?? null,
-    ofBillMonthSource: null,
+    ofBillMonthSource,
     ofOrder: tx.order ?? null,
   };
 }

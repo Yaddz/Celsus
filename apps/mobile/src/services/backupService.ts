@@ -606,6 +606,7 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'of_balance_due_date',
   'of_overdraft_used_cents',
   'of_reserved_cents',
+  'calendar_source',
   'created_at',
 ];
 
@@ -733,6 +734,7 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     of_balance_due_date: emptyToNull(r.of_balance_due_date),
     of_overdraft_used_cents: parseOptionalInt(r.of_overdraft_used_cents),
     of_reserved_cents: parseOptionalInt(r.of_reserved_cents),
+    calendar_source: emptyToNull(r.calendar_source),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }

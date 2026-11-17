@@ -158,6 +158,7 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   of_balance_due_date TEXT,
   of_overdraft_used_cents INTEGER,
   of_reserved_cents INTEGER,
+  calendar_source TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_categories (
@@ -656,6 +657,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'of_items', column: 'next_auto_sync_at', ddl: 'ALTER TABLE of_items ADD COLUMN next_auto_sync_at TEXT' },
   { table: 'of_items', column: 'status_detail_json', ddl: 'ALTER TABLE of_items ADD COLUMN status_detail_json TEXT' },
   { table: 'of_items', column: 'error_code', ddl: 'ALTER TABLE of_items ADD COLUMN error_code TEXT' },
+  { table: 'fin_accounts', column: 'calendar_source', ddl: 'ALTER TABLE fin_accounts ADD COLUMN calendar_source TEXT' },
 ];
 
 const VALID_LEDGER_TYPES = new Set(['BUY', 'SELL', 'SPLIT', 'INPLIT']);
@@ -1039,7 +1041,7 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'masked_number', 'owner', 'auto_name', 'of_linked_at',
               'closing_balance_cents', 'auto_invested_cents', 'credit_used_cents',
               'of_available_limit_cents', 'of_minimum_payment_cents', 'of_balance_due_date',
-              'of_overdraft_used_cents', 'of_reserved_cents', 'created_at',
+              'of_overdraft_used_cents', 'of_reserved_cents', 'calendar_source', 'created_at',
             ].map((name) => ({ name }));
           }
           if (sql.includes('PRAGMA table_info(transactions)')) {

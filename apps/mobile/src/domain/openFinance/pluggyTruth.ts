@@ -12,6 +12,12 @@ import {
   resolveBillMonth,
   summarizeCardAccountForScreen,
 } from '../financeFlow';
+import {
+  assignBillMonth,
+  deriveCardCalendar,
+  inferForecastOffset,
+  summarizeOpenFinanceBill,
+} from './cardBills';
 import { toBrtDate, toBrtMonth } from './dates';
 import { toCentsDecimal } from './index';
 
@@ -180,26 +186,21 @@ export type AssignBillMonthFn = (
 function defaultAssignBillMonth(
   tx: PluggyTransaction,
   bills: PluggyBill[],
-  account: PluggyAccount
+  account: PluggyAccount,
+  forecastOffset = 0
 ): string {
-  const billId = tx.creditCardMetadata?.billId;
-  if (billId) {
-    const match = bills.find((b) => b.id === billId);
-    if (match?.dueDate) {
-      return toBrtMonth(match.dueDate);
-    }
-  }
-  const forecast = tx.creditCardMetadata?.billForecastDate;
-  if (forecast && /^\d{4}-\d{2}/.test(forecast)) {
-    return forecast.slice(0, 7);
-  }
-  const closingDay = account.creditData?.balanceCloseDate
-    ? Number.parseInt(toBrtDate(account.creditData.balanceCloseDate).slice(8, 10), 10)
-    : 1;
-  const dueDay = account.creditData?.balanceDueDate
-    ? Number.parseInt(toBrtDate(account.creditData.balanceDueDate).slice(8, 10), 10)
-    : 10;
-  return resolveBillMonth(toBrtDate(tx.date), closingDay, dueDay);
+  const derived = deriveCardCalendar(bills);
+  const closingDay =
+    derived?.closingDay ??
+    (account.creditData?.balanceCloseDate
+      ? Number.parseInt(toBrtDate(account.creditData.balanceCloseDate).slice(8, 10), 10)
+      : 1);
+  const dueDay =
+    derived?.dueDay ??
+    (account.creditData?.balanceDueDate
+      ? Number.parseInt(toBrtDate(account.creditData.balanceDueDate).slice(8, 10), 10)
+      : 10);
+  return assignBillMonth(tx, { bills, closingDay, dueDay, forecastOffset }).billMonth;
 }
 
 function nextMonthYm(ym: string): string {
@@ -426,23 +427,31 @@ export function computePluggyTruth(
       const closedBillMonths = new Set(bills.map((b) => toBrtMonth(b.dueDate)));
       const latestClosedMonth =
         bills.length > 0 ? toBrtMonth(bills[bills.length - 1].dueDate) : null;
-      const closingDay = account.creditData?.balanceCloseDate
-        ? Number.parseInt(toBrtDate(account.creditData.balanceCloseDate).slice(8, 10), 10)
-        : 1;
-      const dueDay = account.creditData?.balanceDueDate
-        ? Number.parseInt(toBrtDate(account.creditData.balanceDueDate).slice(8, 10), 10)
-        : 10;
+      const derivedCal = deriveCardCalendar(bills);
+      const closingDay =
+        derivedCal?.closingDay ??
+        (account.creditData?.balanceCloseDate
+          ? Number.parseInt(toBrtDate(account.creditData.balanceCloseDate).slice(8, 10), 10)
+          : 1);
+      const dueDay =
+        derivedCal?.dueDay ??
+        (account.creditData?.balanceDueDate
+          ? Number.parseInt(toBrtDate(account.creditData.balanceDueDate).slice(8, 10), 10)
+          : 10);
       let openBillMonth = resolveBillMonth(todayIso, closingDay, dueDay);
       if (latestClosedMonth && openBillMonth <= latestClosedMonth) {
         openBillMonth = nextMonthYm(latestClosedMonth);
       }
 
       const byOpenMonth = new Map<string, number>();
-      const assignFn = options?.assignBillMonth ?? defaultAssignBillMonth;
+      const forecastOffset = inferForecastOffset(txs, bills);
+      const assignFn = options?.assignBillMonth;
       for (const tx of txs) {
         if (tx.creditCardMetadata?.billId) continue;
         if (tx.operationType === 'PAGAMENTO_FATURA') continue;
-        const bm = assignFn(tx, bills, account);
+        const bm = assignFn
+          ? assignFn(tx, bills, account)
+          : defaultAssignBillMonth(tx, bills, account, forecastOffset);
         if (closedBillMonths.has(bm)) continue;
         const absCents = Math.abs(toCentsDecimal(tx.amountInAccountCurrency ?? tx.amount));
         const signed = tx.type === 'DEBIT' ? absCents : -absCents;
@@ -524,17 +533,40 @@ export function collectAppNumbers(inputs: {
     } else if (acc.type === 'card') {
       const cardSummary = summarizeCardAccountForScreen(acc, inputs.entries, inputs.todayIso);
       const closedBillsByMonth: Record<string, AppNumbersCardBill> = {};
-      for (const [bm, summary] of Object.entries(cardSummary.closedBillsByMonth)) {
-        closedBillsByMonth[bm] = {
-          billMonth: bm,
-          totalCents: summary.totalCents,
-          paidCents: summary.paidCents,
-          status: summary.status,
-        };
+      const accBills = [...(inputs.bills ?? []).filter((b) => b.account_id === acc.id)].sort(
+        (a, b) => a.due_date.localeCompare(b.due_date)
+      );
+      if (accBills.length > 0) {
+        for (let i = 0; i < accBills.length; i += 1) {
+          const bill = accBills[i];
+          const nextBill = i + 1 < accBills.length ? accBills[i + 1] : null;
+          const ofSummary = summarizeOpenFinanceBill(
+            bill,
+            nextBill,
+            inputs.entries,
+            inputs.todayIso,
+            { firstSyncIso: acc.of_linked_at }
+          );
+          closedBillsByMonth[bill.bill_month] = {
+            billMonth: bill.bill_month,
+            totalCents: ofSummary.totalCents,
+            paidCents: ofSummary.paidCents,
+            status: ofSummary.status,
+          };
+        }
+      } else {
+        for (const [bm, summary] of Object.entries(cardSummary.closedBillsByMonth)) {
+          closedBillsByMonth[bm] = {
+            billMonth: bm,
+            totalCents: summary.totalCents,
+            paidCents: summary.paidCents,
+            status: summary.status,
+          };
+        }
       }
       cardsByOfAccountId[acc.of_account_id] = {
         usedCents: acc.credit_used_cents ?? null,
-        availableCents: cardSummary.availLimitCents,
+        availableCents: acc.of_available_limit_cents ?? cardSummary.availLimitCents,
         openBillCents: cardSummary.currentBillSummary.totalCents,
         closedBillsByMonth,
       };

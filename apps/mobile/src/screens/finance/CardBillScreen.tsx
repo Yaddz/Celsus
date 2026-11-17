@@ -17,7 +17,11 @@ import {
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { StatementImportSheet } from '../../components/StatementImportSheet';
-import type { FinAccount, FinCategory, FinEntry } from '../../db/schema';
+import type { FinAccount, FinBill, FinCategory, FinEntry } from '../../db/schema';
+import { summarizeOpenFinanceBill } from '../../domain/openFinance/cardBills';
+import { toBrtDate } from '../../domain/openFinance/dates';
+import { toCentsDecimal } from '../../domain/openFinance';
+import type { PluggyBillFinanceCharge, PluggyBillPayment } from '../../services/pluggy/types';
 import {
   addMonthsYearMonth,
   availableLimit,
@@ -92,6 +96,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [categories, setCategories] = useState<FinCategory[]>([]);
   const [entries, setEntries] = useState<FinEntry[]>([]);
+  const [bills, setBills] = useState<FinBill[]>([]);
   const [billMonth, setBillMonth] = useState(
     initialBillMonth ?? todayIso.slice(0, 7)
   );
@@ -109,16 +114,18 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [allAccounts, allCategories, allEntries] = await Promise.all([
+      const [allAccounts, allCategories, allEntries, accBills] = await Promise.all([
         finRepository.listAccounts(false),
         finRepository.listCategories(true),
         finRepository.listAllEntries(),
+        finRepository.listBillsByAccount(accountId),
       ]);
       const targetCard = allAccounts.find((a) => a.id === accountId) ?? null;
       setCard(targetCard);
       setAccounts(allAccounts.filter((a) => a.type !== 'card'));
       setCategories(allCategories);
       setEntries(allEntries.filter((e) => e.account_id === accountId));
+      setBills(accBills.sort((a, b) => a.due_date.localeCompare(b.due_date)));
 
       if (!payFromAccountId) {
         const firstNonCard = allAccounts.find((a) => a.type !== 'card');
@@ -174,17 +181,46 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
     [billMonth, dueDay]
   );
 
-  const summary = useMemo(
-    () =>
-      summarizeBill(normalizedEntries, billMonth, {
-        dueDate,
-        todayIso,
-        closingDay: card?.closing_day ?? undefined,
-      }),
-    [normalizedEntries, billMonth, dueDate, todayIso, card]
+  const billIdx = useMemo(
+    () => bills.findIndex((b) => b.bill_month === billMonth),
+    [bills, billMonth]
   );
+  const matchingBill = billIdx >= 0 ? bills[billIdx] : null;
+  const nextMatchingBill =
+    billIdx >= 0 && billIdx + 1 < bills.length ? bills[billIdx + 1] : null;
+
+  const ofBillSummary = useMemo(() => {
+    if (!matchingBill?.external_id) return null;
+    return summarizeOpenFinanceBill(
+      matchingBill,
+      nextMatchingBill,
+      normalizedEntries,
+      todayIso,
+      { firstSyncIso: card?.of_linked_at }
+    );
+  }, [matchingBill, nextMatchingBill, normalizedEntries, todayIso, card]);
+
+  const summary = useMemo(() => {
+    if (ofBillSummary) {
+      return {
+        billMonth,
+        totalCents: ofBillSummary.totalCents,
+        paidCents: ofBillSummary.paidCents,
+        openCents: Math.max(0, ofBillSummary.totalCents - ofBillSummary.paidCents),
+        status: ofBillSummary.status,
+      };
+    }
+    return summarizeBill(normalizedEntries, billMonth, {
+      dueDate,
+      todayIso,
+      closingDay: card?.closing_day ?? undefined,
+    });
+  }, [ofBillSummary, normalizedEntries, billMonth, dueDate, todayIso, card]);
 
   const openBillsTotalCents = useMemo(() => {
+    if (card?.source === 'OPEN_FINANCE' && card.of_available_limit_cents != null) {
+      return 0;
+    }
     const months = new Set(normalizedEntries.map((e) => e.bill_month).filter(Boolean) as string[]);
     let total = 0;
     for (const ym of months) {
@@ -192,12 +228,14 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
       total += s.openCents;
     }
     return total;
-  }, [normalizedEntries]);
+  }, [normalizedEntries, card]);
 
-  const limitAvailableCents = useMemo(
-    () => availableLimit(card?.credit_limit_cents, openBillsTotalCents),
-    [card, openBillsTotalCents]
-  );
+  const limitAvailableCents = useMemo(() => {
+    if (card?.source === 'OPEN_FINANCE' && card.of_available_limit_cents != null) {
+      return card.of_available_limit_cents;
+    }
+    return availableLimit(card?.credit_limit_cents, openBillsTotalCents);
+  }, [card, openBillsTotalCents]);
 
   const billEntries = useMemo(
     () =>
@@ -438,8 +476,60 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
               {isEstimatedDates ? ' (datas estimadas)' : ''}
             </Text>
             <Text style={[styles.subText, { color: ui.muted }]}>
-              Vencimento: {isoToBr(dueDate)} • Em aberto: {formatCentsBRL(summary.openCents, isPrivacyMode)}
+              Vencimento: {isoToBr(matchingBill?.due_date ?? dueDate)} • Em aberto: {formatCentsBRL(summary.openCents, isPrivacyMode)}
+              {matchingBill?.minimum_payment_cents != null
+                ? ` • Mínimo: ${formatCentsBRL(matchingBill.minimum_payment_cents, isPrivacyMode)}`
+                : ''}
             </Text>
+            {ofBillSummary && ofBillSummary.itemsVsTotalDiffCents !== 0 ? (
+              <Text testID="card-bill-items-diff" style={[styles.subText, { color: ui.warning }]}>
+                Itens somam {formatCentsBRL(ofBillSummary.itemsCents, isPrivacyMode)}; fatura do banco: {formatCentsBRL(ofBillSummary.totalCents, isPrivacyMode)}
+              </Text>
+            ) : null}
+            {(() => {
+              const rawPayments = (() => {
+                const src = nextMatchingBill?.payments_json ?? (!nextMatchingBill ? matchingBill?.payments_json : null);
+                if (!src) return [] as PluggyBillPayment[];
+                try {
+                  const parsed = JSON.parse(src);
+                  return Array.isArray(parsed) ? (parsed as PluggyBillPayment[]) : [];
+                } catch {
+                  return [];
+                }
+              })();
+              const rawCharges = (() => {
+                if (!matchingBill?.finance_charges_json) return [] as PluggyBillFinanceCharge[];
+                try {
+                  const parsed = JSON.parse(matchingBill.finance_charges_json);
+                  return Array.isArray(parsed) ? (parsed as PluggyBillFinanceCharge[]) : [];
+                } catch {
+                  return [];
+                }
+              })();
+              return (
+                <>
+                  {rawPayments.length > 0 ? (
+                    <View testID="card-bill-pluggy-payments" style={{ marginTop: space.xs }}>
+                      {rawPayments.map((p, idx) => (
+                        <Text key={p.id ?? String(idx)} style={[styles.subText, { color: ui.income }]}>
+                          Pagamento {isoToBr(toBrtDate(p.paymentDate))}: {formatCentsBRL(toCentsDecimal(p.amount), isPrivacyMode)}
+                          {p.paymentMode ? ` (${p.paymentMode})` : ''}
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                  {rawCharges.length > 0 ? (
+                    <View testID="card-bill-pluggy-charges" style={{ marginTop: space.xs }}>
+                      {rawCharges.map((c, idx) => (
+                        <Text key={c.id ?? String(idx)} style={[styles.subText, { color: ui.muted }]}>
+                          Encargo {c.additionalInfo || c.type}: {formatCentsBRL(toCentsDecimal(c.amount), isPrivacyMode)} (já incluídos no total)
+                        </Text>
+                      ))}
+                    </View>
+                  ) : null}
+                </>
+              );
+            })()}
           </BentoTile>
 
           <BentoRow>

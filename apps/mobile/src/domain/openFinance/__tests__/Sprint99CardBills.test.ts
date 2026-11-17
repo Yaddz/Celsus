@@ -290,7 +290,6 @@ describe('Sprint 99 — Faturas do cartão pela Pluggy (R25, R26, R27, R28)', ()
         status: 'PENDING',
         creditCardMetadata: {
           billId: null,
-          billForecastDate: ym,
           installmentNumber: idx + 6,
           totalInstallments: 12,
         },
@@ -349,10 +348,10 @@ describe('Sprint 99 — Faturas do cartão pela Pluggy (R25, R26, R27, R28)', ()
     const projection = projectCashflow([bank, card], [entry], '2026-11-17', '2026-11-30', {
       bills: [bill],
     });
-    const onDue = projection.find((p) => p.date === '2026-11-25');
+    const onDue = projection.days.find((p) => p.date === '2026-11-25');
     expect(onDue).toBeDefined();
     expect(onDue?.deltaCents).toBe(-125035);
-    const onPurchase = projection.find((p) => p.date === '2026-11-05');
+    const onPurchase = projection.days.find((p) => p.date === '2026-11-05');
     expect(onPurchase).toBeUndefined();
   });
 

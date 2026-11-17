@@ -1,4 +1,5 @@
-import type { FinAccount, FinBudget, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
+import type { FinAccount, FinBill, FinBudget, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
+import { summarizeOpenFinanceBill } from '../openFinance/cardBills';
 import { isStaleOpenFinancePending } from '../openFinance/stalePending';
 import { billDueDate, resolveBillMonth, summarizeBill } from './cards';
 
@@ -280,6 +281,7 @@ export function projectCashflow(
   options?: {
     recurrences?: FinRecurrence[];
     skips?: FinRecurrenceSkip[];
+    bills?: FinBill[];
   }
 ): CashflowProjection {
   const activeAccounts = accounts.filter((a) => a.archived === 0);
@@ -330,8 +332,41 @@ export function projectCashflow(
     const normalized = cardEntries.map((e) =>
       e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day) }
     );
-    const months = new Set<string>(normalized.map((e) => e.bill_month!));
+    const cardBills = (options?.bills ?? [])
+      .filter((b) => b.account_id === card.id)
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const billByMonth = new Map(cardBills.map((b, idx) => [b.bill_month, { bill: b, idx }]));
+    const months = new Set<string>([
+      ...normalized.map((e) => e.bill_month!),
+      ...cardBills.map((b) => b.bill_month),
+    ]);
     for (const billMonth of months) {
+      const ofBillInfo = billByMonth.get(billMonth);
+      if (card.source === 'OPEN_FINANCE' && ofBillInfo) {
+        const dueDate = ofBillInfo.bill.due_date;
+        if (dueDate < todayIso || dueDate > untilIso) continue;
+        const nextBill =
+          ofBillInfo.idx + 1 < cardBills.length ? cardBills[ofBillInfo.idx + 1] : null;
+        const ofSummary = summarizeOpenFinanceBill(
+          ofBillInfo.bill,
+          nextBill,
+          normalized,
+          todayIso,
+          { firstSyncIso: card.of_linked_at }
+        );
+        if (
+          ofSummary.status === 'paga' ||
+          ofSummary.status === 'sem saldo' ||
+          ofSummary.status === 'sem dados de pagamento'
+        ) {
+          continue;
+        }
+        const openCents = Math.max(0, ofSummary.totalCents - ofSummary.paidCents);
+        if (openCents > 0) {
+          addDelta(dueDate, -openCents);
+        }
+        continue;
+      }
       const dueDate = billDueDate(billMonth, card.due_day ?? 10);
       if (dueDate < todayIso || dueDate > untilIso) continue;
       const summary = summarizeBill(normalized, billMonth, {

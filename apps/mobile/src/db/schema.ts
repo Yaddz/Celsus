@@ -241,6 +241,7 @@ export const finAccounts = sqliteTable('fin_accounts', {
   of_balance_due_date: text('of_balance_due_date'),
   of_overdraft_used_cents: integer('of_overdraft_used_cents'),
   of_reserved_cents: integer('of_reserved_cents'),
+  calendar_source: text('calendar_source'), // 'USER' | 'PLUGGY_BILLS' | 'DEFAULT'
   created_at: text('created_at').notNull(),
 });
 

@@ -4,12 +4,14 @@ import { getDatabase } from '../db/client';
 import {
   assets,
   finAccounts,
+  finBills,
   finEntries,
   marketPriceCache,
   portfolios,
   type FinGoal,
   type NetWorthSnapshot,
 } from '../db/schema';
+import { summarizeOpenFinanceBill } from '../domain/openFinance/cardBills';
 import {
   calculateNetWorth,
   decimalReaisToCents,
@@ -45,10 +47,11 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
   const db = getDatabase();
   const refIso = referenceDateIso ?? getTodayIsoLocal();
 
-  const [allAccounts, allEntries, allPortfolios, allAssets, allPrices, contributions] =
+  const [allAccounts, allEntries, allBills, allPortfolios, allAssets, allPrices, contributions] =
     await Promise.all([
       db.select().from(finAccounts),
       db.select().from(finEntries),
+      db.select().from(finBills),
       db.select().from(portfolios),
       db.select().from(assets),
       db.select().from(marketPriceCache),
@@ -86,10 +89,35 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
               bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day),
             }
       );
-    const months = new Set(
-      cardEntries.map((e) => e.bill_month).filter((m): m is string => Boolean(m))
-    );
+    const cardBills = allBills
+      .filter((b) => b.account_id === card.id)
+      .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    const billByMonth = new Map(cardBills.map((b, idx) => [b.bill_month, { bill: b, idx }]));
+    const months = new Set([
+      ...cardEntries.map((e) => e.bill_month).filter((m): m is string => Boolean(m)),
+      ...cardBills.map((b) => b.bill_month),
+    ]);
     for (const bm of months) {
+      const ofBillInfo = billByMonth.get(bm);
+      if (card.source === 'OPEN_FINANCE' && ofBillInfo) {
+        const nextBill =
+          ofBillInfo.idx + 1 < cardBills.length ? cardBills[ofBillInfo.idx + 1] : null;
+        const ofSummary = summarizeOpenFinanceBill(
+          ofBillInfo.bill,
+          nextBill,
+          cardEntries,
+          refIso,
+          { firstSyncIso: card.of_linked_at }
+        );
+        if (
+          ofSummary.status !== 'paga' &&
+          ofSummary.status !== 'sem saldo' &&
+          ofSummary.status !== 'sem dados de pagamento'
+        ) {
+          openCardBillsCents += Math.max(0, ofSummary.totalCents - ofSummary.paidCents);
+        }
+        continue;
+      }
       const summary = summarizeBill(cardEntries, bm, {
         closingDay: card.closing_day ?? 1,
         todayIso: refIso,

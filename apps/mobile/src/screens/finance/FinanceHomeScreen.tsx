@@ -19,7 +19,7 @@ import {
   type DockTabItem,
 } from '../../components/ui/FloatingBottomDock';
 import { PriceAreaChart } from '../../components/ui/PriceAreaChart';
-import type { FinAccount, FinBudget, FinCategory, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
+import type { FinAccount, FinBill, FinBudget, FinCategory, FinEntry, FinRecurrence, FinRecurrenceSkip } from '../../db/schema';
 import type { ReceiptDraft } from '../../domain/receipt';
 import {
   addMonthsYearMonth,
@@ -173,6 +173,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [recurrences, setRecurrences] = useState<FinRecurrence[]>([]);
   const [budgets, setBudgets] = useState<FinBudget[]>([]);
   const [skips, setSkips] = useState<FinRecurrenceSkip[]>([]);
+  const [bills, setBills] = useState<FinBill[]>([]);
   const [isCashflowModalOpen, setIsCashflowModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -202,13 +203,14 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, ofItems] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
         finRepository.listRecurrences(),
         finRepository.listBudgets(),
         finRepository.listAllRecurrenceSkips(),
+        finRepository.listAllBills(),
         openFinanceRepository.listItems(),
       ]);
       setEntries(allEntries);
@@ -217,6 +219,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setRecurrences(allRecurrences);
       setBudgets(allBudgets);
       setSkips(allSkips);
+      setBills(allBills);
       setHasOfItems(ofItems.length > 0);
       const latestSynced = ofItems
         .map((it) => it.last_synced_at)
@@ -330,6 +333,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       const projection = projectCashflow(accounts, entries, fromIso, end, {
         recurrences,
         skips,
+        bills,
       });
       return {
         month: yearMonth,
@@ -380,8 +384,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   );
 
   const dueAlerts = useMemo(
-    () => detectOverdueAndDueSoonWithBills(entries, accounts, effectiveToday, 7),
-    [entries, accounts, effectiveToday]
+    () => detectOverdueAndDueSoonWithBills(entries, accounts, effectiveToday, 7, { bills }),
+    [entries, accounts, effectiveToday, bills]
   );
   const dueSoonExpensesCount = useMemo(
     () => dueAlerts.dueSoon.filter((e) => e.kind === 'expense').length + dueAlerts.dueSoonBills.length,
@@ -448,8 +452,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     return projectCashflow(accounts, entries, fromIso, end, {
       recurrences,
       skips,
+      bills,
     });
-  }, [accounts, entries, effectiveMonth, effectiveToday, recurrences, skips]);
+  }, [accounts, entries, effectiveMonth, effectiveToday, recurrences, skips, bills]);
 
   const cashflowChartPoints = useMemo(
     () =>

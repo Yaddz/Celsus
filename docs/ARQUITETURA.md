@@ -405,3 +405,9 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/openFinance/identity.ts`: `transactionFingerprint`, `transactionBaseFingerprint`, `computeFetchedFingerprints` e `matchFetchedToExisting` (matching em 3 passos: `EXTERNAL_ID` → `PROVIDER_ID` → `FINGERPRINT` com fallback para lançamentos pré-Sprint 97).
 - `domain/openFinance/index.ts` (`reconcilePluggyTransactions`): delega a `matchFetchedToExisting` antes do `settle_pending` manual.
 - `services/pluggy/pluggySyncService.ts`: contadores `matchedByProviderId`, `matchedByFingerprint`, `restored`, `removalSkippedReason`, `dedupeConflicts`; filtro R32 por `statusDetail.<produto>.isUpdated`; limpeza única `fin:of:dedupe:s98`; reconexão R33 em `previewAccountReconciliation`; busca inicial e migração única `fin:of:fullhistory:s98:<itemId>` sem `dateFrom` (R37).
+
+## Faturas do Cartão Iguais às da Pluggy (Sprint 99)
+
+- `domain/openFinance/cardBills.ts`: `inferForecastOffset`, `assignBillMonth`, `assignPaymentBillMonth`, `deriveCardCalendar`, `summarizeOpenFinanceBill` (`R25`–`R27`).
+- `db/schema.ts`, `db/client.ts`, `services/backupService.ts`: `fin_accounts.calendar_source` (`'USER' | 'PLUGGY_BILLS' | 'DEFAULT'`).
+- `domain/financeFlow/cards.ts`, `budgetsAndCashflow.ts`, `index.ts`, `services/finGoalsService.ts`, `screens/finance/AccountsScreen.tsx`, `CardBillScreen.tsx`, `FinanceHomeScreen.tsx`: consumo de `fin_bills` para total/pago/situação das faturas fechadas e limites da instituição para cartões Open Finance (`R28`).
