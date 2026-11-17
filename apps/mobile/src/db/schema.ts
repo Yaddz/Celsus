@@ -300,6 +300,8 @@ export const finEntries = sqliteTable('fin_entries', {
   user_edited_fields: text('user_edited_fields'),
   linked_income_id: text('linked_income_id'),
   of_removed_at: text('of_removed_at'),
+  of_category_id: text('of_category_id'), // categoryId hierárquico da Pluggy (Sprint 91)
+  of_class_reason: text('of_class_reason'), // INVESTMENT_MOVE | OWN_ACCOUNT_UNPAIRED | ... (Sprint 91)
   created_at: text('created_at').notNull(),
 });
 

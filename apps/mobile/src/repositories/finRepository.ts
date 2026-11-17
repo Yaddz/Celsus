@@ -343,6 +343,8 @@ export class FinRepository {
       user_edited_fields: item.user_edited_fields ?? item.userEditedFields ?? null,
       linked_income_id: item.linked_income_id ?? item.linkedIncomeId ?? null,
       of_removed_at: item.of_removed_at ?? item.ofRemovedAt ?? null,
+      of_category_id: item.of_category_id ?? item.ofCategoryId ?? null,
+      of_class_reason: item.of_class_reason ?? item.ofClassReason ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);

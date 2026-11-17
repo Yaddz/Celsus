@@ -418,7 +418,7 @@ export function resolveAccountBalance(
   return calculateAccountBalance(account.initial_balance_cents, entries, account.id);
 }
 
-export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string): MonthlySummary {
+export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, _todayIso?: string): MonthlySummary {
   let paidIncomeCents = 0;
   let paidExpenseCents = 0;
   let pendingIncomeCents = 0;

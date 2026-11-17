@@ -189,6 +189,8 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   user_edited_fields TEXT,
   linked_income_id TEXT,
   of_removed_at TEXT,
+  of_category_id TEXT,
+  of_class_reason TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -591,6 +593,8 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'asset_id', ddl: 'ALTER TABLE income_events ADD COLUMN asset_id TEXT' },
   { table: 'fin_entries', column: 'linked_income_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_income_id TEXT' },
   { table: 'fin_entries', column: 'of_removed_at', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_removed_at TEXT' },
+  { table: 'fin_entries', column: 'of_category_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_category_id TEXT' },
+  { table: 'fin_entries', column: 'of_class_reason', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_class_reason TEXT' },
   { table: 'fin_accounts', column: 'of_linked_at', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_linked_at TEXT' },
   { table: 'fin_accounts', column: 'closing_balance_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN closing_balance_cents INTEGER' },
   { table: 'fin_accounts', column: 'auto_invested_cents', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_invested_cents INTEGER' },

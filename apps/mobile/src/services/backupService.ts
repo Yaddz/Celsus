@@ -639,6 +639,8 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'user_edited_fields',
   'linked_income_id',
   'of_removed_at',
+  'of_category_id',
+  'of_class_reason',
   'created_at',
 ];
 
@@ -753,6 +755,8 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
     linked_income_id: !r.linked_income_id || r.linked_income_id === '' ? null : r.linked_income_id,
     of_removed_at: !r.of_removed_at || r.of_removed_at === '' ? null : r.of_removed_at,
+    of_category_id: !r.of_category_id || r.of_category_id === '' ? null : r.of_category_id,
+    of_class_reason: !r.of_class_reason || r.of_class_reason === '' ? null : r.of_class_reason,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
