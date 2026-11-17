@@ -57,7 +57,10 @@ export const FinHeroTile: React.FC<FinHeroTileProps> = ({
   const palette = bento.variants[resolvedVariant];
   const id = (suffix: string) => (testID ? `${testID}-${suffix}` : undefined);
   const valueStyle = [secondary ? styles.valueCompact : styles.value, { color: palette.foreground }];
-  const shown = (node: React.ReactNode) => (isPrivacyMode ? PRIVACY_CURRENCY_MASK : node);
+  // Texto e número são mascarados aqui. Quem passa um elemento (ex.: Text com testID próprio) mascara o conteúdo
+  // por conta própria, para o elemento continuar na árvore no modo privacidade.
+  const shown = (node: React.ReactNode) =>
+    isPrivacyMode && (typeof node === 'string' || typeof node === 'number') ? PRIVACY_CURRENCY_MASK : node;
 
   return (
     <BentoTile variant={resolvedVariant} testID={testID} style={style}>

@@ -19,7 +19,7 @@ import type { FinCategory, FinEntry } from '../../db/schema';
 import type { FinKind } from '../../domain/financeFlow';
 import { finRepository } from '../../repositories/finRepository';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, space, typography } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 import {
   FIN_CATEGORY_ICONS,
   FIN_COLOR_SWATCHES,

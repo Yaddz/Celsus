@@ -7,7 +7,6 @@ import {
   BentoGrid,
   BentoSection,
   BentoSheetHeader,
-  BentoTile,
   FinListCard,
   FinListRow,
   LedgerInput,
@@ -34,7 +33,7 @@ import {
 } from '../../domain/openFinance';
 import { finRepository } from '../../repositories/finRepository';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, space, typography } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 import {
   FIN_COLOR_SWATCHES,
   FinFloatingAddButton,

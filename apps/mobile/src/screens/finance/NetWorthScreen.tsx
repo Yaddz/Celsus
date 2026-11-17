@@ -11,7 +11,7 @@ import { formatCentsBRL, formatYearMonthPtBr } from '../../domain/financeFlow';
 import { finGoalsRepository } from '../../repositories/finGoalsRepository';
 import { finGoalsService } from '../../services/finGoalsService';
 import type { ThemeMode } from '../../theme/palettes';
-import { bento, space, typography } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 import { getFinUiColors, sharedStyles } from './finTheme';
 import { FinHeroTile } from '../../components/ui/FinHeroTile';
 

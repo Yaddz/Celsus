@@ -1,10 +1,10 @@
 import React from 'react';
 import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { formatCentsBRL } from '../../domain/financeFlow';
-import { bento, borders, colors, dock, layout, space, typography } from '../../theme/tokens';
+import { bento, borders, colors, layout, space, typography } from '../../theme/tokens';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import type { ThemeMode } from '../../theme/palettes';
 

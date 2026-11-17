@@ -5,7 +5,6 @@ import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   BentoGrid,
-  BentoTile,
   ConfirmDialog,
   FinListCard,
   FinListRow,
@@ -24,7 +23,7 @@ import type { FinCategory, FinEntry, FinRecurrence } from '../../db/schema';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
 import type { ThemeMode } from '../../theme/palettes';
-import { layout, space, typography } from '../../theme/tokens';
+import { space, typography } from '../../theme/tokens';
 import {
   FinFloatingAddButton,
   formatSignedCentsBRL,

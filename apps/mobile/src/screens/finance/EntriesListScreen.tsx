@@ -36,7 +36,7 @@ import {
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
 import { finStore, useFinStore } from '../../stores/finStore';
-import { bento, borders, space, typography } from '../../theme/tokens';
+import { borders, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
 import { EntryFormSheet } from './EntryFormSheet';
 import {
