@@ -204,6 +204,11 @@ export type PluggyInvestmentSubtype =
   | 'RETIREMENT'
   | 'OTHER';
 
+export interface PluggyInvestmentInstitution {
+  name: string;
+  number?: string | null;
+}
+
 export interface PluggyInvestment {
   id: string;
   itemId: string;
@@ -212,6 +217,9 @@ export interface PluggyInvestment {
   number?: string | null;
   balance: number;
   name: string;
+  institution?: PluggyInvestmentInstitution | null;
+  metadata?: Record<string, unknown> | null;
+  gracePeriodDate?: string | null;
   lastMonthRate?: number | null;
   lastTwelveMonthsRate?: number | null;
   annualRate?: number | null;
@@ -250,6 +258,18 @@ export type PluggyInvestmentTransactionType =
   | 'INTEREST'
   | 'AMORTIZATION';
 
+export interface PluggyInvestmentTransactionExpenses {
+  serviceTax?: number | null;
+  brokerageFee?: number | null;
+  incomeTax?: number | null;
+  tradingAssetsNoticeFee?: number | null;
+  maintenanceFee?: number | null;
+  settlementFee?: number | null;
+  registryFee?: number | null;
+  exchangeFee?: number | null;
+  other?: number | null;
+}
+
 export interface PluggyInvestmentTransaction {
   id: string;
   type: PluggyInvestmentTransactionType;
@@ -265,4 +285,5 @@ export interface PluggyInvestmentTransaction {
   description?: string | null;
   netAmount?: number | null;
   brokerageNumber?: string | null;
+  expenses?: PluggyInvestmentTransactionExpenses | null;
 }

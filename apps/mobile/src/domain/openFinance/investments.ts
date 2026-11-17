@@ -24,9 +24,14 @@ export interface MappedPluggyInvestment {
   name: string;
   isin: string | null;
   quantity: string;
-  marketValue: string; // balance (líquido) -> manual_position_value
+  marketValue: string | null; // balance (líquido) -> manual_position_value (null para ações/FIIs/ETFs/BDRs)
   grossAmount: string | null; // amount (bruto) -> gross_amount
   amountOriginal: string | null;
+  issuerCnpj?: string | null;
+  issueDate?: string | null;
+  purchaseDate?: string | null;
+  taxes?: string | null;
+  taxes2?: string | null;
   amountProfitFormatted: string;
   lastMonthRateFormatted: string;
   lastTwelveMonthsRateFormatted: string;
@@ -129,7 +134,7 @@ function normalizeIsoDate(dateStr: string | null | undefined): string | null {
   return dateStr.slice(0, 10);
 }
 
-function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: AssetClass; isEtf: boolean } {
+export function resolvePluggyAssetClass(inv: PluggyInvestment): { assetClass: AssetClass; isEtf: boolean } {
   const type = inv.type;
   const subtype = inv.subtype || 'OTHER';
 

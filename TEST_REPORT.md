@@ -10,7 +10,21 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `npm run test:mobile` | **3/3 suítes Sprint 62 (20/20 testes)** passando; **123/126 suítes (855/856 testes)** no total (3 falhas pré-existentes de WIP Sprint 63/64) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **163 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 71 — Pluggy: diagnosticar e corrigir a importação (Fase A concluída)
+
+Diagnóstico e cobertura campo a campo, correção de movimentações (`BUY`/`SELL` em `transactions`, `TAX`/`AMORTIZATION`/`TRANSFER` no custo, `INTEREST` separado), taxas via `expenses`, `manual_position_value` nulo para ações/FIIs/BDRs/ETFs, robustez e concorrência no sync de investimentos, nomenclatura legível com preservação de edição do usuário e conciliação em sequência de todos os itens de finanças.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint71InvestmentMapping.test.ts` | S71-T01…T08 | `808ec5b8edd8dbb34300821112c3a510528d94558f5421f8aace3db8f088b22b` | 6 FAIL, 2 PASS (guardas de regressão) |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint71InvestmentsSyncRobustness.test.ts` | S71-T09…T14 | `3c32f0ca2c4a2eb55a9ed287536d5ab5f908ebee8fa8fb931b9da500040a9ffb` | 6 FAIL |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint71Diagnostics.test.ts` | S71-T15…T18 | `31fba7bcdb539818e2f26cfd265087c6ed840b2b73d38e35d695f011b8c17b7b` | 4 FAIL |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint71Naming.test.ts` | S71-T19…T22 | `e5ee7092351ce578e5731d0e79823c832bc6254c7bc163dad73628c344edba89` | 4 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint71OpenFinanceSyncFlow.test.tsx` | S71-T23…T25 | `dfa9e974c5435598dbc92387fa310e6c37b7d30b37bef2d06f5b80e673fdaa2a` | 3 FAIL |
+
+Execução da Fase A: `npx jest Sprint71 --no-coverage` → 23 falhando, 2 passando (25 testes, 5 suítes). 163 arquivos travados.
 
 ## Sprint 70 — Correções médias da revisão (Fase B concluída)
 

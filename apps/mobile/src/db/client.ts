@@ -543,7 +543,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'transactions', column: 'archived_at', ddl: 'ALTER TABLE transactions ADD COLUMN archived_at TEXT' },
 ];
 
-function applySchemaUpgrades(raw: SQLiteDatabase) {
+export function applySchemaUpgrades(raw: SQLiteDatabase) {
   for (const up of SCHEMA_UPGRADES) {
     const cols = raw.getAllSync<{ name: string }>(`PRAGMA table_info(${up.table})`);
     if (!cols.some((c) => c.name === up.column)) {

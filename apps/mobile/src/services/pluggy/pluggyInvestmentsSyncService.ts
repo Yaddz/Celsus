@@ -48,6 +48,7 @@ export interface SyncInvestmentsCounts {
   assetsMarkedMissing: number;
   transactionsArchived: number;
   transactionsCreated: number;
+  investmentErrors?: number;
 }
 
 export interface SyncInvestmentsResult {
@@ -57,6 +58,7 @@ export interface SyncInvestmentsResult {
   counts: SyncInvestmentsCounts;
   coverageByClass: ClassCoverageStatus[];
   needsReconciliation: boolean;
+  interestTransactions?: ReturnType<typeof mapPluggyInvestmentTransaction>[];
   error?: string;
 }
 

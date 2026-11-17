@@ -46,6 +46,7 @@ export interface OpenFinanceScreenProps {
   onClose?: () => void;
   themeMode?: ThemeMode;
   client?: PluggyClient;
+  onCopyReport?: (text: string) => void | Promise<void>;
   testID?: string;
 }
 
