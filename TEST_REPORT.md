@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (153 erros pré-existentes apenas em arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **204 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 90 — Proventos por nome do fundo e diagnóstico sem PII (Fase A travada)
+
+Especificação TDD para `R15` (identificação de provento pelo nome do fundo, quantidade `"S/ <n>"`, prioridade antes de transferência incluindo `categoryId 04000000` e contagem de ambiguidade), `R16` (recibo `TOTAL_WITHDRAWAL` → ativo-base `ACTIVE` sufixo `11`) e `R21` (`redactDiagnosticDescription`, bloco `app` e `name` por investimento e `entriesLast90d` por conta).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint90IncomeNames.test.ts` | S90-T01…T06, S90-T08 | `f3032d0b727609971b7f77978954dadb377816bf59bf713e12dc26d590ba828d` | 7 FAIL |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint90IncomeNames.test.ts` | S90-T03 (sync), S90-T07, S90-T09 | `0bc89dc4ab144a933b6f73db054741f5af391c7098dbedad0392c3262d15c674` | 3 FAIL |
+
 ## Sprint 89 — Correções da validação Pluggy (Fase B concluída)
 
 `priceFactor` aplicado também à posição (`resolvePositionPriceFactor`, herança com `warning` quando ausente na posição e uniforme nas transações, e `warning` sem multiplicar quando divergente — `R12`), `OPENING_BALANCE` sem `amountOriginal` mantendo `cost_basis_source = 'UNKNOWN'` e ajuste `SELL` sintético `pluggy-closing-adj:<investmentId>` quando livro > posição (`R13`), e helper puro `isUnknownCost` (`domain/finance/averagePrice.ts`) aplicado em `marketSyncService`, `finGoalsService`, `PortfolioManagementScreen` (usando `of_reported_value` para `INSTITUTION` e divisão por quantidade `< 1` sem `Math.max(1, qty)`) e `IncomeHistoryScreen` (`R14`).

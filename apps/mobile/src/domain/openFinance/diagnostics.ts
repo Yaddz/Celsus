@@ -613,3 +613,15 @@ export function auditOpenFinanceOutliers(input: OutlierAuditInput): OutlierAlert
 
   return alerts;
 }
+
+export interface DiagnosticRedactionContext {
+  ownerNames?: Array<string | null | undefined>;
+  categoryId?: string | null;
+}
+
+export function redactDiagnosticDescription(
+  desc: string | null | undefined,
+  _ctx?: DiagnosticRedactionContext
+): string {
+  return (desc || '').replace(/\s+/g, ' ').trim();
+}

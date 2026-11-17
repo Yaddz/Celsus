@@ -2,6 +2,16 @@ import Decimal from 'decimal.js';
 import type { PluggyTransaction } from '../../services/pluggy/types';
 import { normalizeInvestmentTicker } from './investments';
 
+export interface KnownIncomeAsset {
+  ticker: string;
+  name?: string | null;
+  status?: string | null;
+}
+
+export interface DetectBankIncomeOptions {
+  onAmbiguous?: () => void;
+}
+
 export interface BankIncomeCandidate {
   ticker: string;
   payDate: string;
@@ -10,6 +20,8 @@ export interface BankIncomeCandidate {
   externalId: string;
   notes: string | null;
   source: 'OPEN_FINANCE_BANK';
+  quantity?: string | null;
+  unitAmount?: string | null;
 }
 
 const INCOME_DESC_RE = /\b(DIVIDENDOS?|JCP|JUROS\s+S(?:OBRE|\/)\s*CAPITAL|RENDIMENTOS?)\b/i;
@@ -37,7 +49,8 @@ function isPluggyInvestmentIncomeCategory(
  */
 export function detectBankIncomeCandidate(
   tx: Pick<PluggyTransaction, 'id' | 'type' | 'amount' | 'date' | 'description' | 'category' | 'categoryId'>,
-  knownTickers: Set<string> | string[]
+  knownTickers: Set<string> | string[] | KnownIncomeAsset[],
+  _options?: DetectBankIncomeOptions
 ): BankIncomeCandidate | null {
   if (tx.type !== 'CREDIT' || !tx.amount || tx.amount <= 0) {
     return null;
@@ -53,7 +66,8 @@ export function detectBankIncomeCandidate(
 
   const knownSet = new Set<string>();
   for (const t of knownTickers) {
-    const norm = normalizeInvestmentTicker(t);
+    const ticker = typeof t === 'string' ? t : t.ticker;
+    const norm = normalizeInvestmentTicker(ticker);
     if (norm) knownSet.add(norm);
   }
   if (knownSet.size === 0) {
