@@ -639,3 +639,11 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Implementação: `classification.ts` e `stalePending.ts` (domínio), `pluggyClassificationService.ts`, mapper e sync (`index.ts`, `pluggySyncService.ts`), seed + migração das 4 categorias (`finRepository.ts`), previsão/resumo/"a pagar" ignoram PENDING antigo (`financeFlow`), `FinanceHomeScreen` passa a data de hoje, diagnóstico (`transfersByReason`, `stalePendingCount`).
   - Resultado: Sprint 91 — 2 suítes / 18 testes PASS. Suíte geral: 192 suítes / 1268 testes PASS (antes: 190 / 1250). `tsc --noEmit`: 149 erros (antes 148; o a mais é `Sprint74CardEntryRule.test.ts`, fixture tipada de `FinEntry` sem as 2 colunas novas — teste travado, não editado; zero erros em produção). `test-lock verify` OK (208 arquivos).
   - Não validado: sync real (exige aparelho e credenciais) e conferência visual das telas.
+
+
+## Sprint 92 — Correções da revisão das sprints 90 e 91
+- Baseline antes da sprint (branch `feat/sprint-91-of-entry-classification`): 192 suítes / 1268 testes PASS; `tsc --noEmit` 149 erros (todos em arquivos de teste); `test-lock verify` OK (208 arquivos).
+- Fase A (Red Phase & Lock), sem parada entre fases:
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint92ReviewFixes.test.ts` — `S92-T01` raiz do ticker não usa a descrição inteira (CSAN3/RECR11 falsos); `S92-T02` raiz continua valendo depois de "s/ FII" e ticker explícito vence; `S92-T03`/`T04` pareamento entre contas só com 04, 05 ou sem categoria; `S92-T05` mesmo critério no pareamento dentro da conexão, mantendo o pagamento de fatura; `S92-T06` mascaramento de contraparte em Pix/TED/transferência de qualquer categoria e CNPJ parcial.
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint92ReviewFixes.test.ts` — `S92-T07` busca única do histórico completo em conexão anterior à 92, reclassificando 04 e categoryId; `S92-T08` pareamento de Pix 05 com mais de 40 dias depois do histórico completo; `S92-T09` motivo OWN_ACCOUNT_PAIRED preservado nas sincronizações seguintes.
+  - Execução Fase A: 2 suítes / 7 testes falhando e 2 passando (Red Phase esperado; S92-T02 e S92-T04 documentam comportamento que precisa continuar valendo).
