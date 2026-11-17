@@ -124,7 +124,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
   const normalizedEntries = useMemo(() => {
     const closingDay = card?.closing_day ?? 1;
     return entries.map((e) =>
-      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, closingDay) }
+      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, closingDay, card?.due_day) }
     );
   }, [entries, card]);
 

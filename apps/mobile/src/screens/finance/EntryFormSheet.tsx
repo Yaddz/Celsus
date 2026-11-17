@@ -349,7 +349,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
         const selectedAcc = accounts.find((a) => a.id === resolvedAccountId);
         const billMonth =
           selectedAcc?.type === 'card'
-            ? resolveBillMonth(trimmedDate, selectedAcc.closing_day ?? 1)
+            ? resolveBillMonth(trimmedDate, selectedAcc.closing_day ?? 1, selectedAcc.due_day)
             : null;
         await finRepository.createEntry({
           kind,

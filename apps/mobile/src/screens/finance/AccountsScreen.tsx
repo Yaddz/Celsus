@@ -277,11 +277,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           .map((e) =>
             e.bill_month
               ? e
-              : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1) }
+              : { ...e, bill_month: resolveBillMonth(e.due_date, acc.closing_day ?? 1, acc.due_day) }
           )
       : [];
     const currentBillMonth = isCard
-      ? resolveBillMonth(getTodayIsoLocal(), acc.closing_day ?? 1)
+      ? resolveBillMonth(getTodayIsoLocal(), acc.closing_day ?? 1, acc.due_day)
       : currentYm;
     const currentBillSummary = isCard
       ? summarizeBill(cardEntries, currentBillMonth, {

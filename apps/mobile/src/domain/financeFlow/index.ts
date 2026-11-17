@@ -398,6 +398,20 @@ export function calculateAccountBalance(
   return balance;
 }
 
+/**
+ * Saldo atual de uma conta. Em conta vinda do Open Finance o banco manda: usa o saldo informado
+ * por ele (o histórico importado já está contido nesse saldo). Nas demais, inicial + lançamentos pagos.
+ */
+export function resolveAccountBalance(
+  account: Pick<FinAccount, 'id' | 'initial_balance_cents' | 'source' | 'reported_balance_cents'>,
+  entries: Array<Pick<FinEntry, 'account_id' | 'kind' | 'status' | 'amount_cents' | 'paid_amount_cents'>>
+): number {
+  if (account.source === 'OPEN_FINANCE' && account.reported_balance_cents != null) {
+    return account.reported_balance_cents;
+  }
+  return calculateAccountBalance(account.initial_balance_cents, entries, account.id);
+}
+
 export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string): MonthlySummary {
   let paidIncomeCents = 0;
   let paidExpenseCents = 0;
@@ -702,11 +716,11 @@ export function detectOverdueAndDueSoonWithBills(
     const cardEntries = entries.filter((e) => e.account_id === card.id);
     const months = new Set<string>();
     for (const e of cardEntries) {
-      const bm = e.bill_month ?? resolveBillMonth(e.due_date, card.closing_day ?? 1);
+      const bm = e.bill_month ?? resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day);
       months.add(bm);
     }
     const normalizedEntries = cardEntries.map((e) =>
-      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1) }
+      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day) }
     );
 
     for (const billMonth of months) {

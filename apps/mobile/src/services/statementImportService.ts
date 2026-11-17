@@ -201,7 +201,7 @@ export class StatementImportService {
         }
 
         const kind: FinKind = row.direction === 'in' ? 'income' : 'expense';
-        const billMonth = isCard ? resolveBillMonth(row.date, closingDay) : null;
+        const billMonth = isCard ? resolveBillMonth(row.date, closingDay, account?.due_day) : null;
 
         entriesToCreate.push({
           kind,

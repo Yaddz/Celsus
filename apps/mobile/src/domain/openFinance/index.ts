@@ -50,6 +50,7 @@ export interface MapPluggyTransactionOptions {
   accountId: string;
   accountType: 'checking' | 'card';
   closingDay?: number | null;
+  dueDay?: number | null;
   bills?: PluggyBill[];
   rules?: CategoryRuleLike[];
 }
@@ -262,7 +263,7 @@ export function mapPluggyTransaction(
     if (matchingBill?.dueDate) {
       billMonth = matchingBill.dueDate.slice(0, 7);
     } else if (options.closingDay != null) {
-      billMonth = resolveBillMonth(dueDate, options.closingDay);
+      billMonth = resolveBillMonth(dueDate, options.closingDay, options.dueDay);
     } else {
       billMonth = dueDate.slice(0, 7);
     }

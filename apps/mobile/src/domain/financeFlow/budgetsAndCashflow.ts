@@ -286,6 +286,11 @@ export function projectCashflow(
 
   let startingBalanceCents = 0;
   for (const acc of cashAndChecking) {
+    // Conta do Open Finance: o saldo informado pelo banco já contém o histórico importado
+    if (acc.source === 'OPEN_FINANCE' && acc.reported_balance_cents != null) {
+      startingBalanceCents += acc.reported_balance_cents;
+      continue;
+    }
     let bal = acc.initial_balance_cents;
     for (const entry of entries) {
       if (entry.account_id !== acc.id || entry.status !== 'paid') continue;
@@ -316,7 +321,7 @@ export function projectCashflow(
   for (const card of cardAccounts) {
     const cardEntries = entries.filter((e) => e.account_id === card.id);
     const normalized = cardEntries.map((e) =>
-      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1) }
+      e.bill_month ? e : { ...e, bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day) }
     );
     const months = new Set<string>(normalized.map((e) => e.bill_month!));
     for (const billMonth of months) {

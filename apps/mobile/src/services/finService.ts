@@ -6,6 +6,7 @@ import {
   addMonthsYearMonth,
   buildInstallmentSchedule,
   clampDayOfMonth,
+  closesAfterDueDay,
   formatIsoDate,
   generateRecurrenceOccurrences,
   getMonthDateRange,
@@ -16,16 +17,19 @@ import {
   type FinKind,
   type InstallmentScope,
 } from '../domain/financeFlow';
+import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
 import { finReminderService } from './finReminderService';
 
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
+const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
 
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
     await finRepository.seedDefaultCategoriesIfNeeded();
     await finRepository.migrateDefaultCategoryColors();
     await this.migrateOrphanRecordsIfNeeded();
+    await this.migrateCardBillMonthsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
     const startMonth = addMonthsYearMonth(refMonth, -1);
@@ -102,6 +106,42 @@ export class FinService {
         }
       }
     }
+  }
+
+  /**
+   * Antes da Sprint 69 o mês da fatura ignorava o dia do vencimento: em cartões que fecham depois
+   * do vencimento (ex.: fecha 28, vence 5) a compra caía na fatura que já tinha vencido. Desloca
+   * um mês, uma única vez, os lançamentos locais desses cartões. Os vindos do Open Finance ficam
+   * como estão: o mês deles é o da fatura informada pelo banco.
+   */
+  async migrateCardBillMonthsIfNeeded(): Promise<number> {
+    const alreadyDone = await appMetaRepository.get(BILL_MONTH_DUE_SHIFT_META_KEY);
+    if (alreadyDone) return 0;
+
+    return runInTransaction(async () => {
+      const accounts = await finRepository.listAccounts(true);
+      const affectedCardIds = new Set(
+        accounts
+          .filter((a) => a.type === 'card' && closesAfterDueDay(a.closing_day, a.due_day))
+          .map((a) => a.id)
+      );
+
+      let shifted = 0;
+      if (affectedCardIds.size > 0) {
+        const entries = await finRepository.listAllEntries();
+        for (const entry of entries) {
+          if (!affectedCardIds.has(entry.account_id)) continue;
+          if (!entry.bill_month || entry.source === 'OPEN_FINANCE') continue;
+          await finRepository.updateEntry(entry.id, {
+            bill_month: addMonthsYearMonth(entry.bill_month, 1),
+          });
+          shifted += 1;
+        }
+      }
+
+      await appMetaRepository.set(BILL_MONTH_DUE_SHIFT_META_KEY, '1');
+      return shifted;
+    });
   }
 
   async ensureMonthGenerated(yearMonth: string, referenceDateIso?: string): Promise<void> {
@@ -314,7 +354,7 @@ export class FinService {
           installment_group_id: groupId,
           installment_number: part.installmentNumber,
           installment_total: part.installmentTotal,
-          bill_month: isCard ? resolveBillMonth(part.dueDate, closingDay) : null,
+          bill_month: isCard ? resolveBillMonth(part.dueDate, closingDay, account?.due_day) : null,
         }))
       );
     });

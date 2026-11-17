@@ -26,6 +26,8 @@ import {
   finRecurrenceSkips as finRecurrenceSkipsTable,
   finCategoryRules as finCategoryRulesTable,
   finGoals as finGoalsTable,
+  finBudgets as finBudgetsTable,
+  ofItems as ofItemsTable,
   finGoalContributions as finGoalContributionsTable,
   finGoalSources as finGoalSourcesTable,
   netWorthSnapshots as netWorthSnapshotsTable,
@@ -74,6 +76,8 @@ export interface BackupDatabaseSnapshot {
   finRecurrenceSkips?: FinRecurrenceSkip[];
   finCategoryRules?: FinCategoryRule[];
   finGoals?: FinGoal[];
+  finBudgets?: FinBudget[];
+  ofItems?: OfItemRow[];
   finGoalContributions?: FinGoalContribution[];
   finGoalSources?: FinGoalSource[];
   netWorthSnapshots?: NetWorthSnapshot[];
@@ -570,6 +574,10 @@ const FIN_ACCOUNTS_COLUMNS: (keyof FinAccount)[] = [
   'closing_day',
   'due_day',
   'credit_limit_cents',
+  'of_account_id',
+  'source',
+  'reported_balance_cents',
+  'reported_balance_at',
   'created_at',
 ];
 
@@ -604,6 +612,8 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'source',
   'external_id',
   'import_batch_id',
+  'description_raw',
+  'user_edited_fields',
   'created_at',
 ];
 
@@ -663,6 +673,10 @@ function parseFinAccountsFromCsv(csvText?: string): FinAccount[] {
     closing_day: parseOptionalInt(r.closing_day),
     due_day: parseOptionalInt(r.due_day),
     credit_limit_cents: parseOptionalInt(r.credit_limit_cents),
+    of_account_id: r.of_account_id === '' ? null : r.of_account_id ?? null,
+    source: r.source || 'MANUAL',
+    reported_balance_cents: parseOptionalInt(r.reported_balance_cents),
+    reported_balance_at: r.reported_balance_at === '' ? null : r.reported_balance_at ?? null,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -703,6 +717,8 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id ?? null,
     import_batch_id: r.import_batch_id === '' ? null : r.import_batch_id ?? null,
+    description_raw: r.description_raw === '' ? null : r.description_raw ?? null,
+    user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -746,6 +762,55 @@ function parseFinRecurrencesFromCsv(csvText?: string): FinRecurrence[] {
     variable_amount: parseRequiredInt(r.variable_amount, 0),
     generated_until: r.generated_until === '' ? null : r.generated_until ?? null,
     created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+type FinBudget = typeof finBudgetsTable.$inferSelect;
+type OfItemRow = typeof ofItemsTable.$inferSelect;
+
+const FIN_BUDGETS_COLUMNS: (keyof FinBudget)[] = [
+  'id',
+  'category_id',
+  'year_month',
+  'limit_cents',
+  'created_at',
+];
+
+const OF_ITEMS_COLUMNS: (keyof OfItemRow)[] = [
+  'id',
+  'connector_name',
+  'status',
+  'execution_status',
+  'consent_expires_at',
+  'last_synced_at',
+  'last_error',
+];
+
+function emptyToNull(raw?: string): string | null {
+  return raw === undefined || raw === null || raw === '' ? null : raw;
+}
+
+function parseFinBudgetsFromCsv(csvText?: string): FinBudget[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    category_id: r.category_id,
+    year_month: emptyToNull(r.year_month),
+    limit_cents: parseRequiredInt(r.limit_cents, 0),
+    created_at: r.created_at || new Date().toISOString(),
+  }));
+}
+
+function parseOfItemsFromCsv(csvText?: string): OfItemRow[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    connector_name: emptyToNull(r.connector_name),
+    status: emptyToNull(r.status),
+    execution_status: emptyToNull(r.execution_status),
+    consent_expires_at: emptyToNull(r.consent_expires_at),
+    last_synced_at: emptyToNull(r.last_synced_at),
+    last_error: emptyToNull(r.last_error),
   }));
 }
 
@@ -1029,6 +1094,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const db = getDatabase();
       const finCategoryRules = db ? await db.select().from(finCategoryRulesTable) : [];
       const finGoals = db ? await db.select().from(finGoalsTable) : [];
+      const finBudgets = db ? await db.select().from(finBudgetsTable) : [];
+      const ofItems = db ? await db.select().from(ofItemsTable) : [];
       const finGoalContributions = db ? await db.select().from(finGoalContributionsTable) : [];
       const finGoalSources = db ? await db.select().from(finGoalSourcesTable) : [];
       const netWorthSnapshots = db ? await db.select().from(netWorthSnapshotsTable) : [];
@@ -1045,6 +1112,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finRecurrenceSkips,
         finCategoryRules,
         finGoals,
+        finBudgets,
+        ofItems,
         finGoalContributions,
         finGoalSources,
         netWorthSnapshots,
@@ -1076,6 +1145,12 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     if (snapshot.finGoals) {
       await db.delete(finGoalsTable);
+    }
+    if (snapshot.finBudgets) {
+      await db.delete(finBudgetsTable);
+    }
+    if (snapshot.ofItems) {
+      await db.delete(ofItemsTable);
     }
     if (snapshot.netWorthSnapshots) {
       await db.delete(netWorthSnapshotsTable);
@@ -1147,6 +1222,16 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.finGoals) {
       for (const g of snapshot.finGoals) {
         await db.insert(finGoalsTable).values(g);
+      }
+    }
+    if (snapshot.finBudgets) {
+      for (const b of snapshot.finBudgets) {
+        await db.insert(finBudgetsTable).values(b);
+      }
+    }
+    if (snapshot.ofItems) {
+      for (const it of snapshot.ofItems) {
+        await db.insert(ofItemsTable).values(it);
       }
     }
     if (snapshot.finGoalContributions) {
@@ -1281,6 +1366,14 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         incoming.finGoals || (current.finGoals?.length ?? 0) > 0
           ? mergeById(current.finGoals, incoming.finGoals)
           : undefined,
+      finBudgets:
+        incoming.finBudgets || (current.finBudgets?.length ?? 0) > 0
+          ? mergeById(current.finBudgets, incoming.finBudgets)
+          : undefined,
+      ofItems:
+        incoming.ofItems || (current.ofItems?.length ?? 0) > 0
+          ? mergeById(current.ofItems, incoming.ofItems)
+          : undefined,
       finGoalContributions:
         incoming.finGoalContributions || (current.finGoalContributions?.length ?? 0) > 0
           ? mergeById(current.finGoalContributions, incoming.finGoalContributions)
@@ -1383,6 +1476,22 @@ export class BackupService {
         : await (async () => {
             const db = getDatabase();
             return db ? db.select().from(finCategoryRulesTable) : [];
+          })());
+    const finBudgets =
+      snapshot.finBudgets ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(finBudgetsTable) : [];
+          })());
+    const ofItems =
+      snapshot.ofItems ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(ofItemsTable) : [];
           })());
     const finGoals =
       snapshot.finGoals ??
@@ -1499,6 +1608,22 @@ export class BackupService {
         sha256: BackupService.computeSha256(csv),
       };
       files['fin_category_rules.csv'] = csv;
+    }
+    if (finBudgets.length > 0) {
+      const csv = serializeToCsv(finBudgets, FIN_BUDGETS_COLUMNS);
+      manifestFiles['fin_budgets.csv'] = {
+        rows: finBudgets.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['fin_budgets.csv'] = csv;
+    }
+    if (ofItems.length > 0) {
+      const csv = serializeToCsv(ofItems, OF_ITEMS_COLUMNS);
+      manifestFiles['of_items.csv'] = {
+        rows: ofItems.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['of_items.csv'] = csv;
     }
     if (finGoals.length > 0) {
       const csv = serializeToCsv(finGoals, FIN_GOALS_COLUMNS);
@@ -1629,6 +1754,8 @@ export class BackupService {
       'fin_recurrence_skips.csv',
       'fin_category_rules.csv',
       'fin_goals.csv',
+      'fin_budgets.csv',
+      'of_items.csv',
       'fin_goal_contributions.csv',
       'fin_goal_sources.csv',
       'net_worth_snapshots.csv',
@@ -1675,6 +1802,12 @@ export class BackupService {
         : undefined,
       finGoals: extracted['fin_goals.csv']
         ? parseFinGoalsFromCsv(extracted['fin_goals.csv'])
+        : undefined,
+      finBudgets: extracted['fin_budgets.csv']
+        ? parseFinBudgetsFromCsv(extracted['fin_budgets.csv'])
+        : undefined,
+      ofItems: extracted['of_items.csv']
+        ? parseOfItemsFromCsv(extracted['of_items.csv'])
         : undefined,
       finGoalContributions: extracted['fin_goal_contributions.csv']
         ? parseFinGoalContributionsFromCsv(extracted['fin_goal_contributions.csv'])

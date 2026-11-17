@@ -21,7 +21,7 @@ import {
   type NetWorthResult,
 } from '../domain/finance/goal';
 import {
-  calculateAccountBalance,
+  resolveAccountBalance,
   getTodayIsoLocal,
   summarizeBill,
 } from '../domain/financeFlow';
@@ -66,7 +66,7 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
       id: a.id,
       name: a.name,
       type: a.type,
-      balance_cents: calculateAccountBalance(a.initial_balance_cents, normalizedEntries, a.id),
+      balance_cents: resolveAccountBalance(a, normalizedEntries),
     }));
 
   // Dívida de cartão: soma do saldo em aberto de todas as faturas não quitadas

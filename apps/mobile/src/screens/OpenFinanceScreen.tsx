@@ -9,6 +9,7 @@ import {
   View,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { OpenFinanceInvestmentReconciliationSheet } from '../components/OpenFinanceInvestmentReconciliationSheet';
 import { BentoGrid, BentoTile, ConfirmDialog } from '../components/ui';
 import { CircleIconButton } from '../components/ui/CircleIconButton';
 import type { FinAccount } from '../db/schema';
@@ -30,6 +31,14 @@ import {
   type AccountReconciliationChoice,
   type AccountReconciliationProposal,
 } from '../services/pluggy/pluggySyncService';
+import {
+  pluggyInvestmentsSyncService,
+  type InvestmentReconciliationChoice,
+  type InvestmentReconciliationProposal,
+} from '../services/pluggy/pluggyInvestmentsSyncService';
+import { computeClassCoverageReport } from '../domain/openFinance/investments';
+import { assetRepository } from '../repositories/assetRepository';
+import { portfolioRepository } from '../repositories/portfolioRepository';
 import { ThemeMode } from '../theme/palettes';
 import { bento, BentoVariant, colors, layout, typography } from '../theme/tokens';
 
@@ -92,6 +101,16 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [localAccounts, setLocalAccounts] = useState<FinAccount[]>([]);
   const [coverageReport, setCoverageReport] = useState<PluggyCoverageItemSummary[] | null>(null);
   const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
+  const [isSyncingInvestments, setIsSyncingInvestments] = useState(false);
+  const [invReconcile, setInvReconcile] = useState<{
+    itemId: string;
+    institutionName: string;
+    proposals: InvestmentReconciliationProposal[];
+    portfolios: Array<{ id: string; name: string }>;
+    existingAssets: Array<{ id: string; ticker: string; name: string; assetClass: string }>;
+    pendingItemIds: string[];
+    totals: { created: number; updated: number };
+  } | null>(null);
 
   const loadState = useCallback(async () => {
     const [savedCreds, storedItems] = await Promise.all([
@@ -149,8 +168,113 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   };
 
   const handleRemoveItem = async (id: string) => {
-    await openFinanceRepository.removeItem(id);
-    setItems(await openFinanceRepository.listItems());
+    setErrorMessage(null);
+    try {
+      // Os ativos dessa conexão voltam a ser manuais e as movimentações arquivadas são restauradas
+      await pluggyInvestmentsSyncService.disconnectItemInvestments(id);
+      await openFinanceRepository.removeItem(id);
+      setItems(await openFinanceRepository.listItems());
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao remover a conexão.');
+    }
+  };
+
+  /**
+   * Sincroniza os investimentos conexão por conexão. Investimento ainda sem vínculo abre a
+   * conciliação (o usuário escolhe carteira e casamento); os já vinculados sincronizam direto.
+   */
+  const runInvestmentsSync = async (
+    itemIds: string[],
+    totals: { created: number; updated: number }
+  ) => {
+    for (let i = 0; i < itemIds.length; i += 1) {
+      const itemId = itemIds[i];
+      const proposals = await pluggyInvestmentsSyncService.previewReconciliation(itemId, {
+        client: pluggyClient,
+      });
+      const needsChoice = proposals.some((p) => p.matchStrategy !== 'EXTERNAL_ID');
+
+      if (needsChoice) {
+        const portfolios = await portfolioRepository.listPortfolios();
+        if (portfolios.length === 0) {
+          setErrorMessage('Crie uma carteira de investimentos antes de sincronizar os investimentos.');
+          return;
+        }
+        const assetLists = await Promise.all(
+          portfolios.map((p) => assetRepository.listByPortfolio(p.id))
+        );
+        const item = items.find((it) => it.id === itemId);
+        setInvReconcile({
+          itemId,
+          institutionName: item?.connector_name || itemId,
+          proposals,
+          portfolios: portfolios.map((p) => ({ id: p.id, name: p.name })),
+          existingAssets: assetLists.flat().map((a) => ({
+            id: a.id,
+            ticker: a.ticker,
+            name: a.name,
+            assetClass: a.asset_class,
+          })),
+          pendingItemIds: itemIds.slice(i + 1),
+          totals,
+        });
+        return;
+      }
+
+      const res = await pluggyInvestmentsSyncService.syncInvestments(itemId, {
+        client: pluggyClient,
+      });
+      totals.created += res.counts.assetsCreated;
+      totals.updated += res.counts.assetsUpdated;
+    }
+    setStatusMessage(
+      `Investimentos sincronizados: ${totals.created} novos, ${totals.updated} atualizados.`
+    );
+  };
+
+  const handleStartInvestmentsSync = async () => {
+    setErrorMessage(null);
+    setStatusMessage(null);
+    if (items.length === 0) {
+      setErrorMessage('Adicione pelo menos um Item ID antes de sincronizar.');
+      return;
+    }
+    setIsSyncingInvestments(true);
+    try {
+      await runInvestmentsSync(
+        items.map((it) => it.id),
+        { created: 0, updated: 0 }
+      );
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao sincronizar investimentos.');
+    } finally {
+      setIsSyncingInvestments(false);
+    }
+  };
+
+  const handleConfirmInvestmentReconciliation = async (
+    choices: InvestmentReconciliationChoice[]
+  ) => {
+    if (!invReconcile) return;
+    const { itemId, pendingItemIds, totals } = invReconcile;
+    setInvReconcile(null);
+    setIsSyncingInvestments(true);
+    setErrorMessage(null);
+    try {
+      const res = await pluggyInvestmentsSyncService.syncInvestments(itemId, {
+        client: pluggyClient,
+        reconciliationChoices: choices,
+      });
+      const nextTotals = {
+        created: totals.created + res.counts.assetsCreated,
+        updated: totals.updated + res.counts.assetsUpdated,
+      };
+      await runInvestmentsSync(pendingItemIds, nextTotals);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Erro ao sincronizar investimentos.');
+    } finally {
+      setIsSyncingInvestments(false);
+    }
   };
 
   const handleStartFinanceSync = async () => {
@@ -532,6 +656,17 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                   {isSyncingFinance ? 'Sincronizando finanças...' : 'Sincronizar finanças'}
                 </Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                testID="open-finance-sync-investments-btn"
+                onPress={handleStartInvestmentsSync}
+                disabled={isSyncingInvestments}
+                style={[styles.primaryBtn, { backgroundColor: '#2E4A44', marginTop: 4 }]}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {isSyncingInvestments ? 'Sincronizando investimentos...' : 'Sincronizar investimentos'}
+                </Text>
+              </TouchableOpacity>
             </BentoTile>
 
             {reconcileItemId && reconcileProposals.length > 0 ? (
@@ -680,6 +815,21 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
         onConfirm={handleConfirmRemoveCredentials}
         onCancel={() => setConfirmRemoveVisible(false)}
       />
+
+      {invReconcile ? (
+        <OpenFinanceInvestmentReconciliationSheet
+          visible={true}
+          institutionName={invReconcile.institutionName}
+          proposals={invReconcile.proposals}
+          existingAssets={invReconcile.existingAssets}
+          portfolios={invReconcile.portfolios}
+          coverageByClass={computeClassCoverageReport(
+            invReconcile.proposals.map((p) => p.pluggyInvestment)
+          )}
+          onConfirm={handleConfirmInvestmentReconciliation}
+          onClose={() => setInvReconcile(null)}
+        />
+      ) : null}
     </View>
   );
 };

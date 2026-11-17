@@ -12,7 +12,7 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **152 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 69 — Correções da revisão das sprints 59–68 (Fase A concluída — Red Phase)
+## Sprint 69 — Correções da revisão das sprints 59–68 (Fase B concluída)
 
 Quatro correções: mês da fatura quando o cartão fecha depois do dia do vencimento, saldo de conta vinda do
 Open Finance, backup de orçamentos e vínculos do Open Finance, e investimentos da Pluggy acessíveis pela tela.
@@ -24,6 +24,15 @@ Open Finance, backup de orçamentos e vínculos do Open Finance, e investimentos
 | `apps/mobile/src/screens/__tests__/Sprint69OpenFinanceInvestmentsUI.test.tsx` | S69-U01…U04 | `a689d998d02dd337255ba33692a127c691d65db9eadf51c8bb160dbaecab44d9` | 4 FAIL |
 
 Execução da Fase A: `npx jest Sprint69` → 14 falhando, 5 passando (19 testes, 3 suítes). 155 arquivos travados.
+
+Execução da Fase B:
+
+| Verificação | Resultado |
+| :--- | :--- |
+| `npx jest Sprint69` | **19/19 PASS** (3 suítes) |
+| `npx jest` (suíte completa) | 948/951 testes, 137/141 suítes. As 4 suítes que falham já falhavam antes da sprint: 2 arquivos de fixture contados como suíte (`receipt/__tests__/fixtures.ts`, `pluggy/__tests__/pluggyFixtures.ts`), `receiptFlow.test.tsx` (espera conta padrão removida na sprint 59) e `Sprint39GeneralBugsAndHardening` (valor do patrimônio duplicado na tela inicial) |
+| `npx tsc --noEmit` (produção) | 2 erros pré-existentes (`DotMatrixAllocationCard.tsx:41`, `PortfolioManagementScreen.tsx:1579`); os 2 de `backupService.ts` foram resolvidos |
+| `node scripts/test-lock.js verify` | 155 arquivos íntegros |
 
 ## Sprint 68 — Metas financeiras unificadas e patrimônio líquido único (Fase B concluída)
 

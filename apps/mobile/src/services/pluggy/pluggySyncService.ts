@@ -133,6 +133,7 @@ export const pluggySyncService = {
           }
         }
 
+        const newCheckingReportedCents = new Map<string, number>();
         for (const pgAcc of pluggyAccounts) {
           const mapped = mapPluggyAccount(pgAcc);
           const choice = options?.accountChoices?.find(
@@ -176,6 +177,9 @@ export const pluggySyncService = {
               reportedBalanceCents: mapped.reportedBalanceCents,
               reportedBalanceAt: mapped.reportedBalanceAt,
             });
+            if (mapped.type === 'checking') {
+              newCheckingReportedCents.set(localAcc.id, mapped.reportedBalanceCents);
+            }
           }
 
           localAccountByPgId.set(pgAcc.id, localAcc);
@@ -200,6 +204,7 @@ export const pluggySyncService = {
                 accountId: localAcc.id,
                 accountType: localAcc.type === 'card' ? 'card' : 'checking',
                 closingDay: localAcc.closing_day,
+                dueDay: localAcc.due_day,
                 bills,
                 rules: rules as unknown as import('../../domain/statementImport').CategoryRuleLike[],
               })
@@ -320,6 +325,23 @@ export const pluggySyncService = {
         if (toCreate.length > 0) {
           await finRepository.createEntriesBatch(toCreate);
           counts.transactionsCreated = toCreate.length;
+        }
+
+        // Conta corrente recém-criada: o saldo do banco já contém o histórico importado. O saldo
+        // inicial vira "saldo do banco − lançamentos pagos importados", para o saldo calculado fechar.
+        for (const [accountId, reportedCents] of newCheckingReportedCents) {
+          let paidNetCents = 0;
+          for (const row of reconciled.transactions) {
+            if (row.accountId !== accountId || row.status !== 'paid') continue;
+            const kind = row.transferRole ?? row.kind;
+            const real = row.paidAmountCents ?? row.amountCents;
+            paidNetCents += kind === 'income' || kind === 'transfer_in' ? real : -real;
+          }
+          if (paidNetCents !== 0) {
+            await finRepository.updateAccount(accountId, {
+              initial_balance_cents: reportedCents - paidNetCents,
+            });
+          }
         }
 
         await openFinanceRepository.upsertItem({

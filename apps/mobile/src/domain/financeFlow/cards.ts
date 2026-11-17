@@ -41,7 +41,16 @@ function addMonthsYm(yearMonth: string, delta: number): string {
   return `${ny}-${pad2(nm)}`;
 }
 
-export function resolveBillMonth(purchaseIso: string, closingDay: number): string {
+/**
+ * Mês da fatura (o mês em que ela VENCE) de uma compra.
+ * Quando o cartão fecha depois do dia do vencimento (ex.: fecha 28, vence 5), a fatura que fecha
+ * em um mês só vence no mês seguinte; informe `dueDay` para que esse deslocamento seja aplicado.
+ */
+export function resolveBillMonth(
+  purchaseIso: string,
+  closingDay: number,
+  dueDay?: number | null
+): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(purchaseIso);
   if (!m) {
     return purchaseIso.slice(0, 7);
@@ -51,10 +60,16 @@ export function resolveBillMonth(purchaseIso: string, closingDay: number): strin
   const day = Number.parseInt(m[3], 10);
   const currentYm = `${year}-${pad2(month)}`;
   const effectiveClosingDay = clampDay(year, month, closingDay);
-  if (day >= effectiveClosingDay) {
-    return addMonthsYm(currentYm, 1);
-  }
-  return currentYm;
+  const closingYm = day >= effectiveClosingDay ? addMonthsYm(currentYm, 1) : currentYm;
+  return closesAfterDueDay(closingDay, dueDay) ? addMonthsYm(closingYm, 1) : closingYm;
+}
+
+/** Cartão cujo fechamento cai depois do dia do vencimento: a fatura vence no mês seguinte ao do fechamento. */
+export function closesAfterDueDay(
+  closingDay: number | null | undefined,
+  dueDay: number | null | undefined
+): boolean {
+  return closingDay != null && dueDay != null && closingDay > dueDay;
 }
 
 export function billDueDate(billMonth: string, dueDay: number): string {
