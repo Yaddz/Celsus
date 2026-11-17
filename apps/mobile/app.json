@@ -45,7 +45,8 @@
           "photosPermission": "Permitir que o Celsus acesse suas fotos para ler cupons fiscais.",
           "cameraPermission": "Permitir que o Celsus acesse sua câmera para fotografar cupons fiscais."
         }
-      ]
+      ],
+      "expo-sharing"
     ]
   }
 }

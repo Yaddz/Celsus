@@ -652,3 +652,12 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Resultado: Sprint 92 — 2 suítes / 9 testes PASS. Suíte geral: 194 suítes / 1277 testes PASS (antes: 192 / 1268). `tsc --noEmit`: 149 erros, os mesmos do baseline, zero em produção. `test-lock verify` OK (210 arquivos).
   - Sem teste travado: o desfazimento de pares incompatíveis já gravados foi conferido com um teste temporário (par restaurante × salário volta a despesa e receita, sem grupo), apagado em seguida.
   - Não validado: sync real (exige aparelho e credenciais).
+
+
+## Sprint 93 — Backup .celsus.zip gravado, compartilhado e importado de arquivo
+- Origem: a exportação completa só montava o pacote em memória (`useProfileSettings.exportDossier`); nada era gravado nem compartilhado, e "Importar" reimportava esse mesmo pacote.
+- Fase A (Red Phase & Lock), sem parada entre fases:
+  - `apps/mobile/src/services/__tests__/Sprint93BackupShare.test.ts` — `S93-T01` grava no cache com o nome do pacote e compartilha como `application/zip`; `S93-T01b` sobrescreve pacote de mesmo nome; `S93-T02` sem compartilhamento ⇒ arquivo mantido e `shared=false`; `S93-T03` seletor devolve os bytes do arquivo escolhido; `S93-T03b` cancelado ⇒ null; `S93-T03c` arquivo que não é .zip é recusado.
+  - `apps/mobile/src/screens/__tests__/Sprint93BackupShareProfile.test.tsx` — `S93-T04` exportar chama o compartilhamento; `S93-T05` sem compartilhamento o aviso mostra onde o arquivo ficou; `S93-T06` erro ao gravar ⇒ "ERRO AO EXPORTAR BACKUP"; `S93-T07` importar usa o arquivo escolhido e o modo selecionado, nunca o pacote em memória; `S93-T08` seletor cancelado não importa nem mostra erro; `S93-T09` arquivo recusado ⇒ aviso de erro.
+  - Stub de compilação: `services/backupFileService.ts`. Dependência nova: `expo-sharing` (~58.0.23, config plugin em `app.json`; exige novo build nativo).
+  - Execução Fase A: 2 suítes / 12 testes falhando (Red Phase esperado).
