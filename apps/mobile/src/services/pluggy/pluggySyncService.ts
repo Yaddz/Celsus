@@ -1,5 +1,6 @@
 import * as Crypto from 'expo-crypto';
-import { runInTransaction } from '../../db/client';
+import { getDatabase, runInTransaction } from '../../db/client';
+import { assets, incomeEvents, portfolios } from '../../db/schema';
 import {
   applyUserEditedPreservation,
   computeSyncWindowStart,
@@ -11,7 +12,10 @@ import {
   type MappedPluggyTransaction,
   type ReconcilableOpenFinanceEntry,
 } from '../../domain/openFinance';
+import { detectBankIncomeCandidate } from '../../domain/openFinance/income';
+import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { finRepository } from '../../repositories/finRepository';
+import { incomeRepository } from '../../repositories/incomeRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { assertItemConsentActive, PluggyClient } from './pluggyClient';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from './types';
@@ -265,6 +269,13 @@ export const pluggySyncService = {
 
         const existingById = new Map(existingEntries.map((e) => [e.id, e]));
         const toCreate: Array<Record<string, unknown>> = [];
+        const rawTxByExternalId = new Map<string, PluggyTransaction>();
+        for (const [, txs] of txsByAccount.entries()) {
+          for (const rawTx of txs) {
+            rawTxByExternalId.set(rawTx.id, rawTx);
+          }
+        }
+        const syncedEntryRefs: Array<{ entryId: string; externalId: string }> = [];
 
         for (const row of reconciled.transactions) {
           if (row.action === 'update' && row.matchedEntryId) {
@@ -316,6 +327,9 @@ export const pluggySyncService = {
               });
               counts.transactionsUpdated += 1;
             }
+            if (!existing.linked_income_id) {
+              syncedEntryRefs.push({ entryId: existing.id, externalId: row.externalId });
+            }
           } else if (row.action === 'settle_pending' && row.matchedEntryId) {
             await finRepository.updateEntry(row.matchedEntryId, {
               status: row.status,
@@ -351,8 +365,91 @@ export const pluggySyncService = {
         }
 
         if (toCreate.length > 0) {
-          await finRepository.createEntriesBatch(toCreate);
+          const createdEntries = await finRepository.createEntriesBatch(toCreate);
           counts.transactionsCreated = toCreate.length;
+          for (const created of createdEntries) {
+            if (created.external_id) {
+              syncedEntryRefs.push({ entryId: created.id, externalId: created.external_id });
+            }
+          }
+        }
+
+        // R9: Detectar proventos creditados na conta da corretora (OPEN_FINANCE_BANK)
+        if (syncedEntryRefs.length > 0) {
+          const db = getDatabase();
+          const [allAssets, allPortfolios, existingIncomes] = await Promise.all([
+            db.select().from(assets),
+            db.select().from(portfolios),
+            db.select().from(incomeEvents),
+          ]);
+          const workingIncomes = [...existingIncomes];
+          const knownTickers = new Set<string>([
+            ...allAssets.map((a) => a.ticker),
+            ...workingIncomes.map((i) => i.ticker),
+          ]);
+          const brokerPortfolioId =
+            allPortfolios.find((p) => p.of_item_id === itemId)?.id ??
+            allAssets.find((a) => a.institution_id === itemId)?.portfolio_id ??
+            allPortfolios[0]?.id ??
+            null;
+
+          if (brokerPortfolioId && knownTickers.size > 0) {
+            for (const ref of syncedEntryRefs) {
+              const rawTx = rawTxByExternalId.get(ref.externalId);
+              if (!rawTx) continue;
+              const candidate = detectBankIncomeCandidate(rawTx, knownTickers);
+              if (!candidate) continue;
+
+              const byExt = workingIncomes.find((e) => e.external_id === candidate.externalId);
+              const equiv =
+                byExt ??
+                findEquivalentIncome(
+                  {
+                    ticker: candidate.ticker,
+                    payDate: candidate.payDate,
+                    amount: candidate.amount,
+                    kind: candidate.kind,
+                  },
+                  workingIncomes.map((e) => ({
+                    id: e.id,
+                    portfolioId: e.portfolio_id,
+                    ticker: e.ticker,
+                    payDate: e.pay_date,
+                    amount: e.amount,
+                    kind: e.kind,
+                    source: e.source,
+                    externalId: e.external_id,
+                    notes: e.notes,
+                    quantity: e.quantity,
+                    unitAmount: e.unit_amount,
+                    createdAt: e.created_at,
+                  }))
+                );
+
+              let linkedIncomeId: string;
+              if (equiv && equiv.id) {
+                linkedIncomeId = equiv.id;
+              } else {
+                const createdInc = await incomeRepository.addIncome({
+                  portfolioId: brokerPortfolioId,
+                  ticker: candidate.ticker,
+                  payDate: candidate.payDate,
+                  amount: candidate.amount,
+                  notes: candidate.notes ?? undefined,
+                  source: 'OPEN_FINANCE_BANK',
+                  externalId: candidate.externalId,
+                  kind: candidate.kind,
+                  itemId,
+                });
+                workingIncomes.push(createdInc);
+                linkedIncomeId = createdInc.id;
+              }
+
+              await finRepository.updateEntry(ref.entryId, {
+                linked_income_id: linkedIncomeId,
+              });
+            }
+          }
         }
 
         // Conta corrente recém-criada: o saldo do banco já contém o histórico importado. O saldo

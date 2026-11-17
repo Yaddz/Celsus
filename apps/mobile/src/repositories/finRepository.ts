@@ -329,6 +329,7 @@ export class FinRepository {
       import_batch_id: item.import_batch_id ?? item.importBatchId ?? null,
       description_raw: item.description_raw ?? item.descriptionRaw ?? null,
       user_edited_fields: item.user_edited_fields ?? item.userEditedFields ?? null,
+      linked_income_id: item.linked_income_id ?? item.linkedIncomeId ?? null,
       created_at: now,
     }));
     await db.insert(finEntries).values(records);

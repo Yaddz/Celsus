@@ -101,6 +101,8 @@ CREATE TABLE IF NOT EXISTS income_events (
   kind TEXT,
   quantity TEXT,
   unit_amount TEXT,
+  item_id TEXT,
+  asset_id TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolios(id) ON DELETE CASCADE
 );
@@ -178,6 +180,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   import_batch_id TEXT,
   description_raw TEXT,
   user_edited_fields TEXT,
+  linked_income_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -575,6 +578,9 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'assets', column: 'of_reported_at', ddl: 'ALTER TABLE assets ADD COLUMN of_reported_at TEXT' },
   { table: 'assets', column: 'value_source', ddl: 'ALTER TABLE assets ADD COLUMN value_source TEXT' },
   { table: 'transactions', column: 'is_synthetic', ddl: 'ALTER TABLE transactions ADD COLUMN is_synthetic INTEGER NOT NULL DEFAULT 0' },
+  { table: 'income_events', column: 'item_id', ddl: 'ALTER TABLE income_events ADD COLUMN item_id TEXT' },
+  { table: 'income_events', column: 'asset_id', ddl: 'ALTER TABLE income_events ADD COLUMN asset_id TEXT' },
+  { table: 'fin_entries', column: 'linked_income_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_income_id TEXT' },
   { table: 'fin_accounts', column: 'masked_number', ddl: 'ALTER TABLE fin_accounts ADD COLUMN masked_number TEXT' },
   { table: 'fin_accounts', column: 'owner', ddl: 'ALTER TABLE fin_accounts ADD COLUMN owner TEXT' },
   { table: 'fin_accounts', column: 'auto_name', ddl: 'ALTER TABLE fin_accounts ADD COLUMN auto_name TEXT' },
@@ -608,6 +614,26 @@ export function applySchemaUpgrades(raw: SQLiteDatabase) {
   deduplicateIncomeEventsSqlite(raw);
   migrateCardEntriesInMemory();
   migrateCardEntriesSqlite(raw);
+  // Migração Sprint 86: preenche income_events.item_id a partir de assets OPEN_FINANCE quando external_id começa com 'pluggy:'
+  raw.execSync(
+    "UPDATE income_events SET item_id = (SELECT a.institution_id FROM assets a WHERE a.portfolio_id = income_events.portfolio_id AND UPPER(a.ticker) = UPPER(income_events.ticker) AND a.source = 'OPEN_FINANCE' AND a.institution_id IS NOT NULL LIMIT 1) WHERE item_id IS NULL AND external_id LIKE 'pluggy:%';"
+  );
+  if (Array.isArray(inMemoryStore.income_events) && Array.isArray(inMemoryStore.assets)) {
+    for (const inc of inMemoryStore.income_events) {
+      if (!inc.item_id && typeof inc.external_id === 'string' && inc.external_id.startsWith('pluggy:')) {
+        const matchAsset = inMemoryStore.assets.find(
+          (a: any) =>
+            a.portfolio_id === inc.portfolio_id &&
+            String(a.ticker || '').toUpperCase() === String(inc.ticker || '').toUpperCase() &&
+            a.source === 'OPEN_FINANCE' &&
+            a.institution_id
+        );
+        if (matchAsset) {
+          inc.item_id = matchAsset.institution_id;
+        }
+      }
+    }
+  }
 }
 
 function migrateCardEntriesInMemory() {

@@ -7,19 +7,23 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2` | **180/180 suítes PASS** (**1211/1211 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2` | **182/182 suítes PASS** (**1218/1218 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **196 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **198 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 86 — Proventos completos (Fase A concluída)
+## Sprint 86 — Proventos completos (Fase B concluída)
 
-Especificação dos diagnósticos D10, D11, D12 e D13 e regras R8 e R9.
+`PluggyClient.request` com `maxRetries` configurável (4 retentativas em `listInvestmentTransactions`), backoff exponencial com jitter e `Retry-After` até 30 s, concorrência 2 no sync de investimentos, status `PARTIAL` com `counts.failedInvestmentIds` preservando custo existente em falha, gravação de `INTEREST` independente do status de reconciliação (com migração ao confirmar), `income_events.item_id`/`asset_id` e `fin_entries.linked_income_id` (schema, migração e backup), `disconnectItemInvestments` isolado por `item_id`, `detectBankIncomeCandidate` (`OPEN_FINANCE_BANK`) integrado ao `pluggySyncService`, e aviso/botão `"Tentar de novo"` na `OpenFinanceScreen`.
 
 | Arquivo de teste | Casos | SHA-256 | Fase A |
 | :--- | :--- | :--- | :--- |
 | `apps/mobile/src/services/pluggy/__tests__/Sprint86Income.test.ts` | S86-T01…T05 | `b1cce2247d4364cc971fb4966c995c13ec74a3a54f5f5bc9f47716a3a366a01b` | 3 FAIL / 1 PASS |
 | `apps/mobile/src/domain/openFinance/__tests__/Sprint86BankIncome.test.ts` | S86-T06…T08 | `1431568ae8e3768ebb4ab23ffdd903699ad6b2c245f1724ce30c25af13972e16` | 2 FAIL / 1 PASS |
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --watchAll=false --maxWorkers=2`: **182/182 suítes PASS** (**1218/1218 testes PASS**)
+- `node scripts/test-lock.js verify`: **198 arquivos íntegros**
 
 ## Sprint 85 — Investimentos: valor de mercado, identidade e histórico (Fase B concluída)
 

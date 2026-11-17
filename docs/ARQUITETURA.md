@@ -177,14 +177,14 @@ movimentações e proventos).
 | `portfolio_class_targets` | meta por classe | `asset_class`, `target_percentage` (REAL), `receives_contribution` |
 | `assets` | posição por ativo na carteira | `ticker`, `asset_class`, `target_percentage_in_class`, `quantity`, `average_price`, `manual_price_override`, `rf_*` (renda fixa, incluindo `rf_indexer_pct`), `source`, `external_id`, `of_reported_value`, `of_reported_at`, `value_source` |
 | `transactions` | livro-razão | `type` (BUY, SELL, SPLIT, INPLIT…), `trade_date`, `quantity`, `unit_price`, `fees`, `total_amount`, `source`, `external_id`, `is_synthetic` |
-| `income_events` | proventos | `ticker`, `pay_date`, `amount`, `kind` (RENDIMENTO/DIVIDENDO/JCP), `quantity`, `unit_amount`, `source`, `external_id` |
+| `income_events` | proventos | `ticker`, `pay_date`, `amount`, `kind` (RENDIMENTO/DIVIDENDO/JCP), `quantity`, `unit_amount`, `source`, `external_id`, `item_id`, `asset_id` |
 | `app_meta` | chave/valor | perfil, onboarding, buscas recentes, watchlist, lote B3, marcas de semente |
 | `market_price_cache` | última cotação por ticker | `current_price`, `change_percent_24h`, `updated_at` (TTL 15 min) |
 | `historical_prices_local` | fechamento por ticker/data | PK `(ticker, price_date)` |
 | `asset_profile_cache` | perfil/indicadores do ativo | `profile_json`, `updated_at` (12 h) |
 | `fin_accounts` | contas do módulo Finanças | `name`, `type` (`cash \| checking \| card`), `initial_balance_cents`, `color`, `archived`, `closing_day`, `due_day`, `credit_limit_cents` |
 | `fin_categories` | categorias de receitas/despesas | `name`, `kind`, `icon`, `color`, `parent_id`, `archived` |
-| `fin_entries` | lançamentos pessoais | `kind` (`income \| expense \| transfer_out \| transfer_in`), `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id`, `bill_month`, `transfer_group_id` |
+| `fin_entries` | lançamentos pessoais | `kind` (`income \| expense \| transfer_out \| transfer_in`), `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id`, `bill_month`, `transfer_group_id`, `linked_income_id` |
 | `fin_recurrences` | recorrências e assinaturas | `kind`, `amount_cents`, `frequency`, `day_of_month`, `start_date`, `end_date`, `is_subscription`, `active`, `variable_amount`, `generated_until` |
 | `fin_recurrence_skips` | ocorrências ignoradas | PK `(recurrence_id, period)` — impede recriação após exclusão `"só esta"` |
 

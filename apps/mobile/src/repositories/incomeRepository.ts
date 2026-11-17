@@ -26,6 +26,8 @@ export class IncomeRepository {
     kind?: string;
     quantity?: string;
     unitAmount?: string;
+    itemId?: string | null;
+    assetId?: string | null;
   }): Promise<IncomeEvent> {
     const row: IncomeEvent = {
       id: generateUUID(),
@@ -39,6 +41,8 @@ export class IncomeRepository {
       kind: params.kind ?? null,
       quantity: params.quantity ?? null,
       unit_amount: params.unitAmount ?? null,
+      item_id: params.itemId ?? null,
+      asset_id: params.assetId ?? null,
       created_at: new Date().toISOString(),
     };
     await this.db.insert(incomeEvents).values(row);

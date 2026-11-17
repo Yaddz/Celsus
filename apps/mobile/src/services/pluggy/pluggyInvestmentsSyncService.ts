@@ -47,6 +47,7 @@ export interface SyncInvestmentsOptions {
   defaultPortfolioId?: string;
   portfolioByItemId?: Record<string, string>;
   reconciliationChoices?: InvestmentReconciliationChoice[];
+  investmentIds?: string[];
 }
 
 export interface SyncInvestmentsCounts {
@@ -59,6 +60,7 @@ export interface SyncInvestmentsCounts {
   transactionsArchived: number;
   transactionsCreated: number;
   investmentErrors?: number;
+  failedInvestmentIds?: string[];
   incomesCreated?: number;
   incomesMatched?: number;
   incomesSkipped?: number;
@@ -67,7 +69,7 @@ export interface SyncInvestmentsCounts {
 export interface SyncInvestmentsResult {
   runId: string;
   itemId: string;
-  status: 'SUCCESS' | 'ERROR';
+  status: 'SUCCESS' | 'PARTIAL' | 'ERROR';
   counts: SyncInvestmentsCounts;
   coverageByClass: ClassCoverageStatus[];
   needsReconciliation: boolean;
@@ -222,13 +224,18 @@ export const pluggyInvestmentsSyncService = {
         assertItemConsentActive(item, nowFn().getTime());
       }
 
-      const pluggyInvs = await fetchInvestmentsFromClient(client, itemId);
+      const allPluggyInvs = await fetchInvestmentsFromClient(client, itemId);
+      const requestedIds = options?.investmentIds ? new Set(options.investmentIds) : null;
+      const pluggyInvs = requestedIds
+        ? allPluggyInvs.filter((inv) => requestedIds.has(inv.id))
+        : allPluggyInvs;
       counts.investmentsFetched = pluggyInvs.length;
       const coverageByClass = computeClassCoverageReport(pluggyInvs);
 
       const txsByInvId: Record<string, MappedPluggyInvestmentTransaction[]> = {};
       const rawInterestByInvId: Record<string, PluggyInvestmentTransaction[]> = {};
-      await mapWithConcurrency(pluggyInvs, 3, async (inv) => {
+      const failedSet = new Set<string>();
+      await mapWithConcurrency(pluggyInvs, 2, async (inv) => {
         try {
           const rawTxs = await fetchInvestmentTxsFromClient(client, inv.id);
           const mapped = rawTxs.map((t: PluggyInvestmentTransaction) =>
@@ -243,10 +250,14 @@ export const pluggyInvestmentsSyncService = {
           }
         } catch {
           counts.investmentErrors = (counts.investmentErrors ?? 0) + 1;
+          failedSet.add(inv.id);
           txsByInvId[inv.id] = [];
           rawInterestByInvId[inv.id] = [];
         }
       });
+      if (failedSet.size > 0) {
+        counts.failedInvestmentIds = Array.from(failedSet);
+      }
 
       const choicesByInvId = new Map<string, InvestmentReconciliationChoice>(
         (options?.reconciliationChoices ?? []).map((c) => [c.pluggyInvestmentId, c])
@@ -320,6 +331,7 @@ export const pluggyInvestmentsSyncService = {
           let targetAssetId: string | null = existingByExt?.id ?? null;
           let targetPortfolioId: string | null =
             existingByExt?.portfolio_id ?? choice?.targetPortfolioId ?? defaultPortId;
+          let skipAssetForReconciliation = false;
 
           if (!existingByExt && !isHijackedRepair && choice?.action === 'MATCH' && choice.targetAssetId) {
             targetAssetId = choice.targetAssetId;
@@ -333,13 +345,14 @@ export const pluggyInvestmentsSyncService = {
               if (matchedAsset) targetPortfolioId = matchedAsset.portfolio_id;
             } else if (match.matchedAssetId && match.confidence === 'MEDIUM') {
               needsReconciliation = true;
-              continue;
+              skipAssetForReconciliation = true;
             } else if (!defaultPortId) {
               needsReconciliation = true;
-              continue;
+              skipAssetForReconciliation = true;
             }
           }
 
+          const hasTxFetchFailure = failedSet.has(inv.id);
           const isWithdrawn = mapped.status === 'TOTAL_WITHDRAWAL';
           const nextManualPositionValue =
             mapped.marketValue === null
@@ -348,7 +361,7 @@ export const pluggyInvestmentsSyncService = {
               ? '0.00'
               : mapped.marketValue;
 
-          if (targetAssetId) {
+          if (!skipAssetForReconciliation && targetAssetId) {
             const existingAsset = allAssets.find((a) => a.id === targetAssetId);
             const shouldPreserveName =
               existingAsset &&
@@ -380,11 +393,17 @@ export const pluggyInvestmentsSyncService = {
                 name: shouldPreserveName ? existingAsset!.name : mapped.name,
                 auto_name: mapped.name,
                 quantity: isWithdrawn ? '0' : mapped.quantity,
-                average_price: cost.averagePrice ?? '',
+                average_price:
+                  hasTxFetchFailure && existingAsset
+                    ? existingAsset.average_price
+                    : cost.averagePrice ?? '',
                 manual_price_override: null,
                 manual_position_value: nextManualPositionValue,
                 gross_amount: mapped.grossAmount,
-                cost_basis_source: cost.costBasisSource,
+                cost_basis_source:
+                  hasTxFetchFailure && existingAsset
+                    ? existingAsset.cost_basis_source
+                    : cost.costBasisSource,
                 isin: mapped.isin,
                 rf_indexer: mapped.rfIndexer,
                 rf_rate: mapped.rfRate,
@@ -416,7 +435,7 @@ export const pluggyInvestmentsSyncService = {
             } else {
               counts.assetsUpdated++;
             }
-          } else if (targetPortfolioId) {
+          } else if (!skipAssetForReconciliation && targetPortfolioId) {
             const created = await assetRepository.createAsset({
               portfolio_id: targetPortfolioId,
               asset_class: mapped.assetClass,
@@ -473,7 +492,7 @@ export const pluggyInvestmentsSyncService = {
           }
 
           // Inserir APENAS movimentações BUY e SELL na tabela transactions com deduplicação por external_id
-          if (targetAssetId && targetPortfolioId) {
+          if (!skipAssetForReconciliation && targetAssetId && targetPortfolioId && !hasTxFetchFailure) {
             const currentAssetTxs = await db
               .select()
               .from(transactions)
@@ -583,8 +602,33 @@ export const pluggyInvestmentsSyncService = {
             } else if (existingOpening) {
               await db.delete(transactions).where(eq(transactions.id, existingOpening.id));
             }
+          }
 
-            // Persistir proventos INTEREST em income_events com deduplicação cruzada
+          // Migrar proventos pendentes de reconciliação quando o ativo for confirmado
+          if (!skipAssetForReconciliation && targetAssetId && targetPortfolioId) {
+            const normTicker = normalizeTickerForIncomeDedup(mapped.ticker);
+            for (const inc of workingIncomes) {
+              if (
+                inc.item_id === itemId &&
+                (inc.asset_id === null || inc.asset_id === undefined) &&
+                normalizeTickerForIncomeDedup(inc.ticker) === normTicker
+              ) {
+                await db
+                  .update(incomeEvents)
+                  .set({ portfolio_id: targetPortfolioId, asset_id: targetAssetId })
+                  .where(eq(incomeEvents.id, inc.id));
+                inc.portfolio_id = targetPortfolioId;
+                inc.asset_id = targetAssetId;
+              }
+            }
+          }
+
+          // Persistir proventos INTEREST em income_events independente do status do ativo (D11 / R8)
+          const incomePortfolioId = !skipAssetForReconciliation
+            ? targetPortfolioId ?? defaultPortId
+            : defaultPortId;
+          const incomeAssetId = !skipAssetForReconciliation ? targetAssetId : null;
+          if (incomePortfolioId) {
             const rawInterests = rawInterestByInvId[inv.id] ?? [];
             for (const rawInt of rawInterests) {
               const mappedInc = mapPluggyIncomeEvent(rawInt, inv);
@@ -635,6 +679,8 @@ export const pluggyInvestmentsSyncService = {
                     quantity: nextQty,
                     unit_amount: nextUnit,
                     notes: nextNotes,
+                    item_id: existingRow.item_id ?? itemId,
+                    asset_id: existingRow.asset_id ?? incomeAssetId,
                   })
                   .where(eq(incomeEvents.id, existingRow.id));
 
@@ -642,10 +688,12 @@ export const pluggyInvestmentsSyncService = {
                 existingRow.quantity = nextQty;
                 existingRow.unit_amount = nextUnit;
                 existingRow.notes = nextNotes;
+                existingRow.item_id = existingRow.item_id ?? itemId;
+                existingRow.asset_id = existingRow.asset_id ?? incomeAssetId;
                 counts.incomesMatched = (counts.incomesMatched ?? 0) + 1;
               } else {
                 const createdInc = await incomeRepository.addIncome({
-                  portfolioId: targetPortfolioId,
+                  portfolioId: incomePortfolioId,
                   ticker: mappedInc.ticker,
                   payDate: mappedInc.payDate,
                   amount: mappedInc.amount,
@@ -655,6 +703,8 @@ export const pluggyInvestmentsSyncService = {
                   kind: mappedInc.kind,
                   quantity: mappedInc.quantity ?? undefined,
                   unitAmount: mappedInc.unitAmount ?? undefined,
+                  itemId,
+                  assetId: incomeAssetId,
                 });
                 workingIncomes.push(createdInc);
                 counts.incomesCreated = (counts.incomesCreated ?? 0) + 1;
@@ -663,32 +713,36 @@ export const pluggyInvestmentsSyncService = {
           }
         }
 
-        // Investimento que deixa de vir da Pluggy NÃO zera posição: marca missing_since
-        for (const a of allAssets) {
-          if (
-            a.source === 'OPEN_FINANCE' &&
-            a.institution_id === itemId &&
-            a.external_id &&
-            !syncedExternalIds.has(a.external_id) &&
-            a.of_status !== 'TOTAL_WITHDRAWAL'
-          ) {
-            if (!a.missing_since) {
-              await db
-                .update(assets)
-                .set({ missing_since: nowIso, updated_at: nowIso })
-                .where(eq(assets.id, a.id));
+        // Investimento que deixa de vir da Pluggy NÃO zera posição: marca missing_since (exceto re-sync parcial)
+        if (!requestedIds) {
+          for (const a of allAssets) {
+            if (
+              a.source === 'OPEN_FINANCE' &&
+              a.institution_id === itemId &&
+              a.external_id &&
+              !syncedExternalIds.has(a.external_id) &&
+              a.of_status !== 'TOTAL_WITHDRAWAL'
+            ) {
+              if (!a.missing_since) {
+                await db
+                  .update(assets)
+                  .set({ missing_since: nowIso, updated_at: nowIso })
+                  .where(eq(assets.id, a.id));
+              }
+              counts.assetsMarkedMissing++;
             }
-            counts.assetsMarkedMissing++;
           }
         }
       });
+
+      const finalStatus: 'SUCCESS' | 'PARTIAL' = failedSet.size > 0 ? 'PARTIAL' : 'SUCCESS';
 
       await openFinanceRepository.recordSyncRun({
         id: runId,
         item_id: itemId,
         started_at: nowIso,
         finished_at: new Date().toISOString(),
-        status: 'SUCCESS',
+        status: finalStatus,
         counts_json: JSON.stringify(counts),
         error: null,
       });
@@ -696,7 +750,7 @@ export const pluggyInvestmentsSyncService = {
       return {
         runId,
         itemId,
-        status: 'SUCCESS',
+        status: finalStatus,
         counts,
         coverageByClass,
         needsReconciliation,
@@ -766,19 +820,22 @@ export const pluggyInvestmentsSyncService = {
         }
       }
 
-      if (itemAssets.length > 0) {
-        const ofIncomes = await db
-          .select()
-          .from(incomeEvents)
-          .where(eq(incomeEvents.source, 'OPEN_FINANCE'));
-        for (const inc of ofIncomes) {
-          if (
-            itemPortfolioIds.has(inc.portfolio_id) &&
-            itemTickers.has(normalizeTickerForIncomeDedup(inc.ticker))
-          ) {
+      // D13 / R8: remove apenas proventos pertencentes a este itemId
+      const allOfIncomes = await db.select().from(incomeEvents);
+      for (const inc of allOfIncomes) {
+        if (inc.source !== 'OPEN_FINANCE' && inc.source !== 'OPEN_FINANCE_BANK') continue;
+        if (inc.item_id) {
+          if (inc.item_id === itemId) {
             await db.delete(incomeEvents).where(eq(incomeEvents.id, inc.id));
             removedIncomes++;
           }
+        } else if (
+          itemAssets.length > 0 &&
+          itemPortfolioIds.has(inc.portfolio_id) &&
+          itemTickers.has(normalizeTickerForIncomeDedup(inc.ticker))
+        ) {
+          await db.delete(incomeEvents).where(eq(incomeEvents.id, inc.id));
+          removedIncomes++;
         }
       }
     });

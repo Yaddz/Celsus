@@ -118,6 +118,7 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
   const [pendingFinanceQueue, setPendingFinanceQueue] = useState<string[]>([]);
   const [financeTotals, setFinanceTotals] = useState({ created: 0, updated: 0, accounts: 0 });
   const [confirmRemoveVisible, setConfirmRemoveVisible] = useState(false);
+  const [failedInvestmentsByItem, setFailedInvestmentsByItem] = useState<Record<string, string[]>>({});
   const [isSyncingInvestments, setIsSyncingInvestments] = useState(false);
   const [invReconcile, setInvReconcile] = useState<{
     itemId: string;
@@ -240,6 +241,15 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 
       const res = await pluggyInvestmentsSyncService.syncInvestments(itemId, {
         client: pluggyClient,
+      });
+      setFailedInvestmentsByItem((prev) => {
+        const next = { ...prev };
+        if (res.status === 'PARTIAL' && res.counts.failedInvestmentIds?.length) {
+          next[itemId] = res.counts.failedInvestmentIds;
+        } else {
+          delete next[itemId];
+        }
+        return next;
       });
       totals.created += res.counts.assetsCreated;
       totals.updated += res.counts.assetsUpdated;
@@ -501,6 +511,15 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
 
           const invRes = await pluggyInvestmentsSyncService.syncInvestments(it.id, {
             client: pluggyClient,
+          });
+          setFailedInvestmentsByItem((prev) => {
+            const next = { ...prev };
+            if (invRes.status === 'PARTIAL' && invRes.counts.failedInvestmentIds?.length) {
+              next[it.id] = invRes.counts.failedInvestmentIds;
+            } else {
+              delete next[it.id];
+            }
+            return next;
           });
           assetsCount += invRes.counts.assetsCreated + invRes.counts.assetsUpdated;
           incomesCount += invRes.counts.incomesCreated ?? 0;
@@ -1019,6 +1038,61 @@ export const OpenFinanceScreen: React.FC<OpenFinanceScreenProps> = ({
                 >
                   <Text style={styles.primaryBtnText}>Confirmar e sincronizar</Text>
                 </TouchableOpacity>
+              </BentoTile>
+            ) : null}
+
+            {Object.values(failedInvestmentsByItem).some((arr) => arr.length > 0) ? (
+              <BentoTile variant={variant} testID="open-finance-partial-warning" style={styles.card}>
+                {(() => {
+                  const totalFailed = Object.values(failedInvestmentsByItem).reduce(
+                    (sum, arr) => sum + arr.length,
+                    0
+                  );
+                  return (
+                    <View style={{ gap: space.sm }}>
+                      <Text style={[styles.errorText, { color: t.warning ?? t.error }]}>
+                        {totalFailed} investimentos sem movimentações nesta sincronização
+                      </Text>
+                      <TouchableOpacity
+                        testID="retry-failed-investments-btn"
+                        disabled={isSyncingInvestments || isUnifiedSyncing}
+                        onPress={async () => {
+                          setIsSyncingInvestments(true);
+                          setErrorMessage(null);
+                          try {
+                            for (const [fItemId, fIds] of Object.entries(failedInvestmentsByItem)) {
+                              if (fIds.length === 0) continue;
+                              const retryRes = await pluggyInvestmentsSyncService.syncInvestments(fItemId, {
+                                client: pluggyClient,
+                                investmentIds: fIds,
+                              });
+                              setFailedInvestmentsByItem((prev) => {
+                                const next = { ...prev };
+                                if (retryRes.status === 'PARTIAL' && retryRes.counts.failedInvestmentIds?.length) {
+                                  next[fItemId] = retryRes.counts.failedInvestmentIds;
+                                } else {
+                                  delete next[fItemId];
+                                }
+                                return next;
+                              });
+                            }
+                            await walletsStore.requestRefresh();
+                            await loadState();
+                          } catch (err) {
+                            setErrorMessage(
+                              err instanceof Error ? err.message : 'Erro ao tentar novamente.'
+                            );
+                          } finally {
+                            setIsSyncingInvestments(false);
+                          }
+                        }}
+                        style={[styles.primaryBtn, { backgroundColor: accent }]}
+                      >
+                        <Text style={styles.primaryBtnText}>Tentar de novo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })()}
               </BentoTile>
             ) : null}
 

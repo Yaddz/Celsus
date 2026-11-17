@@ -555,6 +555,8 @@ const INCOME_EVENTS_COLUMNS: (keyof IncomeEvent)[] = [
   'kind',
   'quantity',
   'unit_amount',
+  'item_id',
+  'asset_id',
   'created_at',
 ];
 
@@ -572,6 +574,8 @@ function parseIncomeEventsFromCsv(csvText?: string): IncomeEvent[] {
     kind: r.kind === '' ? null : r.kind,
     quantity: r.quantity === '' ? null : r.quantity,
     unit_amount: r.unit_amount === '' ? null : r.unit_amount,
+    item_id: !r.item_id || r.item_id === '' ? null : r.item_id,
+    asset_id: !r.asset_id || r.asset_id === '' ? null : r.asset_id,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }
@@ -629,6 +633,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'import_batch_id',
   'description_raw',
   'user_edited_fields',
+  'linked_income_id',
   'created_at',
 ];
 
@@ -737,6 +742,7 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     import_batch_id: r.import_batch_id === '' ? null : r.import_batch_id ?? null,
     description_raw: r.description_raw === '' ? null : r.description_raw ?? null,
     user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
+    linked_income_id: !r.linked_income_id || r.linked_income_id === '' ? null : r.linked_income_id,
     created_at: r.created_at || new Date().toISOString(),
   }));
 }

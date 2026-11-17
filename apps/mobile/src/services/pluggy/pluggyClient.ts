@@ -282,10 +282,15 @@ export class PluggyClient {
     }
   }
 
-  private async request<T>(pathAndQuery: string, retriedAuth = false): Promise<T> {
+  private async request<T>(
+    pathAndQuery: string,
+    retriedAuth = false,
+    options?: { maxRetries?: number }
+  ): Promise<T> {
     const url = pathAndQuery.startsWith('http') ? pathAndQuery : `${this.baseUrl}${pathAndQuery}`;
+    const effectiveMaxRetries = options?.maxRetries ?? this.maxRetries;
 
-    for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+    for (let attempt = 0; attempt <= effectiveMaxRetries; attempt += 1) {
       const apiKey = await this.authenticate(false);
       const res = await this.fetchWithTimeout(url, {
         method: 'GET',
@@ -299,7 +304,7 @@ export class PluggyClient {
         if (!retriedAuth) {
           await this.clearCachedApiKey();
           await this.authenticate(true);
-          return this.request<T>(pathAndQuery, true);
+          return this.request<T>(pathAndQuery, true, options);
         }
         throw new PluggyAuthError('Sessão Pluggy rejeitada (401) mesmo após renovação da API Key.');
       }
@@ -309,10 +314,16 @@ export class PluggyClient {
       }
 
       if (res.status === 429 || res.status >= 500) {
-        if (attempt < this.maxRetries) {
+        if (attempt < effectiveMaxRetries) {
           const retryAfter = res.headers?.get('retry-after');
-          const retryAfterMs = retryAfter ? Math.min(Number(retryAfter) * 1000, 5000) : 0;
-          const backoffMs = Math.max(retryAfterMs, this.baseDelayMs * Math.pow(2, attempt));
+          const parsedRetry = retryAfter ? Number(retryAfter) : NaN;
+          const retryAfterMs =
+            Number.isFinite(parsedRetry) && parsedRetry > 0
+              ? Math.min(parsedRetry * 1000, 30_000)
+              : 0;
+          const expDelay = this.baseDelayMs * Math.pow(2, attempt);
+          const jitterMs = Math.floor(Math.random() * Math.max(1, Math.floor(expDelay * 0.25)));
+          const backoffMs = Math.max(retryAfterMs, expDelay + jitterMs);
           if (backoffMs > 0) {
             await sleep(backoffMs);
           }
@@ -391,14 +402,22 @@ export class PluggyClient {
     return all;
   }
 
-  private async paginateAll<T>(basePath: string, baseParams: Record<string, string>): Promise<T[]> {
+  private async paginateAll<T>(
+    basePath: string,
+    baseParams: Record<string, string>,
+    requestOptions?: { maxRetries?: number }
+  ): Promise<T[]> {
     const all: T[] = [];
     let page = 1;
     let totalPages = 1;
 
     do {
       const params = new URLSearchParams({ ...baseParams, page: String(page), pageSize: '500' });
-      const res = await this.request<PluggyPageResponse<T>>(`${basePath}?${params.toString()}`);
+      const res = await this.request<PluggyPageResponse<T>>(
+        `${basePath}?${params.toString()}`,
+        false,
+        requestOptions
+      );
       if (Array.isArray(res.results) && res.results.length > 0) {
         all.push(...res.results);
       }
@@ -422,7 +441,8 @@ export class PluggyClient {
   async listInvestmentTransactions(investmentId: string): Promise<PluggyInvestmentTransaction[]> {
     return this.paginateAll<PluggyInvestmentTransaction>(
       `/investments/${encodeURIComponent(investmentId)}/transactions`,
-      {}
+      {},
+      { maxRetries: 4 }
     );
   }
 

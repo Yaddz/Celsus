@@ -130,6 +130,8 @@ export const incomeEvents = sqliteTable('income_events', {
   kind: text('kind'),
   quantity: text('quantity'),
   unit_amount: text('unit_amount'),
+  item_id: text('item_id'),
+  asset_id: text('asset_id'),
   created_at: text('created_at').notNull(),
 });
 
@@ -292,6 +294,7 @@ export const finEntries = sqliteTable('fin_entries', {
   import_batch_id: text('import_batch_id'),
   description_raw: text('description_raw'),
   user_edited_fields: text('user_edited_fields'),
+  linked_income_id: text('linked_income_id'),
   created_at: text('created_at').notNull(),
 });
 
