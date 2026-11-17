@@ -10,9 +10,9 @@ import {
   Modal,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { XpMinimalHeader } from '../components/ui/XpMinimalHeader';
+import { readPickedFileBytes } from '../services/pickedFileReader';
 import { b3ImportService, B3ImportReport, B3ImportProgress } from '../services/b3ImportService';
 import {
   ImportPlan,
@@ -157,22 +157,9 @@ async function readFileAssetBytes(fileAsset: DocumentPicker.DocumentPickerAsset)
     lastError = e;
   }
 
-  // Strategy 3: Expo FileSystem readAsStringAsync (Base64 for binary / XLSX)
+  // Strategy 3: expo-file-system File API (SDK 58; lê file:// e content://)
   try {
-    const base64 = await FileSystem.readAsStringAsync(fileAsset.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-    return base64ToUint8Array(base64);
-  } catch (e) {
-    lastError = e;
-  }
-
-  // Strategy 4: Expo FileSystem readAsStringAsync (UTF-8 for CSV / text)
-  try {
-    const text = await FileSystem.readAsStringAsync(fileAsset.uri, {
-      encoding: FileSystem.EncodingType.UTF8,
-    });
-    return new TextEncoder().encode(text);
+    return await readPickedFileBytes(fileAsset.uri);
   } catch (e) {
     lastError = e;
   }

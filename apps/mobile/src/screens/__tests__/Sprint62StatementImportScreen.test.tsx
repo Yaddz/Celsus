@@ -1,7 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import { resetDatabase } from '../../db/client';
 import { finRepository } from '../../repositories/finRepository';
 import { finService } from '../../services/finService';
@@ -31,9 +30,19 @@ jest.mock('expo-document-picker', () => ({
   getDocumentAsync: jest.fn(),
 }));
 
+// Sprint 94: telas leem o arquivo escolhido pela API nova (`File.bytes()`) do expo-file-system.
+let mockPickedFileBytes: Uint8Array | null = null;
 jest.mock('expo-file-system', () => ({
-  readAsStringAsync: jest.fn(),
-  EncodingType: { Base64: 'base64', UTF8: 'utf8' },
+  File: class MockFile {
+    uri: string;
+    constructor(uri: string) {
+      this.uri = uri;
+    }
+    async bytes() {
+      if (!mockPickedFileBytes) throw new Error(`arquivo inexistente: ${this.uri}`);
+      return mockPickedFileBytes;
+    }
+  },
 }));
 
 const SAMPLE_CSV = `date,title,amount
@@ -106,9 +115,7 @@ describe('Sprint 62 — Telas de Importação de Extrato e Regras de Categoria (
       canceled: false,
       assets: [{ uri: 'file:///tmp/nubank.csv', name: 'nubank.csv' }],
     });
-    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue(
-      Buffer.from(SAMPLE_CSV, 'utf8').toString('base64')
-    );
+    mockPickedFileBytes = new TextEncoder().encode(SAMPLE_CSV);
 
     render(
       <StatementImportSheet
@@ -160,9 +167,7 @@ describe('Sprint 62 — Telas de Importação de Extrato e Regras de Categoria (
       canceled: false,
       assets: [{ uri: 'file:///tmp/nubank.csv', name: 'nubank.csv' }],
     });
-    (FileSystem.readAsStringAsync as jest.Mock).mockResolvedValue(
-      Buffer.from(SAMPLE_CSV, 'utf8').toString('base64')
-    );
+    mockPickedFileBytes = new TextEncoder().encode(SAMPLE_CSV);
 
     render(
       <StatementImportSheet

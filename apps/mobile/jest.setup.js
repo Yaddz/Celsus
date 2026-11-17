@@ -274,6 +274,19 @@ jest.mock('expo-document-picker', () => ({
 }));
 
 jest.mock('expo-file-system', () => ({
+  // Sprint 94: API nova (SDK 58). Leitura de URI desconhecida falha, como no aparelho.
+  File: class MockFile {
+    constructor(uri) {
+      this.uri = uri;
+    }
+    async bytes() {
+      throw new Error(`arquivo inexistente: ${this.uri}`);
+    }
+    async text() {
+      throw new Error(`arquivo inexistente: ${this.uri}`);
+    }
+  },
+  Paths: { cache: { uri: 'file:///mock/cache/' }, document: { uri: 'file:///mock/documents/' } },
   readAsStringAsync: jest.fn(async () => 'mock-content'),
   EncodingType: {
     Base64: 'base64',

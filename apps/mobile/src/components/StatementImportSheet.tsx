@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import type { FinAccount, FinCategory } from '../db/schema';
 import { formatCentsBRL, type FinKind } from '../domain/financeFlow';
 import {
@@ -18,6 +17,7 @@ import {
   type ReconciledStatementRow,
 } from '../domain/statementImport';
 import { finRepository } from '../repositories/finRepository';
+import { readPickedFileBytes } from '../services/pickedFileReader';
 import {
   statementImportService,
   type StatementCommitResult,
@@ -38,31 +38,6 @@ export interface StatementImportSheetProps {
 }
 
 type ImportStep = 'pick' | 'manual_map' | 'preview' | 'result';
-
-function decodeBase64ToBytes(base64: string): Uint8Array {
-  if (typeof globalThis.atob === 'function') {
-    const bin = globalThis.atob(base64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) {
-      bytes[i] = bin.charCodeAt(i);
-    }
-    return bytes;
-  }
-  const chars =
-    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-  const clean = base64.replace(/[^A-Za-z0-9+/=]/g, '');
-  const out: number[] = [];
-  for (let i = 0; i < clean.length; i += 4) {
-    const a = chars.indexOf(clean[i]);
-    const b = chars.indexOf(clean[i + 1]);
-    const c = chars.indexOf(clean[i + 2]);
-    const d = chars.indexOf(clean[i + 3]);
-    out.push((a << 2) | (b >> 4));
-    if (clean[i + 2] !== '=' && c >= 0) out.push(((b & 15) << 4) | (c >> 2));
-    if (clean[i + 3] !== '=' && d >= 0) out.push(((c & 3) << 6) | d);
-  }
-  return new Uint8Array(out);
-}
 
 export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
   visible,
@@ -184,11 +159,7 @@ export const StatementImportSheet: React.FC<StatementImportSheetProps> = ({
         return;
       }
       const asset = picked.assets[0];
-      const encoding = FileSystem.EncodingType?.Base64 ?? 'base64';
-      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding,
-      });
-      const bytes = decodeBase64ToBytes(base64);
+      const bytes = await readPickedFileBytes(asset.uri);
       setFileBytes(bytes);
       setFileName(asset.name || 'extrato.csv');
 
