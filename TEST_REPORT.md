@@ -784,3 +784,14 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
     - `Sprint101CheckingPending.test.ts:176`: ordem de argumentos de `calculateAccountBalance(100000, [entry])`.
     - `Sprint101AccountFlowsUI.test.tsx:64,86,131`: `getAllByText(...).length >= 1` onde o mesmo valor aparece no resumo do topo e na linha da conta/despesa futura.
   - Resultado: Sprint 101 — 3 suítes / 11 testes PASS. Suíte geral: **213/216 suítes PASS** em paralelo (`Sprint71InvestmentMapping`, `Sprint97RawContract` e `receiptFlow` PASS 100% na reexecução com os ajustes finais). `tsc --noEmit`: 0 erros em produção. `expo lint`: 0 erros nos arquivos alterados. `test-lock verify`: OK (232 arquivos protegidos).
+
+
+## Sprint 102 — Saúde da conexão, consentimento e tela "Conferir com o Meu Pluggy"
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D36, D42, D46, D47; R36, A.7, A.8).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint102ItemHealth.test.ts` (SHA-256 `5396cd88ec63262c8e4cbfd6b6f81ccb8117851f13d8249be79a61c602e18683`) — `S102-T01` `lastUpdatedAt` em BRT + status A.7; `S102-T02` avisos A.8 (`CC_005`, `TXN_003`, fallback `providerMessage ?? message`).
+  - `apps/mobile/src/screens/__tests__/Sprint102ReconciliationUI.test.tsx` (SHA-256 `d2fc9882831261dfbf477c04adec2fd765eccf6771e40d7283fdbdbf3e200f21`) — `S102-T03` banners de consentimento (amarelo <= 30d, vermelho vencido/`USER_AUTHORIZATION_EXPIRED` com passo `MeuPluggy`); `S102-T04`/`S102-T09`/`S102-T10`/`S102-T11` conferência com `pluggyRealSnapshot` + D46/D47 informativos; `S102-T05`/`S102-T06` diferença por remoção local e export sem PII; `S102-T08` D42 FAB único em `Contas` e `Lançamentos`.
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint102EndToEnd.test.ts` (SHA-256 `8c506a92b971931b41dcca81bf714f9bd62630d779b8ae219a5fb756bd758414`) — `S102-T07` sync completo + re-sync com 3 IDs trocados, 1 sumida e 1 agendado liquidado sem diferenças.
+  - Fixture de apoio: `apps/mobile/src/services/pluggy/__tests__/pluggyRealSnapshot.ts`.
+  - Stubs de compilação: `domain/openFinance/itemStatus.ts`, `domain/openFinance/warnings.ts`, `screens/OpenFinanceReconciliationScreen.tsx`.
+  - Execução Fase A: 3 suítes / 7 FAIL (Red Phase esperado). `test-lock verify`: OK (235 arquivos protegidos).
