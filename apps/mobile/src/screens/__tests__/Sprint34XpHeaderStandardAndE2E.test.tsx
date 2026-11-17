@@ -61,6 +61,7 @@ describe('Sprint 34: P2 Standard XP Header Architecture & Full End-to-End Accept
           onBack={onBackMock}
           isPrivacyMode={false}
           onTogglePrivacy={() => {}}
+          onSwitchModule={() => {}}
         />
       );
 
@@ -83,6 +84,7 @@ describe('Sprint 34: P2 Standard XP Header Architecture & Full End-to-End Accept
         <ClassDetailScreen
           assetClass="STOCK"
           onBack={onBackMock}
+          onSwitchModule={() => {}}
         />
       );
 

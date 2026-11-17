@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import { SectionHeader } from './SectionHeader';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { bento, borders, colors, space, spacing, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
@@ -62,28 +63,15 @@ export const FinListCard: React.FC<FinListCardProps> = ({
   return (
     <View style={[styles.wrapper, style]}>
       {title || actionLabel ? (
-        <View style={styles.headerRow}>
-          {title ? (
-            <Text style={[styles.sectionTitle, isLight && styles.sectionTitleLight]}>
-              {title}
-            </Text>
-          ) : (
-            <View />
-          )}
-          {actionLabel ? (
-            <TouchableOpacity
-              testID={actionTestID}
-              accessibilityRole="button"
-              onPress={onActionPress}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={[styles.actionLabel, { color: colors.tertiary }]}>
-                {actionLabel}
-              </Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
+        <SectionHeader
+          title={title ?? ''}
+          actionLabel={actionLabel}
+          onAction={actionLabel ? onActionPress ?? (() => {}) : undefined}
+          actionTestID={actionTestID}
+          actionColor={colors.tertiary}
+          themeMode={themeMode}
+          style={styles.headerRow}
+        />
       ) : null}
 
       <View
@@ -243,22 +231,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: space.xs,
-  },
-  sectionTitle: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    color: '#8A8A8E',
-  },
-  sectionTitleLight: {
-    color: '#6E6A63',
-  },
-  actionLabel: {
-    fontFamily: typography.fontFamily,
-    fontSize: 12,
-    fontWeight: '700',
   },
   card: {
     borderRadius: bento.tileRadius,

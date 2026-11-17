@@ -213,7 +213,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
           onPress={openCreateForm}
           style={[styles.addBtn, { backgroundColor: colors.primary }]}
         >
-          <MaterialIcons name="add" size={18} color={c.onPrimary} />
+          <MaterialIcons name="add" size={20} color={c.onPrimary} />
           <Text style={styles.addBtnText}>Nova meta</Text>
         </TouchableOpacity>
 
@@ -268,7 +268,7 @@ export const GoalsScreen: React.FC<GoalsScreenProps> = ({
                     },
                   ]}
                 >
-                  <MaterialIcons name="check-circle" size={14} color={c.success} />
+                  <MaterialIcons name="check-circle" size={16} color={c.success} />
                   <Text style={styles.reachedText}>
                     {evaluation.projectedLabel ?? 'Meta atingida'}
                   </Text>

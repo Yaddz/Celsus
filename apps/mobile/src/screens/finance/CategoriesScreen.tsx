@@ -241,7 +241,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                         <View style={styles.rowRight}>
                           <MaterialIcons
                             name={isSelected ? 'edit' : 'chevron-right'}
-                            size={18}
+                            size={20}
                             color={isSelected ? ui.primary : ui.muted}
                           />
                         </View>
@@ -380,7 +380,7 @@ export const CategoriesScreen: React.FC<CategoriesScreenProps> = ({
                   >
                     <MaterialIcons
                       name={ic as keyof typeof MaterialIcons.glyphMap}
-                      size={18}
+                      size={20}
                       color={selected ? ui.chipActiveText : ui.text}
                     />
                   </TouchableOpacity>

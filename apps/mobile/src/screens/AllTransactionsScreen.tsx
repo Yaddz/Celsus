@@ -18,6 +18,8 @@ export interface AllTransactionsScreenProps {
   transactions?: RecentTransactionItem[];
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
+  /** Troca de módulo (Investimentos ↔ Finanças) pelo botão do header. */
+  onSwitchModule?: () => void;
   onClose?: () => void;
   onBack?: () => void;
   onSelectTransaction?: (tx: RecentTransactionItem) => void;
@@ -29,6 +31,7 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
   transactions = [],
   isPrivacyMode = false,
   onTogglePrivacy,
+  onSwitchModule,
   onClose,
   onBack,
   onSelectTransaction,
@@ -51,6 +54,7 @@ export const AllTransactionsScreen: React.FC<AllTransactionsScreenProps> = ({
       <XpMinimalHeader
         onBack={onBack || onClose}
         onTogglePrivacy={onTogglePrivacy}
+        onSwitchModule={onSwitchModule}
         title="Extrato Completo"
         subtitle={`${txList.length} ${txList.length === 1 ? 'movimentação' : 'movimentações'}`}
         isPrivacyModeEnabled={isPrivacyMode}

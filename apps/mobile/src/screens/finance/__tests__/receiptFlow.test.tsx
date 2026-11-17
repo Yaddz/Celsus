@@ -35,9 +35,10 @@ describe('Sprint 63 — Fluxo de tela: Fotografar cupom (OCR) e Ler QR da NFC-e'
     fireEvent.press(screen.getByTestId('finance-add-entry-btn'));
 
     await waitFor(() => {
-      expect(screen.getByText('Lançar manualmente')).toBeTruthy();
-      expect(screen.getByText('Fotografar cupom')).toBeTruthy();
-      expect(screen.getByText('Ler QR da nota')).toBeTruthy();
+      // Sprints 75/76: o menu "+" da nav bar usa estes rótulos.
+      expect(screen.getByText('Novo lançamento')).toBeTruthy();
+      expect(screen.getByText('Ler cupom')).toBeTruthy();
+      expect(screen.getByText('Ler QR / código')).toBeTruthy();
     });
 
     fireEvent.press(screen.getByTestId('add-menu-manual'));
@@ -81,6 +82,8 @@ describe('Sprint 63 — Fluxo de tela: Fotografar cupom (OCR) e Ler QR da NFC-e'
   });
 
   it('salva despesa revisada com source OCR e external_id da NFC-e e impede duplicata', async () => {
+    // O módulo não cria mais conta padrão: o teste cria a sua.
+    await finRepository.createAccount({ name: 'Conta Teste', type: 'checking' });
     const accounts = await finRepository.listAccounts(false);
     const categories = await finRepository.listCategories(false);
     expect(accounts.length).toBeGreaterThan(0);

@@ -300,7 +300,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                 onPress={() => void handleConfirmManualKey()}
                 disabled={processing}
               >
-                <MaterialIcons name="check" size={18} color={c.primaryFg} />
+                <MaterialIcons name="check" size={20} color={c.primaryFg} />
                 <Text style={[styles.primaryBtnText, { color: c.primaryFg }]}>
                   Confirmar chave
                 </Text>
@@ -317,7 +317,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                   style={[styles.primaryBtn, { backgroundColor: c.primary }]}
                   onPress={() => void Linking.openSettings()}
                 >
-                  <MaterialIcons name="settings" size={18} color={c.primaryFg} />
+                  <MaterialIcons name="settings" size={20} color={c.primaryFg} />
                   <Text style={[styles.primaryBtnText, { color: c.primaryFg }]}>
                     Abrir configurações
                   </Text>
@@ -327,7 +327,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                   style={[styles.secondaryBtn, { borderColor: c.border }]}
                   onPress={() => setActiveMode('key')}
                 >
-                  <MaterialIcons name="dialpad" size={18} color={c.text} />
+                  <MaterialIcons name="dialpad" size={20} color={c.text} />
                   <Text style={[styles.secondaryBtnText, { color: c.text }]}>
                     Digitar a chave
                   </Text>
@@ -338,7 +338,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     style={[styles.secondaryBtn, { borderColor: c.border }]}
                     onPress={() => void handlePickGallery()}
                   >
-                    <MaterialIcons name="photo-library" size={18} color={c.text} />
+                    <MaterialIcons name="photo-library" size={20} color={c.text} />
                     <Text style={[styles.secondaryBtnText, { color: c.text }]}>
                       Escolher da galeria
                     </Text>
@@ -349,7 +349,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                   style={[styles.secondaryBtn, { borderColor: c.border }]}
                   onPress={onFallbackManual}
                 >
-                  <MaterialIcons name="edit" size={18} color={c.text} />
+                  <MaterialIcons name="edit" size={20} color={c.text} />
                   <Text style={[styles.secondaryBtnText, { color: c.text }]}>
                     Lançar manualmente
                   </Text>
@@ -415,7 +415,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                 onPress={() => void handleCapturePhoto()}
                 disabled={processing}
               >
-                <MaterialIcons name="camera-alt" size={18} color={c.primaryFg} />
+                <MaterialIcons name="camera-alt" size={20} color={c.primaryFg} />
                 <Text style={[styles.primaryBtnText, { color: c.primaryFg }]}>
                   Fotografar total
                 </Text>
@@ -438,7 +438,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     onPress={() => void handleCapturePhoto()}
                     disabled={processing}
                   >
-                    <MaterialIcons name="camera-alt" size={18} color={c.primaryFg} />
+                    <MaterialIcons name="camera-alt" size={20} color={c.primaryFg} />
                     <Text style={[styles.primaryBtnText, { color: c.primaryFg }]}>
                       Fotografar
                     </Text>
@@ -449,7 +449,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     onPress={() => void handlePickGallery()}
                     disabled={processing}
                   >
-                    <MaterialIcons name="photo-library" size={18} color={c.text} />
+                    <MaterialIcons name="photo-library" size={20} color={c.text} />
                     <Text style={[styles.secondaryBtnText, { color: c.text }]}>Galeria</Text>
                   </TouchableOpacity>
                 </>
@@ -460,7 +460,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     style={[styles.secondaryBtn, styles.flexBtn, { borderColor: c.border }]}
                     onPress={() => setActiveMode('key')}
                   >
-                    <MaterialIcons name="dialpad" size={18} color={c.text} />
+                    <MaterialIcons name="dialpad" size={20} color={c.text} />
                     <Text style={[styles.secondaryBtnText, { color: c.text }]}>
                       Digitar a chave
                     </Text>
@@ -470,7 +470,7 @@ export const ReceiptScannerSheet: React.FC<ReceiptScannerSheetProps> = ({
                     style={[styles.secondaryBtn, styles.flexBtn, { borderColor: c.border }]}
                     onPress={onFallbackManual}
                   >
-                    <MaterialIcons name="edit" size={18} color={c.text} />
+                    <MaterialIcons name="edit" size={20} color={c.text} />
                     <Text style={[styles.secondaryBtnText, { color: c.text }]}>
                       Manual
                     </Text>

@@ -1250,6 +1250,10 @@ function AppContent(props: {
         <StatusBar style={isLight ? 'dark' : 'light'} />
         <IncomeHistoryScreen
           onBack={() => setIsIncomeHistoryOpen(false)}
+          onSwitchModule={() => {
+            setIsIncomeHistoryOpen(false);
+            switchModule();
+          }}
           onOpenB3Import={openB3Import}
           initialPortfolioId={activePortfolioId || undefined}
           isPrivacyMode={isPrivacyMode}
@@ -1352,6 +1356,10 @@ function AppContent(props: {
             }}
             themeMode={themeMode}
             onClose={() => setSelectedRecentTransaction(null)}
+            onSwitchModule={() => {
+              setSelectedRecentTransaction(null);
+              switchModule();
+            }}
           />
           <FloatingBottomDock
             activeTab={activeTab}
@@ -1417,6 +1425,10 @@ function AppContent(props: {
           }}
           themeMode={themeMode}
           onClose={() => setIsAllTransactionsModalOpen(false)}
+          onSwitchModule={() => {
+            setIsAllTransactionsModalOpen(false);
+            switchModule();
+          }}
           onSelectTransaction={(tx) => setSelectedRecentTransaction(tx)}
         />
         <FloatingBottomDock
@@ -1540,6 +1552,10 @@ function AppContent(props: {
             }}
             themeMode={themeMode}
             onClose={() => setSelectedClassDetail(null)}
+            onSwitchModule={() => {
+              setSelectedClassDetail(null);
+              switchModule();
+            }}
             onAssetPress={async (tickerOrId) => {
               try {
                 const allPortfolios = await portfolioRepository.listPortfolios(false);
@@ -1775,6 +1791,10 @@ function AppContent(props: {
             }}
             themeMode={themeMode}
             onBack={() => setSelectedAssetTicker(null)}
+            onSwitchModule={() => {
+              setSelectedAssetTicker(null);
+              switchModule();
+            }}
             onAdjustTarget={() => {
               setActiveTab('wallets');
             }}

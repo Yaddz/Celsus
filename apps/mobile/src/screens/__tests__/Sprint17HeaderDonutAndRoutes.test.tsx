@@ -295,7 +295,8 @@ describe('Sprint 17 — Módulos 3, 6 e 8 (Header Global, Donut Interativo, Spee
       fireEvent.press(globeBtn);
 
       expect(screen.getByTestId('finance-home-screen')).toBeTruthy();
-      fireEvent.press(screen.getByTestId('header-back-button'));
+      // Sprint 76: o Resumo de Finanças mostra avatar (sem voltar); volta-se pelo próprio botão de módulo.
+      fireEvent.press(screen.getByTestId('header-globe-button'));
       alertSpy.mockClear();
 
       // 2. O botão Bento "Mais" foi removido da Home

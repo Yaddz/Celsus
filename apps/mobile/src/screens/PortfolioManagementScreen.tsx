@@ -1580,7 +1580,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   key={asset.id}
                   asset={asset}
                   globalTarget={calculateGlobalTarget(currentClassTarget, asset.targetInClass)}
-                  color={getClassColor(asset.assetClass)}
+                  color={getClassColor(asset.assetClass) ?? colors.primary}
                   isLight={isLight}
                   themeMode={themeMode}
                   portfolioMode={portfolioMode}

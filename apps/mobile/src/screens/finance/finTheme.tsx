@@ -161,7 +161,7 @@ export const FinFloatingAddButton: React.FC<{
     containerStyle={sharedStyles.fabContainer}
     style={sharedStyles.fabInner}
   >
-    <MaterialIcons name="add" size={28} color="#FFFFFF" />
+    <MaterialIcons name="add" size={24} color="#FFFFFF" />
   </JellyPressable>
 );
 

@@ -49,6 +49,9 @@
     "preset": "jest-expo",
     "setupFilesAfterEnv": [
       "<rootDir>/jest.setup.js"
+    ],
+    "testMatch": [
+      "**/?(*.)+(test|spec).[jt]s?(x)"
     ]
   },
   "private": true

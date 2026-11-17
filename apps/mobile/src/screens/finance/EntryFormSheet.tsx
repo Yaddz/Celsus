@@ -596,7 +596,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                   <View testID="entry-form-meta-row" style={styles.metaRow}>
                     <View style={styles.metaField}>
                       <View style={styles.metaLabelRow}>
-                        <MaterialIcons name="event" size={14} color={c.muted} />
+                        <MaterialIcons name="event" size={16} color={c.muted} />
                         <Text style={[styles.metaLabel, { color: c.muted }]}>
                           {isCardSelected ? 'Data da compra' : 'Vencimento'}
                         </Text>
@@ -626,7 +626,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
 
                     <View style={styles.metaField}>
                       <View style={styles.metaLabelRow}>
-                        <MaterialIcons name="account-balance-wallet" size={14} color={c.muted} />
+                        <MaterialIcons name="account-balance-wallet" size={16} color={c.muted} />
                         <Text style={[styles.metaLabel, { color: c.muted }]}>Conta</Text>
                       </View>
                       <TouchableOpacity
@@ -647,7 +647,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                           {selectedAccount ? selectedAccount.name : '—'}
                         </Text>
                         {accounts.length > 0 ? (
-                          <MaterialIcons name="arrow-drop-down" size={18} color={c.muted} />
+                          <MaterialIcons name="arrow-drop-down" size={20} color={c.muted} />
                         ) : null}
                       </TouchableOpacity>
                     </View>
@@ -827,7 +827,7 @@ export const EntryFormSheet: React.FC<EntryFormSheetProps> = ({
                           ]}
                         >
                           <View style={[styles.miniAvatar, { backgroundColor: visual.color }]}>
-                            <MaterialIcons name={visual.icon} size={12} color={visual.iconColor} />
+                            <MaterialIcons name={visual.icon} size={16} color={visual.iconColor} />
                           </View>
                           <Text style={[styles.chipText, { color: c.text }]}>{cat.name}</Text>
                         </TouchableOpacity>

@@ -307,6 +307,8 @@ export const bento = {
     cream: { background: '#E6DECA', foreground: '#111315', muted: 'rgba(17,19,21,0.6)' },
     gold: { background: '#D4A83B', foreground: '#1A1405', muted: 'rgba(26,20,5,0.65)' },
     dark: { background: '#1C1E20', foreground: '#E6DECA', muted: '#8A8A8E' },
+    /** Classe "Fundos e Previdência" (mesma cor de CLASS_COLORS.FUNDS). */
+    obsidian: { background: '#5B525C', foreground: '#E6DECA', muted: 'rgba(230,222,202,0.7)' },
     light: { background: '#FFFFFF', foreground: '#111315', muted: '#6E6A63' },
   },
 } as const;

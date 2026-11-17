@@ -10,6 +10,10 @@ export interface SectionHeaderProps {
   /** Ação à direita (ex.: "Ver tudo ›"). Só aparece com `onAction`. */
   actionLabel?: string;
   onAction?: () => void;
+  /** testID da ação; padrão `${testID}-action`. */
+  actionTestID?: string;
+  /** Cor da ação; padrão: cor primária. */
+  actionColor?: string;
   themeMode?: ThemeMode;
   /** Cor do título; padrão: texto discreto do tema. */
   color?: string;
@@ -22,6 +26,8 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   title,
   actionLabel,
   onAction,
+  actionTestID,
+  actionColor,
   themeMode = 'dark',
   color,
   style,
@@ -34,13 +40,13 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       </Text>
       {actionLabel && onAction ? (
         <JellyPressable
-          testID={testID ? `${testID}-action` : undefined}
+          testID={actionTestID ?? (testID ? `${testID}-action` : undefined)}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
           onPress={onAction}
           hitSlop={space.md}
         >
-          <Text style={styles.action}>{actionLabel}</Text>
+          <Text style={[styles.action, actionColor ? { color: actionColor } : null]}>{actionLabel}</Text>
         </JellyPressable>
       ) : null}
     </View>

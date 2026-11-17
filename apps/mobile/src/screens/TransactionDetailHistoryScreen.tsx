@@ -47,6 +47,8 @@ export interface TransactionDetailHistoryScreenProps {
   history?: TransactionHistoryItem[];
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
+  /** Troca de módulo (Investimentos ↔ Finanças) pelo botão do header. */
+  onSwitchModule?: () => void;
   onClose?: () => void;
   testID?: string;
   themeMode?: 'dark' | 'light';
@@ -104,6 +106,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
   history,
   isPrivacyMode = false,
   onTogglePrivacy,
+  onSwitchModule,
   onClose = () => {},
   testID = 'transaction-detail-history-screen',
   themeMode = 'dark',
@@ -164,6 +167,7 @@ export const TransactionDetailHistoryScreen: React.FC<TransactionDetailHistorySc
         title="Detalhes da Operação"
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
+        onSwitchModule={onSwitchModule}
         themeMode={themeMode}
       />
 

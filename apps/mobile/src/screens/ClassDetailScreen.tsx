@@ -36,7 +36,11 @@ export interface ClassDetailScreenProps {
   assets?: ClassAssetDetailItem[];
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
+  /** Troca de módulo (Investimentos ↔ Finanças) pelo botão do header. */
+  onSwitchModule?: () => void;
   onClose?: () => void;
+  /** Mesmo papel de onClose (nome usado pelas demais telas internas). */
+  onBack?: () => void;
   onAssetPress?: (assetId: string) => void;
   testID?: string;
   themeMode?: 'dark' | 'light';
@@ -48,11 +52,14 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
   assets,
   isPrivacyMode = false,
   onTogglePrivacy,
-  onClose = () => {},
+  onSwitchModule,
+  onClose: onCloseProp,
+  onBack,
   onAssetPress,
   testID = 'class-detail-screen',
   themeMode = 'dark',
 }) => {
+  const onClose = onCloseProp ?? onBack ?? (() => {});
   const insets = useSafeAreaInsets();
   const isLight = themeMode === 'light';
 
@@ -122,6 +129,7 @@ export const ClassDetailScreen: React.FC<ClassDetailScreenProps> = ({
         subtitle={`${assetList.length} ${assetList.length === 1 ? 'ativo' : 'ativos'}`}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
+        onSwitchModule={onSwitchModule}
         themeMode={themeMode}
       />
 

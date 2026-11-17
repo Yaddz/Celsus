@@ -38,6 +38,8 @@ import Decimal from 'decimal.js';
 
 export interface IncomeHistoryScreenProps {
   onBack: () => void;
+  /** Troca de módulo (Investimentos ↔ Finanças) pelo botão do header. */
+  onSwitchModule?: () => void;
   onOpenB3Import?: () => void;
   initialPortfolioId?: string;
   isPrivacyMode?: boolean;
@@ -75,6 +77,7 @@ function formatDateBr(isoDate: string): string {
 
 export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
   onBack,
+  onSwitchModule,
   onOpenB3Import,
   initialPortfolioId,
   isPrivacyMode = false,
@@ -372,7 +375,7 @@ export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
   if (loading) {
     return (
       <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
-        <XpMinimalHeader title="Proventos" subtitle="Valor líquido recebido" onBack={onBack} themeMode={themeMode} />
+        <XpMinimalHeader title="Proventos" subtitle="Valor líquido recebido" onBack={onBack} onSwitchModule={onSwitchModule} themeMode={themeMode} />
         <View style={styles.centerContainer}>
           <ActivityIndicator color={colors.primary} size="large" />
         </View>
@@ -382,7 +385,7 @@ export const IncomeHistoryScreen: React.FC<IncomeHistoryScreenProps> = ({
 
   return (
     <View testID={testID} style={[styles.container, isLight && styles.containerLight]}>
-      <XpMinimalHeader title="Proventos" subtitle="Valor líquido recebido" onBack={onBack} themeMode={themeMode} />
+      <XpMinimalHeader title="Proventos" subtitle="Valor líquido recebido" onBack={onBack} onSwitchModule={onSwitchModule} themeMode={themeMode} />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: space.xxl + bottomOffset }]} {...scrollProps}>
         {incomes.length === 0 ? (

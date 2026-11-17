@@ -100,7 +100,7 @@ describe('Sprint 39: General Bug Hardening (B12–B20, A11y, Privacy & Precision
 
       await waitFor(() => {
         // Fallback: 10 * 25.00 = R$ 250,00
-        expect(screen.getByText('R$ 250,00')).toBeTruthy();
+        expect(screen.getAllByText('R$ 250,00').length).toBeGreaterThan(0);
       });
     });
 
@@ -343,7 +343,7 @@ describe('Sprint 39: General Bug Hardening (B12–B20, A11y, Privacy & Precision
       await render(<App />);
 
       await waitFor(() => {
-        expect(screen.getByText('R$ 600,00')).toBeTruthy();
+        expect(screen.getAllByText('R$ 600,00').length).toBeGreaterThan(0);
       });
 
       // 2. Deleta a carteira do banco e atualiza walletStore para estado vazio
@@ -357,7 +357,7 @@ describe('Sprint 39: General Bug Hardening (B12–B20, A11y, Privacy & Precision
 
       await waitFor(() => {
         // Patrimônio zerado
-        expect(screen.getByText('R$ 0,00')).toBeTruthy();
+        expect(screen.getAllByText('R$ 0,00').length).toBeGreaterThan(0);
         // Zero transações residuais
         expect(screen.queryByText('CSNA3')).toBeNull();
       });

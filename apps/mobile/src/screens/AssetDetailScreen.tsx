@@ -31,6 +31,8 @@ export interface AssetDetailScreenProps {
   onAdjustTarget?: (assetClass: AssetClass) => void;
   isPrivacyMode?: boolean;
   onTogglePrivacy?: () => void;
+  /** Troca de módulo (Investimentos ↔ Finanças) pelo botão do header. */
+  onSwitchModule?: () => void;
   themeMode?: 'dark' | 'light';
   testID?: string;
 }
@@ -79,6 +81,7 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
   onAdjustTarget,
   isPrivacyMode = false,
   onTogglePrivacy,
+  onSwitchModule,
   themeMode = 'dark',
   testID = 'asset-detail-screen',
 }) => {
@@ -240,6 +243,7 @@ export const AssetDetailScreen: React.FC<AssetDetailScreenProps> = ({
         onBack={onBack}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
+        onSwitchModule={onSwitchModule}
         themeMode={themeMode}
       />
 

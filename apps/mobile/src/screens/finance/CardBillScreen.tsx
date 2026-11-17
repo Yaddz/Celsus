@@ -320,7 +320,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
             }}
             style={styles.monthArrow}
           >
-            <MaterialIcons name="chevron-left" size={22} color={ui.text} />
+            <MaterialIcons name="chevron-left" size={24} color={ui.text} />
           </TouchableOpacity>
           <Text testID="card-bill-month-label" style={[styles.monthLabel, { color: ui.text }]}>
             {formatYearMonthPtBr(billMonth)}
@@ -333,7 +333,7 @@ export const CardBillScreen: React.FC<CardBillScreenProps> = ({
             }}
             style={styles.monthArrow}
           >
-            <MaterialIcons name="chevron-right" size={22} color={ui.text} />
+            <MaterialIcons name="chevron-right" size={24} color={ui.text} />
           </TouchableOpacity>
         </View>
 
