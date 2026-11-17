@@ -721,3 +721,12 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Implementação: `services/pluggy/types.ts` (tipos completos A.3–A.7), `domain/openFinance/dates.ts` (`toBrtDate`, `toBrtMonth`), `domain/openFinance/pluggyTruth.ts` (`computePluggyTruth`, `collectAppNumbers`, `reconcileAppVsPluggy`, `computeChargeableChargesCents`), `domain/financeFlow/cards.ts` (`summarizeCardAccountForScreen` extraída de `AccountsScreen.tsx`), `db/schema.ts`, `db/client.ts` e `services/backupService.ts` (colunas `of_*` em `fin_entries`, `fin_bills`, `fin_accounts`, `of_items`), `repositories/finRepository.ts`, `repositories/openFinanceRepository.ts`, `domain/openFinance/index.ts`, `services/pluggy/pluggySyncService.ts` e `services/pluggy/pluggyDiagnosticsService.ts` (diagnóstico v3).
   - Resultado: Sprint 97 — 3 suítes / 14 testes PASS. Suíte geral: **206/206 suítes PASS** (**1337/1337 testes PASS**, 46.905 s). `tsc --noEmit`: 0 erros em produção (161 pré-existentes apenas em `__tests__`). `expo lint`: 1 erro pré-existente (`set-state-in-effect`, `AccountsScreen.tsx:123`, linha não alterada). `test-lock verify`: OK (222 arquivos protegidos).
   - Pendência/Checkpoint: gerar export de diagnóstico v3 no aparelho e salvar em `docs/json.json` antes da Sprint 98.
+
+
+## Sprint 98 — Identidade estável, restauração e reconexão sem duplicar
+- Origem: `docs/PLANO_SPRINTS_97_102_PLUGGY_VALORES_EXATOS.md` (D31, D32, D43; R31, R32, R33, R37).
+- Fase A (Red Phase & Lock):
+  - `apps/mobile/src/domain/openFinance/__tests__/Sprint98Identity.test.ts` (SHA-256 `4df98e16b86b2b82f3a2ea1ededd56b7aa63c3265a7eda76d8e40b44a4df6353`) — `S98-T01` fingerprint/ordinais; `S98-T05` mudança de descrição não casa; `S98-T11` dois buscados idênticos e um existente (não casa duas vezes, fallback pré-97).
+  - `apps/mobile/src/services/pluggy/__tests__/Sprint98StableIdentitySync.test.ts` (SHA-256 `44e7fc30616c838fa9747de4001e7e2e1826f34c53d48131c3f2bcfb31bed2f4`) — `S98-T02` match por `providerId` (`matchedByProviderId`); `S98-T03` match por fingerprint sem `providerId`; `S98-T04` restauração de `of_removed_at` (`restored`); `S98-T06` R32 `PRODUCT_NOT_UPDATED` por produto; `S98-T07` consentimento expirado não remove; `S98-T08`/`S98-T09` dedupe s98 idempotente e conflito de edição; `S98-T10` R33 reconexão sem duplicar; `S98-T12`/`S98-T13` R37 busca sem `dateFrom` na 1ª sync e migração `fullhistory`.
+  - Stub de compilação: `domain/openFinance/identity.ts`.
+  - Execução Fase A: 2 suítes / 12 FAIL, 1 PASS (`S98-T07`).
