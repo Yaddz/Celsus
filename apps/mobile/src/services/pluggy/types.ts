@@ -209,6 +209,19 @@ export interface PluggyInvestmentInstitution {
   number?: string | null;
 }
 
+export interface PluggyInvestmentMetadata {
+  taxRegime?: string | null;
+  proposalNumber?: string | null;
+  processNumber?: string | null;
+  fundName?: string | null;
+  insurer?: { name?: string | null; cnpj?: string | null } | null;
+  anbimaCategory?: string | null;
+  anbimaClass?: string | null;
+  anbimaSubclass?: string | null;
+  anbimaCode?: string | null;
+  [key: string]: unknown;
+}
+
 export interface PluggyInvestment {
   id: string;
   itemId: string;
@@ -218,7 +231,7 @@ export interface PluggyInvestment {
   balance: number;
   name: string;
   institution?: PluggyInvestmentInstitution | null;
-  metadata?: Record<string, unknown> | null;
+  metadata?: PluggyInvestmentMetadata | null;
   gracePeriodDate?: string | null;
   lastMonthRate?: number | null;
   lastTwelveMonthsRate?: number | null;
@@ -244,6 +257,10 @@ export interface PluggyInvestment {
   rate?: number | null;
   rateType?: string | null;
   fixedAnnualRate?: number | null;
+  ratePeriodicity?: string | null;
+  indexerAdditionalInfo?: string | null;
+  couponPayment?: unknown | null;
+  priceFactor?: number | null;
   taxExempt?: boolean | null;
   status?: 'ACTIVE' | 'PENDING' | 'TOTAL_WITHDRAWAL' | null;
   createdAt: string;
@@ -265,8 +282,14 @@ export interface PluggyInvestmentTransactionExpenses {
   tradingAssetsNoticeFee?: number | null;
   maintenanceFee?: number | null;
   settlementFee?: number | null;
+  clearingFee?: number | null;
+  stockExchangeFee?: number | null;
+  custodyFee?: number | null;
+  operatingFee?: number | null;
   registryFee?: number | null;
   exchangeFee?: number | null;
+  iof?: number | null;
+  iofProvision?: number | null;
   other?: number | null;
 }
 

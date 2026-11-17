@@ -12,6 +12,14 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção da Sprint 62 |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **193 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 84 — Investimentos: números corretos (Fase A concluída)
+
+Especificação dos diagnósticos D3, D4, D5 e D9 e regras R1, R2, R3 e R4 (sem `OPENING_BALANCE`).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint84InvestmentNumbers.test.ts` | S84-T01…T10 | `4f8c419db8ccdf64e7f071f8e491efb6f831529eeda986462d10290550c71bf9` | 9 FAIL / 1 PASS |
+
 ## Sprint 79 — Tema claro em todas as telas (Fase B concluída)
 
 Papéis semânticos completos em `THEME_COLORS` e `getFinUiColors` com contraste WCAG >= 4,5:1, refatoração de `OpenFinanceInvestmentReconciliationSheet` (`AnimatedModalSheet` + `themeMode`), `OpenFinanceScreen`, `StatementImportSheet`, `ReceiptScannerSheet` e telas de Finanças para eliminar cores literais soltas. `app.json` já possui `"userInterfaceStyle": "automatic"` (efeito nativo depende de novo build; o tema exibido continua sendo o selecionado no Perfil).
