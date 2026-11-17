@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (erros pré-existentes apenas em arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **196 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 86 — Proventos completos (Fase A concluída)
+
+Especificação dos diagnósticos D10, D11, D12 e D13 e regras R8 e R9.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/services/pluggy/__tests__/Sprint86Income.test.ts` | S86-T01…T05 | `b1cce2247d4364cc971fb4966c995c13ec74a3a54f5f5bc9f47716a3a366a01b` | 3 FAIL / 1 PASS |
+| `apps/mobile/src/domain/openFinance/__tests__/Sprint86BankIncome.test.ts` | S86-T06…T08 | `1431568ae8e3768ebb4ab23ffdd903699ad6b2c245f1724ce30c25af13972e16` | 2 FAIL / 1 PASS |
+
 ## Sprint 85 — Investimentos: valor de mercado, identidade e histórico (Fase B concluída)
 
 Implementação de `assets.of_reported_value`, `assets.of_reported_at`, `assets.value_source`, `transactions.is_synthetic` (schema, migrações e backup), transação sintética `OPENING_BALANCE` (`pluggy-opening:<investmentId>`, removida se o livro fechar — `R4`), `resolveVariableIncomeValueSource` com tolerância de 15% e `OPTION`/`DERIVATIVES` em `FUNDS` (`R5`), isolamento de identidade por `itemId`/`external_id` e sufixo de colisão apenas no nome (`R7`), histórico patrimonial usando `ofReportedValue`/`manualPositionValue` apenas a partir de `ofReportedAt` (`R6`), e reparo automático de ativos sequestrados (`counts_json.assetsRepaired`).
