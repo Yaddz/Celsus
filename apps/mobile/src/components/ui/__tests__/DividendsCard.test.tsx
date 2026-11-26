@@ -3,6 +3,15 @@ import { render, screen } from '@testing-library/react-native';
 import { DividendsCard } from '../DividendsCard';
 
 describe('UI: DividendsCard', () => {
+  beforeAll(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick', 'setImmediate', 'queueMicrotask', 'setTimeout', 'setInterval'] });
+    jest.setSystemTime(new Date('2026-09-01T12:00:00-03:00'));
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
+
   const dividends = [
     { date: '2026-08-20', type: 'DIVIDEND', amount: 0.87 },
     { date: '2026-05-20', type: 'JCP', amount: 0.52 },
