@@ -69,6 +69,7 @@ export interface PluggySyncCounts {
  */
 export const OF_HISTORY_BACKFILL_META_PREFIX = 'fin:of:backfill:s92:';
 export const OF_FULL_HISTORY_S98_META_PREFIX = 'fin:of:fullhistory:s98:';
+export const OF_RECLOSE_S102B_META_PREFIX = 'fin:of:reclose:s102b:';
 export const OF_DEDUPE_S98_META_KEY = 'fin:of:dedupe:s98';
 export const OF_DEDUPE_S98_LOG_KEY = 'fin:of:dedupe:s98:log';
 export const OF_BILLMONTH_S99_META_KEY = 'fin:of:billmonth:s99';
@@ -921,6 +922,23 @@ export const pluggySyncService = {
           counts.reclassifiedByReason = reclassification.byReason;
         }
 
+        // Sprint 102b: a importação do histórico completo (R37) acrescenta lançamentos antigos já contidos no
+        // saldo do banco, e o saldo calculado deixava de fechar ("divergência de saldo"). Na sincronização que
+        // importa o histórico — e uma vez para conexões que já o importaram — refecha o saldo inicial (R11).
+        const recloseMetaKey = `${OF_RECLOSE_S102B_META_PREFIX}${itemId}`;
+        const needsReclose =
+          needsFullHistoryS98 || (await appMetaRepository.get(recloseMetaKey)) !== '1';
+        if (needsReclose) {
+          for (const pgAcc of pluggyAccounts) {
+            if (pgAcc.type !== 'BANK') continue;
+            const localAcc = localAccountByPgId.get(pgAcc.id);
+            if (!localAcc || localAcc.type !== 'checking') continue;
+            if (!newCheckingReportedCents.has(localAcc.id)) {
+              newCheckingReportedCents.set(localAcc.id, toCentsDecimal(pgAcc.balance));
+            }
+          }
+        }
+
         // Conta corrente recém-criada ou recém-vinculada (R11): o saldo do banco já contém o histórico
         // e os lançamentos existentes. Ajusta initial_balance_cents para que o saldo calculado feche.
         if (newCheckingReportedCents.size > 0) {
@@ -936,6 +954,10 @@ export const pluggySyncService = {
               initial_balance_cents: reportedCents - paidNetCents,
             });
           }
+        }
+
+        if (needsReclose) {
+          await appMetaRepository.set(recloseMetaKey, '1');
         }
 
         // Sprint 99: migração única fin:of:billmonth:s99

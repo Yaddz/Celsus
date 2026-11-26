@@ -104,7 +104,11 @@ export function assignBillMonth(
       return { billMonth: toBrtMonth(bill.dueDate), source: 'BILL_ID' };
     }
   }
+  const result = assignWithoutBillId(tx, ctx);
+  return { ...result, billMonth: keepPendingOutOfClosedBills(tx, result.billMonth, ctx.bills) };
+}
 
+function assignWithoutBillId(tx: PluggyTransaction, ctx: AssignBillMonthContext): AssignBillMonthResult {
   const forecast = tx.creditCardMetadata?.billForecastDate;
   if (forecast && /^\d{4}-\d{2}/.test(forecast)) {
     const baseYm = forecast.slice(0, 7);
@@ -126,6 +130,28 @@ export function assignBillMonth(
     billMonth: resolveBillMonth(toBrtDate(tx.date), ctx.closingDay, ctx.dueDay),
     source: 'CALENDAR',
   };
+}
+
+/**
+ * Compra PENDENTE sem billId ainda não entrou em nenhuma fatura fechada (no Open Finance, a transação de uma
+ * fatura fechada vem com billId). Se o mês previsto/calculado cair numa fatura que a Pluggy já devolveu
+ * (ou antes dela), ela vai para a primeira fatura em aberto. Sem isso, a "Fatura atual" zerava quando o
+ * billForecastDate da conexão segue outra convenção de mês.
+ */
+export function keepPendingOutOfClosedBills(
+  tx: Pick<PluggyTransaction, 'status'>,
+  billMonth: string,
+  bills: Pick<PluggyBill, 'dueDate'>[]
+): string {
+  if (tx.status !== 'PENDING' || bills.length === 0) return billMonth;
+  let latestClosed = '';
+  for (const b of bills) {
+    if (!b.dueDate) continue;
+    const ym = toBrtMonth(b.dueDate);
+    if (ym > latestClosed) latestClosed = ym;
+  }
+  if (!latestClosed || billMonth > latestClosed) return billMonth;
+  return addMonthsYm(latestClosed, 1);
 }
 
 export function assignPaymentBillMonth(

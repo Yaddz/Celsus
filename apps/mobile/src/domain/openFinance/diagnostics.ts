@@ -683,3 +683,44 @@ export function redactDiagnosticDescription(
 
   return result.replace(/\s+/g, ' ').trim();
 }
+
+// ---------------------------------------------------------------- valor exibido e livro (Sprint 102b)
+
+/**
+ * Valor que o app exibe para um ativo Open Finance. Mesma regra do diagnóstico e da carteira (R5):
+ * cotação × quantidade quando `value_source = 'QUOTE'` e há cotação; senão o valor informado pela instituição
+ * (`of_reported_value`) ou a posição manual. `null` quando não há nenhum.
+ */
+export function resolveDisplayedAssetValue(
+  asset: {
+    ticker: string;
+    quantity?: string | null;
+    value_source?: string | null;
+    of_reported_value?: string | null;
+    manual_position_value?: string | null;
+  },
+  priceByTicker: Map<string, string | null | undefined>
+): string | null {
+  let displayed: string | null = asset.of_reported_value ?? asset.manual_position_value ?? null;
+  if (asset.value_source === 'QUOTE') {
+    const cachedPrice = priceByTicker.get(asset.ticker);
+    if (cachedPrice) {
+      displayed = new Decimal(cachedPrice).mul(new Decimal(asset.quantity || '0')).toFixed(2);
+    }
+  }
+  return displayed;
+}
+
+/** Quantidade que o livro de transações do app fecha para um ativo (BUY/TRANSFER somam, SELL subtrai). */
+export function computeLedgerQuantity(
+  assetId: string,
+  txs: { asset_id: string; type: string; quantity?: string | null; archived_at?: string | null }[]
+): Decimal {
+  let qty = new Decimal(0);
+  for (const t of txs) {
+    if (t.asset_id !== assetId || t.archived_at) continue;
+    if (t.type === 'BUY' || t.type === 'TRANSFER') qty = qty.plus(new Decimal(t.quantity || '0'));
+    else if (t.type === 'SELL') qty = qty.minus(new Decimal(t.quantity || '0'));
+  }
+  return qty;
+}

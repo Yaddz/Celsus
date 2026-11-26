@@ -20,6 +20,7 @@ import {
   inferForecastOffset,
   summarizeOpenFinanceBill,
 } from './cardBills';
+import { isCardBillPayment } from './classification';
 import { toBrtDate, toBrtMonth } from './dates';
 import { toCentsDecimal } from './index';
 
@@ -157,6 +158,8 @@ export interface AppNumbersResult {
     Record<string, { inflowCents: number; outflowCents: number; count: number }>
   >;
   pendingOutflowCents?: number;
+  /** Despesas futuras por conta Open Finance (id da conta na Pluggy), para comparar conexão a conexão. */
+  pendingOutflowByOfAccountId?: Record<string, number>;
   cardsByOfAccountId: Record<
     string,
     {
@@ -390,6 +393,9 @@ export function computePluggyTruth(
         let itemsCents = 0;
         for (const tx of txs) {
           if (tx.creditCardMetadata?.billId !== bill.id) continue;
+          // Pagamento da fatura anterior não é item desta fatura. As conexões Meu Pluggy não trazem
+          // operationType, então reconhece também pela descrição/categoria ("Pgto fatura").
+          if (tx.type === 'CREDIT' && isCardBillPayment(tx)) continue;
           if (tx.operationType === 'PAGAMENTO_FATURA') continue;
           const absCents = Math.abs(toCentsDecimal(tx.amountInAccountCurrency ?? tx.amount));
           itemsCents += tx.type === 'DEBIT' ? absCents : -absCents;
@@ -432,8 +438,11 @@ export function computePluggyTruth(
       });
 
       const closedBillMonths = new Set(bills.map((b) => toBrtMonth(b.dueDate)));
+      // A ordem de /bills não é garantida: a fatura fechada mais recente é a de maior vencimento
       const latestClosedMonth =
-        bills.length > 0 ? toBrtMonth(bills[bills.length - 1].dueDate) : null;
+        bills.length > 0
+          ? bills.map((b) => toBrtMonth(b.dueDate)).reduce((a, b) => (b > a ? b : a))
+          : null;
       const derivedCal = deriveCardCalendar(bills);
       const closingDay =
         derivedCal?.closingDay ??
@@ -455,7 +464,9 @@ export function computePluggyTruth(
       const assignFn = options?.assignBillMonth;
       for (const tx of txs) {
         if (tx.creditCardMetadata?.billId) continue;
+        // Pagamento da fatura (pendente, sem billId) não é item da fatura aberta: abatia o total até zerar.
         if (tx.operationType === 'PAGAMENTO_FATURA') continue;
+        if (tx.type === 'CREDIT' && isCardBillPayment(tx)) continue;
         const bm = assignFn
           ? assignFn(tx, bills, account)
           : defaultAssignBillMonth(tx, bills, account, forecastOffset);
@@ -601,6 +612,14 @@ export function collectAppNumbers(inputs: {
     bankBalancesByOfAccountId,
     bankMonthlyFlowsByOfAccountId,
     pendingOutflowCents: computeAppPendingOutflowCents(inputs.entries),
+    pendingOutflowByOfAccountId: Object.fromEntries(
+      inputs.accounts
+        .filter((acc) => acc.of_account_id)
+        .map((acc) => [
+          acc.of_account_id as string,
+          computeAppPendingOutflowCents(inputs.entries.filter((e) => e.account_id === acc.id)),
+        ])
+    ),
     cardsByOfAccountId,
   };
 }
@@ -651,16 +670,19 @@ export function reconcileAppVsPluggy(
     }
   }
 
-  if (
-    appNumbers.pendingOutflowCents !== undefined &&
-    appNumbers.pendingOutflowCents !== truth.totals.pendingOutflowCents
-  ) {
+  // Despesas futuras: a verdade é de UMA conexão; o lado do app soma só as contas dessa conexão
+  // (comparar com o total do app inteiro acusava diferença em toda conexão).
+  const truthAccountIds = [...Object.keys(truth.bankAccounts), ...Object.keys(truth.cardAccounts)];
+  const appPendingCents = appNumbers.pendingOutflowByOfAccountId
+    ? truthAccountIds.reduce((s, id) => s + (appNumbers.pendingOutflowByOfAccountId?.[id] ?? 0), 0)
+    : appNumbers.pendingOutflowCents;
+  if (appPendingCents !== undefined && appPendingCents !== truth.totals.pendingOutflowCents) {
     diffs.push({
       scope: 'BANK',
       key: 'pending_outflow',
       pluggyCents: truth.totals.pendingOutflowCents,
-      appCents: appNumbers.pendingOutflowCents,
-      diffCents: appNumbers.pendingOutflowCents - truth.totals.pendingOutflowCents,
+      appCents: appPendingCents,
+      diffCents: appPendingCents - truth.totals.pendingOutflowCents,
       reason: 'APP_RECOMPUTED',
     });
   }

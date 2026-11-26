@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ScrollView,
   Share,
@@ -8,7 +8,10 @@ import {
   View,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { getDatabase } from '../db/client';
+import { marketPriceCache, transactions as ledgerTransactions } from '../db/schema';
 import type { Asset, FinAccount } from '../db/schema';
+import { computeLedgerQuantity, resolveDisplayedAssetValue } from '../domain/openFinance/diagnostics';
 import { formatCentsBRL, getTodayIsoLocal } from '../domain/financeFlow';
 import {
   collectAppNumbers,
@@ -44,6 +47,33 @@ const REASON_PT_BR: Record<DifferenceReason, string> = {
   COUNT_MISMATCH: 'Quantidade de lançamentos divergente',
 };
 
+const KEY_SUFFIX_PT_BR: Record<string, string> = {
+  items: 'itens da fatura',
+  available: 'limite disponível',
+  used: 'limite usado',
+  open_bill: 'fatura atual',
+  balance: 'saldo',
+  inflow: 'entradas',
+  outflow: 'saídas',
+  count: 'transações',
+};
+
+/** "uuid:2026-09:items" ⇒ "Cartão XP ·· 8297 · 09/2026 · itens da fatura"; "pending_outflow" ⇒ "Despesas futuras". */
+export function describeDiffKey(key: string, accountNameByOfId: Record<string, string>): string {
+  if (key === 'pending_outflow') return 'Despesas futuras';
+  return key
+    .split(':')
+    .map((part) => {
+      if (accountNameByOfId[part]) return accountNameByOfId[part];
+      const ym = /^(\d{4})-(\d{2})$/.exec(part);
+      if (ym) return `${ym[2]}/${ym[1]}`;
+      if (KEY_SUFFIX_PT_BR[part]) return KEY_SUFFIX_PT_BR[part];
+      if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(part)) return `conta ${part.slice(0, 4)}`;
+      return part;
+    })
+    .join(' · ');
+}
+
 interface ItemReconciliationView {
   connectorName: string;
   truth: PluggyTruthResult;
@@ -69,6 +99,14 @@ export const OpenFinanceReconciliationScreen: React.FC<
   const [error, setError] = useState<string | null>(null);
   const [itemViews, setItemViews] = useState<ItemReconciliationView[]>([]);
   const [ofAssets, setOfAssets] = useState<Asset[]>([]);
+  const [accountNameByOfId, setAccountNameByOfId] = useState<Record<string, string>>({});
+  const [priceByTicker, setPriceByTicker] = useState<Map<string, string | null>>(new Map());
+  const [ledgerTxs, setLedgerTxs] = useState<
+    { asset_id: string; type: string; quantity: string | null; archived_at: string | null }[]
+  >([]);
+  // `now` costuma chegar como função nova a cada render (valor padrão); fixar a da montagem evita que o efeito
+  // de carga rode de novo a cada render, o que deixava a tela piscando em loop de carregamento.
+  const nowRef = useRef(now);
 
   useEffect(() => {
     let active = true;
@@ -76,7 +114,7 @@ export const OpenFinanceReconciliationScreen: React.FC<
       setLoading(true);
       setError(null);
       try {
-        const todayIso = toBrtDate(now().toISOString()) || getTodayIsoLocal();
+        const todayIso = toBrtDate(nowRef.current().toISOString()) || getTodayIsoLocal();
         const [items, localAccounts, localEntries, localBills, allAssets] = await Promise.all([
           openFinanceRepository.listItems(),
           finRepository.listAccounts(true),
@@ -145,7 +183,8 @@ export const OpenFinanceReconciliationScreen: React.FC<
                 (e) =>
                   e.account_id === localCard.id &&
                   !e.of_removed_at &&
-                  e.kind === 'expense' &&
+                  // Itens da fatura = compras − estornos (mesma conta de summarizeBill); pagamento é transfer_in e fica fora
+                  (e.kind === 'expense' || e.kind === 'income') &&
                   ((lb.external_id && e.of_bill_id === lb.external_id) ||
                     (!e.of_bill_id && e.bill_month === lb.bill_month))
               );
@@ -157,7 +196,10 @@ export const OpenFinanceReconciliationScreen: React.FC<
                     e.bill_month === lb.bill_month)
               );
               if (billEntries.length > 0 || hasRemovedBillEntry) {
-                const appItemsCents = billEntries.reduce((s, e) => s + e.amount_cents, 0);
+                const appItemsCents = billEntries.reduce(
+                  (s, e) => s + (e.kind === 'income' ? -e.amount_cents : e.amount_cents),
+                  0
+                );
                 if (appItemsCents !== lb.total_amount_cents) {
                   const key = `${cardAcc.id}:${lb.bill_month}:items`;
                   if (!diffs.some((d) => d.key === key)) {
@@ -183,8 +225,25 @@ export const OpenFinanceReconciliationScreen: React.FC<
           });
         }
 
+        const db = getDatabase() as any;
+        const [priceRows, txRows] = await Promise.all([
+          db.select().from(marketPriceCache),
+          db.select().from(ledgerTransactions),
+        ]);
+
         if (!active) return;
         setItemViews(views);
+        setAccountNameByOfId(
+          Object.fromEntries(
+            localAccounts
+              .filter((a: FinAccount) => a.of_account_id)
+              .map((a: FinAccount) => [a.of_account_id as string, a.name])
+          )
+        );
+        setPriceByTicker(
+          new Map((priceRows as { ticker: string; current_price: string | null }[]).map((p) => [p.ticker, p.current_price]))
+        );
+        setLedgerTxs(txRows);
         setOfAssets(
           allAssets.filter(
             (a: Asset) =>
@@ -204,7 +263,7 @@ export const OpenFinanceReconciliationScreen: React.FC<
     return () => {
       active = false;
     };
-  }, [pluggyClient, now]);
+  }, [pluggyClient]);
 
   const totalDiffs = itemViews.reduce((s, v) => s + v.diffs.length, 0);
 
@@ -227,38 +286,41 @@ export const OpenFinanceReconciliationScreen: React.FC<
     }> = [];
 
     for (const a of ofAssets) {
-      const ext = a as unknown as {
-        of_investment_id?: string;
-        current_price?: string | null;
-        of_reported_quantity?: string | number | null;
-      };
+      const ext = a as unknown as { external_id?: string | null; of_reported_quantity?: string | number | null };
+      // Mesmo ativo do sync: external_id = id do investimento na Pluggy; código só como reserva
       const pInv =
-        (ext.of_investment_id ? pluggyInvById.get(ext.of_investment_id) : undefined) ??
+        (ext.external_id ? pluggyInvById.get(ext.external_id) : undefined) ??
         Array.from(pluggyInvById.values()).find(
           (inv) => (inv.code ?? '').toUpperCase() === a.ticker.toUpperCase()
         );
-      const pVal = a.of_reported_value
-        ? Math.round(Number(a.of_reported_value) * 100)
-        : pInv?.balance != null
-        ? Math.round(pInv.balance * 100)
-        : 0;
-      const qty = Number(a.quantity || 0);
-      const rawPrice =
-        ext.current_price ??
-        a.manual_price_override ??
-        a.average_price ??
-        '0';
-      const price = Number(rawPrice);
-      const aVal = Math.round(qty * price * 100);
+      const pVal =
+        pInv?.balance != null
+          ? Math.round(pInv.balance * 100)
+          : a.of_reported_value
+          ? Math.round(Number(a.of_reported_value) * 100)
+          : 0;
+      // Valor que o app exibe (mesma regra da carteira e do diagnóstico)
+      // (ativo sem value_source — gravado antes da R5 — cai na conta antiga: quantidade × preço gravado)
+      const displayed = a.value_source ? resolveDisplayedAssetValue(a, priceByTicker) : null;
+      const legacyPrice = Number(a.manual_price_override || a.average_price || '0');
+      const aVal =
+        displayed != null
+          ? Math.round(Number(displayed) * 100)
+          : Math.round(Number(a.quantity || 0) * (Number.isFinite(legacyPrice) ? legacyPrice : 0) * 100);
       pluggyCents += pVal;
       appCents += aVal;
       const rawPluggyQty = pInv?.quantity ?? ext.of_reported_quantity;
       const pQty = rawPluggyQty != null ? Number(rawPluggyQty) : null;
+      // Livro = transações do app; sem nenhuma transação, usa a quantidade gravada no ativo
+      const hasLedger = ledgerTxs.some((t) => t.asset_id === a.id && !t.archived_at);
+      const ledgerQty = hasLedger
+        ? computeLedgerQuantity(a.id, ledgerTxs).toNumber()
+        : Number(a.quantity || 0);
       rows.push({
         ticker: a.ticker,
         pluggyCents: pVal,
         appCents: aVal,
-        ledgerQty: Number.isFinite(qty) ? qty : null,
+        ledgerQty: Number.isFinite(ledgerQty) ? ledgerQty : null,
         pluggyQty: pQty !== null && Number.isFinite(pQty) ? pQty : null,
       });
     }
@@ -275,7 +337,7 @@ export const OpenFinanceReconciliationScreen: React.FC<
       diffCents: appCents - pluggyCents,
       rows,
     };
-  }, [ofAssets, itemViews]);
+  }, [ofAssets, itemViews, priceByTicker, ledgerTxs]);
 
   const handleExport = async () => {
     const lines: string[] = [
@@ -338,7 +400,9 @@ export const OpenFinanceReconciliationScreen: React.FC<
               {itemViews.flatMap((v) => v.diffs).map((d, idx) => (
                 <View key={`${d.key}-${idx}`} style={styles.diffRow}>
                   <Text style={[styles.caption, { color: t.onSurface }]}>
-                    {`${d.key} · Pluggy ${formatCentsBRL(d.pluggyCents)} | Celsus ${formatCentsBRL(d.appCents)} (dif. ${formatCentsBRL(d.diffCents)})`}
+                    {d.reason === 'ITEMS_VS_TOTAL'
+                      ? `${describeDiffKey(d.key, accountNameByOfId)} · Fatura do banco ${formatCentsBRL(d.pluggyCents)} | Itens ${formatCentsBRL(d.appCents)} (dif. ${formatCentsBRL(d.diffCents)})`
+                      : `${describeDiffKey(d.key, accountNameByOfId)} · Pluggy ${formatCentsBRL(d.pluggyCents)} | Celsus ${formatCentsBRL(d.appCents)} (dif. ${formatCentsBRL(d.diffCents)})`}
                   </Text>
                   <Text style={[styles.caption, { color: t.error }]}>
                     {REASON_PT_BR[d.reason]}

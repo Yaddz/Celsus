@@ -26,6 +26,14 @@ import {
   type NewFinEntry,
   type NewFinRecurrence,
 } from '../db/schema';
+
+/**
+ * Máximo de variáveis por comando SQL. O SQLite do Android usado pelo app rejeita bem antes de 32.766
+ * ("too many SQL variables" no aparelho com ~40 colunas por lançamento), então usamos o limite clássico de 999
+ * com margem, que vale em qualquer build do SQLite.
+ */
+export const SQLITE_MAX_VARIABLES = 900;
+
 import {
   getMonthDateRange,
   type FinAccountType,
@@ -433,7 +441,13 @@ export class FinRepository {
       of_bill_month_source: item.of_bill_month_source ?? item.ofBillMonthSource ?? null,
       created_at: now,
     }));
-    await db.insert(finEntries).values(records);
+    // Com ~41 colunas por lançamento, um único INSERT com muitas linhas novas (histórico completo da R37)
+    // estourava o limite de variáveis do SQLite (SQLITE_MAX_VARIABLES). Grava em lotes.
+    const columnsPerRow = Math.max(1, Object.keys(records[0]).length);
+    const chunkSize = Math.max(1, Math.floor(SQLITE_MAX_VARIABLES / columnsPerRow));
+    for (let i = 0; i < records.length; i += chunkSize) {
+      await db.insert(finEntries).values(records.slice(i, i + chunkSize));
+    }
     return records as FinEntry[];
   }
 

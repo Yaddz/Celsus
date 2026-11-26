@@ -12,7 +12,11 @@ import {
 import { isUnknownCost } from '../../domain/finance/averagePrice';
 import { getTodayIsoLocal } from '../../domain/financeFlow';
 import { toBrtDate, toBrtMonth } from '../../domain/openFinance/dates';
-import { redactDiagnosticDescription } from '../../domain/openFinance/diagnostics';
+import {
+  computeLedgerQuantity,
+  redactDiagnosticDescription,
+  resolveDisplayedAssetValue,
+} from '../../domain/openFinance/diagnostics';
 import {
   collectAppNumbers,
   computePluggyTruth,
@@ -508,26 +512,8 @@ export const pluggyDiagnosticsService = {
         const localAsset = assetByExternalId.get(inv.id);
         let appSummary: AnonymizedInvestmentAppSummary | null = null;
         if (localAsset) {
-          let ledgerQty = new Decimal(0);
-          for (const lt of localTxs) {
-            if (lt.asset_id !== localAsset.id || lt.archived_at) continue;
-            if (lt.type === 'BUY' || lt.type === 'TRANSFER') {
-              ledgerQty = ledgerQty.plus(new Decimal(lt.quantity || '0'));
-            } else if (lt.type === 'SELL') {
-              ledgerQty = ledgerQty.minus(new Decimal(lt.quantity || '0'));
-            }
-          }
-
-          let displayedValue: string | null =
-            localAsset.of_reported_value ?? localAsset.manual_position_value ?? null;
-          if (localAsset.value_source === 'QUOTE') {
-            const cachedPrice = priceByTicker.get(localAsset.ticker);
-            if (cachedPrice) {
-              displayedValue = new Decimal(cachedPrice)
-                .mul(new Decimal(localAsset.quantity || '0'))
-                .toFixed(2);
-            }
-          }
+          const ledgerQty = computeLedgerQuantity(localAsset.id, localTxs);
+          const displayedValue = resolveDisplayedAssetValue(localAsset, priceByTicker);
 
           const incomeCount12m = localIncomes.filter(
             (inc) =>
