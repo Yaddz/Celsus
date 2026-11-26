@@ -12,6 +12,16 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (148 erros pré-existentes apenas em 41 arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **206 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 103 — Dinheiro único, conta corretora e vínculo carteira ↔ conta (Fase A bloqueada)
+
+Especificação das regras `R38` (`src/domain/money.ts`) e `R39` (`fin_accounts.type = 'broker'`, `portfolios.fin_account_id`, migração `migration:broker-accounts:v1`, `pluggyPortfolioService`, `domain/financeFlow`, `AccountsScreen` e `PortfolioManagementScreen`).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint103Money.test.ts` | S103-T01…T06 | `1b120d925c4284964cc7bb11ed0fb5101073969861a976bec07e1eef46269ad7` | 6 FAIL |
+| `apps/mobile/src/services/__tests__/Sprint103BrokerLinkMigration.test.ts` | S103-T07…T13 | `657fb59dccb2636581631a3e5b7ca489a7a0720520cd6698444a15ce5f72b17a` | 7 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint103BrokerLinkUI.test.tsx` | S103-T14…T15 | `3d24bef37364206bf1c87929e3006d4e5d3362b26d0ec36920d35f489c3a016b` | 2 FAIL |
+
 ## Sprint 90 — Proventos por nome do fundo e diagnóstico sem PII (Fase B concluída)
 
 Identificação de provento pelo nome do fundo (`s/` ou `FII`, normalizado sem stopwords, prefixos/iniciais em ordem e fallback pela raiz de 4 letras do ticker), extração de quantidade `"S/ <n>"` e `unit_amount` em 8 casas (`decimal.js`), execução antes da classificação de transferências incluindo `categoryId 04000000` e contagem de ambiguidade em `counts.ambiguousIncomeCount` (`R15`), redirecionamento de recibo em `TOTAL_WITHDRAWAL` para o ativo-base `ACTIVE` sufixo `11` com `"recibo <ticker>"` em `notes` (`R16`), e diagnóstico Pluggy sem PII (`redactDiagnosticDescription`) com `name` e bloco `app` por investimento e `entriesLast90d` por conta (`R21`).

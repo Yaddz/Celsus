@@ -12,6 +12,7 @@ export const portfolios = sqliteTable('portfolios', {
   patrimony_goal: text('patrimony_goal'), // meta de patrimônio (R$), decimal em texto
   monthly_contribution: text('monthly_contribution'), // aporte mensal planejado (R$)
   of_item_id: text('of_item_id'),
+  fin_account_id: text('fin_account_id'),
   is_archived: integer('is_archived').notNull().default(0),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),

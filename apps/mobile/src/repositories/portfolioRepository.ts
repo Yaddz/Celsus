@@ -53,6 +53,7 @@ export class PortfolioRepository {
       patrimony_goal: null,
       monthly_contribution: null,
       of_item_id: params.of_item_id ?? null,
+      fin_account_id: null,
       is_archived: 0,
       created_at: now,
       updated_at: now,
@@ -197,6 +198,17 @@ export class PortfolioRepository {
 
     return this.getClassTargets(portfolioId);
   }
+  async linkFinAccount(
+    _portfolioId: string,
+    _accountId: string | null
+  ): Promise<Portfolio | null> {
+    throw new Error('Not implemented');
+  }
+
+  async getLinkedAccount(_portfolioId: string): Promise<import('../db/schema').FinAccount | null> {
+    throw new Error('Not implemented');
+  }
+
   async deletePortfolio(id: string): Promise<boolean> {
     await this.db.delete(incomeEvents).where(eq(incomeEvents.portfolio_id, id));
     await this.db.delete(transactions).where(eq(transactions.portfolio_id, id));

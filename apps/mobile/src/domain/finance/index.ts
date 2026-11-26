@@ -13,3 +13,4 @@ export * from './income';
 export * from './contributionPlan';
 export * from './allocationFill';
 export * from './donut';
+export * from '../money';

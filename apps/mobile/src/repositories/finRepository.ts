@@ -285,6 +285,10 @@ export class FinRepository {
     return filtered.sort((a, b) => a.created_at.localeCompare(b.created_at));
   }
 
+  async listBrokerAccounts(_includeArchived = false): Promise<FinAccount[]> {
+    throw new Error('Not implemented');
+  }
+
   async getAccountById(id: string): Promise<FinAccount | null> {
     const db = getDatabase();
     const rows = (await db.select().from(finAccounts).where(eq(finAccounts.id, id))) as FinAccount[];

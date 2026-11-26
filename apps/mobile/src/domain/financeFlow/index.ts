@@ -12,7 +12,7 @@ import {
 export type FinKind = 'income' | 'expense';
 export type FinEntryKind = 'income' | 'expense' | 'transfer_out' | 'transfer_in';
 export type FinEntryStatus = 'pending' | 'paid';
-export type FinAccountType = 'cash' | 'checking' | 'card';
+export type FinAccountType = 'cash' | 'checking' | 'card' | 'broker';
 export type FinFrequency = 'weekly' | 'monthly' | 'yearly';
 export type InstallmentScope = 'only_this' | 'this_and_next' | 'all';
 export type DueClassification = 'paid' | 'overdue' | 'due_soon' | 'upcoming';
