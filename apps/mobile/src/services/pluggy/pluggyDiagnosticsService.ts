@@ -26,6 +26,7 @@ import {
 } from '../../domain/openFinance/pluggyTruth';
 import { isStaleOpenFinancePending } from '../../domain/openFinance/stalePending';
 import { toCentsDecimal } from '../../domain/openFinance';
+import { centsToDecimal } from '../../domain/money';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { PluggyClient } from './pluggyClient';
 import type {
@@ -392,7 +393,7 @@ export const pluggyDiagnosticsService = {
                 ? redactDiagnosticDescription(c.additionalInfo, { ownerNames })
                 : null,
             })),
-            itemsSumByBillId: (itemsSumByBillIdMap.get(b.id) ?? 0) / 100,
+            itemsSumByBillId: centsToDecimal(itemsSumByBillIdMap.get(b.id) ?? 0).toNumber(),
           }));
 
           let totalWithBoth = 0;

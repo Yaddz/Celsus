@@ -83,7 +83,7 @@ describe('Sprint 103 — R39 Conta corretora, schema, backup, migração e finan
       finRecurrences: [],
       finBudgets: [],
     };
-    const oldZip = await backupService.createBackupZip(oldSnapshot);
+    const { zipBytes: oldZip } = await backupService.exportDossierArchive(oldSnapshot);
     await resetDatabase();
     await backupService.restoreFromZip(oldZip);
     const oldRestored = await portfolioRepository.listPortfolios(true);
@@ -197,7 +197,7 @@ describe('Sprint 103 — R39 Conta corretora, schema, backup, migração e finan
       initialBalanceCents: 50000,
     });
 
-    await finRepository.createTransfer({
+    await finService.createTransfer({
       fromAccountId: checkingAcc.id,
       toAccountId: brokerAcc.id,
       amountCents: 25000, // + R$ 250,00
@@ -207,7 +207,7 @@ describe('Sprint 103 — R39 Conta corretora, schema, backup, migração e finan
 
     const entries = await finRepository.listAllEntries();
     // Saldo esperado: 10000 + 25000 = 35000 (R$ 350,00)
-    const balance = calculateAccountBalance(brokerAcc, entries);
+    const balance = calculateAccountBalance(brokerAcc.initial_balance_cents, entries, brokerAcc.id);
     expect(balance).toBe(35000);
 
     // Conta broker não gera faturas

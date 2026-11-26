@@ -285,8 +285,9 @@ export class FinRepository {
     return filtered.sort((a, b) => a.created_at.localeCompare(b.created_at));
   }
 
-  async listBrokerAccounts(_includeArchived = false): Promise<FinAccount[]> {
-    throw new Error('Not implemented');
+  async listBrokerAccounts(includeArchived = false): Promise<FinAccount[]> {
+    const accounts = await this.listAccounts(includeArchived);
+    return accounts.filter((a) => a.type === 'broker');
   }
 
   async getAccountById(id: string): Promise<FinAccount | null> {

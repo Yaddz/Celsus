@@ -434,3 +434,12 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `screens/OpenFinanceReconciliationScreen.tsx`: tela `"Conferir com o Meu Pluggy"` somente-leitura comparando contas, cartões, faturas, contagens de transações, seção informativa de investimentos (`D46`/`D47`) e exportação sem PII.
 - `screens/finance/AccountsScreen.tsx`, `EntriesListScreen.tsx` & `FinanceHomeScreen.tsx`: `hideFab` para evitar FAB duplicado quando renderizadas sob o `FloatingBottomDock` (`D42`).
 - `services/pluggy/__tests__/pluggyRealSnapshot.ts`: fixture ponta a ponta anonimizada baseada em `docs/json.json` e números da revisão.
+
+## Dinheiro Único, Conta Corretora e Vínculo Carteira ↔ Conta (Sprint 103)
+
+- `domain/money.ts` (`R38`, reexportado em `domain/finance/index.ts`): `centsToDecimal`, `decimalToCents` (reutilizado por `toCentsDecimal`), `Money`, `addMoney`, `convert(money, rate, rateDate)` e `formatBRL`.
+- `db/schema.ts`, `db/client.ts` & `services/backupService.ts`: coluna `portfolios.fin_account_id` (nullable + `idx_portfolios_fin_account_id`) com migração idempotente e suporte a exportação/importação de backups antigos e novos, além de `fin_accounts.type = 'broker'`.
+- `domain/financeFlow/index.ts`: `FinAccountType` inclui `'broker'`, tratado como conta comum sem fatura/limite/fechamento.
+- `repositories/portfolioRepository.ts` & `repositories/finRepository.ts`: `linkFinAccount`, `getLinkedAccount` e `listBrokerAccounts`.
+- `services/finService.ts` & `services/pluggy/pluggyPortfolioService.ts`: migração idempotente `migration:broker-accounts:v1` para carteiras Pluggy e criação automática da conta par para novas carteiras Pluggy.
+- `screens/finance/AccountsScreen.tsx` & `screens/PortfolioManagementScreen.tsx`: agrupamento `"CORRETORAS"` com carteiras vinculadas, opção `"Corretora"` no formulário de conta e seletor `"Conta da corretora: <nome> ›"` na gestão de carteiras.

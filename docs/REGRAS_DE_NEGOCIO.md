@@ -406,3 +406,15 @@ inclusive depois de "Apagar todos os dados".
     - Compra PENDENTE de cartão sem `billId` nunca é atribuída a fatura já devolvida pela Pluggy (`keepPendingOutOfClosedBills`): vai para a primeira fatura em aberto.
     - Conferência: despesas futuras comparadas só com as contas da conexão; valor de investimento = valor exibido (`resolveDisplayedAssetValue`); livro = transações (`computeLedgerQuantity`).
     - Importação do histórico completo (R37) refecha o saldo inicial das contas correntes (R11), também uma vez para conexões que já o importaram (`app_meta` `fin:of:reclose:s102b:<itemId>`).
+
+---
+
+## 18. Integração Finanças × Investimentos (Sprints 103+)
+
+- **R38 — Dinheiro único (`domain/money.ts`, Sprint 103)**:
+  - Única ponte entre centavos inteiros (Finanças) e `Decimal` (Investimentos): `centsToDecimal(cents)` e `decimalToCents(value)` (arredondamento `ROUND_HALF_UP`, reutilizado por `toCentsDecimal` em `domain/openFinance/index.ts`), além de `formatBRL`.
+  - Moeda estrangeira: `Money = { amount: Decimal, currency: 'BRL' | 'USD' }`; `addMoney` proíbe somar moedas distintas sem `convert(money, rate, rateDate)` (que preserva `{ money, rate, rateDate }` com arredondamento em 2 casas `ROUND_HALF_UP`).
+- **R39 — Conta de corretora e vínculo carteira ↔ conta (Sprint 103)**:
+  - `fin_accounts.type` aceita `'broker'` (`FinAccountType`). Conta corretora não possui fatura, limite nem dia de fechamento, e seu saldo segue a regra comum (`calculateAccountBalance`).
+  - `portfolios.fin_account_id` (nullable, índice `idx_portfolios_fin_account_id`). Uma conta corretora pode atender várias carteiras; uma carteira vincula-se a no máximo uma conta.
+  - Migração idempotente `migration:broker-accounts:v1` (`app_meta`, executada em `finService.initializeFinanceModule`) cria uma conta `'broker'` de saldo inicial 0 com o mesmo nome para cada carteira Pluggy (`of_item_id != null`) ainda sem conta vinculada, sem tocar carteiras manuais. `pluggyPortfolioService.ensurePortfolioForItem` já cria a conta par ao criar carteira nova.

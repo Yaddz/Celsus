@@ -1,4 +1,5 @@
 import type { Portfolio } from '../../db/schema';
+import { finRepository } from '../../repositories/finRepository';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
 import type { PluggyAccount, PluggyInvestment } from './types';
 import { isGenericInstitutionName, resolveInstitutionName } from '../../domain/openFinance/institutions';
@@ -90,7 +91,7 @@ export async function ensurePortfolioForItem(
     };
   }
 
-  // (c) Cria carteira nova para a corretora
+  // (c) Cria carteira nova para a corretora + conta corretora par (R39)
   const docketCode = `REV-CART-${String(allPortfolios.length + 1).padStart(3, '0')}`;
   const created = await portfolioRepository.createPortfolio({
     name: brokerName,
@@ -98,5 +99,11 @@ export async function ensurePortfolioForItem(
     docket_code: docketCode,
     of_item_id: itemId,
   });
-  return { portfolio: created, created: true };
+  const brokerAccount = await finRepository.createAccount({
+    name: brokerName,
+    type: 'broker',
+    initialBalanceCents: 0,
+  });
+  const linked = await portfolioRepository.linkFinAccount(created.id, brokerAccount.id);
+  return { portfolio: linked ?? { ...created, fin_account_id: brokerAccount.id }, created: true };
 }

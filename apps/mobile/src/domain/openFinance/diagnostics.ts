@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { centsToDecimal } from '../money';
 import type {
   PluggyAccount,
   PluggyBill,
@@ -371,7 +372,7 @@ export function formatDiagnosticsReportText(report: SyncDiagnosticsReport): stri
     `Investimentos: ${report.counts.investments.persisted}/${report.counts.investments.received}`,
     `Movimentações de investimento: ${report.counts.investmentTransactions.persisted}/${report.counts.investmentTransactions.received}`,
     `Erros em investimentos: ${report.counts.investmentErrors}`,
-    `Soma contas (informado/calculado): ${(report.sums.reportedAccountsBalanceCents / 100).toFixed(2)} / ${(report.sums.calculatedAccountsBalanceCents / 100).toFixed(2)}`,
+    `Soma contas (informado/calculado): ${centsToDecimal(report.sums.reportedAccountsBalanceCents).toFixed(2)} / ${centsToDecimal(report.sums.calculatedAccountsBalanceCents).toFixed(2)}`,
     `Soma investimentos: ${report.sums.investmentsBalance}`,
   ];
 
@@ -604,7 +605,7 @@ export function auditOpenFinanceOutliers(input: OutlierAuditInput): OutlierAlert
             kind: 'DUPLICATE_FIN_ENTRY',
             severity: 'medium',
             title: 'Possível lançamento duplicado',
-            detail: `Dois lançamentos de R$ ${(a.amount_cents / 100).toFixed(2)} em ${a.due_date} / ${b.due_date}.`,
+            detail: `Dois lançamentos de R$ ${centsToDecimal(a.amount_cents).toFixed(2)} em ${a.due_date} / ${b.due_date}.`,
           });
         }
       }

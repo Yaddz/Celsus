@@ -12,15 +12,24 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (148 erros pré-existentes apenas em 41 arquivos `__tests__` antigos) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **206 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 103 — Dinheiro único, conta corretora e vínculo carteira ↔ conta (Fase A bloqueada)
+## Sprint 103 — Dinheiro único, conta corretora e vínculo carteira ↔ conta (Fase B concluída)
 
-Especificação das regras `R38` (`src/domain/money.ts`) e `R39` (`fin_accounts.type = 'broker'`, `portfolios.fin_account_id`, migração `migration:broker-accounts:v1`, `pluggyPortfolioService`, `domain/financeFlow`, `AccountsScreen` e `PortfolioManagementScreen`).
+Implementação das regras `R38` (`src/domain/money.ts`, reexportado em `domain/finance/index.ts`, com `toCentsDecimal` delegando para `decimalToCents` e substituições seguras de `cents ↔ Decimal`) e `R39` (`fin_accounts.type = 'broker'`, `portfolios.fin_account_id` + índice + backup, `portfolioRepository.linkFinAccount`/`getLinkedAccount`, `finRepository.listBrokerAccounts`, migração `migration:broker-accounts:v1`, `pluggyPortfolioService`, `AccountsScreen` com seção `"CORRETORAS"` + opção `"Corretora"` e `PortfolioManagementScreen` com `"Conta da corretora: <nome> ›"`).
 
-| Arquivo de teste | Casos | SHA-256 | Fase A |
-| :--- | :--- | :--- | :--- |
-| `apps/mobile/src/domain/__tests__/Sprint103Money.test.ts` | S103-T01…T06 | `1b120d925c4284964cc7bb11ed0fb5101073969861a976bec07e1eef46269ad7` | 6 FAIL |
-| `apps/mobile/src/services/__tests__/Sprint103BrokerLinkMigration.test.ts` | S103-T07…T13 | `657fb59dccb2636581631a3e5b7ca489a7a0720520cd6698444a15ce5f72b17a` | 7 FAIL |
-| `apps/mobile/src/screens/__tests__/Sprint103BrokerLinkUI.test.tsx` | S103-T14…T15 | `3d24bef37364206bf1c87929e3006d4e5d3362b26d0ec36920d35f489c3a016b` | 2 FAIL |
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint103Money.test.ts` | S103-T01…T06 | `1b120d925c4284964cc7bb11ed0fb5101073969861a976bec07e1eef46269ad7` | 6 FAIL | 6 PASS |
+| `apps/mobile/src/services/__tests__/Sprint103BrokerLinkMigration.test.ts` | S103-T07…T13 | `742c33d085f5fa5d6a98a3b45017c1a5195e0b8c58ea46d04d08c2e28e6094d9` | 7 FAIL | 7 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint103BrokerLinkUI.test.tsx` | S103-T14…T15 | `3d24bef37364206bf1c87929e3006d4e5d3362b26d0ec36920d35f489c3a016b` | 2 FAIL | 2 PASS |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/components/ui/__tests__/DividendsCard.test.tsx`: fixado relógio do sistema (`2026-09-01`) em commit separado antes da Sprint 103.
+- `apps/mobile/src/services/__tests__/Sprint103BrokerLinkMigration.test.ts`: corrigidas chamadas de API em S103-T08 (`exportDossierArchive(oldSnapshot)`), S103-T13 (`finService.createTransfer` e `calculateAccountBalance(brokerAcc.initial_balance_cents, entries, brokerAcc.id)`).
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **224/224 suítes PASS** (**1423/1423 testes PASS**, 39.478 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros** em arquivos de produção (erros pré-existentes apenas em `__tests__`)
+- `node scripts/test-lock.js verify`: **240 arquivos íntegros**
 
 ## Sprint 90 — Proventos por nome do fundo e diagnóstico sem PII (Fase B concluída)
 

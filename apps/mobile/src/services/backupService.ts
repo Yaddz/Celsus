@@ -471,6 +471,7 @@ const PORTFOLIOS_COLUMNS: (keyof Portfolio)[] = [
   'patrimony_goal',
   'monthly_contribution',
   'of_item_id',
+  'fin_account_id',
   'is_archived',
   'created_at',
   'updated_at',
@@ -1073,6 +1074,7 @@ function parsePortfoliosFromCsv(csv: string): Portfolio[] {
     patrimony_goal: r.patrimony_goal ? r.patrimony_goal : null,
     monthly_contribution: r.monthly_contribution ? r.monthly_contribution : null,
     of_item_id: r.of_item_id ? r.of_item_id : null,
+    fin_account_id: r.fin_account_id ? r.fin_account_id : null,
     is_archived: Number(r.is_archived || 0),
     created_at: r.created_at,
     updated_at: r.updated_at,
@@ -1270,7 +1272,10 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     await db.delete(portfoliosTable);
 
     for (const p of snapshot.portfolios) {
-      await db.insert(portfoliosTable).values(p);
+      await db.insert(portfoliosTable).values({
+        ...p,
+        fin_account_id: p.fin_account_id ?? null,
+      });
     }
     for (const ct of snapshot.classTargets) {
       await db.insert(classTargetsTable).values(ct);

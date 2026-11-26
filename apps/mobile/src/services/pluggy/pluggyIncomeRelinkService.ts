@@ -5,6 +5,7 @@ import { incomeRepository } from '../../repositories/incomeRepository';
 import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { detectBankIncomeCandidate, type KnownIncomeAsset } from '../../domain/openFinance/income';
 import { normalizeInvestmentTicker } from '../../domain/openFinance/investments';
+import { centsToDecimal } from '../../domain/money';
 import type { PluggyTransaction } from './types';
 
 export interface RelinkBankIncomesResult {
@@ -56,7 +57,7 @@ export async function relinkStoredBankIncomes(): Promise<RelinkBankIncomesResult
     > = {
       id: e.external_id ?? e.id,
       type: 'CREDIT',
-      amount: e.amount_cents / 100,
+      amount: centsToDecimal(e.amount_cents).toNumber(),
       date: e.due_date,
       description: e.description_raw || e.description,
       category: null,

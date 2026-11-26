@@ -6,8 +6,10 @@ import {
   assets,
   transactions,
   incomeEvents,
+  finAccounts,
   Portfolio,
   PortfolioClassTarget,
+  type FinAccount,
 } from '../db/schema';
 
 function generateUUID(): string {
@@ -121,6 +123,7 @@ export class PortfolioRepository {
       description: string;
       docket_code: string;
       of_item_id: string | null;
+      fin_account_id: string | null;
       is_archived: number;
       patrimony_goal: string | null;
       monthly_contribution: string | null;
@@ -199,14 +202,22 @@ export class PortfolioRepository {
     return this.getClassTargets(portfolioId);
   }
   async linkFinAccount(
-    _portfolioId: string,
-    _accountId: string | null
+    portfolioId: string,
+    accountId: string | null
   ): Promise<Portfolio | null> {
-    throw new Error('Not implemented');
+    return this.updatePortfolio(portfolioId, { fin_account_id: accountId });
   }
 
-  async getLinkedAccount(_portfolioId: string): Promise<import('../db/schema').FinAccount | null> {
-    throw new Error('Not implemented');
+  async getLinkedAccount(portfolioId: string): Promise<FinAccount | null> {
+    const portfolio = await this.getPortfolioById(portfolioId);
+    if (!portfolio || !portfolio.fin_account_id) {
+      return null;
+    }
+    const rows = (await this.db
+      .select()
+      .from(finAccounts)
+      .where(eq(finAccounts.id, portfolio.fin_account_id))) as FinAccount[];
+    return rows[0] ?? null;
   }
 
   async deletePortfolio(id: string): Promise<boolean> {

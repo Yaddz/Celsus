@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { dockContentPaddingBottom } from '../../theme/layoutMetrics';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
@@ -15,7 +16,9 @@ import {
 } from '../../components/ui';
 import { JellyPressable } from '../../components/ui/JellyPressable';
 import { SegmentedControl } from '../../components/ui/SegmentedControl';
-import type { FinAccount, FinBill, FinEntry } from '../../db/schema';
+import type { FinAccount, FinBill, FinEntry, Portfolio } from '../../db/schema';
+import { portfolioRepository } from '../../repositories/portfolioRepository';
+import { centsToDecimal } from '../../domain/money';
 import {
   billDueDate,
   calculateAccountBalance,
@@ -65,11 +68,15 @@ const ACCOUNT_TYPE_LABELS: Record<FinAccountType, string> = {
   checking: 'Conta corrente',
   cash: 'Carteira',
   card: 'Cartão',
+  broker: 'Corretora',
 };
 
-function getAccountIcon(type: string): 'account-balance' | 'account-balance-wallet' | 'credit-card' {
+function getAccountIcon(
+  type: string
+): 'account-balance' | 'account-balance-wallet' | 'credit-card' | 'trending-up' {
   if (type === 'cash') return 'account-balance-wallet';
   if (type === 'card') return 'credit-card';
+  if (type === 'broker') return 'trending-up';
   return 'account-balance';
 }
 
@@ -98,6 +105,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [accounts, setAccounts] = useState<FinAccount[]>([]);
   const [entries, setEntries] = useState<FinEntry[]>([]);
   const [bills, setBills] = useState<FinBill[]>([]);
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<FinAccount | null>(null);
@@ -108,20 +116,23 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
   const [dueDayText, setDueDayText] = useState('17');
   const [creditLimitText, setCreditLimitText] = useState('');
   const [selectedColor, setSelectedColor] = useState<string>(FIN_COLOR_SWATCHES[0]);
+  const [linkedPortfolioIds, setLinkedPortfolioIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [accs, allEntries, allBills] = await Promise.all([
+      const [accs, allEntries, allBills, allPortfolios] = await Promise.all([
         finRepository.listAccounts(true),
         finRepository.listAllEntries(),
         finRepository.listAllBills(),
+        portfolioRepository.listPortfolios(false),
       ]);
       setAccounts(accs);
       setEntries(allEntries);
       setBills(allBills);
+      setPortfolios(allPortfolios);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar contas');
     } finally {
@@ -186,6 +197,24 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     () => accounts.filter((a) => a.archived === 0 && a.type !== 'card'),
     [accounts]
   );
+  const activeBankAndCashAccounts = useMemo(
+    () => activeNonCardAccounts.filter((a) => a.type !== 'broker'),
+    [activeNonCardAccounts]
+  );
+  const activeBrokerAccounts = useMemo(
+    () => activeNonCardAccounts.filter((a) => a.type === 'broker'),
+    [activeNonCardAccounts]
+  );
+  const linkedPortfoliosByAccountId = useMemo(() => {
+    const map = new Map<string, Portfolio[]>();
+    for (const p of portfolios) {
+      if (!p.fin_account_id) continue;
+      const arr = map.get(p.fin_account_id) ?? [];
+      arr.push(p);
+      map.set(p.fin_account_id, arr);
+    }
+    return map;
+  }, [portfolios]);
   const activeCardAccounts = useMemo(
     () => accounts.filter((a) => a.archived === 0 && a.type === 'card'),
     [accounts]
@@ -209,6 +238,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setDueDayText('17');
     setCreditLimitText('');
     setSelectedColor(FIN_COLOR_SWATCHES[0]);
+    setLinkedPortfolioIds([]);
     setFormOpen(true);
   };
 
@@ -216,16 +246,19 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
     setEditingAccount(acc);
     setName(acc.name);
     setAccountType((acc.type as FinAccountType) || 'checking');
-    const absFormatted = (Math.abs(acc.initial_balance_cents) / 100).toFixed(2).replace('.', ',');
+    const absFormatted = centsToDecimal(Math.abs(acc.initial_balance_cents)).toFixed(2).replace('.', ',');
     setBalanceText(acc.initial_balance_cents < 0 ? `-${absFormatted}` : absFormatted);
     setClosingDayText(acc.closing_day != null ? String(acc.closing_day) : '10');
     setDueDayText(acc.due_day != null ? String(acc.due_day) : '17');
     setCreditLimitText(
       acc.credit_limit_cents != null
-        ? (acc.credit_limit_cents / 100).toFixed(2).replace('.', ',')
+        ? centsToDecimal(acc.credit_limit_cents).toFixed(2).replace('.', ',')
         : ''
     );
     setSelectedColor(resolveApprovedColor(acc.color, FIN_COLOR_SWATCHES[0]));
+    setLinkedPortfolioIds(
+      portfolios.filter((p) => p.fin_account_id === acc.id).map((p) => p.id)
+    );
     setFormOpen(true);
   };
 
@@ -247,6 +280,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       const creditLimitCents =
         isCard && creditLimitText.trim().length > 0 ? parseBRLToCents(creditLimitText) : null;
 
+      let savedAccountId: string;
       if (editingAccount) {
         const isOpenFinance = editingAccount.source === 'OPEN_FINANCE';
         await finRepository.updateAccount(editingAccount.id, {
@@ -260,8 +294,9 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           due_day: dueDay,
           credit_limit_cents: creditLimitCents,
         });
+        savedAccountId = editingAccount.id;
       } else {
-        await finRepository.createAccount({
+        const created = await finRepository.createAccount({
           name: trimmed,
           type: accountType,
           initialBalanceCents: initialCents,
@@ -270,7 +305,27 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
           dueDay,
           creditLimitCents,
         });
+        savedAccountId = created.id;
       }
+
+      if (accountType === 'broker') {
+        const selectedSet = new Set(linkedPortfolioIds);
+        for (const p of portfolios) {
+          const isSelected = selectedSet.has(p.id);
+          if (isSelected && p.fin_account_id !== savedAccountId) {
+            await portfolioRepository.linkFinAccount(p.id, savedAccountId);
+          } else if (!isSelected && p.fin_account_id === savedAccountId) {
+            await portfolioRepository.linkFinAccount(p.id, null);
+          }
+        }
+      } else if (editingAccount) {
+        for (const p of portfolios) {
+          if (p.fin_account_id === savedAccountId) {
+            await portfolioRepository.linkFinAccount(p.id, null);
+          }
+        }
+      }
+
       setFormOpen(false);
       await loadData();
     } finally {
@@ -431,6 +486,15 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
       }
     }
 
+    const linkedForBroker =
+      acc.type === 'broker' ? linkedPortfoliosByAccountId.get(acc.id) ?? [] : [];
+    const brokerPortfoliosLabel =
+      acc.type === 'broker'
+        ? linkedForBroker.length > 0
+          ? `Carteiras: ${linkedForBroker.map((p) => p.name).join(', ')}`
+          : 'Nenhuma carteira vinculada'
+        : null;
+
     const baseSubtitle = isArchived
       ? undefined
       : isCard && isOpenFinance
@@ -458,8 +522,11 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         }`
       : [
           `${typeLabel} • ${entryCount} ${entryCount === 1 ? 'lançamento' : 'lançamentos'}`,
+          brokerPortfoliosLabel,
           ...checkingExtraParts,
-        ].join(' • ');
+        ]
+          .filter(Boolean)
+          .join(' • ');
 
     const subtitle =
       baseSubtitle && reportedDateLabel
@@ -611,14 +678,26 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             />
           ) : (
             <>
-              {activeNonCardAccounts.length > 0 && (
+              {activeBankAndCashAccounts.length > 0 && (
                 <FinListCard
                   title="CONTAS"
                   testID="accounts-section-checking"
                   themeMode={themeMode}
                 >
-                  {activeNonCardAccounts.map((acc, idx) =>
-                    renderAccountRow(acc, idx === activeNonCardAccounts.length - 1, false)
+                  {activeBankAndCashAccounts.map((acc, idx) =>
+                    renderAccountRow(acc, idx === activeBankAndCashAccounts.length - 1, false)
+                  )}
+                </FinListCard>
+              )}
+
+              {activeBrokerAccounts.length > 0 && (
+                <FinListCard
+                  title="CORRETORAS"
+                  testID="accounts-section-brokers"
+                  themeMode={themeMode}
+                >
+                  {activeBrokerAccounts.map((acc, idx) =>
+                    renderAccountRow(acc, idx === activeBrokerAccounts.length - 1, false)
                   )}
                 </FinListCard>
               )}
@@ -707,6 +786,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               { id: 'checking', label: 'Conta' },
               { id: 'cash', label: 'Carteira' },
               { id: 'card', label: 'Cartão' },
+              { id: 'broker', label: 'Corretora' },
             ]}
             value={accountType}
             onChange={(v) => setAccountType(v as FinAccountType)}
@@ -737,6 +817,50 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
               testID="account-form-balance-input"
             />
           </BentoSection>
+
+          {accountType === 'broker' ? (
+            <BentoSection title="CARTEIRAS VINCULADAS" themeMode={themeMode}>
+              {portfolios.length === 0 ? (
+                <Text style={{ color: ui.muted, fontSize: typography.sizes.body }}>
+                  Nenhuma carteira cadastrada.
+                </Text>
+              ) : (
+                portfolios.map((p) => {
+                  const selected = linkedPortfolioIds.includes(p.id);
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      testID={`account-form-portfolio-${p.id}`}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                      onPress={() => {
+                        setLinkedPortfolioIds((prev) =>
+                          prev.includes(p.id)
+                            ? prev.filter((id) => id !== p.id)
+                            : [...prev, p.id]
+                        );
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: space.sm,
+                        paddingVertical: space.xs,
+                      }}
+                    >
+                      <MaterialIcons
+                        name={selected ? 'check-box' : 'check-box-outline-blank'}
+                        size={20}
+                        color={selected ? ui.accent : ui.muted}
+                      />
+                      <Text style={{ color: ui.text, fontSize: typography.sizes.body }}>
+                        {p.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </BentoSection>
+          ) : null}
 
           {accountType === 'card' ? (
             <>

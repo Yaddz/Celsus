@@ -11,6 +11,7 @@ import {
 } from '../../domain/openFinance/classification';
 import { toBrtDate } from '../../domain/openFinance/dates';
 import { toCentsDecimal } from '../../domain/openFinance';
+import { centsToDecimal } from '../../domain/money';
 import type { CategoryRuleLike } from '../../domain/statementImport';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { finRepository } from '../../repositories/finRepository';
@@ -168,7 +169,7 @@ export const pluggyClassificationService = {
         category: null,
         categoryId: e.of_category_id ?? null,
         type: isDebit ? 'DEBIT' : 'CREDIT',
-        amount: isDebit ? -e.amount_cents / 100 : e.amount_cents / 100,
+        amount: centsToDecimal(isDebit ? -e.amount_cents : e.amount_cents).toNumber(),
       } as unknown as PluggyTransaction;
       const result = classifyOpenFinanceBankEntry(pseudoTx, { rules: rules as unknown as CategoryRuleLike[] });
 

@@ -32,6 +32,8 @@ import { buildClassSummary } from '../domain/finance/classSummary';
 import { isUnknownCost } from '../domain/finance/averagePrice';
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
+import { finRepository } from '../repositories/finRepository';
+import type { FinAccount } from '../db/schema';
 import { assetRepository } from '../repositories/assetRepository';
 import { transactionRepository } from '../repositories/transactionRepository';
 import { validateTickerForAssetClass } from '../domain/finance/assetCatalogValidation';
@@ -392,6 +394,9 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const { scrollY, scrollProps } = useHeaderScrollFade();
   const [isMetasModalOpen, setIsMetasModalOpen] = useState(false);
   const [goalInfo, setGoalInfo] = useState<{ goal: string | null; monthly: string | null }>({ goal: null, monthly: null });
+  const [linkedBrokerAccount, setLinkedBrokerAccount] = useState<FinAccount | null>(null);
+  const [brokerAccounts, setBrokerAccounts] = useState<FinAccount[]>([]);
+  const [isBrokerLinkSheetOpen, setIsBrokerLinkSheetOpen] = useState(false);
   const [linkedPortfolioGoals, setLinkedPortfolioGoals] = useState<LinkedGoalSummary[]>([]);
   const [isGoalEditorOpen, setIsGoalEditorOpen] = useState(false);
   const [isWeightHelpOpen, setIsWeightHelpOpen] = useState(false);
@@ -568,17 +573,21 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
       try {
         const wantAssets = !initialAssets || initialAssets.length === 0;
         const wantTargets = !initialClassTargets || initialClassTargets.length === 0;
-        const [portfolio, dbAssets, dbTargets, txs, linkedGoals] = await Promise.all([
+        const [portfolio, dbAssets, dbTargets, txs, linkedGoals, linkedAcc, allBrokers] = await Promise.all([
           safe(() => portfolioRepository.getPortfolioById(activePortfolioId), null),
           wantAssets ? safe(() => assetRepository.getAssetsByPortfolio(activePortfolioId), null) : Promise.resolve(null),
           wantTargets ? safe(() => portfolioRepository.getClassTargets(activePortfolioId), null) : Promise.resolve(null),
           safe(() => transactionRepository.getTransactionsByPortfolio(activePortfolioId), []),
           safe(() => finGoalsService.listGoalsForPortfolio(activePortfolioId), []),
+          safe(() => portfolioRepository.getLinkedAccount(activePortfolioId), null),
+          safe(() => finRepository.listBrokerAccounts(), []),
         ]);
         if (cancelled) return;
 
         apply.push(() => {
           setGoalInfo({ goal: portfolio?.patrimony_goal ?? null, monthly: portfolio?.monthly_contribution ?? null });
+          setLinkedBrokerAccount(linkedAcc);
+          setBrokerAccounts(allBrokers);
           setLinkedPortfolioGoals(
             linkedGoals.map((item) => ({
               id: item.goal.id,
@@ -1479,6 +1488,118 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
             setIsGoalEditorOpen(false);
           }}
         />
+
+        {/* 2.2 Vínculo da carteira com conta da corretora (R39) */}
+        {activePortfolioId ? (
+          <BentoSection themeMode={themeMode} style={{ marginBottom: space.sm }}>
+            <TouchableOpacity
+              testID="portfolio-broker-link-row"
+              accessibilityRole="button"
+              onPress={async () => {
+                const brokers = await finRepository.listBrokerAccounts();
+                setBrokerAccounts(brokers);
+                setIsBrokerLinkSheetOpen(true);
+              }}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                paddingVertical: space.xs,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
+                  VÍNCULO DA CARTEIRA
+                </Text>
+                <Text
+                  style={{
+                    color: isLight ? colors.voidFloor : colors.parchmentPale,
+                    fontSize: typography.sizes.body,
+                    marginTop: space.xs,
+                  }}
+                >
+                  {`Conta da corretora: ${linkedBrokerAccount ? linkedBrokerAccount.name : 'Nenhuma'} ›`}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </BentoSection>
+        ) : null}
+
+        <AnimatedModalSheet
+          visible={isBrokerLinkSheetOpen}
+          onClose={() => setIsBrokerLinkSheetOpen(false)}
+          themeMode={themeMode}
+        >
+          <BentoSheetHeader
+            title="CONTA DA CORRETORA"
+            onClose={() => setIsBrokerLinkSheetOpen(false)}
+            themeMode={themeMode}
+          />
+          <View style={{ gap: space.sm, paddingBottom: space.lg }}>
+            {brokerAccounts.length === 0 ? (
+              <Text style={{ color: colors.subtleText, fontSize: typography.sizes.body }}>
+                Nenhuma conta do tipo Corretora cadastrada em Finanças.
+              </Text>
+            ) : (
+              brokerAccounts.map((acc) => {
+                const isSelected = linkedBrokerAccount?.id === acc.id;
+                return (
+                  <TouchableOpacity
+                    key={acc.id}
+                    testID={`broker-link-option-${acc.id}`}
+                    onPress={async () => {
+                      if (!activePortfolioId) return;
+                      setLinkedBrokerAccount(acc);
+                      setIsBrokerLinkSheetOpen(false);
+                      await portfolioRepository.linkFinAccount(activePortfolioId, acc.id);
+                    }}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      paddingVertical: space.sm,
+                      paddingHorizontal: space.sm,
+                      borderRadius: bento.innerRadius,
+                      backgroundColor: isSelected
+                        ? isLight
+                          ? '#EFEAE0'
+                          : '#26292C'
+                        : 'transparent',
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: isLight ? colors.voidFloor : colors.parchmentPale,
+                        fontSize: typography.sizes.body,
+                      }}
+                    >
+                      {acc.name}
+                    </Text>
+                    {isSelected ? (
+                      <MaterialIcons name="check" size={18} color={colors.primary} />
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            {linkedBrokerAccount ? (
+              <TouchableOpacity
+                testID="broker-link-option-none"
+                onPress={async () => {
+                  if (!activePortfolioId) return;
+                  await portfolioRepository.linkFinAccount(activePortfolioId, null);
+                  setLinkedBrokerAccount(null);
+                  setIsBrokerLinkSheetOpen(false);
+                }}
+                style={{ paddingVertical: space.sm, paddingHorizontal: space.sm }}
+              >
+                <Text style={{ color: colors.deficit, fontSize: typography.sizes.body }}>
+                  Desvincular conta
+                </Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </AnimatedModalSheet>
 
         {/* 3. Configurações de Ativos (Meus Ativos) */}
         <SkeletonSwap loading={isPortfolioLoading} skeleton={<ListSkeleton testID="portfolio-assets-skeleton" rows={4} rowHeight={ASSET_ROW_HEIGHT} withTabs themeMode={themeMode} />}>

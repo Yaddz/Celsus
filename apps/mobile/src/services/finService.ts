@@ -20,10 +20,12 @@ import {
 } from '../domain/financeFlow';
 import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
+import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finReminderService } from './finReminderService';
 
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
+export const BROKER_ACCOUNTS_MIGRATION_META_KEY = 'migration:broker-accounts:v1';
 
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
@@ -31,6 +33,7 @@ export class FinService {
     await finRepository.migrateDefaultCategoryColors();
     await this.migrateOrphanRecordsIfNeeded();
     await this.migrateCardBillMonthsIfNeeded();
+    await this.migrateBrokerAccountsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
     const startMonth = addMonthsYearMonth(refMonth, -1);
@@ -143,6 +146,33 @@ export class FinService {
       await appMetaRepository.set(BILL_MONTH_DUE_SHIFT_META_KEY, '1');
       return shifted;
     });
+  }
+
+  /**
+   * Sprint 103 (R39): Para cada carteira criada pela Pluggy por corretora (of_item_id != null)
+   * que ainda não tenha conta vinculada, cria uma conta 'broker' com o mesmo nome e saldo 0 e vincula.
+   * Idempotente; não toca carteiras manuais.
+   */
+  async migrateBrokerAccountsIfNeeded(): Promise<number> {
+    const alreadyDone = await appMetaRepository.get(BROKER_ACCOUNTS_MIGRATION_META_KEY);
+    if (alreadyDone) return 0;
+
+    const portfolios = await portfolioRepository.listPortfolios(true);
+    let createdCount = 0;
+
+    for (const p of portfolios) {
+      if (!p.of_item_id || p.fin_account_id) continue;
+      const brokerAccount = await finRepository.createAccount({
+        name: p.name,
+        type: 'broker',
+        initialBalanceCents: 0,
+      });
+      await portfolioRepository.linkFinAccount(p.id, brokerAccount.id);
+      createdCount += 1;
+    }
+
+    await appMetaRepository.set(BROKER_ACCOUNTS_MIGRATION_META_KEY, '1');
+    return createdCount;
   }
 
   async ensureMonthGenerated(yearMonth: string, referenceDateIso?: string): Promise<void> {

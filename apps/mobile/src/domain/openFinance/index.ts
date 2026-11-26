@@ -1,4 +1,5 @@
 import Decimal from 'decimal.js';
+import { decimalToCents } from '../money';
 import type { PluggyAccount, PluggyBill, PluggyTransaction } from '../../services/pluggy/types';
 import {
   normalizeCardEntry,
@@ -247,11 +248,7 @@ function daysBetweenIso(aIso: string, bIso: string): number {
 }
 
 export function toCentsDecimal(value: number | string): number {
-  const res = new Decimal(value)
-    .mul(100)
-    .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-    .toNumber();
-  return Object.is(res, -0) ? 0 : res;
+  return decimalToCents(value);
 }
 
 export function mapPluggyAccount(
