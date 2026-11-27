@@ -30,6 +30,7 @@ export interface BackState {
   isSandboxHubOpen?: boolean;
   isTimeMachineOpen?: boolean;
   isPaperPortfolioOpen?: boolean;
+  isDividendGoalOpen?: boolean;
 }
 
 export type BackAction =
@@ -50,6 +51,7 @@ export type BackAction =
   | 'close-sandbox-hub'
   | 'close-time-machine'
   | 'close-paper-portfolio'
+  | 'close-dividend-goal'
   | 'go-home'
   | 'exit';
 
@@ -67,6 +69,7 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isTimeMachineOpen) return 'close-time-machine';
+  if (state.isPaperPortfolioOpen) return 'close-paper-portfolio';
   if (state.isSandboxHubOpen) return 'close-sandbox-hub';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';

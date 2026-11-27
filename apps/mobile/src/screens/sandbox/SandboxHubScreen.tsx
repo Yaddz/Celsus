@@ -16,6 +16,7 @@ export interface SandboxHubScreenProps {
   onBack?: () => void;
   onOpenTimeMachine?: (scenario?: SandboxScenarioRecord) => void;
   onOpenPaperPortfolio?: () => void;
+  onOpenDividendGoal?: (scenario?: SandboxScenarioRecord) => void;
   onOpenContributionSimulator?: () => void;
   onProfilePress?: () => void;
   onSwitchModule?: () => void;
@@ -35,14 +36,6 @@ interface HubTileItem {
 }
 
 const COMING_SOON_TILES: HubTileItem[] = [
-  {
-    id: 'carteira-ficticia',
-    testID: 'sandbox-tile-carteira-ficticia',
-    title: 'Carteira fictícia',
-    subtitle: 'Simule uma composição com aporte mensal',
-    icon: 'pie-chart',
-    comingSoon: true,
-  },
   {
     id: 'meta-dividendos',
     testID: 'sandbox-tile-meta-dividendos',
@@ -88,6 +81,7 @@ const COMING_SOON_TILES: HubTileItem[] = [
 export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
   onBack,
   onOpenTimeMachine,
+  onOpenPaperPortfolio,
   onOpenContributionSimulator,
   onSwitchModule,
   isPrivacyMode = false,
@@ -162,6 +156,27 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
           <Text style={styles.heroSubtitle}>
             Simule compras e vendas no passado com B3, FII, cripto, EUA e câmbio × CDI e IPCA.
           </Text>
+        </TouchableOpacity>
+
+        {/* Tile Carteira fictícia (Sprint 110) */}
+        <TouchableOpacity
+          testID="sandbox-tile-carteira-ficticia"
+          activeOpacity={0.8}
+          onPress={() => onOpenPaperPortfolio?.()}
+          style={[styles.tileCard, { backgroundColor: surface, borderColor }]}
+        >
+          <View style={styles.tileRow}>
+            <View style={[styles.tileIconBox, { backgroundColor: isLight ? '#EAE4D7' : '#22252A' }]}>
+              <MaterialIcons name="pie-chart" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.tileTextCol}>
+              <Text style={[styles.tileTitle, { color: textColor }]}>Carteira fictícia</Text>
+              <Text style={[styles.tileSubtitle, { color: mutedColor }]}>
+                Simule uma composição com aporte mensal
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={mutedColor} />
+          </View>
         </TouchableOpacity>
 
         {/* Tile Aporte (SimulatorScreen atual) */}

@@ -59,17 +59,14 @@ export const sandboxRepository = {
   async saveScenario(input: {
     id?: string;
     name: string;
-    kind?: 'time_machine';
-    spec: TimeMachineScenarioSpec;
+    kind?: 'time_machine' | 'dividend_goal';
+    spec: TimeMachineScenarioSpec | Record<string, unknown>;
   }): Promise<SandboxScenarioRecord> {
     const db = getDatabase();
     const now = new Date().toISOString();
     const id = input.id ?? makeId('sbx');
     const existing = input.id ? await this.getScenarioById(input.id) : null;
-    const specJson = JSON.stringify({
-      legs: input.spec.legs,
-      options: input.spec.options,
-    });
+    const specJson = JSON.stringify(input.spec);
 
     if (existing) {
       const updated: SandboxScenarioRecord = {

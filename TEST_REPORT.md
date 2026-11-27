@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **256 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 111 — Meta de dividendos (Fase A — testes bloqueados)
+
+Especificação da regra `R51` (artboard 4): `domain/sandbox/dividendGoal.ts` (`trailingYield`, `requiredCapital`, `currentMonthlyIncome`, `suggestPositions`, `incomeCalendar`, `snowball`), `services/dividendGoalService.ts` (gastos fixos via `fin_recurrences`, proventos reais, IPCA 12m, cache de `getDividends`, candidatos `"Seguir minhas metas"` / `"Livre"`), `screens/sandbox/DividendGoalScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, cenários `dividend_goal` em `sandboxRepository.ts`, `App.tsx` e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint111DividendGoalDomain.test.ts` | S111-T01…T09 | `22afb7cdaff67bd86003bec1ecae33f4f36451e7e9e1be4e17dc7ec97904f1b6` | 9 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint111DividendGoalServiceAndUI.test.tsx` | S111-T10…T11 | `88cd3a010491bd779d396ddb2e47aa80fbe7ada215c2c712e2126950cb403f8c` | 2 FAIL |
+
 ## Sprint 110 — Carteira fictícia (Fase A — testes bloqueados)
 
 Especificação da regra `R50` (artboard 3): `domain/sandbox/paperPortfolio.ts` (`simulate`), tabelas `sandbox_portfolios` / `sandbox_portfolio_items` + repositório + backup, `screens/sandbox/PaperPortfolioScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
