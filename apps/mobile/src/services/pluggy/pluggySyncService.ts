@@ -76,6 +76,7 @@ export const OF_BILLMONTH_S99_META_KEY = 'fin:of:billmonth:s99';
 export const OF_BILLMONTH_S99_LOG_KEY = 'fin:of:billmonth:s99:log';
 export const OF_BRT_DATES_S101_META_KEY = 'fin:of:brtdates:s101';
 export const OF_BRT_DATES_S101_LOG_KEY = 'fin:of:brtdates:s101:log';
+export const BROKER_LINK_SUGGEST_V3_META_PREFIX = 'broker-link-suggest:v3:';
 
 export interface PluggySyncResult {
   runId: string;

@@ -918,3 +918,4 @@ export * from './budgetsAndCashflow';
 export * from './monthSummary';
 export * from './monthClose';
 export * from './openFinanceMatch';
+export * from './cashSource';

@@ -71,3 +71,19 @@ export function matchOpenFinanceInvestmentOutflow(
   candidates.sort((a, b) => a.absDays - b.absDays || a.absAmountDiff - b.absAmountDiff);
   return candidates[0].entry;
 }
+
+export interface AppInvestmentTransferOutParams {
+  accountId: string;
+  amountCents: number;
+  entryDate: string;
+}
+
+/**
+ * V6 (Sprint 115): Casamento no sentido inverso, na sincronização.
+ */
+export function matchAppInvestmentTransferOut(
+  _entries: FinEntry[],
+  _params: AppInvestmentTransferOutParams
+): FinEntry | null {
+  return null;
+}

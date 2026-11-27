@@ -10,6 +10,10 @@ import { b3ImportService } from '../b3ImportService';
 import { finService } from '../finService';
 import { monthCloseService } from '../monthCloseService';
 import { patrimonyService } from '../patrimonyService';
+import type { PluggyClient } from '../pluggy/pluggyClient';
+import { pluggySyncService } from '../pluggy/pluggySyncService';
+import { makePluggyAccounts, makePluggyItem } from '../pluggy/__tests__/pluggyFixtures';
+import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { transactionService } from '../transactionService';
 
 describe('Sprint 114 — Serviços e Migrações (P2, P3b/c/d, P5, P6a/b, P7)', () => {
@@ -101,13 +105,26 @@ describe('Sprint 114 — Serviços e Migrações (P2, P3b/c/d, P5, P6a/b, P7)', 
   });
 
   test('S114-T07 (P3b/c/d): compra na corrente casa saída OF sem duplicar; migrateBrokerLinkSuggestV2 troca para conta OF; patrimonyService não conta checking duas vezes', async () => {
-    const checking = await finRepository.createAccount({
+    await openFinanceRepository.addItem('item-itau');
+    const pgChecking = {
+      ...makePluggyAccounts()[0],
+      id: 'pg-itau-cc',
       name: 'Itaú CC',
-      type: 'checking',
-      initialBalanceCents: 200_000,
-      source: 'OPEN_FINANCE',
-      ofItemId: 'item-itau',
+      itemId: 'item-itau',
+      balance: 2000,
+    };
+    await pluggySyncService.syncFinance('item-itau', {
+      client: {
+        getItem: async () => makePluggyItem({ id: 'item-itau' }),
+        listAccounts: async () => [pgChecking],
+        listTransactions: async () => [],
+        listBills: async () => [],
+      } as unknown as PluggyClient,
+      now: () => new Date('2026-10-10T12:00:00Z'),
     });
+    const checking = (await finRepository.listAccounts(true)).find(
+      (a) => a.of_account_id === 'pg-itau-cc'
+    )!;
     const broker = await finRepository.createAccount({
       name: 'Itaú Corretora',
       type: 'broker',

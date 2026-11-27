@@ -31,6 +31,7 @@ const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
 export const BROKER_ACCOUNTS_MIGRATION_META_KEY = 'migration:broker-accounts:v1';
 export const REMOVE_B3_IMPORT_CASH_ENTRIES_META_KEY = 'migration:remove-b3-import-cash-entries:v1';
 export const BROKER_LINK_SUGGEST_V2_META_KEY = 'migration:broker-link-suggest:v2';
+export const FIN_ACCOUNTS_OF_ITEM_ID_V1_META_KEY = 'migration:fin-accounts-of-item-id:v1';
 
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
@@ -277,6 +278,10 @@ export class FinService {
 
     await appMetaRepository.set(BROKER_LINK_SUGGEST_V2_META_KEY, '1');
     return migratedCount;
+  }
+
+  async migrateFinAccountsOfItemIdIfNeeded(): Promise<number> {
+    return 0;
   }
 
   async ensureMonthGenerated(yearMonth: string, referenceDateIso?: string): Promise<void> {

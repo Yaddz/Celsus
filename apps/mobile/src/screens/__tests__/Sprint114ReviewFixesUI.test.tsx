@@ -50,11 +50,11 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
       average_price: '30.00',
     });
 
-    const screen = render(
+    const screen = await render(
       <TransactionScreen
         initialPortfolioId={portfolio.id}
         initialAssetId={asset.id}
-        onBack={jest.fn()}
+        onClose={jest.fn()}
         onTransactionSuccess={jest.fn()}
       />
     );
@@ -90,10 +90,10 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
       average_price: '1000.00',
     });
 
-    const screen = render(
+    const screen = await render(
       <PortfolioManagementScreen
-        portfolioId={portfolio.id}
-        onBack={jest.fn()}
+        initialPortfolioId={portfolio.id}
+        onClose={jest.fn()}
       />
     );
 
@@ -138,7 +138,7 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
     });
     jest.spyOn(sandboxService, 'getMacroSeries').mockResolvedValue({ cdi: [], ipca: [], poupanca: [] });
 
-    const screen = render(<CompareScreen onBack={jest.fn()} />);
+    const screen = await render(<CompareScreen onBack={jest.fn()} />);
     fireEvent.changeText(screen.getByTestId('compare-ticker-input'), 'NVDA');
     fireEvent.press(screen.getByTestId('compare-add-btn'));
 
@@ -152,7 +152,7 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
 
   test('S114-T14 (P9): AccountsScreen renderiza checkbox de carteira sem token indefinido', async () => {
     await portfolioRepository.createPortfolio({ name: 'Carteira A', targetReturn: '12' });
-    const screen = render(<AccountsScreen onBack={jest.fn()} />);
+    const screen = await render(<AccountsScreen onBack={jest.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByTestId('accounts-screen')).toBeTruthy();
