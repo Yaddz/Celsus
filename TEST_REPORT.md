@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **256 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 110 — Carteira fictícia (Fase A — testes bloqueados)
+
+Especificação da regra `R50` (artboard 3): `domain/sandbox/paperPortfolio.ts` (`simulate`), tabelas `sandbox_portfolios` / `sandbox_portfolio_items` + repositório + backup, `screens/sandbox/PaperPortfolioScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint110PaperPortfolioDomain.test.ts` | S110-T01…T06 | `3d003ef645d47f06c0d6470c3f4bd8220eaa9a443c10ffe8586cd8beaa803f00` | 6 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint110PaperPortfolioPersistenceAndUI.test.tsx` | S110-T07…T10 | `109b66af7b8a5c1a69072b6dea6090d28110940400e4a06bc45cc14e4aeb72e9` | 4 FAIL |
+
 ## Sprint 109 — Hub Simulador e Máquina do tempo (Fase B concluída)
 
 Especificação das regras `DEC-1` e `R48` (artboards 1 e 2): `screens/sandbox/SandboxHubScreen.tsx` (título `"Simulador"`, selo `"SANDBOX"`, `"Nada aqui mexe nas suas carteiras."`, tile `"Máquina do tempo"`, tile `"Aporte"` abrindo `SimulatorScreen`, tiles `"Em breve"` sem navegação, lista `"Cenários salvos"`), `screens/sandbox/TimeMachineScreen.tsx` (busca B3/FII/cripto/US_STOCK/Dólar/Euro, gráfico `PriceAreaChart` com marcadores e toque, chips `"Na mínima"`/`"Na máxima"`/`"Tocar no gráfico"`/`"Data exata"`, `"+ Adicionar operação"`, barras `Cenário × CDI × IPCA` + poupança, interruptor de IR estimado, `"dividendos reinvestidos: sim/não"`, `"Salvar cenário"`, `"Ver mês a mês"`, estados skeleton / sem dado `"—"` / offline), botão no header de `StatisticsScreen`, pílula `"Simular"` em `FloatingBottomDock`, camadas em `App.tsx` e `BackState`.

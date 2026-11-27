@@ -29,6 +29,7 @@ export interface BackState {
   isSimulatorOpen: boolean;
   isSandboxHubOpen?: boolean;
   isTimeMachineOpen?: boolean;
+  isPaperPortfolioOpen?: boolean;
 }
 
 export type BackAction =
@@ -48,6 +49,7 @@ export type BackAction =
   | 'close-simulator'
   | 'close-sandbox-hub'
   | 'close-time-machine'
+  | 'close-paper-portfolio'
   | 'go-home'
   | 'exit';
 

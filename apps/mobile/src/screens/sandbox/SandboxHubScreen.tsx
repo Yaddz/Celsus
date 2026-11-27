@@ -15,6 +15,7 @@ import { LIGHT_THEME_TOKENS } from '../../theme/palettes';
 export interface SandboxHubScreenProps {
   onBack?: () => void;
   onOpenTimeMachine?: (scenario?: SandboxScenarioRecord) => void;
+  onOpenPaperPortfolio?: () => void;
   onOpenContributionSimulator?: () => void;
   onProfilePress?: () => void;
   onSwitchModule?: () => void;
