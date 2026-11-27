@@ -1,4 +1,5 @@
 import type { FinEntry } from '../../db/schema';
+import { isAutomaticSweep } from './investmentCash';
 
 export interface OpenFinanceInvestmentOutflowParams {
   accountId: string;
@@ -136,14 +137,18 @@ export interface AppTransferMatchCandidateInput {
 }
 
 /**
- * W5 (Sprint 116): a saída OF pode substituir o `transfer_out` do app (V6) apenas quando é movimento de
- * investimento ou transferência entre contas próprias, nunca aplicação automática.
- * STUB da Fase A: ainda é o critério da Sprint 115.
+ * W5 (Sprint 116): a saída OF só pode substituir o `transfer_out` do app (V6) quando é movimento de
+ * investimento (`INVESTMENT_MOVE`) ou transferência entre contas próprias sem par (`OWN_ACCOUNT_*`),
+ * e nunca quando é aplicação/resgate automático de conta remunerada. Um PIX de mesmo valor para outra pessoa
+ * (`SIGN`) não casa.
  */
 export function isAppTransferMatchCandidate(input: AppTransferMatchCandidateInput): boolean {
   if (input.accountType === 'card') return false;
+  if (isAutomaticSweep(input.description)) return false;
   const isOut =
     input.kind === 'transfer_out' ||
     (input.kind === 'expense' && input.classReason === 'INVESTMENT_MOVE');
-  return isOut && (input.classReason === 'INVESTMENT_MOVE' || !input.transferGroupId);
+  if (!isOut) return false;
+  if (input.classReason === 'INVESTMENT_MOVE') return true;
+  return Boolean(input.classReason?.startsWith('OWN_ACCOUNT')) && !input.transferGroupId;
 }

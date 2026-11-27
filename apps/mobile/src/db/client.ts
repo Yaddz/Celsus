@@ -217,6 +217,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   of_installment_total INTEGER,
   of_bill_month_source TEXT,
   of_link_restore TEXT,
+  batch_id TEXT,
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS fin_category_rules (
@@ -705,6 +706,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'fin_accounts', column: 'calendar_source', ddl: 'ALTER TABLE fin_accounts ADD COLUMN calendar_source TEXT' },
   { table: 'fin_accounts', column: 'of_item_id', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_item_id TEXT' },
   { table: 'fin_entries', column: 'of_link_restore', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_link_restore TEXT' },
+  { table: 'fin_entries', column: 'batch_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN batch_id TEXT' },
   { table: 'historical_prices_local', column: 'currency', ddl: "ALTER TABLE historical_prices_local ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
   { table: 'market_price_cache', column: 'currency', ddl: "ALTER TABLE market_price_cache ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
 ];

@@ -332,6 +332,7 @@ export const finEntries = sqliteTable('fin_entries', {
   of_installment_total: integer('of_installment_total'),
   of_bill_month_source: text('of_bill_month_source'),
   of_link_restore: text('of_link_restore'),
+  batch_id: text('batch_id'), // Sprint 116 (W3): lote de aporte (transferência + compras do mesmo lote)
   created_at: text('created_at').notNull(),
 });
 
@@ -397,9 +398,10 @@ export type NewFinCategory = typeof finCategories.$inferInsert;
 export type FinCategoryRule = typeof finCategoryRules.$inferSelect;
 export type NewFinCategoryRule = typeof finCategoryRules.$inferInsert;
 
-export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period' | 'of_link_restore'> & {
+export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period' | 'of_link_restore' | 'batch_id'> & {
   recurrence_period?: string | null;
   of_link_restore?: string | null;
+  batch_id?: string | null;
 };
 export type NewFinEntry = typeof finEntries.$inferInsert;
 

@@ -3,6 +3,7 @@ import { getDatabase, runInTransaction } from '../db/client';
 import { finAccounts, finEntries, incomeEvents, IncomeEvent } from '../db/schema';
 import { decimalToCents } from '../domain/money';
 import { findMatchingOpenFinanceIncomeEntry } from '../domain/finance/incomeDedup';
+import { isAppManagedCashAccount } from '../domain/financeFlow';
 import { portfolioRepository } from './portfolioRepository';
 import { finRepository } from './finRepository';
 
@@ -91,7 +92,8 @@ export class IncomeRepository {
               kind: 'income',
               of_class_reason: 'INCOME_LINKED',
             });
-          } else {
+          } else if (isAppManagedCashAccount(linkedAccount)) {
+            // W1a/R41 (Sprint 116): em conta Open Finance o crédito vem do extrato; o app não cria investment_income
             const amountCents = decimalToCents(row.amount);
             if (amountCents > 0) {
               await finRepository.createEntry({

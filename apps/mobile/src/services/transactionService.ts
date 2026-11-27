@@ -1,9 +1,13 @@
 import Decimal from 'decimal.js';
 import { eq } from 'drizzle-orm';
-import { Transaction, Asset, transactions } from '../db/schema';
+import { Transaction, Asset, FinEntry, transactions } from '../db/schema';
 import { getDatabase, runInTransaction } from '../db/client';
 import { decimalToCents } from '../domain/money';
-import { matchOpenFinanceInvestmentOutflow } from '../domain/financeFlow';
+import {
+  isAppManagedCashAccount,
+  matchBrokerSettlement,
+  matchOpenFinanceInvestmentOutflow,
+} from '../domain/financeFlow';
 import { IMarketApiService, marketApiService } from './marketApi';
 import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
 import { AssetRepository, assetRepository } from '../repositories/assetRepository';
@@ -30,6 +34,8 @@ export interface CreateTransactionInput {
   externalId?: string | null;
   /** R40: conta de origem (BUY) ou destino (SELL). Omitido usa a corretora vinculada; null não lança em Finanças. */
   cashSource?: { accountId: string } | null;
+  /** W3 (Sprint 116): lote de aporte; gravado no `investment_buy` (a transferência recebe o mesmo id). */
+  batchId?: string | null;
 }
 
 export interface TransactionExecutionResult {
@@ -201,11 +207,17 @@ export class TransactionService implements ITransactionService {
 
     const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
     const brokerAccountId = portfolio?.fin_account_id ?? null;
+    const linkedAccount = brokerAccountId ? await finRepository.getAccountById(brokerAccountId) : null;
+    // W1a (Sprint 116): conta vinculada Open Finance = o extrato do banco manda; o app não lança dinheiro.
+    const isAppManagedCash = isAppManagedCashAccount(linkedAccount);
     const isManualSource = !params.source || params.source === 'MANUAL';
     const shouldPostCash =
       Boolean(brokerAccountId) &&
+      isAppManagedCash &&
       params.cashSource !== null &&
       isManualSource;
+    // W1b: em conta Open Finance só se tenta ligar a liquidação do pregão (sem mudar tipo nem valor)
+    const shouldLinkSettlement = Boolean(brokerAccountId) && !isAppManagedCash && isManualSource;
     const selectedCashAccountId = params.cashSource?.accountId || brokerAccountId;
 
     return runInTransaction(async () => {
@@ -239,6 +251,10 @@ export class TransactionService implements ITransactionService {
           quantity: sellResult.quantity,
           average_price: sellResult.averagePrice,
         });
+
+        if (shouldLinkSettlement && brokerAccountId) {
+          await this.linkBrokerSettlement(params.portfolioId, brokerAccountId, params.tradeDate, transaction.id);
+        }
 
         if (shouldPostCash && brokerAccountId) {
           const amountCents = decimalToCents(totalAmount);
@@ -308,6 +324,10 @@ export class TransactionService implements ITransactionService {
           average_price: buyResult.averagePrice,
         });
 
+        if (shouldLinkSettlement && brokerAccountId) {
+          await this.linkBrokerSettlement(params.portfolioId, brokerAccountId, params.tradeDate, transaction.id);
+        }
+
         if (shouldPostCash && brokerAccountId) {
           const amountCents = decimalToCents(totalAmount);
           if (amountCents > 0) {
@@ -340,6 +360,7 @@ export class TransactionService implements ITransactionService {
                   linked_transaction_id: transaction.id,
                   of_class_reason: matchedOf.of_class_reason ?? 'INVESTMENT_MOVE',
                   of_link_restore: restorePayload,
+                  batch_id: params.batchId ?? null,
                 });
                 await finRepository.createEntry({
                   kind: 'transfer_in',
@@ -353,6 +374,7 @@ export class TransactionService implements ITransactionService {
                   description: `Aporte ${asset.ticker}`,
                   transfer_group_id: transferGroupId,
                   linked_transaction_id: transaction.id,
+                  batch_id: params.batchId ?? null,
                 });
               } else {
                 await finService.createTransfer({
@@ -376,6 +398,7 @@ export class TransactionService implements ITransactionService {
               category_id: 'cat-outros-despesa',
               description: `Compra ${asset.ticker}`,
               linked_transaction_id: transaction.id,
+              batch_id: params.batchId ?? null,
             });
           }
         }
@@ -393,6 +416,87 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
+   * W1b (Sprint 116): liga a compra/venda manual à liquidação do pregão no extrato Open Finance da conta
+   * vinculada. A nota agrupa as operações do pregão, então o casamento usa a soma líquida (compras − vendas
+   * manuais) da carteira no pregão. Só grava `linked_transaction_id` (guardando `of_link_restore`); nunca muda
+   * tipo nem valor. Sem casamento, não grava nada.
+   */
+  private async linkBrokerSettlement(
+    portfolioId: string,
+    accountId: string,
+    tradeDate: string,
+    transactionId: string
+  ): Promise<void> {
+    const portfolioTxs = await this.txRepo.getTransactionsByPortfolio(portfolioId);
+    let netCents = 0;
+    for (const t of portfolioTxs) {
+      if (t.trade_date !== tradeDate) continue;
+      if (t.source && t.source !== 'MANUAL') continue;
+      const cents = decimalToCents(t.total_amount);
+      if (t.type === 'BUY') netCents += cents;
+      else if (t.type === 'SELL') netCents -= cents;
+    }
+    if (netCents === 0) return;
+
+    const [y, m, d] = tradeDate.split('-').map(Number);
+    const endIso = new Date(Date.UTC(y, m - 1, d + 10)).toISOString().slice(0, 10);
+    const entries = await finRepository.listEntriesBetween(tradeDate, endIso);
+    const match = matchBrokerSettlement(entries, { accountId, tradeDate, netCents });
+    if (!match) return;
+    await finRepository.updateEntry(match.id, {
+      linked_transaction_id: transactionId,
+      of_link_restore:
+        match.of_link_restore ??
+        JSON.stringify({
+          kind: match.kind,
+          transfer_group_id: match.transfer_group_id ?? null,
+          of_class_reason: match.of_class_reason ?? null,
+        }),
+    });
+  }
+
+  /**
+   * W3 (Sprint 116): ao excluir uma compra de um lote de aporte (`batch_id`), a transferência do lote cai pelo
+   * valor dela (transfer_out e transfer_in juntos; se o transfer_out é Open Finance casado, só o transfer_in é
+   * ajustado e a diferença fica no saldo da corretora). Excluir a última compra apaga a transferência
+   * (restaurando o lançamento Open Finance pelo caminho da V4).
+   */
+  private async detachFromContributionBatch(transactionId: string): Promise<void> {
+    const linked = await finRepository.listEntriesByLinkedTransactionId(transactionId);
+    const buyEntry = linked.find((e) => e.kind === 'investment_buy' && e.batch_id);
+    if (!buyEntry?.batch_id) return;
+
+    const batchEntries = await finRepository.listEntriesByBatchId(buyEntry.batch_id);
+    const siblings = batchEntries.filter((e) => e.kind === 'investment_buy' && e.id !== buyEntry.id);
+    const transfers = batchEntries.filter((e) => e.kind === 'transfer_in' || e.kind === 'transfer_out');
+    const buyCents = buyEntry.paid_amount_cents ?? buyEntry.amount_cents;
+
+    if (siblings.length > 0) {
+      const anchorTxId = siblings[0].linked_transaction_id ?? null;
+      for (const t of transfers) {
+        const patch: Partial<FinEntry> = {};
+        if (t.linked_transaction_id === transactionId) {
+          patch.linked_transaction_id = anchorTxId;
+        }
+        if (t.source !== 'OPEN_FINANCE') {
+          patch.amount_cents = Math.max(0, t.amount_cents - buyCents);
+          patch.paid_amount_cents = Math.max(0, (t.paid_amount_cents ?? t.amount_cents) - buyCents);
+        }
+        if (Object.keys(patch).length > 0) {
+          await finRepository.updateEntry(t.id, patch);
+        }
+      }
+    } else {
+      // Última compra do lote: a transferência (e o casamento OF) passa a depender só dela
+      for (const t of transfers) {
+        if (t.linked_transaction_id !== transactionId) {
+          await finRepository.updateEntry(t.id, { linked_transaction_id: transactionId });
+        }
+      }
+    }
+  }
+
+  /**
    * Exclui movimentação e todos os lançamentos financeiros ligados na mesma transação,
    * recalculando a posição do ativo a partir das movimentações restantes.
    */
@@ -404,6 +508,7 @@ export class TransactionService implements ITransactionService {
         .from(transactions)
         .where(eq(transactions.id, transactionId));
 
+      await this.detachFromContributionBatch(transactionId);
       await finRepository.deleteEntriesByLinkedTransactionId(transactionId);
       await this.txRepo.deleteTransaction(transactionId);
 

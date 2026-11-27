@@ -1,5 +1,6 @@
 import type { FinAccount, FinEntry } from '../../db/schema';
 import { isStaleOpenFinancePending } from '../openFinance/stalePending';
+import { isAutomaticSweep } from './investmentCash';
 
 export interface MonthSummaryR43 {
   yearMonth: string;
@@ -19,10 +20,13 @@ function entryRealCents(entry: FinEntry): number {
 }
 
 /**
- * R43 — Mês em uma linha:
+ * R43 — Mês em uma linha (revisada na Sprint 116):
  * - Receitas: `income` + `investment_income` (destacando `dividendIncomeCents` como "dos quais proventos")
- * - Despesas: `expense` (exclui transferências e `investment_*`)
- * - Aportes: `transfer_out` para corretora + `investment_buy` sem transferência no mês - `investment_sell` resgatado para fora
+ * - Despesas: `expense` (exclui transferências, `investment_*` e movimentos de investimento Open Finance)
+ * - Aportes: dinheiro que passou de conta NÃO de investimento para conta de investimento, líquido do caminho
+ *   inverso (par `transfer_in`/`transfer_out`, ou movimento Open Finance `INVESTMENT_MOVE` sem par em conta
+ *   comum). Nunca contam: lançamento Open Finance dentro de conta de investimento (liquidação, taxas B3,
+ *   aplicação/resgate), aplicação/resgate automático de conta remunerada em qualquer conta e `investment_*`.
  * - Sobra: receitas - despesas - aportes
  * - Taxa de poupança: (receitas - despesas) / receitas, ou "—" sem receita
  */
@@ -47,10 +51,11 @@ export function monthSummary(
     ...(options?.linkedAccountIds ?? []),
   ]);
 
+  // Pares de transferência olham TODOS os lançamentos (o par pode cair em outro mês).
   const transferInByGroup = new Map<string, FinEntry[]>();
   const transferOutByGroup = new Map<string, FinEntry[]>();
-  for (const e of monthEntries) {
-    if (!e.transfer_group_id) continue;
+  for (const e of entries) {
+    if (e.of_removed_at || !e.transfer_group_id) continue;
     if (e.kind === 'transfer_in') {
       const list = transferInByGroup.get(e.transfer_group_id) ?? [];
       list.push(e);
@@ -61,11 +66,27 @@ export function monthSummary(
       transferOutByGroup.set(e.transfer_group_id, list);
     }
   }
+  const hasPair = (e: FinEntry): boolean =>
+    Boolean(e.transfer_group_id) &&
+    (e.kind === 'transfer_out'
+      ? (transferInByGroup.get(e.transfer_group_id!) ?? []).length > 0
+      : (transferOutByGroup.get(e.transfer_group_id!) ?? []).length > 0);
 
   let incomeCents = 0;
   let dividendIncomeCents = 0;
   let expenseCents = 0;
   let contributionCents = 0;
+
+  /**
+   * Movimento Open Finance de investimento (`INVESTMENT_MOVE`) sem par: só conta quando está em conta que NÃO é
+   * de investimento e não é aplicação/resgate automático. Saída soma; crédito subtrai.
+   */
+  const countUnpairedInvestmentMove = (entry: FinEntry, real: number, isOutflow: boolean) => {
+    if (investmentAccountIds.has(entry.account_id)) return;
+    if (isAutomaticSweep(entry.description) || isAutomaticSweep(entry.description_raw)) return;
+    if (hasPair(entry)) return;
+    contributionCents += isOutflow ? real : -real;
+  };
 
   for (const entry of monthEntries) {
     if (entry.of_class_reason === 'CARD_DEBT_ROLLOVER') continue;
@@ -94,35 +115,29 @@ export function monthSummary(
       continue;
     }
 
+    const isOfInvestmentMove =
+      entry.source === 'OPEN_FINANCE' && entry.of_class_reason === 'INVESTMENT_MOVE';
+
     if (entry.kind === 'expense') {
-      // Saída OF classificada INVESTMENT_MOVE sem par transfer_in em conta de investimento conta como aporte
-      if (entry.source === 'OPEN_FINANCE' && entry.of_class_reason === 'INVESTMENT_MOVE') {
-        const hasBrokerPair =
-          Boolean(entry.transfer_group_id) &&
-          (transferInByGroup.get(entry.transfer_group_id!) ?? []).some((ti) =>
-            investmentAccountIds.has(ti.account_id)
-          );
-        if (!hasBrokerPair) {
-          contributionCents += real;
-        }
+      if (isOfInvestmentMove) {
+        // legado: saída OF INVESTMENT_MOVE gravada como despesa nunca é despesa
+        countUnpairedInvestmentMove(entry, real, true);
         continue;
       }
       expenseCents += real;
       continue;
     }
 
-    // R43 (Sprint 114 P4):
-    // Aportes = Σ transfer_in em conta de investimento vinda de fora
-    //         + Σ saídas OF INVESTMENT_MOVE sem par no app
-    //         - Σ transfer_out de conta de investimento para fora
+    // R43 (Sprint 116): aporte = conta NÃO de investimento → conta de investimento, líquido do caminho inverso.
     // investment_buy / investment_sell NUNCA entram em aportes.
     if (entry.kind === 'transfer_in') {
       if (entry.transfer_group_id && investmentAccountIds.has(entry.account_id)) {
         const outs = transferOutByGroup.get(entry.transfer_group_id) ?? [];
-        const fromOutside = outs.some((o) => !investmentAccountIds.has(o.account_id));
-        if (fromOutside) {
+        if (outs.some((o) => !investmentAccountIds.has(o.account_id))) {
           contributionCents += real;
         }
+      } else if (isOfInvestmentMove) {
+        countUnpairedInvestmentMove(entry, real, false);
       }
       continue;
     }
@@ -130,19 +145,11 @@ export function monthSummary(
     if (entry.kind === 'transfer_out') {
       if (entry.transfer_group_id && investmentAccountIds.has(entry.account_id)) {
         const ins = transferInByGroup.get(entry.transfer_group_id) ?? [];
-        const toOutside = ins.some((i) => !investmentAccountIds.has(i.account_id));
-        if (toOutside) {
+        if (ins.some((i) => !investmentAccountIds.has(i.account_id))) {
           contributionCents -= real;
         }
-      } else if (entry.source === 'OPEN_FINANCE' && entry.of_class_reason === 'INVESTMENT_MOVE') {
-        const hasBrokerPair =
-          Boolean(entry.transfer_group_id) &&
-          (transferInByGroup.get(entry.transfer_group_id!) ?? []).some((ti) =>
-            investmentAccountIds.has(ti.account_id)
-          );
-        if (!hasBrokerPair) {
-          contributionCents += real;
-        }
+      } else if (isOfInvestmentMove) {
+        countUnpairedInvestmentMove(entry, real, true);
       }
       continue;
     }

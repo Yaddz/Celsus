@@ -456,7 +456,7 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 ## Patrimônio Único, Mês em uma Linha e Metas Unificadas (Sprint 105)
 
 - `services/patrimonyService.ts` (`R42`): fonte única de patrimônio (`getPatrimony`) consumida por `App.tsx/refreshAppData`, `NetWorthScreen` e `finGoalsService`.
-- `domain/financeFlow/monthSummary.ts` (`R43`): cálculo puro de receitas (com destaque de proventos), despesas, aportes (deduplicando transferência + `investment_buy`), sobra e taxa de poupança.
+- `domain/financeFlow/monthSummary.ts` (`R43`): cálculo puro de receitas (com destaque de proventos), despesas, aportes (conta não de investimento → conta de investimento, líquido do caminho inverso; Sprint 116), sobra e taxa de poupança.
 - `services/finGoalsService.ts`, `App.tsx` & `screens/PortfolioManagementScreen.tsx` (`R44`): migração `migration:portfolio-goals-to-fin-goals:v1` e leitura/escrita unificada em `fin_goals` fonte `'portfolio'`.
 - `screens/finance/FinanceHomeScreen.tsx` (`DEC-5`, artboard 7): tiles `"Saldo em contas"`, `"O mês em uma linha"`, `"Reserva"` e `"Próximos 7 dias"`, sem nenhum bloco de Investimentos.
 
@@ -483,3 +483,11 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/financeFlow/cashSource.ts` (`resolveDefaultCashSource`), `SimulatorScreen.tsx` & `services/rebalanceExecution.ts`: origem padrão unificada, bloco `"Sai de"` no Simulador e casamento Open Finance em lote.
 - `db/schema.ts`, `db/client.ts`, `services/backupService.ts`, `repositories/finRepository.ts` & `domain/financeFlow/openFinanceMatch.ts`: `fin_entries.of_link_restore` para restauração segura ao excluir compra, valor pago Open Finance no par casado e casamento inverso (`matchAppInvestmentTransferOut`) na sincronização.
 - `screens/finance/AccountsScreen.tsx` & `screens/sandbox/CompareScreen.tsx`: botão `"Nova conta"` preservado com `hideFab` e gráfico comparativo em `CompareScreen`.
+
+## Correções do Dinheiro Real da Corretora (Sprint 116)
+
+- `domain/financeFlow/investmentCash.ts`: `isAppManagedCashAccount` (conta OF ⇒ o extrato manda), `isAutomaticSweep`, `isBrokerSettlementDescription` e `matchBrokerSettlement` (liquidação do pregão, soma líquida, `+4` dias úteis). `domain/financeFlow/openFinanceMatch.ts`: `isAppTransferMatchCandidate` (W5).
+- `services/transactionService.ts`, `services/rebalanceExecution.ts` e `repositories/incomeRepository.ts` só lançam dinheiro em conta gerida pelo app; em conta OF apenas ligam `linked_transaction_id` à liquidação. `fin_entries.batch_id` (schema, DDL, migração de coluna em `db/client.ts` e `backupService`) liga transferência e compras do lote; `transactionService.deleteTransaction` reduz/apaga a transferência (W3).
+- `repositories/finRepository.ts`: `deleteEntriesByLinkedTransactionId` com fallback de restauração por sinais/classificação (W4); `createEntriesBatch` passa a gravar `of_link_restore` e `batch_id`.
+- `services/finService.ts`: `migration:of-linked-cash-cleanup:v1`, executada na abertura do módulo e após a v3 religar carteiras.
+- `monthSummary` (R43): aporte = conta não de investimento → conta de investimento (W2). `TransactionScreen`/`SimulatorScreen`: texto do extrato no lugar de `"Sai de"` para conta OF; efeitos de `TransactionScreen` sem `setState` síncrono (W6).

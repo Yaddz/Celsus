@@ -310,8 +310,18 @@ describe('Sprint 115 — Serviços e Integração Pluggy (V1, V2, V3b, V4, V5, V
     expect(transferIns).toHaveLength(1);
     expect(transferIns[0].amount_cents).toBe(100_000);
 
-    // Excluir a primeira compra restaura o lançamento OF sem apagá-lo
+    // Sprint 116 (W3): a transferência pertence ao lote, não à 1ª compra. Excluir a 1ª compra só reduz o
+    // transfer_in pelo valor dela e mantém o lançamento OF casado; a última compra restaura o OF sem apagá-lo.
     await transactionService.deleteTransaction(batchRes.transactions[0].id);
+    const afterFirstDel = await finRepository.listAllEntries();
+    const ofStillLinked = afterFirstDel.find((e) => e.id === ofEntry.id);
+    expect(ofStillLinked?.kind).toBe('transfer_out');
+    expect(ofStillLinked?.linked_transaction_id).toBe(batchRes.transactions[1].id);
+    expect(
+      afterFirstDel.find((e) => e.account_id === broker.id && e.kind === 'transfer_in')?.amount_cents
+    ).toBe(60_000);
+
+    await transactionService.deleteTransaction(batchRes.transactions[1].id);
     const entriesAfterDel = await finRepository.listAllEntries();
     const ofRestored = entriesAfterDel.find((e) => e.id === ofEntry.id);
     expect(ofRestored).toBeTruthy();

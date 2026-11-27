@@ -20,7 +20,12 @@ import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finRepository } from '../repositories/finRepository';
 import { appMetaRepository } from '../repositories/appMetaRepository';
-import { calculateAccountBalance, formatCentsBRL, resolveDefaultCashSource } from '../domain/financeFlow';
+import {
+  calculateAccountBalance,
+  formatCentsBRL,
+  isAppManagedCashAccount,
+  resolveDefaultCashSource,
+} from '../domain/financeFlow';
 import { decimalToCents } from '../domain/money';
 import { Asset, FinAccount, FinEntry, Portfolio } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
@@ -140,9 +145,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [finAccounts, setFinAccounts] = useState<FinAccount[]>([]);
   const [finEntriesList, setFinEntriesList] = useState<FinEntry[]>([]);
-  const [useCashAccount, setUseCashAccount] = useState<boolean>(true);
-  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string>('');
-  const [showLinkPrompt, setShowLinkPrompt] = useState<boolean>(false);
+  // W6 (Sprint 116): estado derivado (sem setState síncrono em efeito); escolhas do usuário valem por carteira/tipo
+  const [cashToggle, setCashToggle] = useState<{ portfolioId: string; value: boolean } | null>(null);
+  const [cashPick, setCashPick] = useState<{ portfolioId: string; type: string; accountId: string } | null>(null);
+  const [linkPromptPortfolioId, setLinkPromptPortfolioId] = useState<string | null>(null);
 
   const resetForm = () => {
     setQuantity('');
@@ -399,34 +405,52 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   const selectedPortfolio = portfolios.find((p) => p.id === selectedPortfolioId) ?? null;
   const linkedBrokerAccountId = selectedPortfolio?.fin_account_id ?? null;
 
+  // Cálculo do total estimado
+  const calculateTotal = (): string => {
+    try {
+      const q = new Decimal(quantity || 0);
+      const p = new Decimal(unitPrice || 0);
+      const f = new Decimal(fees || 0);
+      if (type === 'BUY') {
+        return q.mul(p).plus(f).toFixed(2);
+      } else {
+        return Decimal.max(0, q.mul(p).minus(f)).toFixed(2);
+      }
+    } catch {
+      return '0.00';
+    }
+  };
+
+  const useCashAccount = cashToggle?.portfolioId === selectedPortfolioId ? cashToggle.value : true;
+  const setUseCashAccount = (value: boolean) => setCashToggle({ portfolioId: selectedPortfolioId, value });
+  const showLinkPrompt =
+    Boolean(selectedPortfolioId) && !linkedBrokerAccountId && linkPromptPortfolioId === selectedPortfolioId;
+
   useEffect(() => {
     let active = true;
-    if (!selectedPortfolioId) {
-      setShowLinkPrompt(false);
-      return;
-    }
-    if (linkedBrokerAccountId) {
-      setUseCashAccount(true);
-      setSelectedCashAccountId(linkedBrokerAccountId);
-      setShowLinkPrompt(false);
-      return;
-    }
-    setSelectedCashAccountId('');
+    if (!selectedPortfolioId || linkedBrokerAccountId) return;
     (async () => {
       const metaKey = `link-prompt:${selectedPortfolioId}`;
       const seen = await appMetaRepository.get(metaKey);
       if (!active) return;
       if (seen !== '1') {
-        setShowLinkPrompt(true);
+        setLinkPromptPortfolioId(selectedPortfolioId);
         await appMetaRepository.set(metaKey, '1');
       } else {
-        setShowLinkPrompt(false);
+        setLinkPromptPortfolioId(null);
       }
     })();
     return () => {
       active = false;
     };
   }, [selectedPortfolioId, linkedBrokerAccountId]);
+
+  const linkedAccount = React.useMemo(
+    () => finAccounts.find((a) => a.id === linkedBrokerAccountId) ?? null,
+    [finAccounts, linkedBrokerAccountId]
+  );
+  // W1c (Sprint 116): conta vinculada Open Finance — o extrato do banco manda no dinheiro
+  const isOpenFinanceCash = Boolean(linkedAccount) && !isAppManagedCashAccount(linkedAccount);
 
   const eligibleCashAccounts = React.useMemo(() => {
     if (!linkedBrokerAccountId) return [];
@@ -441,13 +465,10 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   }, [finAccounts, linkedBrokerAccountId]);
 
   // P3a: se a corretora vinculada não cobre o total da compra, padrão = conta corrente/dinheiro com maior saldo
-  useEffect(() => {
-    if (!linkedBrokerAccountId || eligibleCashAccounts.length === 0) return;
-    if (type !== 'BUY') {
-      setSelectedCashAccountId(linkedBrokerAccountId);
-      return;
-    }
-    const opCents = decimalToCents(calculateTotal());
+  const totalCents = decimalToCents(calculateTotal());
+  const defaultCashAccountId = React.useMemo(() => {
+    if (!linkedBrokerAccountId) return '';
+    if (eligibleCashAccounts.length === 0 || type !== 'BUY') return linkedBrokerAccountId;
     const brokerAcc = eligibleCashAccounts.find((a) => a.id === linkedBrokerAccountId);
     const brokerBal = brokerAcc
       ? calculateAccountBalance(brokerAcc.initial_balance_cents, finEntriesList, brokerAcc.id)
@@ -455,7 +476,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     const resolved = resolveDefaultCashSource({
       brokerAccountId: linkedBrokerAccountId,
       brokerBalanceCents: brokerBal,
-      totalCents: opCents,
+      totalCents,
       accounts: eligibleCashAccounts.map((a) => ({
         id: a.id,
         name: a.name,
@@ -463,10 +484,12 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         balanceCents: calculateAccountBalance(a.initial_balance_cents, finEntriesList, a.id),
       })),
     });
-    if (resolved.accountId) {
-      setSelectedCashAccountId(resolved.accountId);
-    }
-  }, [linkedBrokerAccountId, eligibleCashAccounts, finEntriesList, type, quantity, unitPrice, fees]);
+    return resolved.accountId ?? linkedBrokerAccountId;
+  }, [linkedBrokerAccountId, eligibleCashAccounts, finEntriesList, type, totalCents]);
+  const selectedCashAccountId =
+    cashPick && cashPick.portfolioId === selectedPortfolioId && cashPick.type === type
+      ? cashPick.accountId
+      : defaultCashAccountId;
 
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);
 
@@ -483,21 +506,6 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     await fetchQuoteForAsset(selectedAsset, tradeDate);
   };
 
-  // Cálculo do total estimado
-  const calculateTotal = (): string => {
-    try {
-      const q = new Decimal(quantity || 0);
-      const p = new Decimal(unitPrice || 0);
-      const f = new Decimal(fees || 0);
-      if (type === 'BUY') {
-        return q.mul(p).plus(f).toFixed(2);
-      } else {
-        return Decimal.max(0, q.mul(p).minus(f)).toFixed(2);
-      }
-    } catch {
-      return '0.00';
-    }
-  };
 
   const handleSubmit = async () => {
     if (!selectedPortfolioId) {
@@ -528,7 +536,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         unitPrice,
         fees: fees || '0.00',
         notes: notes || undefined,
-        ...(linkedBrokerAccountId
+        ...(linkedBrokerAccountId && !isOpenFinanceCash
           ? {
               cashSource:
                 useCashAccount && selectedCashAccountId
@@ -966,7 +974,16 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         </View>
 
         {/* Conta vinculada / Pagar com saldo de uma conta (artboard 9, R40) */}
-        {linkedBrokerAccountId ? (
+        {linkedBrokerAccountId && isOpenFinanceCash && linkedAccount ? (
+          <View
+            testID="tx-of-cash-note"
+            style={[styles.inputGroup, styles.summaryCard, isLight && styles.summaryCardLight]}
+          >
+            <Text style={[styles.summarySub, isLight && styles.summarySubLight]}>
+              {`O dinheiro desta carteira vem do extrato da ${linkedAccount.name} (Open Finance).`}
+            </Text>
+          </View>
+        ) : linkedBrokerAccountId ? (
           <View style={[styles.inputGroup, styles.summaryCard, isLight && styles.summaryCardLight]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={[styles.chipText, isLight && styles.chipTextLight]}>
@@ -1000,7 +1017,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
                         <TouchableOpacity
                           key={acc.id}
                           testID={`cash-source-chip-${acc.id}`}
-                          onPress={() => setSelectedCashAccountId(acc.id)}
+                          onPress={() => setCashPick({ portfolioId: selectedPortfolioId, type, accountId: acc.id })}
                           style={[styles.chip, isLight && styles.chipLight, isSel && styles.chipActive]}
                         >
                           <Text style={[styles.chipText, isLight && styles.chipTextLight, isSel && styles.chipTextActive]}>

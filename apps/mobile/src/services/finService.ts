@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../db/client';
-import { finAccounts, finEntries, incomeEvents, ofItems, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
+import { finAccounts, finEntries, incomeEvents, ofItems, portfolios as portfoliosTable, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
 import {
   addDaysIso,
   addMonthsYearMonth,
@@ -43,6 +43,7 @@ export class FinService {
     await this.migrateBrokerAccountsIfNeeded();
     await this.migrateFinAccountsOfItemIdIfNeeded();
     await this.migrateRemoveB3ImportCashEntriesIfNeeded();
+    await this.migrateOfLinkedCashCleanupIfNeeded();
     await finGoalsService.migrateLegacyGoalsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
@@ -286,9 +287,84 @@ export class FinService {
    * (carteira vinculada com `of_item_id`, lançamento ligado a `income_events.item_id`, ou único item OF no banco).
    * Contas ambíguas ficam `null` até a próxima sincronização.
    */
-  /** W1d (Sprint 116) — STUB da Fase A. */
-  async migrateOfLinkedCashCleanupIfNeeded(): Promise<number> {
-    return 0;
+  /**
+   * W1d (Sprint 116): `migration:of-linked-cash-cleanup:v1`. Em carteira cuja conta vinculada é Open Finance o
+   * extrato manda: apaga `investment_buy`/`investment_sell`/`investment_income` e transferências criados pelo app
+   * (`source != 'OPEN_FINANCE'`) ligados às movimentações/proventos dessas carteiras, e restaura pelo caminho da V4
+   * os lançamentos Open Finance casados. Não toca contas `'broker'` manuais, lançamentos sem ligação nem lançamentos
+   * editados pelo usuário (`user_edited_fields`). Idempotente (marca em `app_meta`); `force` reexecuta sem a marca
+   * (usado após a sugestão de vínculo v3, que pode religar carteiras à conta OF).
+   * Retorna quantos lançamentos foram apagados ou restaurados.
+   */
+  async migrateOfLinkedCashCleanupIfNeeded(options?: { force?: boolean }): Promise<number> {
+    if (!options?.force) {
+      const alreadyDone = await appMetaRepository.get(OF_LINKED_CASH_CLEANUP_V1_META_KEY);
+      if (alreadyDone) return 0;
+    }
+
+    const db = getDatabase();
+    const [accountRows, portfolioRows] = await Promise.all([
+      db.select({ id: finAccounts.id, source: finAccounts.source }).from(finAccounts),
+      db.select().from(portfoliosTable),
+    ]);
+    const ofAccountIds = new Set(accountRows.filter((a) => a.source === 'OPEN_FINANCE').map((a) => a.id));
+    const ofPortfolioIds = new Set(
+      portfolioRows.filter((p) => p.fin_account_id && ofAccountIds.has(p.fin_account_id)).map((p) => p.id)
+    );
+
+    let touched = 0;
+    if (ofPortfolioIds.size > 0) {
+      const [txRows, incomeRows, entries] = await Promise.all([
+        db.select({ id: transactions.id, portfolio_id: transactions.portfolio_id }).from(transactions),
+        db.select({ id: incomeEvents.id, portfolio_id: incomeEvents.portfolio_id }).from(incomeEvents),
+        finRepository.listAllEntries(),
+      ]);
+      const txIds = new Set(txRows.filter((t) => ofPortfolioIds.has(t.portfolio_id)).map((t) => t.id));
+      const incomeIds = new Set(incomeRows.filter((i) => ofPortfolioIds.has(i.portfolio_id)).map((i) => i.id));
+      const hasUserEdits = (e: FinEntry): boolean => {
+        const raw = e.user_edited_fields;
+        if (!raw) return false;
+        try {
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed.length > 0 : true;
+        } catch {
+          return true;
+        }
+      };
+      const cashKinds = ['investment_buy', 'investment_sell', 'transfer_in', 'transfer_out'];
+
+      const entriesByTx = new Map<string, FinEntry[]>();
+      for (const e of entries) {
+        if (!e.linked_transaction_id || !txIds.has(e.linked_transaction_id)) continue;
+        if (e.source !== 'OPEN_FINANCE' && !cashKinds.includes(e.kind)) continue;
+        const list = entriesByTx.get(e.linked_transaction_id) ?? [];
+        list.push(e);
+        entriesByTx.set(e.linked_transaction_id, list);
+      }
+      const incomeEntries = entries.filter(
+        (e) =>
+          e.source !== 'OPEN_FINANCE' &&
+          e.kind === 'investment_income' &&
+          e.linked_income_id &&
+          incomeIds.has(e.linked_income_id) &&
+          !hasUserEdits(e)
+      );
+
+      await runInTransaction(async () => {
+        for (const [txId, list] of entriesByTx) {
+          if (list.some((e) => e.source !== 'OPEN_FINANCE' && hasUserEdits(e))) continue;
+          await finRepository.deleteEntriesByLinkedTransactionId(txId);
+          touched += list.length;
+        }
+        for (const e of incomeEntries) {
+          await finRepository.deleteInvestmentIncomeByLinkedIncomeId(e.linked_income_id!);
+          touched += 1;
+        }
+      });
+    }
+
+    await appMetaRepository.set(OF_LINKED_CASH_CLEANUP_V1_META_KEY, '1');
+    return touched;
   }
 
   async migrateFinAccountsOfItemIdIfNeeded(): Promise<number> {
@@ -822,6 +898,8 @@ export class FinService {
     dateIso: string;
     description?: string;
     linkedTransactionId?: string | null;
+    /** W3 (Sprint 116): lote de aporte a que a transferência pertence. */
+    batchId?: string | null;
   }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
     const amountCents = Math.round(params.amountCents);
     if (amountCents <= 0) {
@@ -848,6 +926,7 @@ export class FinService {
           description: desc,
           transfer_group_id: transferGroupId,
           linked_transaction_id: params.linkedTransactionId ?? null,
+          batch_id: params.batchId ?? null,
         },
         {
           kind: 'transfer_in',
@@ -861,6 +940,7 @@ export class FinService {
           description: desc,
           transfer_group_id: transferGroupId,
           linked_transaction_id: params.linkedTransactionId ?? null,
+          batch_id: params.batchId ?? null,
         },
       ]);
       return { transferGroupId, outEntry, inEntry };

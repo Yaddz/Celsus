@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../../db/client';
 import { assets, finAccounts, incomeEvents, portfolios } from '../../db/schema';
-import { matchAppInvestmentTransferOut } from '../../domain/financeFlow';
+import { isAppTransferMatchCandidate, matchAppInvestmentTransferOut } from '../../domain/financeFlow';
 import {
   applyUserEditedPreservation,
   computeSyncWindowStart,
@@ -34,6 +34,7 @@ import { incomeRepository } from '../../repositories/incomeRepository';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
+import { finService } from '../finService';
 import { pluggyClassificationService } from './pluggyClassificationService';
 import {
   institutionFromCompe,
@@ -639,11 +640,15 @@ export const pluggySyncService = {
             counts.transactionsSettled += 1;
           } else {
             const baseKind = row.transferRole ?? row.kind;
-            const isOutflowCandidate =
-              accountTypesById[row.accountId] !== 'card' &&
-              (baseKind === 'transfer_out' ||
-                (baseKind === 'expense' && row.classReason === 'INVESTMENT_MOVE')) &&
-              (row.classReason === 'INVESTMENT_MOVE' || !row.transferGroupId);
+            // W5 (Sprint 116): só movimento de investimento ou transferência entre contas próprias, nunca PIX
+            // comum nem aplicação automática de conta remunerada.
+            const isOutflowCandidate = isAppTransferMatchCandidate({
+              accountType: accountTypesById[row.accountId],
+              kind: baseKind,
+              classReason: row.classReason,
+              description: row.descriptionRaw ?? row.description,
+              transferGroupId: row.transferGroupId,
+            });
             const ofPaidCents =
               row.status === 'paid' ? (row.paidAmountCents ?? row.amountCents) : row.amountCents;
             const matchedAppOut = isOutflowCandidate
@@ -1171,7 +1176,11 @@ export const pluggySyncService = {
       });
 
       // V1c (Sprint 115): sugestão de vínculo v3 ao fim de cada sincronização bem-sucedida
-      await pluggySyncService.migrateBrokerLinkSuggestV3IfNeeded(itemId);
+      const relinkedCount = await pluggySyncService.migrateBrokerLinkSuggestV3IfNeeded(itemId);
+      // W1d (Sprint 116): carteira religada à conta OF deixa de ter lançamentos de dinheiro criados pelo app
+      if (relinkedCount > 0) {
+        await finService.migrateOfLinkedCashCleanupIfNeeded({ force: true });
+      }
 
       return {
         runId,

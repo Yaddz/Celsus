@@ -13,7 +13,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Decimal from 'decimal.js';
 import { colors, typography, spacing, borders, layout, space, bento } from '../theme/tokens';
 import { calculateTwoPhaseContribution, planToRebalanceResult, RebalanceResult } from '../domain/finance';
-import { calculateAccountBalance, formatCentsBRL, resolveDefaultCashSource } from '../domain/financeFlow';
+import {
+  calculateAccountBalance,
+  formatCentsBRL,
+  isAppManagedCashAccount,
+  resolveDefaultCashSource,
+} from '../domain/financeFlow';
 import { decimalToCents } from '../domain/money';
 import { rebalanceExecutionService } from '../services/rebalanceExecution';
 import { finRepository } from '../repositories/finRepository';
@@ -142,6 +147,13 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
     const p = portfolios.find((item) => item.id === selectedPortfolioId);
     return p?.fin_account_id ?? null;
   }, [portfolios, selectedPortfolioId]);
+
+  const linkedAccount = useMemo(
+    () => finAccounts.find((a) => a.id === linkedBrokerAccountId) ?? null,
+    [finAccounts, linkedBrokerAccountId]
+  );
+  // W1c (Sprint 116): conta vinculada Open Finance — o extrato do banco manda no dinheiro
+  const isOpenFinanceCash = Boolean(linkedAccount) && !isAppManagedCashAccount(linkedAccount);
 
   const eligibleCashAccounts = useMemo(() => {
     if (!linkedBrokerAccountId) return [];
@@ -294,7 +306,8 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         suggestions: simulationResult.suggestions,
         assetIdMap,
         notes: 'Simulador de Aporte Inteligente',
-        cashSource: effectiveCashAccountId ? { accountId: effectiveCashAccountId } : undefined,
+        cashSource:
+          effectiveCashAccountId && !isOpenFinanceCash ? { accountId: effectiveCashAccountId } : undefined,
       });
 
       Alert.alert(
@@ -385,7 +398,17 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         </View>
 
         {/* Origem do dinheiro (V3a, mesma regra da compra avulsa) */}
-        {linkedBrokerAccountId && eligibleCashAccounts.length > 0 && (() => {
+        {linkedBrokerAccountId && isOpenFinanceCash && linkedAccount ? (
+          <View
+            testID="sim-of-cash-note"
+            style={[styles.section, styles.cashSourceCard, isLight && styles.cashSourceCardLight]}
+          >
+            <Text style={[styles.subDetailText, isLight && styles.subDetailTextLight]}>
+              {`O dinheiro desta carteira vem do extrato da ${linkedAccount.name} (Open Finance).`}
+            </Text>
+          </View>
+        ) : null}
+        {linkedBrokerAccountId && !isOpenFinanceCash && eligibleCashAccounts.length > 0 && (() => {
           const activeAcc =
             eligibleCashAccounts.find((a) => a.id === selectedCashAccountId) ??
             eligibleCashAccounts[0];

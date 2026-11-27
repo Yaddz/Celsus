@@ -2,6 +2,7 @@ import { and, eq, gte, isNotNull, lte } from 'drizzle-orm';
 import * as Crypto from 'expo-crypto';
 import { getDatabase } from '../db/client';
 import { toCentsDecimal } from '../domain/openFinance';
+import { classifyOpenFinanceBankEntry } from '../domain/openFinance/classification';
 import { computeChargeableChargesCents } from '../domain/openFinance/pluggyTruth';
 import type { PluggyBillFinanceCharge, PluggyBillPayment } from '../services/pluggy/types';
 import {
@@ -87,6 +88,43 @@ const LEGACY_DEFAULT_CATEGORY_COLORS: Record<string, { legacy: string[]; target:
 
 function generateUUID(): string {
   return Crypto.randomUUID();
+}
+
+/**
+ * W4 (Sprint 116): casamentos feitos na Sprint 114 não guardaram `of_link_restore`. Fallback:
+ * - motivo `INVESTMENT_MOVE` ou lançamento com `transfer_group_id` ⇒ movimento de dinheiro (`transfer_out`, ou
+ *   `transfer_in` quando o dado cru é crédito), sem grupo;
+ * - sem esses sinais ⇒ reaplica a classificação de `domain/openFinance/classification.ts` aos campos crus
+ *   gravados (`of_raw_type`, `of_raw_amount_cents`, descrição, categoria da Pluggy).
+ */
+function restoreLegacyOpenFinanceLink(entry: FinEntry): {
+  kind: string;
+  transfer_group_id: string | null;
+  of_class_reason: string | null;
+} {
+  const rawIsCredit =
+    entry.of_raw_type != null
+      ? entry.of_raw_type === 'CREDIT'
+      : entry.kind === 'income' || entry.kind === 'transfer_in';
+
+  if (entry.of_class_reason === 'INVESTMENT_MOVE' || entry.transfer_group_id) {
+    return {
+      kind: rawIsCredit ? 'transfer_in' : 'transfer_out',
+      transfer_group_id: null,
+      of_class_reason: entry.of_class_reason ?? 'INVESTMENT_MOVE',
+    };
+  }
+
+  const rawCents = entry.of_raw_amount_cents ?? entry.amount_cents;
+  const result = classifyOpenFinanceBankEntry({
+    description: entry.description,
+    descriptionRaw: entry.description_raw ?? entry.description,
+    category: null,
+    categoryId: entry.of_category_id ?? null,
+    type: rawIsCredit ? 'CREDIT' : 'DEBIT',
+    amount: (rawIsCredit ? 1 : -1) * Math.abs(rawCents) / 100,
+  });
+  return { kind: result.kind, transfer_group_id: null, of_class_reason: result.reason };
 }
 
 export class FinRepository {
@@ -448,6 +486,8 @@ export class FinRepository {
       of_installment_number: item.of_installment_number ?? item.ofInstallmentNumber ?? null,
       of_installment_total: item.of_installment_total ?? item.ofInstallmentTotal ?? null,
       of_bill_month_source: item.of_bill_month_source ?? item.ofBillMonthSource ?? null,
+      of_link_restore: item.of_link_restore ?? item.ofLinkRestore ?? null,
+      batch_id: item.batch_id ?? item.batchId ?? null,
       created_at: now,
     }));
     // Com ~41 colunas por lançamento, um único INSERT com muitas linhas novas (histórico completo da R37)
@@ -488,6 +528,15 @@ export class FinRepository {
       .where(eq(finEntries.linked_transaction_id, transactionId))) as FinEntry[];
   }
 
+  /** W3 (Sprint 116): lançamentos do mesmo lote de aporte (transferência + compras). */
+  async listEntriesByBatchId(batchId: string): Promise<FinEntry[]> {
+    const db = getDatabase();
+    return (await db
+      .select()
+      .from(finEntries)
+      .where(eq(finEntries.batch_id, batchId))) as FinEntry[];
+  }
+
   async deleteEntriesByLinkedTransactionId(transactionId: string): Promise<void> {
     const db = getDatabase();
     const linked = await this.listEntriesByLinkedTransactionId(transactionId);
@@ -497,11 +546,7 @@ export class FinRepository {
           kind: string;
           transfer_group_id: string | null;
           of_class_reason: string | null;
-        } = {
-          kind: 'expense',
-          transfer_group_id: null,
-          of_class_reason: entry.of_class_reason ?? null,
-        };
+        } = restoreLegacyOpenFinanceLink(entry);
         if (entry.of_link_restore) {
           try {
             const parsed = JSON.parse(entry.of_link_restore);
@@ -513,7 +558,7 @@ export class FinRepository {
               };
             }
           } catch {
-            // fallback para o padrão seguro acima
+            // mantém o fallback calculado acima
           }
         }
         await db
@@ -524,6 +569,7 @@ export class FinRepository {
             transfer_group_id: restored.transfer_group_id,
             of_class_reason: restored.of_class_reason,
             of_link_restore: null,
+            batch_id: null,
           })
           .where(eq(finEntries.id, entry.id));
       } else {

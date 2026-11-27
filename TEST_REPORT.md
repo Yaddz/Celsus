@@ -7,23 +7,31 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **251/251 suítes PASS** (**1574/1574 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **255/255 suítes PASS** (**1611/1611 testes PASS**) |
 | Motor de mercado (Go) | `cd services/market-api && go test ./...` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (0 em `Sprint114*`/`Sprint115*`; 404 pré-existentes apenas em `__tests__`) |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (0 em `Sprint114*`/`Sprint115*`/`Sprint116*`; 404 pré-existentes apenas em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **270 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 116 — Dinheiro real da corretora via Open Finance e aportes sem fantasmas (Fase A concluída)
+## Sprint 116 — Dinheiro real da corretora via Open Finance e aportes sem fantasmas (Fase B concluída)
 
-Especificação das correções W1–W6: W1 (conta vinculada Open Finance: o extrato manda; ligação opcional com a liquidação; texto do extrato nas telas; `migration:of-linked-cash-cleanup:v1`), W2 (aporte só de conta não de investimento para conta de investimento, `isAutomaticSweep`), W3 (`fin_entries.batch_id` no aporte em lote), W4 (restauração de casamentos antigos), W5 (casamento inverso só com movimento de investimento), W6 (lint em `TransactionScreen`). Fixtures reais em `apps/mobile/src/services/pluggy/__tests__/sprint116ExportFixture.ts`.
+Especificação das correções W1–W6: W1 (conta vinculada Open Finance: o extrato manda via `isAppManagedCashAccount`; ligação opcional `linked_transaction_id` com a liquidação do pregão por `matchBrokerSettlement`; texto do extrato em `TransactionScreen`/`SimulatorScreen`; `migration:of-linked-cash-cleanup:v1`), W2 (aporte só de conta não de investimento para conta de investimento, `isAutomaticSweep`), W3 (`fin_entries.batch_id` no aporte em lote), W4 (restauração de casamentos antigos), W5 (`isAppTransferMatchCandidate`), W6 (lint em `TransactionScreen`). Fixtures reais do export em `apps/mobile/src/services/pluggy/__tests__/sprint116ExportFixture.ts`.
 
 | Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
 | :--- | :--- | :--- | :--- | :--- |
-| `apps/mobile/src/domain/__tests__/Sprint116OfBrokerCashDomain.test.ts` | S116-T01…T12 | `aa8053e6fc9570f48cf86a7e5328142c4f4fb1d84b987e723589bcdfb307c3b7` | 8 FAIL / 8 PASS (guardas) | — |
-| `apps/mobile/src/services/__tests__/Sprint116OfBrokerCashServices.test.ts` | S116-T13…T29 | `a97973e914c5543b16e8bafbcdd5a7634d5d7c15cf58a8254f71da8af3c91c89` | 15 FAIL / 2 PASS (guardas) | — |
-| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashUI.test.tsx` | S116-T30…T32 | `f5ee6f164fe429805dd72a681c8a365a5d478819bccf35b45536a7d092f4fa6f` | 2 FAIL / 1 PASS (guarda) | — |
-| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashLint.test.ts` | S116-T33 | `8498196ed18f423158510736e6e72c1ef06f68e67755431c2e7893fa60beba1a` | 1 FAIL | — |
+| `apps/mobile/src/domain/__tests__/Sprint116OfBrokerCashDomain.test.ts` | S116-T01…T12 | `aa8053e6fc9570f48cf86a7e5328142c4f4fb1d84b987e723589bcdfb307c3b7` | 8 FAIL / 8 PASS (guardas) | 16 PASS |
+| `apps/mobile/src/services/__tests__/Sprint116OfBrokerCashServices.test.ts` | S116-T13…T29 | `a97973e914c5543b16e8bafbcdd5a7634d5d7c15cf58a8254f71da8af3c91c89` | 15 FAIL / 2 PASS (guardas) | 17 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashUI.test.tsx` | S116-T30…T32 | `f5ee6f164fe429805dd72a681c8a365a5d478819bccf35b45536a7d092f4fa6f` | 2 FAIL / 1 PASS (guarda) | 3 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashLint.test.ts` | S116-T33 | `8498196ed18f423158510736e6e72c1ef06f68e67755431c2e7893fa60beba1a` | 1 FAIL | 1 PASS |
 
-Execução da Fase A (suíte completa): 251 suítes e 1585 testes PASS fora da Sprint 116; 26 testes S116 FALHAM pelo motivo certo (comportamento ainda não implementado) e 11 passam como guardas de regressão. `node scripts/test-lock.js verify`: 274 arquivos íntegros.
+**Testes atualizados com autorização explícita do usuário (Sprint 116):**
+- `apps/mobile/src/services/__tests__/Sprint115ValidationFixesServices.test.ts` (`S115-T07`, SHA-256 `2fb866812e4cc3a1cb470aa8b24118fd65b7dfbbaf18f5fe79e55b26fc89afdc`): regra nova W3 (transferência do lote pertence ao lote, não à 1ª compra). Antes: excluir a 1ª compra do lote restaurava o lançamento OF (`linked_transaction_id` nulo). Depois: excluir a 1ª compra mantém o OF casado (ancorado na compra seguinte) e reduz o `transfer_in` de 100.000 para 60.000; excluir a última compra restaura o OF. A asserção `ofEntry.linked_transaction_id === transactions[0].id` (ancoragem inicial) permanece.
+
+Execução da Fase B (suíte completa):
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **255/255 suítes PASS** (**1611/1611 testes PASS**, 47.137 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros em produção**, **0 erros em `Sprint114*`/`Sprint115*`/`Sprint116*`** (404 pré-existentes apenas em `__tests__`)
+- `cd services/market-api && go test ./...`: todos os pacotes testáveis `ok`
+- `npx eslint` nos arquivos alterados: **0 erros em linhas novas** (resta 1 erro `react-hooks/set-state-in-effect` antigo, no efeito de cotação de `TransactionScreen`, anterior à Sprint 104)
+- `node scripts/test-lock.js verify`: **274 arquivos íntegros**
 
 ## Sprint 115 — Correções da validação da Sprint 114 (Fase B concluída)
 

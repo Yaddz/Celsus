@@ -2,7 +2,7 @@ import Decimal from 'decimal.js';
 import { Transaction, Asset } from '../db/schema';
 import { runInTransaction } from '../db/client';
 import { decimalToCents } from '../domain/money';
-import { matchOpenFinanceInvestmentOutflow } from '../domain/financeFlow';
+import { isAppManagedCashAccount, matchOpenFinanceInvestmentOutflow } from '../domain/financeFlow';
 import { RebalanceAssetSuggestion } from '../domain/finance/types';
 import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
@@ -86,6 +86,14 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
 
     const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
     const brokerAccountId = portfolio?.fin_account_id ?? null;
+    const brokerAccount = brokerAccountId ? await finRepository.getAccountById(brokerAccountId) : null;
+    // W1a (Sprint 116): conta vinculada Open Finance = o extrato manda; nenhuma transferência nem investment_buy.
+    const isAppManagedCash = isAppManagedCashAccount(brokerAccount);
+    // W3: todas as compras e a transferência do lote compartilham o mesmo batch_id
+    const batchId =
+      brokerAccountId && isAppManagedCash && params.cashSource !== null
+        ? `batch-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+        : null;
 
     await runInTransaction(async () => {
       let itemCashSource: { accountId: string } | null | undefined = undefined;
@@ -107,13 +115,14 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
           fees: item.fees ?? '0.00',
           notes: item.notes ?? params.defaultNotes ?? 'Simulador de Aporte',
           ...(itemCashSource !== undefined ? { cashSource: itemCashSource } : {}),
+          ...(batchId ? { batchId } : {}),
         });
 
         transactions.push(execResult.transaction);
         updatedAssets.push(execResult.updatedAsset);
       }
 
-      if (brokerAccountId && params.cashSource !== null && transactions.length > 0) {
+      if (brokerAccountId && isAppManagedCash && params.cashSource !== null && transactions.length > 0) {
         const sourceAccountId = params.cashSource?.accountId || brokerAccountId;
         const totalCents = decimalToCents(totalInvested);
         const batchLinkedTxId = transactions[0].id;
@@ -146,6 +155,7 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
               linked_transaction_id: batchLinkedTxId,
               of_class_reason: matchedOf.of_class_reason ?? 'INVESTMENT_MOVE',
               of_link_restore: restorePayload,
+              batch_id: batchId,
             });
             await finRepository.createEntry({
               kind: 'transfer_in',
@@ -159,6 +169,7 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
               description: 'Aporte em lote',
               transfer_group_id: transferGroupId,
               linked_transaction_id: batchLinkedTxId,
+              batch_id: batchId,
             });
           } else {
             await finService.createTransfer({
@@ -168,6 +179,7 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
               dateIso: params.tradeDate,
               description: 'Aporte em lote',
               linkedTransactionId: batchLinkedTxId,
+              batchId,
             });
           }
         }

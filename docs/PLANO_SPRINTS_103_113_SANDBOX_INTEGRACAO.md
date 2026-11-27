@@ -252,3 +252,12 @@ aportes) e 108 (taxas). A 107 pode rodar em paralelo à 104–106, pois mexe só
 - **V5**: Transferência casada usa o valor pago do Open Finance (`paid_amount_cents ?? amount_cents`) no `transfer_in` da corretora, mantendo o troco/taxa real na corretora.
 - **V6**: `matchAppInvestmentTransferOut` (`domain/financeFlow/openFinanceMatch.ts`) e `pluggySyncService` fazem o casamento inverso quando a saída OF chega entre `-2` e `+10` dias após uma transferência do app, substituindo o `transfer_out` manual e ajustando o `transfer_in`.
 - **V7**: Correção dos erros de lint em `screens/sandbox/*.tsx`, `MonthCloseScreen.tsx`, `NetWorthScreen.tsx` e `SimulatorScreen.tsx`; botão `"Nova conta"` (`accounts-add-inline-btn`) preservado em `AccountsScreen` com `hideFab`; gráfico comparativo (`compare-chart`) implementado em `CompareScreen.tsx` sem dependência nativa externa.
+
+## 8. Correções da Sprint 116
+- **W1**: Conta vinculada de origem Open Finance ⇒ o extrato manda (`isAppManagedCashAccount`): compra/venda manual, aporte em lote e provento não criam `investment_*` nem transferência; ligação opcional `linked_transaction_id` com a liquidação do pregão (`matchBrokerSettlement`: soma líquida do pregão, `+4` dias úteis, tolerância = taxas B3 ou 0,5%); `TransactionScreen`/`SimulatorScreen` trocam `"Sai de"` pelo texto do extrato; `migration:of-linked-cash-cleanup:v1` limpa o legado (R40, R41).
+- **W2**: Aporte do mês = conta não de investimento → conta de investimento, líquido do caminho inverso; liquidação, taxas B3, aplicação/resgate automáticos (`isAutomaticSweep`) e `investment_*` nunca contam (R43). Export de novembro: ~R$ 850 de aporte fantasma deixam de aparecer; sobra só o Pix real de R$ 227,17 de outro banco para a corretora.
+- **W3**: `fin_entries.batch_id` liga a transferência do lote e todas as compras; excluir uma compra reduz a transferência, excluir a última apaga e restaura o OF (V4).
+- **W4**: Restauração de casamentos antigos sem `of_link_restore` por sinais (`INVESTMENT_MOVE`/grupo ⇒ `transfer_out`) ou pela classificação dos campos crus.
+- **W5**: Casamento inverso (V6) só com `INVESTMENT_MOVE` ou conta própria sem par, nunca aplicação automática (`isAppTransferMatchCandidate`).
+- **W6**: `TransactionScreen` sem `react-hooks/set-state-in-effect` nem `immutability` nas linhas das Sprints 104 e 114 (estado derivado com `useMemo`).
+
