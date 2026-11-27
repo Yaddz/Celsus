@@ -173,6 +173,29 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
             onPress={() => onOpen('reclassifyAportes')}
           />
         </FinListCard>
+        <FinListCard themeMode={themeMode} style={{ marginTop: space.md }}>
+          <FinListRow
+            testID="finance-more-fire"
+            icon="flag"
+            avatarColor="#D96628"
+            title="Independência financeira"
+            subtitle="Seu número e prazo no Simulador"
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('fire')}
+          />
+          <FinListRow
+            testID="finance-more-opportunity-cost"
+            icon="hourglass-bottom"
+            avatarColor="#5E9C76"
+            title="Custo de oportunidade"
+            subtitle="Quanto uma assinatura rende investida"
+            isLast
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('opportunityCost')}
+          />
+        </FinListCard>
       </ScrollView>
     </View>
   );

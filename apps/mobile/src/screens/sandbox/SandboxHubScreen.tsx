@@ -39,22 +39,6 @@ interface HubTileItem {
 
 const COMING_SOON_TILES: HubTileItem[] = [
   {
-    id: 'independencia',
-    testID: 'sandbox-tile-independencia',
-    title: 'Independência',
-    subtitle: 'Seu número e prazo pelos gastos reais',
-    icon: 'flag',
-    comingSoon: true,
-  },
-  {
-    id: 'custo-oportunidade',
-    testID: 'sandbox-tile-custo-oportunidade',
-    title: 'Custo de oportunidade',
-    subtitle: 'Assinatura ou gasto investido no tempo',
-    icon: 'hourglass-bottom',
-    comingSoon: true,
-  },
-  {
     id: 'teste-estresse',
     testID: 'sandbox-tile-teste-estresse',
     title: 'Teste de estresse',
@@ -77,6 +61,8 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
   onOpenTimeMachine,
   onOpenPaperPortfolio,
   onOpenDividendGoal,
+  onOpenFire,
+  onOpenOpportunityCost,
   onOpenContributionSimulator,
   onSwitchModule,
   isPrivacyMode = false,
@@ -189,6 +175,48 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
               <Text style={[styles.tileTitle, { color: textColor }]}>Meta de dividendos</Text>
               <Text style={[styles.tileSubtitle, { color: mutedColor }]}>
                 Quanto ter para receber R$ X/mês
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={mutedColor} />
+          </View>
+        </TouchableOpacity>
+
+        {/* Tile Independência (Sprint 112) */}
+        <TouchableOpacity
+          testID="sandbox-tile-independencia"
+          activeOpacity={0.8}
+          onPress={() => onOpenFire?.()}
+          style={[styles.tileCard, { backgroundColor: surface, borderColor }]}
+        >
+          <View style={styles.tileRow}>
+            <View style={[styles.tileIconBox, { backgroundColor: isLight ? '#EAE4D7' : '#22252A' }]}>
+              <MaterialIcons name="flag" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.tileTextCol}>
+              <Text style={[styles.tileTitle, { color: textColor }]}>Independência</Text>
+              <Text style={[styles.tileSubtitle, { color: mutedColor }]}>
+                Seu número e prazo pelos gastos reais
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={mutedColor} />
+          </View>
+        </TouchableOpacity>
+
+        {/* Tile Custo de oportunidade (Sprint 112) */}
+        <TouchableOpacity
+          testID="sandbox-tile-custo-oportunidade"
+          activeOpacity={0.8}
+          onPress={() => onOpenOpportunityCost?.()}
+          style={[styles.tileCard, { backgroundColor: surface, borderColor }]}
+        >
+          <View style={styles.tileRow}>
+            <View style={[styles.tileIconBox, { backgroundColor: isLight ? '#EAE4D7' : '#22252A' }]}>
+              <MaterialIcons name="hourglass-bottom" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.tileTextCol}>
+              <Text style={[styles.tileTitle, { color: textColor }]}>Custo de oportunidade</Text>
+              <Text style={[styles.tileSubtitle, { color: mutedColor }]}>
+                Assinatura ou gasto investido no tempo
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={20} color={mutedColor} />

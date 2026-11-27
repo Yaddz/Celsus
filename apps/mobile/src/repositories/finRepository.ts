@@ -597,6 +597,7 @@ export class FinRepository {
       amount_cents: Math.round(params.amount_cents),
       description: params.description ?? '',
       account_id: params.account_id,
+      target_account_id: params.target_account_id ?? null,
       category_id: params.category_id,
       frequency: params.frequency,
       day_of_month: params.day_of_month,

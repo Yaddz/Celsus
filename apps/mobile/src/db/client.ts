@@ -183,6 +183,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   paid_amount_cents INTEGER,
   status TEXT NOT NULL DEFAULT 'pending',
   account_id TEXT NOT NULL,
+  target_account_id TEXT,
   category_id TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   recurrence_id TEXT,
@@ -236,6 +237,7 @@ CREATE TABLE IF NOT EXISTS fin_recurrences (
   amount_cents INTEGER NOT NULL,
   description TEXT NOT NULL DEFAULT '',
   account_id TEXT NOT NULL,
+  target_account_id TEXT,
   category_id TEXT NOT NULL,
   frequency TEXT NOT NULL,
   day_of_month INTEGER NOT NULL DEFAULT 1,
@@ -336,6 +338,24 @@ CREATE TABLE IF NOT EXISTS sandbox_scenarios (
   spec_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sandbox_portfolios (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  start_date TEXT NOT NULL,
+  initial_cents INTEGER NOT NULL DEFAULT 0,
+  monthly_cents INTEGER NOT NULL DEFAULT 0,
+  rebalance TEXT NOT NULL DEFAULT 'never',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sandbox_portfolio_items (
+  id TEXT PRIMARY KEY NOT NULL,
+  sandbox_portfolio_id TEXT NOT NULL REFERENCES sandbox_portfolios(id) ON DELETE CASCADE,
+  ticker TEXT NOT NULL,
+  asset_class TEXT NOT NULL,
+  weight REAL NOT NULL,
+  created_at TEXT NOT NULL
 );
 `;
 
@@ -598,6 +618,11 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
     table: 'fin_recurrences',
     column: 'variable_amount',
     ddl: 'ALTER TABLE fin_recurrences ADD COLUMN variable_amount INTEGER NOT NULL DEFAULT 0',
+  },
+  {
+    table: 'fin_recurrences',
+    column: 'target_account_id',
+    ddl: 'ALTER TABLE fin_recurrences ADD COLUMN target_account_id TEXT',
   },
   { table: 'fin_accounts', column: 'closing_day', ddl: 'ALTER TABLE fin_accounts ADD COLUMN closing_day INTEGER' },
   { table: 'fin_accounts', column: 'due_day', ddl: 'ALTER TABLE fin_accounts ADD COLUMN due_day INTEGER' },

@@ -76,6 +76,8 @@ import { SandboxHubScreen } from './src/screens/sandbox/SandboxHubScreen';
 import { TimeMachineScreen } from './src/screens/sandbox/TimeMachineScreen';
 import { PaperPortfolioScreen } from './src/screens/sandbox/PaperPortfolioScreen';
 import { DividendGoalScreen } from './src/screens/sandbox/DividendGoalScreen';
+import { FireScreen } from './src/screens/sandbox/FireScreen';
+import { OpportunityCostScreen } from './src/screens/sandbox/OpportunityCostScreen';
 import type { SandboxScenarioRecord } from './src/repositories/sandboxRepository';
 import {
   redactCurrencyValue,
@@ -309,6 +311,8 @@ function AppContent(props: {
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
   const [isPaperPortfolioOpen, setIsPaperPortfolioOpen] = useState(false);
   const [isDividendGoalOpen, setIsDividendGoalOpen] = useState(false);
+  const [isFireOpen, setIsFireOpen] = useState(false);
+  const [isOpportunityCostOpen, setIsOpportunityCostOpen] = useState(false);
   const [selectedSandboxScenario, setSelectedSandboxScenario] = useState<SandboxScenarioRecord | null>(null);
   const pendingContribution = usePendingContributionStore();
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
@@ -891,6 +895,8 @@ function AppContent(props: {
     isTimeMachineOpen,
     isPaperPortfolioOpen,
     isDividendGoalOpen,
+    isFireOpen,
+    isOpportunityCostOpen,
   };
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -927,6 +933,12 @@ function AppContent(props: {
         case 'close-dividend-goal':
           setIsDividendGoalOpen(false);
           setSelectedSandboxScenario(null);
+          return true;
+        case 'close-fire':
+          setIsFireOpen(false);
+          return true;
+        case 'close-opportunity-cost':
+          setIsOpportunityCostOpen(false);
           return true;
         case 'close-sandbox-hub':
           setIsSandboxHubOpen(false);
@@ -1382,6 +1394,18 @@ function AppContent(props: {
           themeMode={themeMode}
           initialRoute={financeInitialRoute}
           initialOpenStatementImport={financeOpenStatementImport}
+          onOpenSandboxTool={(tool) => {
+            setIsFinanceOpen(false);
+            setActiveTab('stats');
+            setIsSandboxHubOpen(true);
+            if (tool === 'fire') {
+              setIsFireOpen(true);
+              setIsOpportunityCostOpen(false);
+            } else {
+              setIsOpportunityCostOpen(true);
+              setIsFireOpen(false);
+            }
+          }}
         />
       </SafeAreaView>
     );
@@ -1794,7 +1818,7 @@ function AppContent(props: {
   }
 
   // 8a. Camadas do Sandbox (Máquina do tempo, Carteira fictícia e Hub Simulador) dentro de Investimentos (dock com Análises ativa)
-  if (isTimeMachineOpen || isPaperPortfolioOpen || isDividendGoalOpen || isSandboxHubOpen) {
+  if (isTimeMachineOpen || isPaperPortfolioOpen || isDividendGoalOpen || isFireOpen || isOpportunityCostOpen || isSandboxHubOpen) {
     return (
       <SafeAreaView
         style={[
@@ -1858,6 +1882,34 @@ function AppContent(props: {
               setSelectedSandboxScenario(null);
             }}
           />
+        ) : isFireOpen ? (
+          <FireScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onBack={() => setIsFireOpen(false)}
+          />
+        ) : isOpportunityCostOpen ? (
+          <OpportunityCostScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            onOpenSubscriptions={() => {
+              setIsOpportunityCostOpen(false);
+              setIsSandboxHubOpen(false);
+              setFinanceInitialRoute('subscriptions');
+              setIsFinanceOpen(true);
+            }}
+            themeMode={themeMode}
+            onBack={() => setIsOpportunityCostOpen(false)}
+          />
         ) : (
           <SandboxHubScreen
             isPrivacyMode={isPrivacyMode}
@@ -1878,6 +1930,8 @@ function AppContent(props: {
               setSelectedSandboxScenario(scenario ?? null);
               setIsDividendGoalOpen(true);
             }}
+            onOpenFire={() => setIsFireOpen(true)}
+            onOpenOpportunityCost={() => setIsOpportunityCostOpen(true)}
             onOpenContributionSimulator={() => setIsSimulatorModalOpen(true)}
           />
         )}
@@ -1888,6 +1942,8 @@ function AppContent(props: {
             setIsTimeMachineOpen(false);
             setIsPaperPortfolioOpen(false);
             setIsDividendGoalOpen(false);
+            setIsFireOpen(false);
+            setIsOpportunityCostOpen(false);
             setIsSandboxHubOpen(false);
             setSelectedSandboxScenario(null);
             setActiveTab(tab);

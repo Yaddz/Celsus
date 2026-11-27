@@ -353,10 +353,11 @@ export const finCategoryRules = sqliteTable('fin_category_rules', {
  */
 export const finRecurrences = sqliteTable('fin_recurrences', {
   id: text('id').primaryKey(),
-  kind: text('kind').notNull(), // 'income' | 'expense'
+  kind: text('kind').notNull(), // 'income' | 'expense' | 'transfer'
   amount_cents: integer('amount_cents').notNull(),
   description: text('description').notNull(),
   account_id: text('account_id').notNull(),
+  target_account_id: text('target_account_id'),
   category_id: text('category_id').notNull(),
   frequency: text('frequency').notNull(), // 'weekly' | 'monthly' | 'yearly'
   day_of_month: integer('day_of_month').notNull(),
@@ -543,6 +544,37 @@ export const sandboxScenarios = sqliteTable('sandbox_scenarios', {
 
 export type SandboxScenario = typeof sandboxScenarios.$inferSelect;
 export type NewSandboxScenario = typeof sandboxScenarios.$inferInsert;
+
+/**
+ * SANDBOX_PORTFOLIOS & SANDBOX_PORTFOLIO_ITEMS (Sprint 110)
+ * Carteiras fictícias do simulador (nunca entram no patrimônio real).
+ */
+export const sandboxPortfolios = sqliteTable('sandbox_portfolios', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  start_date: text('start_date').notNull(),
+  initial_cents: integer('initial_cents').notNull().default(0),
+  monthly_cents: integer('monthly_cents').notNull().default(0),
+  rebalance: text('rebalance').notNull().default('never'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export const sandboxPortfolioItems = sqliteTable('sandbox_portfolio_items', {
+  id: text('id').primaryKey(),
+  sandbox_portfolio_id: text('sandbox_portfolio_id')
+    .notNull()
+    .references(() => sandboxPortfolios.id, { onDelete: 'cascade' }),
+  ticker: text('ticker').notNull(),
+  asset_class: text('asset_class').notNull(),
+  weight: real('weight').notNull(),
+  created_at: text('created_at').notNull(),
+});
+
+export type SandboxPortfolio = typeof sandboxPortfolios.$inferSelect;
+export type NewSandboxPortfolio = typeof sandboxPortfolios.$inferInsert;
+export type SandboxPortfolioItem = typeof sandboxPortfolioItems.$inferSelect;
+export type NewSandboxPortfolioItem = typeof sandboxPortfolioItems.$inferInsert;
 
 
 

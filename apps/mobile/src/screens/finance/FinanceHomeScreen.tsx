@@ -97,6 +97,7 @@ export interface FinanceHomeScreenProps {
   onTogglePrivacy?: () => void;
   themeMode?: ThemeMode;
   onNavigate?: (route: FinanceRoute) => void;
+  onOpenSandboxTool?: (tool: 'fire' | 'opportunityCost') => void;
   referenceDateIso?: string;
   initialRoute?: FinanceRoute;
   initialOpenStatementImport?: boolean;
@@ -159,6 +160,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   onTogglePrivacy,
   themeMode = 'dark',
   onNavigate,
+  onOpenSandboxTool,
   referenceDateIso,
   initialRoute = 'home',
   initialOpenStatementImport = false,
@@ -529,6 +531,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
               setIsStatementImportOpen(true);
             } else if (route === 'reclassifyAportes') {
               setIsReclassifyAportesOpen(true);
+            } else if (route === 'fire' || route === 'opportunityCost') {
+              onOpenSandboxTool?.(route);
             } else if (route in TAB_OF_ROUTE) {
               navigateTo(route as FinanceRoute);
             }
