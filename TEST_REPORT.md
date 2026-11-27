@@ -933,3 +933,36 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   ```bash
   cd apps/mobile && npx expo run:android
   ```
+
+---
+
+## Sprint 108 — Motor de Backtest e IR do Sandbox (`feat/sprint-108-sandbox-engine`)
+
+- **Base e Merge de Branch:**
+  - Branch `feat/sprint-108-sandbox-engine` criada a partir de `feat/sprint-107-market-us-fx` (`37967ac`).
+  - Branch `feat/sprint-106-month-close` (`b7dc4d4`) mesclada em `feat/sprint-108-sandbox-engine` (commit `96d3c10`, com resolução do lock em `tests.lock.json` e verificação `node scripts/test-lock.js verify`).
+
+### Conferência Legislativa Pré-Fase A (R49 — Tabela de IR Estimado)
+- **Data da conferência:** 2026-11-27
+- **Fontes oficiais consultadas:** Portal da Receita Federal do Brasil (`gov.br/receitafederal`) e Legislação Federal (`planalto.gov.br`): Lei nº 11.033/2004, Lei nº 8.981/1995, Lei nº 8.668/1993, Lei nº 11.196/2005 (art. 39), Lei nº 14.754/2023 (arts. 2º e 3º) e IN RFB nº 2.180/2024.
+- **Resultado da conferência linha a linha:**
+  - **Ação B3 (operação comum):** 15% sobre o ganho líquido; isento se o total de vendas de ações no mês for ≤ R$ 20.000,00. **Confere.**
+  - **FII:** 20% sobre o ganho líquido na venda de cotas, sem isenção (rendimentos/dividendos isentos para PF). **Confere.**
+  - **ETF B3 (renda variável):** 15% sobre o ganho líquido em operação comum, sem isenção de R$ 20.000. **Confere.**
+  - **Ação/ETF dos EUA (Lei 14.754/2023):** 15% sobre o ganho em reais apurado anualmente, sem isenção; dividendos retidos em 30% na fonte nos EUA. **Confere.**
+  - **Cripto (B3 / exchange nacional / autocustódia):** 15% sobre o ganho (faixa inicial até R$ 5M); isento se o total de alienações no mês for ≤ R$ 35.000,00 (custódia no exterior segue Lei 14.754/2023 a 15% anual sem isenção). **Confere.**
+  - **Câmbio (dólar em espécie / conta):** Moeda estrangeira em espécie tem isenção até o equivalente a **US$ 5.000,00 por ano-calendário** (Lei 11.196/2005, art. 39), com alíquota de 15% sobre o ganho acima do limite; depósitos em conta-corrente/cartão de débito **não remunerados** no exterior têm variação cambial **isenta** (Lei 14.754/2023, art. 3º, § 4º). **Confirmado.**
+  - **Renda fixa / CDI de comparação:** Tabela regressiva de 22,5% (até 180 dias), 20,0% (181–360 dias), 17,5% (361–720 dias) e 15,0% (acima de 720 dias) sobre o rendimento. **Confere.**
+  - **Poupança:** Isenta de IR para pessoa física. **Confere.**
+
+### Sprint 108 — Fase A (Red Phase & Lock)
+- **Stubs criados para compilação:**
+  - `apps/mobile/src/domain/sandbox/priceAt.ts`, `extremes.ts`, `taxRules.ts`, `backtest.ts`
+  - `apps/mobile/src/db/schema.ts` (`sandboxScenarios`)
+  - `apps/mobile/src/repositories/sandboxRepository.ts`
+  - `apps/mobile/src/services/sandboxService.ts`
+- **Testes criados e travados:**
+  - `apps/mobile/src/domain/sandbox/__tests__/Sprint108SandboxDomain.test.ts` (`S108-T01` a `S108-T19`): `priceAt` (dia útil, fim de semana, feriado, lacuna > 7 dias e `valueInBRL`), `extremes` (`minInRange`/`maxInRange` e empate na primeira ocorrência), dólar (R$ 10.000 a 4,99 → 5,80), ação dos EUA (preço USD e câmbio distintos), proventos reinvestidos × em caixa e retenção de 30% em `US_STOCK`, IR (R49) para ação B3, FII, `US_STOCK`, cripto, `taxEnabled=false`, benchmarks CDI (regressiva) e poupança, e perna sem dado (`missing_data` e total `null`).
+  - `apps/mobile/src/services/__tests__/Sprint108SandboxPersistenceAndService.test.ts` (`S108-T20` a `S108-T21`): CRUD, migração e backup/restore de `sandbox_scenarios` (sem gravar resultado calculado) e `sandboxService` (busca em lote com `class`, `USDBRL`, `fetchMacroRates` e cache local).
+- **Execução Red Phase:** `npm --prefix apps/mobile test -- --watchAll=false Sprint108Sandbox` → **2 suites, 21/21 testes falhando** (`Not implemented`).
+- **Lock:** `node scripts/test-lock.js lock` executado — **255 arquivos** travados em `tests.lock.json`.

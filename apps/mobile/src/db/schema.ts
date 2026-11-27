@@ -528,5 +528,22 @@ export type NewFinGoalSource = typeof finGoalSources.$inferInsert;
 export type NetWorthSnapshot = typeof netWorthSnapshots.$inferSelect;
 export type NewNetWorthSnapshot = typeof netWorthSnapshots.$inferInsert;
 
+/**
+ * SANDBOX_SCENARIOS (Sprint 108)
+ * Cenários salvos do simulador (apenas especificação; resultado é recalculado ao abrir).
+ */
+export const sandboxScenarios = sqliteTable('sandbox_scenarios', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  kind: text('kind').notNull().default('time_machine'),
+  spec_json: text('spec_json').notNull(),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull(),
+});
+
+export type SandboxScenario = typeof sandboxScenarios.$inferSelect;
+export type NewSandboxScenario = typeof sandboxScenarios.$inferInsert;
+
+
 
 
