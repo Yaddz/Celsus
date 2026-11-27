@@ -70,6 +70,7 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isSimulatorOpen) return 'close-simulator';
   if (state.isTimeMachineOpen) return 'close-time-machine';
   if (state.isPaperPortfolioOpen) return 'close-paper-portfolio';
+  if (state.isDividendGoalOpen) return 'close-dividend-goal';
   if (state.isSandboxHubOpen) return 'close-sandbox-hub';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';

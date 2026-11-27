@@ -37,14 +37,6 @@ interface HubTileItem {
 
 const COMING_SOON_TILES: HubTileItem[] = [
   {
-    id: 'meta-dividendos',
-    testID: 'sandbox-tile-meta-dividendos',
-    title: 'Meta de dividendos',
-    subtitle: 'Quanto ter para receber R$ X/mês',
-    icon: 'payments',
-    comingSoon: true,
-  },
-  {
     id: 'independencia',
     testID: 'sandbox-tile-independencia',
     title: 'Independência',
@@ -82,6 +74,7 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
   onBack,
   onOpenTimeMachine,
   onOpenPaperPortfolio,
+  onOpenDividendGoal,
   onOpenContributionSimulator,
   onSwitchModule,
   isPrivacyMode = false,
@@ -94,7 +87,7 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
 
   const loadScenarios = useCallback(async () => {
     try {
-      const list = await sandboxRepository.listScenarios('time_machine');
+      const list = await sandboxRepository.listScenarios();
       setScenarios(list);
     } catch {
       setScenarios([]);
@@ -179,6 +172,27 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
           </View>
         </TouchableOpacity>
 
+        {/* Tile Meta de dividendos (Sprint 111) */}
+        <TouchableOpacity
+          testID="sandbox-tile-meta-dividendos"
+          activeOpacity={0.8}
+          onPress={() => onOpenDividendGoal?.()}
+          style={[styles.tileCard, { backgroundColor: surface, borderColor }]}
+        >
+          <View style={styles.tileRow}>
+            <View style={[styles.tileIconBox, { backgroundColor: isLight ? '#EAE4D7' : '#22252A' }]}>
+              <MaterialIcons name="payments" size={20} color={colors.primary} />
+            </View>
+            <View style={styles.tileTextCol}>
+              <Text style={[styles.tileTitle, { color: textColor }]}>Meta de dividendos</Text>
+              <Text style={[styles.tileSubtitle, { color: mutedColor }]}>
+                Quanto ter para receber R$ X/mês
+              </Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={mutedColor} />
+          </View>
+        </TouchableOpacity>
+
         {/* Tile Aporte (SimulatorScreen atual) */}
         <TouchableOpacity
           testID="sandbox-tile-aporte"
@@ -242,7 +256,13 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
                 key={sc.id}
                 testID={`sandbox-saved-${sc.id}`}
                 activeOpacity={0.8}
-                onPress={() => onOpenTimeMachine?.(sc)}
+                onPress={() => {
+                  if (sc.kind === 'dividend_goal') {
+                    onOpenDividendGoal?.(sc);
+                  } else {
+                    onOpenTimeMachine?.(sc);
+                  }
+                }}
                 style={[styles.savedRow, { backgroundColor: surface, borderColor }]}
               >
                 <View style={styles.savedInfo}>

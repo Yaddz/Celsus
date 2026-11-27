@@ -74,6 +74,8 @@ import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
 import { FinanceHomeScreen, type FinanceRoute } from './src/screens/finance';
 import { SandboxHubScreen } from './src/screens/sandbox/SandboxHubScreen';
 import { TimeMachineScreen } from './src/screens/sandbox/TimeMachineScreen';
+import { PaperPortfolioScreen } from './src/screens/sandbox/PaperPortfolioScreen';
+import { DividendGoalScreen } from './src/screens/sandbox/DividendGoalScreen';
 import type { SandboxScenarioRecord } from './src/repositories/sandboxRepository';
 import {
   redactCurrencyValue,
@@ -305,6 +307,8 @@ function AppContent(props: {
   const [simulatorPrefill, setSimulatorPrefill] = useState<PendingContributionPayload | null>(null);
   const [isSandboxHubOpen, setIsSandboxHubOpen] = useState(false);
   const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
+  const [isPaperPortfolioOpen, setIsPaperPortfolioOpen] = useState(false);
+  const [isDividendGoalOpen, setIsDividendGoalOpen] = useState(false);
   const [selectedSandboxScenario, setSelectedSandboxScenario] = useState<SandboxScenarioRecord | null>(null);
   const pendingContribution = usePendingContributionStore();
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
@@ -885,6 +889,8 @@ function AppContent(props: {
     isSimulatorOpen: isSimulatorModalOpen,
     isSandboxHubOpen,
     isTimeMachineOpen,
+    isPaperPortfolioOpen,
+    isDividendGoalOpen,
   };
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -913,6 +919,13 @@ function AppContent(props: {
           return true;
         case 'close-time-machine':
           setIsTimeMachineOpen(false);
+          setSelectedSandboxScenario(null);
+          return true;
+        case 'close-paper-portfolio':
+          setIsPaperPortfolioOpen(false);
+          return true;
+        case 'close-dividend-goal':
+          setIsDividendGoalOpen(false);
           setSelectedSandboxScenario(null);
           return true;
         case 'close-sandbox-hub':
@@ -1780,8 +1793,8 @@ function AppContent(props: {
     );
   }
 
-  // 8a. Camadas do Sandbox (Máquina do tempo e Hub Simulador) dentro de Investimentos (dock com Análises ativa)
-  if (isTimeMachineOpen || isSandboxHubOpen) {
+  // 8a. Camadas do Sandbox (Máquina do tempo, Carteira fictícia e Hub Simulador) dentro de Investimentos (dock com Análises ativa)
+  if (isTimeMachineOpen || isPaperPortfolioOpen || isDividendGoalOpen || isSandboxHubOpen) {
     return (
       <SafeAreaView
         style={[
@@ -1810,6 +1823,41 @@ function AppContent(props: {
               setSelectedSandboxScenario(null);
             }}
           />
+        ) : isPaperPortfolioOpen ? (
+          <PaperPortfolioScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onPortfolioConverted={() => refreshAppData()}
+            onBack={() => setIsPaperPortfolioOpen(false)}
+          />
+        ) : isDividendGoalOpen ? (
+          <DividendGoalScreen
+            initialScenario={selectedSandboxScenario}
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onOpenContributionSimulator={(amountBRL) => {
+              setSimulatorPrefill({
+                amountCents: Math.round(amountBRL * 100),
+                sourceAccountId: '',
+                month: new Date().toISOString().slice(0, 7),
+              });
+              setIsSimulatorModalOpen(true);
+            }}
+            onBack={() => {
+              setIsDividendGoalOpen(false);
+              setSelectedSandboxScenario(null);
+            }}
+          />
         ) : (
           <SandboxHubScreen
             isPrivacyMode={isPrivacyMode}
@@ -1825,6 +1873,11 @@ function AppContent(props: {
               setSelectedSandboxScenario(scenario ?? null);
               setIsTimeMachineOpen(true);
             }}
+            onOpenPaperPortfolio={() => setIsPaperPortfolioOpen(true)}
+            onOpenDividendGoal={(scenario) => {
+              setSelectedSandboxScenario(scenario ?? null);
+              setIsDividendGoalOpen(true);
+            }}
             onOpenContributionSimulator={() => setIsSimulatorModalOpen(true)}
           />
         )}
@@ -1833,6 +1886,8 @@ function AppContent(props: {
           forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
           onTabChange={(tab) => {
             setIsTimeMachineOpen(false);
+            setIsPaperPortfolioOpen(false);
+            setIsDividendGoalOpen(false);
             setIsSandboxHubOpen(false);
             setSelectedSandboxScenario(null);
             setActiveTab(tab);
