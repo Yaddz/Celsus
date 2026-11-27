@@ -916,3 +916,4 @@ export function detectOverdueAndDueSoonWithBills(
 
 export * from './budgetsAndCashflow';
 export * from './monthSummary';
+export * from './monthClose';

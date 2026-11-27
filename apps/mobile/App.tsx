@@ -33,6 +33,7 @@ import {
   BentoRow,
 } from './src/components/ui';
 import { finGoalsService } from './src/services/finGoalsService';
+import { pendingContributionStore, usePendingContributionStore, type PendingContributionPayload } from './src/stores/pendingContributionStore';
 import { patrimonyService } from './src/services/patrimonyService';
 import { formatCentsBRL } from './src/domain/financeFlow';
 import { centsToDecimal } from './src/domain/money';
@@ -298,6 +299,8 @@ function AppContent(props: {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
+  const [simulatorPrefill, setSimulatorPrefill] = useState<PendingContributionPayload | null>(null);
+  const pendingContribution = usePendingContributionStore();
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [isOpenFinanceOpen, setIsOpenFinanceOpen] = useState(false);
   const [isB3ImportOpen, setIsB3ImportOpen] = useState(() => props.initialAction === 'import_b3');
@@ -1131,12 +1134,24 @@ function AppContent(props: {
   };
 
   // 2. Modal Padronizado: Simulador de Novo Aporte (Rebalanceamento)
+  useEffect(() => {
+    if (!isFinanceOpen && pendingContribution) {
+      const consumed = pendingContributionStore.consume();
+      if (consumed) {
+        setSimulatorPrefill(consumed);
+        setIsSimulatorModalOpen(true);
+      }
+    }
+  }, [isFinanceOpen, pendingContribution]);
+
   const renderSimulatorModal = () => (
     <AnimatedModalSheet
       testID="simulator-modal-sheet"
       visible={isSimulatorModalOpen}
       onClose={() => {
         setIsSimulatorModalOpen(false);
+        setSimulatorPrefill(null);
+        pendingContributionStore.clear();
         refreshAppData();
       }}
       themeMode={themeMode}
@@ -1146,11 +1161,18 @@ function AppContent(props: {
       <SimulatorScreen
         isPrivacyMode={isPrivacyMode}
         themeMode={themeMode}
+        initialAmount={simulatorPrefill ? simulatorPrefill.amountCents / 100 : undefined}
+        sourceAccountId={simulatorPrefill?.sourceAccountId}
         onClose={() => {
           setIsSimulatorModalOpen(false);
+          setSimulatorPrefill(null);
+          pendingContributionStore.clear();
           refreshAppData();
         }}
-        onContributionsConfirmed={() => refreshAppData()}
+        onContributionsConfirmed={() => {
+          setSimulatorPrefill(null);
+          refreshAppData();
+        }}
       />
     </AnimatedModalSheet>
   );

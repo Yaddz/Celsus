@@ -503,6 +503,7 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'rf_maturity_date',
   'rf_is_tax_exempt',
   'rf_issuer',
+  'rf_daily_liquidity',
   'source',
   'external_id',
   'institution_id',
@@ -1115,6 +1116,10 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     rf_maturity_date: r.rf_maturity_date === '' ? null : r.rf_maturity_date,
     rf_is_tax_exempt: Number(r.rf_is_tax_exempt || 0),
     rf_issuer: !r.rf_issuer || r.rf_issuer === '' ? null : r.rf_issuer,
+    rf_daily_liquidity:
+      r.rf_daily_liquidity === undefined || r.rf_daily_liquidity === ''
+        ? null
+        : Number(r.rf_daily_liquidity),
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id,
     institution_id: r.institution_id === '' ? null : r.institution_id,

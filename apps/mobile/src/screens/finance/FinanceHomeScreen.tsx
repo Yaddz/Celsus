@@ -60,6 +60,8 @@ import { FinanceMoreScreen } from './FinanceMoreScreen';
 import { BudgetScreen } from './BudgetScreen';
 import { GoalsScreen } from './GoalsScreen';
 import { NetWorthScreen } from './NetWorthScreen';
+import { MonthCloseScreen } from './MonthCloseScreen';
+import { monthCloseService } from '../../services/monthCloseService';
 import { finGoalsService } from '../../services/finGoalsService';
 import {
   formatSignedCentsBRL,
@@ -81,6 +83,7 @@ export type FinanceRoute =
   | 'cardBill'
   | 'categories'
   | 'categoryRules'
+  | 'monthClose'
   | 'more';
 
 export interface FinanceHomeScreenProps {
@@ -116,6 +119,7 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   recurrences: 'more',
   categories: 'more',
   categoryRules: 'more',
+  monthClose: 'home',
 };
 
 /** Para onde o voltar leva a partir de cada rota (home = sair do módulo). */
@@ -132,6 +136,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   recurrences: 'more',
   categories: 'more',
   categoryRules: 'more',
+  monthClose: 'home',
 };
 
 export type FinanceTab = 'home' | 'entries' | 'accounts' | 'more';
@@ -197,7 +202,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [isReclassifyAportesOpen, setIsReclassifyAportesOpen] = useState(false);
   const [accountsBalanceCents, setAccountsBalanceCents] = useState(0);
   const [cardsDebtCents, setCardsDebtCents] = useState(0);
-  const [showCloseMonthButton, setShowCloseMonthButton] = useState(false);
+  const [reserveMonths, setReserveMonths] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialOpenStatementImport) {
@@ -213,7 +218,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, closeMonthFlag] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, monthCloseProposal] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
@@ -223,7 +228,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         finRepository.listAllBills(),
         openFinanceRepository.listItems(),
         patrimonyService.getPatrimony(effectiveToday),
-        appMetaRepository.get('feature:month-close:v1'),
+        monthCloseService.getProposal(effectiveMonth, { todayIso: effectiveToday }).catch(() => null),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
@@ -234,7 +239,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setBills(allBills);
       setAccountsBalanceCents(pat.accountsCents);
       setCardsDebtCents(pat.cardsCents);
-      setShowCloseMonthButton(closeMonthFlag === '1');
+      setReserveMonths(monthCloseProposal?.reserve.months ?? null);
       setHasOfItems(ofItems.length > 0);
       const latestSynced = ofItems
         .map((it) => it.last_synced_at)
@@ -547,6 +552,24 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         />
       );
     }
+    if (activeRoute === 'monthClose') {
+      return (
+        <MonthCloseScreen
+          yearMonth={effectiveMonth}
+          referenceDateIso={effectiveToday}
+          onBack={() => {
+            setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home');
+            void loadData();
+          }}
+          onClosedAndContribute={() => {
+            setActiveRoute('home');
+            onSwitchModule?.();
+          }}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
+        />
+      );
+    }
     if (activeRoute === 'netWorth') {
       return (
         <NetWorthScreen
@@ -837,27 +860,30 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                       {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.netCents)}
                     </Text>
                   </View>
-                  {showCloseMonthButton ? (
-                    <TouchableOpacity
-                      testID="finance-close-month-btn"
-                      accessibilityRole="button"
-                      style={{ marginTop: space.xs }}
-                    >
-                      <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
-                        Fechar o mês ›
-                      </Text>
-                    </TouchableOpacity>
-                  ) : null}
+                  <TouchableOpacity
+                    testID="finance-close-month-btn"
+                    accessibilityRole="button"
+                    onPress={() => setActiveRoute('monthClose')}
+                    style={{ marginTop: space.xs }}
+                  >
+                    <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
+                      Fechar o mês ›
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </BentoTile>
 
-              {/* Reserva (artboard 7, R45 — placeholder "—" até Sprint 106) */}
+              {/* Reserva (artboard 7, R45) */}
               <BentoTile
                 variant={tileVariant}
                 title="RESERVA"
                 testID="finance-reserve-tile"
               >
-                <Text style={[styles.pairValue, { color: c.text }]}>—</Text>
+                <Text style={[styles.pairValue, { color: c.text }]}>
+                  {reserveMonths === null
+                    ? '—'
+                    : `${reserveMonths.toFixed(1).replace('.', ',')} meses`}
+                </Text>
                 <Text style={[styles.pairCaption, { color: c.muted }]}>Fundo de emergência</Text>
               </BentoTile>
 

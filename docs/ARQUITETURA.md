@@ -459,3 +459,9 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/financeFlow/monthSummary.ts` (`R43`): cálculo puro de receitas (com destaque de proventos), despesas, aportes (deduplicando transferência + `investment_buy`), sobra e taxa de poupança.
 - `services/finGoalsService.ts`, `App.tsx` & `screens/PortfolioManagementScreen.tsx` (`R44`): migração `migration:portfolio-goals-to-fin-goals:v1` e leitura/escrita unificada em `fin_goals` fonte `'portfolio'`.
 - `screens/finance/FinanceHomeScreen.tsx` (`DEC-5`, artboard 7): tiles `"Saldo em contas"`, `"O mês em uma linha"`, `"Reserva"` e `"Próximos 7 dias"`, sem nenhum bloco de Investimentos.
+
+## Fechar o Mês (Sprint 106)
+
+- `domain/financeFlow/monthClose.ts` (`R45`): `availableSurplus` (sobra do mês − pendentes até dia D), `averageMonthlyExpenses` e `emergencyReserve` (`checking`/`cash` + renda fixa com `rf_daily_liquidity === 1` ÷ média de despesas 6m).
+- `stores/pendingContributionStore.ts` & `services/monthCloseService.ts`: proposta de fechamento, gravação de `month-close:YYYY-MM` em `app_meta` e ponte de consumo único para Investimentos.
+- `screens/finance/MonthCloseScreen.tsx` (artboard 8), `FinanceHomeScreen.tsx`, `screens/SimulatorScreen.tsx` (`initialAmount`/`sourceAccountId`), `App.tsx`, `navigation/backNavigation.ts` & `services/finReminderService.ts` (`checkAndNotifyMonthClose` no dia 1º).

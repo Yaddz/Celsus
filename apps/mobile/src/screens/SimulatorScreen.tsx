@@ -26,6 +26,8 @@ export interface SimulatorScreenProps {
   onClose: () => void;
   onContributionsConfirmed?: () => void;
   initialPortfolioId?: string;
+  initialAmount?: string | number;
+  sourceAccountId?: string;
   isPrivacyMode?: boolean;
   themeMode?: 'dark' | 'light';
   testID?: string;
@@ -43,6 +45,8 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   onClose,
   onContributionsConfirmed = () => {},
   initialPortfolioId,
+  initialAmount,
+  sourceAccountId,
   isPrivacyMode = false,
   themeMode = 'dark',
   testID = 'simulator-screen',
@@ -58,7 +62,26 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [contributionAmountText, setContributionAmountText] = useState('');
+  const [contributionAmountText, setContributionAmountText] = useState(() => {
+    if (initialAmount === undefined || initialAmount === null || initialAmount === '') return '';
+    if (typeof initialAmount === 'number') {
+      return Number.isFinite(initialAmount) && initialAmount > 0
+        ? initialAmount.toFixed(2).replace('.', ',')
+        : '';
+    }
+    return String(initialAmount);
+  });
+
+  useEffect(() => {
+    if (initialAmount === undefined || initialAmount === null || initialAmount === '') return;
+    if (typeof initialAmount === 'number') {
+      if (Number.isFinite(initialAmount) && initialAmount > 0) {
+        setContributionAmountText(initialAmount.toFixed(2).replace('.', ','));
+      }
+    } else {
+      setContributionAmountText(String(initialAmount));
+    }
+  }, [initialAmount]);
 
   const [simulationResult, setSimulationResult] = useState<RebalanceResult | null>(null);
   const [extraShareTickers, setExtraShareTickers] = useState<string[]>([]);
@@ -103,7 +126,17 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       return;
     }
 
-    if (assets.length === 0) {
+    let currentAssets = assets;
+    if (currentAssets.length === 0 && selectedPortfolioId) {
+      try {
+        currentAssets = await assetRepository.getAssetsByPortfolio(selectedPortfolioId);
+        setAssets(currentAssets);
+      } catch {
+        currentAssets = [];
+      }
+    }
+
+    if (currentAssets.length === 0) {
       Alert.alert(
         'Nenhum ativo',
         'Nenhum ativo cadastrado nesta carteira. Adicione ativos na carteira para realizar simulações de aporte.'
@@ -118,7 +151,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       classTargets = [];
     }
     const priceOf = (a: Asset) => (parseFloat(a.average_price) > 0 ? a.average_price : '50.00');
-    const inputAssets = assets.map((a) => ({
+    const inputAssets = currentAssets.map((a) => ({
       ticker: a.ticker,
       assetClass: a.asset_class as AssetClass,
       price: priceOf(a),
@@ -171,6 +204,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
         suggestions: simulationResult.suggestions,
         assetIdMap,
         notes: 'Simulador de Aporte Inteligente',
+        cashSource: sourceAccountId ? { accountId: sourceAccountId } : undefined,
       });
 
       Alert.alert(

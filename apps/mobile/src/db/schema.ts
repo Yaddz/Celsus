@@ -58,6 +58,7 @@ export const assets = sqliteTable('assets', {
   rf_maturity_date: text('rf_maturity_date'),
   rf_is_tax_exempt: integer('rf_is_tax_exempt').notNull().default(0),
   rf_issuer: text('rf_issuer'),
+  rf_daily_liquidity: integer('rf_daily_liquidity'), // 1 = liquidez diária, 0/NULL = não líquida
 
   // Open Finance integration fields
   source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE
