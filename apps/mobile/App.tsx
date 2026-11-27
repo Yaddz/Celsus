@@ -78,6 +78,8 @@ import { PaperPortfolioScreen } from './src/screens/sandbox/PaperPortfolioScreen
 import { DividendGoalScreen } from './src/screens/sandbox/DividendGoalScreen';
 import { FireScreen } from './src/screens/sandbox/FireScreen';
 import { OpportunityCostScreen } from './src/screens/sandbox/OpportunityCostScreen';
+import { StressTestScreen } from './src/screens/sandbox/StressTestScreen';
+import { CompareScreen } from './src/screens/sandbox/CompareScreen';
 import type { SandboxScenarioRecord } from './src/repositories/sandboxRepository';
 import {
   redactCurrencyValue,
@@ -313,6 +315,8 @@ function AppContent(props: {
   const [isDividendGoalOpen, setIsDividendGoalOpen] = useState(false);
   const [isFireOpen, setIsFireOpen] = useState(false);
   const [isOpportunityCostOpen, setIsOpportunityCostOpen] = useState(false);
+  const [isStressTestOpen, setIsStressTestOpen] = useState(false);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
   const [selectedSandboxScenario, setSelectedSandboxScenario] = useState<SandboxScenarioRecord | null>(null);
   const pendingContribution = usePendingContributionStore();
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
@@ -897,6 +901,8 @@ function AppContent(props: {
     isDividendGoalOpen,
     isFireOpen,
     isOpportunityCostOpen,
+    isStressTestOpen,
+    isCompareOpen,
   };
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -939,6 +945,12 @@ function AppContent(props: {
           return true;
         case 'close-opportunity-cost':
           setIsOpportunityCostOpen(false);
+          return true;
+        case 'close-stress-test':
+          setIsStressTestOpen(false);
+          return true;
+        case 'close-compare':
+          setIsCompareOpen(false);
           return true;
         case 'close-sandbox-hub':
           setIsSandboxHubOpen(false);
@@ -1818,7 +1830,7 @@ function AppContent(props: {
   }
 
   // 8a. Camadas do Sandbox (Máquina do tempo, Carteira fictícia e Hub Simulador) dentro de Investimentos (dock com Análises ativa)
-  if (isTimeMachineOpen || isPaperPortfolioOpen || isDividendGoalOpen || isFireOpen || isOpportunityCostOpen || isSandboxHubOpen) {
+  if (isTimeMachineOpen || isPaperPortfolioOpen || isDividendGoalOpen || isFireOpen || isOpportunityCostOpen || isStressTestOpen || isCompareOpen || isSandboxHubOpen) {
     return (
       <SafeAreaView
         style={[
@@ -1910,6 +1922,28 @@ function AppContent(props: {
             themeMode={themeMode}
             onBack={() => setIsOpportunityCostOpen(false)}
           />
+        ) : isStressTestOpen ? (
+          <StressTestScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onBack={() => setIsStressTestOpen(false)}
+          />
+        ) : isCompareOpen ? (
+          <CompareScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onBack={() => setIsCompareOpen(false)}
+          />
         ) : (
           <SandboxHubScreen
             isPrivacyMode={isPrivacyMode}
@@ -1932,6 +1966,8 @@ function AppContent(props: {
             }}
             onOpenFire={() => setIsFireOpen(true)}
             onOpenOpportunityCost={() => setIsOpportunityCostOpen(true)}
+            onOpenStressTest={() => setIsStressTestOpen(true)}
+            onOpenCompare={() => setIsCompareOpen(true)}
             onOpenContributionSimulator={() => setIsSimulatorModalOpen(true)}
           />
         )}
@@ -1943,6 +1979,9 @@ function AppContent(props: {
             setIsPaperPortfolioOpen(false);
             setIsDividendGoalOpen(false);
             setIsFireOpen(false);
+            setIsOpportunityCostOpen(false);
+            setIsStressTestOpen(false);
+            setIsCompareOpen(false);
             setIsOpportunityCostOpen(false);
             setIsSandboxHubOpen(false);
             setSelectedSandboxScenario(null);

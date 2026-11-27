@@ -33,6 +33,8 @@ export interface BackState {
   isDividendGoalOpen?: boolean;
   isFireOpen?: boolean;
   isOpportunityCostOpen?: boolean;
+  isStressTestOpen?: boolean;
+  isCompareOpen?: boolean;
 }
 
 export type BackAction =
@@ -56,6 +58,8 @@ export type BackAction =
   | 'close-dividend-goal'
   | 'close-fire'
   | 'close-opportunity-cost'
+  | 'close-stress-test'
+  | 'close-compare'
   | 'go-home'
   | 'exit';
 
@@ -77,6 +81,8 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isDividendGoalOpen) return 'close-dividend-goal';
   if (state.isFireOpen) return 'close-fire';
   if (state.isOpportunityCostOpen) return 'close-opportunity-cost';
+  if (state.isStressTestOpen) return 'close-stress-test';
+  if (state.isCompareOpen) return 'close-compare';
   if (state.isSandboxHubOpen) return 'close-sandbox-hub';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';
