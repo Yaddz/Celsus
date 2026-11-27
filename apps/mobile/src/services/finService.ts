@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../db/client';
-import { finAccounts, finEntries, incomeEvents, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
+import { finAccounts, finEntries, incomeEvents, ofItems, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
 import {
   addDaysIso,
   addMonthsYearMonth,
@@ -40,7 +40,7 @@ export class FinService {
     await this.migrateOrphanRecordsIfNeeded();
     await this.migrateCardBillMonthsIfNeeded();
     await this.migrateBrokerAccountsIfNeeded();
-    await this.migrateBrokerLinkSuggestV2IfNeeded();
+    await this.migrateFinAccountsOfItemIdIfNeeded();
     await this.migrateRemoveB3ImportCashEntriesIfNeeded();
     await finGoalsService.migrateLegacyGoalsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
@@ -280,8 +280,72 @@ export class FinService {
     return migratedCount;
   }
 
+  /**
+   * V1b (Sprint 115): Preenche `fin_accounts.of_item_id` sem rede quando houver dado local suficiente
+   * (carteira vinculada com `of_item_id`, lançamento ligado a `income_events.item_id`, ou único item OF no banco).
+   * Contas ambíguas ficam `null` até a próxima sincronização.
+   */
   async migrateFinAccountsOfItemIdIfNeeded(): Promise<number> {
-    return 0;
+    const alreadyDone = await appMetaRepository.get(FIN_ACCOUNTS_OF_ITEM_ID_V1_META_KEY);
+    if (alreadyDone) return 0;
+
+    const db = getDatabase();
+    const [allAccounts, allPortfolios, allEntries, allIncomes, allOfItems] = await Promise.all([
+      finRepository.listAccounts(true),
+      portfolioRepository.listPortfolios(true),
+      finRepository.listAllEntries(),
+      db.select().from(incomeEvents),
+      db.select().from(ofItems),
+    ]);
+
+    const itemByPortfolioAccount = new Map<string, string>();
+    for (const p of allPortfolios) {
+      if (p.fin_account_id && p.of_item_id) {
+        itemByPortfolioAccount.set(p.fin_account_id, p.of_item_id);
+      }
+    }
+
+    const incomeItemById = new Map<string, string>();
+    for (const inc of allIncomes) {
+      if (inc.item_id) incomeItemById.set(inc.id, inc.item_id);
+    }
+
+    const itemByAccountIncome = new Map<string, Set<string>>();
+    for (const e of allEntries) {
+      if (!e.linked_income_id) continue;
+      const itemId = incomeItemById.get(e.linked_income_id);
+      if (!itemId) continue;
+      const set = itemByAccountIncome.get(e.account_id) ?? new Set<string>();
+      set.add(itemId);
+      itemByAccountIncome.set(e.account_id, set);
+    }
+
+    const singleOfItemId = allOfItems.length === 1 ? allOfItems[0].id : null;
+    let updatedCount = 0;
+
+    for (const acc of allAccounts) {
+      if (acc.of_item_id) continue;
+      if (acc.source !== 'OPEN_FINANCE' && !acc.of_account_id) continue;
+
+      let deduced: string | null = itemByPortfolioAccount.get(acc.id) ?? null;
+      if (!deduced) {
+        const incItems = itemByAccountIncome.get(acc.id);
+        if (incItems && incItems.size === 1) {
+          deduced = Array.from(incItems)[0];
+        }
+      }
+      if (!deduced && singleOfItemId) {
+        deduced = singleOfItemId;
+      }
+
+      if (deduced) {
+        await finRepository.updateAccount(acc.id, { of_item_id: deduced });
+        updatedCount += 1;
+      }
+    }
+
+    await appMetaRepository.set(FIN_ACCOUNTS_OF_ITEM_ID_V1_META_KEY, '1');
+    return updatedCount;
   }
 
   async ensureMonthGenerated(yearMonth: string, referenceDateIso?: string): Promise<void> {

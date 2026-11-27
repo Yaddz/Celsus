@@ -323,18 +323,30 @@ export class TransactionService implements ITransactionService {
                 const transferGroupId =
                   matchedOf.transfer_group_id ??
                   `tr-of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                const restorePayload =
+                  matchedOf.of_link_restore ??
+                  JSON.stringify({
+                    kind: matchedOf.kind,
+                    transfer_group_id: matchedOf.transfer_group_id ?? null,
+                    of_class_reason: matchedOf.of_class_reason ?? null,
+                  });
+                const matchedCents =
+                  matchedOf.status === 'paid'
+                    ? (matchedOf.paid_amount_cents ?? matchedOf.amount_cents)
+                    : matchedOf.amount_cents;
                 await finRepository.updateEntry(matchedOf.id, {
                   kind: 'transfer_out',
                   transfer_group_id: transferGroupId,
                   linked_transaction_id: transaction.id,
                   of_class_reason: matchedOf.of_class_reason ?? 'INVESTMENT_MOVE',
+                  of_link_restore: restorePayload,
                 });
                 await finRepository.createEntry({
                   kind: 'transfer_in',
-                  amount_cents: amountCents,
+                  amount_cents: matchedCents,
                   due_date: params.tradeDate,
                   paid_date: params.tradeDate,
-                  paid_amount_cents: amountCents,
+                  paid_amount_cents: matchedCents,
                   status: 'paid',
                   account_id: brokerAccountId,
                   category_id: 'cat-outros-receita',

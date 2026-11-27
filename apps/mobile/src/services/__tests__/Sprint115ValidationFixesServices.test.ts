@@ -300,7 +300,7 @@ describe('Sprint 115 — Serviços e Integração Pluggy (V1, V2, V3b, V4, V5, V
     expect(batchRes.totalExecuted).toBe(2);
 
     const entriesAfter = await finRepository.listAllEntries();
-    const ofEntry = entriesAfter.find((e) => e.external_id === `pluggy:${ofTx.id}`)!;
+    const ofEntry = entriesAfter.find((e) => e.external_id === ofTx.id)!;
     expect(ofEntry.kind).toBe('transfer_out');
     expect(ofEntry.linked_transaction_id).toBe(batchRes.transactions[0].id);
 
@@ -362,7 +362,7 @@ describe('Sprint 115 — Serviços e Integração Pluggy (V1, V2, V3b, V4, V5, V
     });
 
     const beforeEntries = await finRepository.listAllEntries();
-    const ofBefore = beforeEntries.find((e) => e.external_id === `pluggy:${ofTx.id}`)!;
+    const ofBefore = beforeEntries.find((e) => e.external_id === ofTx.id)!;
     const origKind = ofBefore.kind;
     const origGroupId = ofBefore.transfer_group_id;
     const origReason = ofBefore.of_class_reason;
@@ -453,7 +453,7 @@ describe('Sprint 115 — Serviços e Integração Pluggy (V1, V2, V3b, V4, V5, V
     });
 
     const entries = await finRepository.listAllEntries();
-    const tOut = entries.find((e) => e.external_id === `pluggy:${ofTx.id}`)!;
+    const tOut = entries.find((e) => e.external_id === ofTx.id)!;
     const tIn = entries.find(
       (e) => e.account_id === broker.id && e.kind === 'transfer_in'
     )!;

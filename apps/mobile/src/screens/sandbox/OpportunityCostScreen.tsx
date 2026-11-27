@@ -78,7 +78,7 @@ export const OpportunityCostScreen: React.FC<OpportunityCostScreenProps> = ({
   }, [referenceDateIso]);
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const monthlySelectedCents = useMemo(() => {

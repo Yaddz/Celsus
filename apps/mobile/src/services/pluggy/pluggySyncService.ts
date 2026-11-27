@@ -1,6 +1,8 @@
 import * as Crypto from 'expo-crypto';
+import { eq } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../../db/client';
-import { assets, incomeEvents, portfolios } from '../../db/schema';
+import { assets, finAccounts, incomeEvents, portfolios } from '../../db/schema';
+import { matchAppInvestmentTransferOut } from '../../domain/financeFlow';
 import {
   applyUserEditedPreservation,
   computeSyncWindowStart,
@@ -31,6 +33,7 @@ import { finRepository } from '../../repositories/finRepository';
 import { incomeRepository } from '../../repositories/incomeRepository';
 import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
+import { portfolioRepository } from '../../repositories/portfolioRepository';
 import { pluggyClassificationService } from './pluggyClassificationService';
 import {
   institutionFromCompe,
@@ -257,6 +260,7 @@ export const pluggySyncService = {
               name: shouldPreserveName ? localAcc.name : mapped.name,
               auto_name: mapped.name,
               of_account_id: pgAcc.id,
+              of_item_id: itemId,
               source: 'OPEN_FINANCE',
               reported_balance_cents: mapped.reportedBalanceCents,
               reported_balance_at: mapped.reportedBalanceAt,
@@ -297,6 +301,7 @@ export const pluggySyncService = {
               dueDay: mapped.dueDay,
               creditLimitCents: mapped.creditLimitCents,
               ofAccountId: pgAcc.id,
+              ofItemId: itemId,
               source: 'OPEN_FINANCE',
               reportedBalanceCents: mapped.reportedBalanceCents,
               reportedBalanceAt: mapped.reportedBalanceAt,
@@ -508,19 +513,25 @@ export const pluggySyncService = {
               }
             );
 
-            // Par global (of-tr-/of-topup-) já gravado em outra sincronização: mantém a transferência
+            // Par global (of-tr-/of-topup-) ou lançamento ligado a movimentação de carteira (V4c)
             const keepsGlobalPair =
               !!existing.transfer_group_id &&
               existing.transfer_group_id.startsWith('of-') &&
               (existing.kind === 'transfer_out' || existing.kind === 'transfer_in') &&
               !row.transferRole &&
               ((row.classReason ?? 'SIGN') === 'SIGN' || row.classReason === 'OWN_ACCOUNT_UNPAIRED');
-            const nextKind = row.transferRole ?? (keepsGlobalPair ? existing.kind : row.kind);
-            const nextTransferGroupId =
-              row.transferGroupId ?? existing.transfer_group_id ?? null;
-            const nextClassReason = keepsGlobalPair
-              ? existing.of_class_reason ?? null
-              : row.classReason ?? null;
+            const keepsLinkedTx =
+              !!existing.linked_transaction_id &&
+              (existing.kind === 'transfer_out' || existing.kind === 'transfer_in');
+            const nextKind =
+              row.transferRole ?? (keepsGlobalPair || keepsLinkedTx ? existing.kind : row.kind);
+            const nextTransferGroupId = keepsLinkedTx
+              ? existing.transfer_group_id ?? null
+              : row.transferGroupId ?? existing.transfer_group_id ?? null;
+            const nextClassReason =
+              keepsGlobalPair || keepsLinkedTx
+                ? existing.of_class_reason ?? null
+                : row.classReason ?? null;
             const nextOfCategoryId = row.ofCategoryId ?? existing.of_category_id ?? null;
 
             const editedSet = (() => {
@@ -627,8 +638,58 @@ export const pluggySyncService = {
             });
             counts.transactionsSettled += 1;
           } else {
+            const baseKind = row.transferRole ?? row.kind;
+            const isOutflowCandidate =
+              accountTypesById[row.accountId] !== 'card' &&
+              (baseKind === 'transfer_out' ||
+                (baseKind === 'expense' && row.classReason === 'INVESTMENT_MOVE')) &&
+              (row.classReason === 'INVESTMENT_MOVE' || !row.transferGroupId);
+            const ofPaidCents =
+              row.status === 'paid' ? (row.paidAmountCents ?? row.amountCents) : row.amountCents;
+            const matchedAppOut = isOutflowCandidate
+              ? matchAppInvestmentTransferOut(existingEntries, {
+                  accountId: row.accountId,
+                  amountCents: ofPaidCents,
+                  entryDate: row.dueDate,
+                })
+              : null;
+
+            let insertKind = baseKind;
+            let insertTransferGroupId = row.transferGroupId ?? null;
+            let insertLinkedTxId: string | null = null;
+            let insertClassReason = row.classReason ?? null;
+            let insertLinkRestore: string | null = null;
+
+            if (matchedAppOut) {
+              insertLinkRestore = JSON.stringify({
+                kind: baseKind,
+                transfer_group_id: row.transferGroupId ?? null,
+                of_class_reason: row.classReason ?? null,
+              });
+              insertKind = 'transfer_out';
+              insertTransferGroupId = matchedAppOut.transfer_group_id;
+              insertLinkedTxId = matchedAppOut.linked_transaction_id;
+              insertClassReason = 'INVESTMENT_MOVE';
+
+              await finRepository.deleteEntry(matchedAppOut.id);
+              const idxToRemove = existingEntries.findIndex((e) => e.id === matchedAppOut.id);
+              if (idxToRemove >= 0) existingEntries.splice(idxToRemove, 1);
+
+              const pairedIn = existingEntries.find(
+                (e) =>
+                  e.transfer_group_id === matchedAppOut.transfer_group_id &&
+                  e.kind === 'transfer_in'
+              );
+              if (pairedIn) {
+                await finRepository.updateEntry(pairedIn.id, {
+                  amount_cents: ofPaidCents,
+                  paid_amount_cents: ofPaidCents,
+                });
+              }
+            }
+
             toCreate.push({
-              kind: row.transferRole ?? row.kind,
+              kind: insertKind,
               amount_cents: row.amountCents,
               due_date: row.dueDate,
               paid_date: row.paidDate,
@@ -641,11 +702,13 @@ export const pluggySyncService = {
               installment_number: row.installmentNumber,
               installment_total: row.installmentTotal,
               bill_month: row.billMonth,
-              transfer_group_id: row.transferGroupId ?? null,
+              transfer_group_id: insertTransferGroupId,
+              linked_transaction_id: insertLinkedTxId,
+              of_link_restore: insertLinkRestore,
               source: 'OPEN_FINANCE',
               external_id: row.externalId,
               of_category_id: row.ofCategoryId ?? null,
-              of_class_reason: row.classReason ?? null,
+              of_class_reason: insertClassReason,
               of_provider_id: row.ofProviderId,
               of_bill_id: row.ofBillId,
               of_bill_forecast_month: row.ofBillForecastMonth,
@@ -1107,6 +1170,9 @@ export const pluggySyncService = {
         });
       });
 
+      // V1c (Sprint 115): sugestão de vínculo v3 ao fim de cada sincronização bem-sucedida
+      await pluggySyncService.migrateBrokerLinkSuggestV3IfNeeded(itemId);
+
       return {
         runId,
         itemId,
@@ -1221,7 +1287,7 @@ export const pluggySyncService = {
   },
 
   async applyAccountLinks(
-    _itemId: string,
+    itemId: string,
     choices: AccountReconciliationChoice[],
     pluggyAccounts: PluggyAccount[]
   ): Promise<void> {
@@ -1250,6 +1316,7 @@ export const pluggySyncService = {
             dueDay: mapped.dueDay,
             creditLimitCents: mapped.creditLimitCents,
             ofAccountId: pgAcc.id,
+            ofItemId: itemId,
             source: 'OPEN_FINANCE',
             reportedBalanceCents: mapped.reportedBalanceCents,
             reportedBalanceAt: mapped.reportedBalanceAt,
@@ -1284,6 +1351,7 @@ export const pluggySyncService = {
 
           await finRepository.updateAccount(choice.targetLocalAccountId, {
             of_account_id: pgAcc.id,
+            of_item_id: itemId,
             source: 'OPEN_FINANCE',
             reported_balance_cents: mapped.reportedBalanceCents,
             reported_balance_at: mapped.reportedBalanceAt,
@@ -1354,5 +1422,60 @@ export const pluggySyncService = {
     }
 
     return { triggered: true, results, errors };
+  },
+
+  /**
+   * V1c (Sprint 115): Ao fim de cada sincronização bem-sucedida, para carteiras Pluggy ligadas a uma
+   * conta 'broker' vazia (não Open Finance), troca o vínculo para a conta OF da mesma conexão (se única)
+   * e arquiva a 'broker' vazia. Respeita `broker-link:manual:<portfolioId>` e marca `broker-link-suggest:v3:<portfolioId>`.
+   */
+  async migrateBrokerLinkSuggestV3IfNeeded(itemId?: string): Promise<number> {
+    const db = getDatabase();
+    const [allPortfolios, allAccounts, allEntries] = await Promise.all([
+      portfolioRepository.listPortfolios(true),
+      finRepository.listAccounts(true),
+      finRepository.listAllEntries(),
+    ]);
+
+    const accountById = new Map(allAccounts.map((a) => [a.id, a]));
+    const accountsWithEntries = new Set(allEntries.map((e) => e.account_id));
+    let migratedCount = 0;
+
+    for (const p of allPortfolios) {
+      if (!p.of_item_id || !p.fin_account_id) continue;
+      if (itemId && p.of_item_id !== itemId) continue;
+      const manualChoice = await appMetaRepository.get(`broker-link:manual:${p.id}`);
+      if (manualChoice === '1') continue;
+      const v3Done = await appMetaRepository.get(`${BROKER_LINK_SUGGEST_V3_META_PREFIX}${p.id}`);
+      if (v3Done === '1') continue;
+
+      const linkedAcc = accountById.get(p.fin_account_id);
+      if (!linkedAcc) continue;
+      if (linkedAcc.type !== 'broker' || linkedAcc.source === 'OPEN_FINANCE') continue;
+      if (accountsWithEntries.has(linkedAcc.id)) continue;
+
+      const ofCandidates = allAccounts.filter(
+        (a) =>
+          a.archived === 0 &&
+          a.id !== linkedAcc.id &&
+          a.source === 'OPEN_FINANCE' &&
+          a.of_item_id === p.of_item_id &&
+          (a.type === 'checking' || a.type === 'cash' || a.type === 'broker')
+      );
+
+      if (ofCandidates.length === 1) {
+        await runInTransaction(async () => {
+          await portfolioRepository.linkFinAccount(p.id, ofCandidates[0].id);
+          await db
+            .update(finAccounts)
+            .set({ archived: 1 })
+            .where(eq(finAccounts.id, linkedAcc.id));
+        });
+        await appMetaRepository.set(`${BROKER_LINK_SUGGEST_V3_META_PREFIX}${p.id}`, '1');
+        migratedCount += 1;
+      }
+    }
+
+    return migratedCount;
   },
 };

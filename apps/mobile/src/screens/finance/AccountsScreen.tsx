@@ -680,6 +680,32 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             />
           ) : (
             <>
+              {hideFab ? (
+                <TouchableOpacity
+                  testID="accounts-add-inline-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel="Nova conta"
+                  onPress={openCreateModal}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      borderColor: ui.primary,
+                      alignSelf: 'flex-end',
+                      paddingHorizontal: space.md,
+                      paddingVertical: space.sm,
+                      marginBottom: space.xs,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: space.xs,
+                    },
+                  ]}
+                >
+                  <MaterialIcons name="add" size={16} color={ui.primary} />
+                  <Text style={[styles.actionBtnText, { color: ui.primary }]}>
+                    Nova conta
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
               {activeBankAndCashAccounts.length > 0 && (
                 <FinListCard
                   title="CONTAS"

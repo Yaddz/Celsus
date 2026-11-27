@@ -168,7 +168,7 @@ export const StressTestScreen: React.FC<StressTestScreenProps> = ({
   }, [refIso]);
 
   useEffect(() => {
-    loadPortfolioAndSeries();
+    void Promise.resolve().then(() => loadPortfolioAndSeries());
   }, [loadPortfolioAndSeries]);
 
   const result = useMemo(

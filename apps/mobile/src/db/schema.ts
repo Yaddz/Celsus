@@ -331,6 +331,7 @@ export const finEntries = sqliteTable('fin_entries', {
   of_installment_number: integer('of_installment_number'),
   of_installment_total: integer('of_installment_total'),
   of_bill_month_source: text('of_bill_month_source'),
+  of_link_restore: text('of_link_restore'),
   created_at: text('created_at').notNull(),
 });
 
@@ -396,8 +397,9 @@ export type NewFinCategory = typeof finCategories.$inferInsert;
 export type FinCategoryRule = typeof finCategoryRules.$inferSelect;
 export type NewFinCategoryRule = typeof finCategoryRules.$inferInsert;
 
-export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period'> & {
+export type FinEntry = Omit<typeof finEntries.$inferSelect, 'recurrence_period' | 'of_link_restore'> & {
   recurrence_period?: string | null;
+  of_link_restore?: string | null;
 };
 export type NewFinEntry = typeof finEntries.$inferInsert;
 

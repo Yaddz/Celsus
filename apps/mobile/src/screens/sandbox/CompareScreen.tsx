@@ -118,7 +118,7 @@ export const CompareScreen: React.FC<CompareScreenProps> = ({
   }, [selectedTickers, startDate, monthsWindow]);
 
   useEffect(() => {
-    loadData();
+    void Promise.resolve().then(() => loadData());
   }, [loadData]);
 
   const comparison = useMemo(
@@ -265,6 +265,66 @@ export const CompareScreen: React.FC<CompareScreenProps> = ({
             <Text style={[styles.cardLabel, { color: mutedColor }]}>
               DESEMPENHO NORMALIZADO (BASE 100)
             </Text>
+            {(() => {
+              const chartItems = comparison.items.filter(
+                (it) => it.status === 'ok' && it.series.length >= 2
+              );
+              if (chartItems.length === 0) return null;
+              const allValues = chartItems.flatMap((it) => it.series.map((p) => p.value));
+              const minVal = Math.min(...allValues, 100);
+              const maxVal = Math.max(...allValues, 100);
+              const span = maxVal - minVal || 1;
+              const chartHeight = 120;
+              const sampleCount = 16;
+              const baseLineBottom = Math.max(
+                0,
+                Math.min(chartHeight - 1, ((100 - minVal) / span) * (chartHeight - 16))
+              );
+
+              return (
+                <View testID="compare-chart" style={styles.chartWrap}>
+                  <View style={[styles.chartPlot, { height: chartHeight, borderColor }]}>
+                    <View
+                      style={[
+                        styles.chartBaseline,
+                        { bottom: baseLineBottom, borderColor },
+                      ]}
+                    />
+                    <Text style={[styles.chartBaseLabel, { bottom: baseLineBottom + 2, color: mutedColor }]}>
+                      100
+                    </Text>
+                    {comparison.items.map((item, idx) => {
+                      if (item.status !== 'ok' || item.series.length < 2) return null;
+                      const color = SERIES_COLORS[idx % SERIES_COLORS.length];
+                      const step = Math.max(1, Math.floor((item.series.length - 1) / (sampleCount - 1)));
+                      const sampled = item.series.filter(
+                        (_, i) => i % step === 0 || i === item.series.length - 1
+                      );
+                      return sampled.map((pt, pIdx) => {
+                        const leftPct = (pIdx / Math.max(1, sampled.length - 1)) * 96;
+                        const bottomPx = Math.max(
+                          2,
+                          Math.min(chartHeight - 8, ((pt.value - minVal) / span) * (chartHeight - 16))
+                        );
+                        return (
+                          <View
+                            key={`${item.id}-${pt.date}-${pIdx}`}
+                            style={[
+                              styles.chartDot,
+                              {
+                                backgroundColor: color,
+                                left: `${leftPct}%`,
+                                bottom: bottomPx,
+                              },
+                            ]}
+                          />
+                        );
+                      });
+                    })}
+                  </View>
+                </View>
+              );
+            })()}
             {comparison.items.map((item, idx) => {
               const color = SERIES_COLORS[idx % SERIES_COLORS.length];
               const pctText =
@@ -419,6 +479,34 @@ const styles = StyleSheet.create({
   loadingWrap: {
     paddingVertical: 32,
     alignItems: 'center',
+  },
+  chartWrap: {
+    width: '100%',
+    paddingVertical: 4,
+  },
+  chartPlot: {
+    width: '100%',
+    position: 'relative',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+  },
+  chartBaseline: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderStyle: 'dashed',
+  },
+  chartBaseLabel: {
+    position: 'absolute',
+    left: 2,
+    fontSize: 9,
+  },
+  chartDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   resultRow: {
     flexDirection: 'row',

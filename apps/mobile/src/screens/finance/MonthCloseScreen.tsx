@@ -55,12 +55,7 @@ export const MonthCloseScreen: React.FC<MonthCloseScreenProps> = ({
 }) => {
   const c = getFinUiColors(themeMode);
   const tileVariant = themeMode === 'light' ? 'light' : 'dark';
-  let bottomInset = 0;
-  try {
-    bottomInset = useSafeAreaInsets().bottom;
-  } catch {
-    bottomInset = 0;
-  }
+  const bottomInset = useSafeAreaInsets()?.bottom ?? 0;
 
   const [proposal, setProposal] = useState<MonthCloseProposal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +82,7 @@ export const MonthCloseScreen: React.FC<MonthCloseScreenProps> = ({
   }, [yearMonth, referenceDateIso]);
 
   useEffect(() => {
-    void loadProposal();
+    void Promise.resolve().then(() => loadProposal());
   }, [loadProposal]);
 
   const maxAvailableCents = proposal?.availableSurplus.availableCents ?? 0;

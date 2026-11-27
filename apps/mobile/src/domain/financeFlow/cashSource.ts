@@ -18,14 +18,49 @@ export interface ResolveDefaultCashSourceResult {
 }
 
 /**
- * V3a: Extrai a regra de origem padrão da compra (TransactionScreen e SimulatorScreen).
+ * V3a: Regra única de origem padrão de compra (TransactionScreen e SimulatorScreen).
+ * Se a corretora vinculada cobre o total da compra (ou total <= 0), usa a corretora;
+ * senão, escolhe a conta checking/cash com maior saldo e sinaliza se ficará negativa.
  */
 export function resolveDefaultCashSource(
-  _input: ResolveDefaultCashSourceInput
+  input: ResolveDefaultCashSourceInput
 ): ResolveDefaultCashSourceResult {
+  const { brokerAccountId, brokerBalanceCents, totalCents, accounts } = input;
+  if (!brokerAccountId || accounts.length === 0) {
+    return { accountId: brokerAccountId, projectedBalanceCents: 0, willBeNegative: false };
+  }
+
+  if (totalCents <= 0 || brokerBalanceCents >= totalCents) {
+    const projected = brokerBalanceCents - Math.max(0, totalCents);
+    return {
+      accountId: brokerAccountId,
+      projectedBalanceCents: projected,
+      willBeNegative: projected < 0,
+    };
+  }
+
+  const nonBroker = accounts.filter(
+    (a) => a.id !== brokerAccountId && (a.type === 'checking' || a.type === 'cash')
+  );
+  if (nonBroker.length === 0) {
+    const projected = brokerBalanceCents - totalCents;
+    return {
+      accountId: brokerAccountId,
+      projectedBalanceCents: projected,
+      willBeNegative: projected < 0,
+    };
+  }
+
+  let best = nonBroker[0];
+  for (let i = 1; i < nonBroker.length; i++) {
+    if (nonBroker[i].balanceCents > best.balanceCents) {
+      best = nonBroker[i];
+    }
+  }
+  const projected = best.balanceCents - totalCents;
   return {
-    accountId: null,
-    projectedBalanceCents: 0,
-    willBeNegative: false,
+    accountId: best.id,
+    projectedBalanceCents: projected,
+    willBeNegative: projected < 0,
   };
 }

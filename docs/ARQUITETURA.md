@@ -475,3 +475,11 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `repositories/incomeRepository.ts` & `domain/finance/incomeDedup.ts` (`R41`): `addIncome` atômico, `updateIncome` preserva valor Open Finance e casamento busca contas da mesma conexão `of_item_id`.
 - `services/patrimonyService.ts` (`byAsset`), `services/monthCloseService.ts` & `PortfolioManagementScreen.tsx`: `rf_daily_liquidity` editável na UI e reserva lendo valor dos ativos exclusivamente de `patrimonyService`.
 - `domain/sandbox/backtest.ts`, `taxRules.ts`, `dividendGoal.ts`, `CompareScreen.tsx` & `StressTestScreen.tsx`: `monthlySeries` com reinvestimento e caixa, retenção de 15% em JCP B3 (`"JCP líquido de 15%"`), consumo de `sandboxService` com conversão `USDBRL` em `CompareScreen`.
+
+## Correções da Validação (Sprint 115)
+
+- `services/pluggy/pluggySyncService.ts` & `services/finService.ts`: gravação de `fin_accounts.of_item_id` na criação e atualização, migração local `migration:fin-accounts-of-item-id:v1` e sugestão automática `migration:broker-link-suggest:v3` pós-sincronização.
+- `services/investmentAccountsService.ts`: fonte única (`getInvestmentAccountIds`) de contas `'broker'` + `portfolios.fin_account_id` não arquivadas para `FinanceHomeScreen`, `monthCloseService` e `fireService`.
+- `domain/financeFlow/cashSource.ts` (`resolveDefaultCashSource`), `SimulatorScreen.tsx` & `services/rebalanceExecution.ts`: origem padrão unificada, bloco `"Sai de"` no Simulador e casamento Open Finance em lote.
+- `db/schema.ts`, `db/client.ts`, `services/backupService.ts`, `repositories/finRepository.ts` & `domain/financeFlow/openFinanceMatch.ts`: `fin_entries.of_link_restore` para restauração segura ao excluir compra, valor pago Open Finance no par casado e casamento inverso (`matchAppInvestmentTransferOut`) na sincronização.
+- `screens/finance/AccountsScreen.tsx` & `screens/sandbox/CompareScreen.tsx`: botão `"Nova conta"` preservado com `hideFab` e gráfico comparativo em `CompareScreen`.

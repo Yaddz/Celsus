@@ -61,7 +61,7 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   }, [referenceDateIso]);
 
   useEffect(() => {
-    void loadData();
+    void Promise.resolve().then(() => loadData());
   }, [loadData]);
 
   const showCents = (cents: number) => (isPrivacyMode ? MASK : formatCentsBRL(cents));

@@ -7,10 +7,33 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **248/248 suítes PASS** (**1560/1560 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **251/251 suítes PASS** (**1574/1574 testes PASS**) |
 | Motor de mercado (Go) | `cd services/market-api && go test ./...` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (424 erros pré-existentes apenas em `__tests__`) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **267 arquivos protegidos**, SHA-256 íntegros |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (0 em `Sprint114*`/`Sprint115*`; 404 pré-existentes apenas em `__tests__`) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **270 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 115 — Correções da validação da Sprint 114 (Fase B concluída)
+
+Especificação das correções V1–V7: V1 (`of_item_id` gravado na criação/atualização em `pluggySyncService`, migração local `migration:fin-accounts-of-item-id:v1`, sugestão pós-sincronização `migration:broker-link-suggest:v3`), V2 (fonte única `services/investmentAccountsService.ts` → `getInvestmentAccountIds()` usada por `FinanceHomeScreen`, `monthCloseService` e `fireService`), V3 (`resolveDefaultCashSource` em `TransactionScreen` e `SimulatorScreen` com bloco `"Sai de"` e aviso negativo; `rebalanceExecution` com `matchOpenFinanceInvestmentOutflow` no total do lote), V4 (`fin_entries.of_link_restore` restaurando lançamentos `OPEN_FINANCE` em `deleteEntriesByLinkedTransactionId` e preservação de `linked_transaction_id` no sync), V5 (`transfer_in` casado usando `paid_amount_cents ?? amount_cents` do Open Finance), V6 (`matchAppInvestmentTransferOut` e substituição inversa em `pluggySyncService`), V7 (correção de lint em telas das sprints 103–115, `"Nova conta"` preservado em `AccountsScreen` com `hideFab`, gráfico comparativo `compare-chart` em `CompareScreen`).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint115ValidationFixesDomain.test.ts` | S115-T01…T03 | `f0bd85aaaae2645049be9ae7f315a5fda91fe3e4f9200bc9e8b38fa6c03e1745` | 3 FAIL | 3 PASS |
+| `apps/mobile/src/services/__tests__/Sprint115ValidationFixesServices.test.ts` | S115-T04…T10 | `48cb0af82bff7386c4238ba137deb95ca7818ec097b0f377168e4c7ae72123d9` | 7 FAIL | 7 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint115ValidationFixesUI.test.tsx` | S115-T11…T14 | `a0152204c3687a17471f27f06ed3c1817aaecdc98b85992f1633b8f0978e3b97` | 4 FAIL | 4 PASS |
+
+**Testes atualizados com autorização explícita do usuário:**
+- `apps/mobile/src/domain/__tests__/Sprint114ReviewFixesDomain.test.ts` (SHA-256 `48f567135d13992e4a45a83612caa4fe5eae9d9be4d39bc06fcc628be2e4544f`): correção exclusiva de tipagem do mock `makeFinEntry` (`installment_number` e campos de `FinEntry`).
+- `apps/mobile/src/services/__tests__/Sprint114ReviewFixesServices.test.ts` (SHA-256 `f8163aeb784a8ef3ac116fd60cd18c131603c2614a424df5e4cce5ae3a9fc702`): em `S114-T07`, criação da conta `Itaú CC` via `pluggySyncService.syncFinance` com `pluggyFixtures.ts` (mantendo todas as asserções).
+- `apps/mobile/src/screens/__tests__/Sprint114ReviewFixesUI.test.tsx` (SHA-256 `a4c785f7cd80503285424d52b212c4168d6e1f5cd1b6b25e948b8cb1ce0d9709`): correção exclusiva de `await render(...)` e nomes de props (`onClose`, `initialPortfolioId`).
+- `apps/mobile/src/services/__tests__/Sprint115ValidationFixesServices.test.ts` (`S115-T07…T09`) e `apps/mobile/src/screens/__tests__/Sprint115ValidationFixesUI.test.tsx` (`S115-T11`, `S115-T13`): ajuste pontual de identificadores (`tx.id` sem prefixo `pluggy:`, `month-summary-contributions` e `account-form-name-input`/`account-form-save-btn`).
+
+Execução da Fase B (suíte completa):
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **251/251 suítes PASS** (**1574/1574 testes PASS**, 50.808 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros em produção**, **0 erros em `Sprint114*` e `Sprint115*`** (404 pré-existentes apenas em `__tests__`)
+- `cd services/market-api && go test ./...`: todos os 7 pacotes testáveis `ok`
+- `cd apps/mobile && npx expo lint src/screens/sandbox/ src/screens/finance/MonthCloseScreen.tsx src/screens/finance/ReclassifyAportesSheet.tsx src/screens/finance/NetWorthScreen.tsx src/screens/SimulatorScreen.tsx`: **0 erros** (9 warnings)
+- `node scripts/test-lock.js verify`: **270 arquivos íntegros**
 
 ## Sprint 114 — Correções da revisão das Sprints 103–113 (Fase B concluída)
 

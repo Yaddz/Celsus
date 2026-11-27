@@ -80,10 +80,49 @@ export interface AppInvestmentTransferOutParams {
 
 /**
  * V6 (Sprint 115): Casamento no sentido inverso, na sincronização.
+ * Procura na mesma conta um `transfer_out` criado pelo app (`MANUAL`, com `linked_transaction_id`
+ * e `transfer_group_id`) dentro da tolerância `max(1c, 0,5%)` e data do banco entre -2 e +10 dias
+ * da data do lançamento do app (`entryDate - appDate` ∈ [-2, +10]).
+ * Em caso de múltiplos candidatos, escolhe o de data mais próxima.
  */
 export function matchAppInvestmentTransferOut(
-  _entries: FinEntry[],
-  _params: AppInvestmentTransferOutParams
+  entries: FinEntry[],
+  params: AppInvestmentTransferOutParams
 ): FinEntry | null {
-  return null;
+  const transferInGroupIds = new Set<string>();
+  for (const e of entries) {
+    if (e.kind === 'transfer_in' && e.transfer_group_id) {
+      transferInGroupIds.add(e.transfer_group_id);
+    }
+  }
+
+  const tolerance = Math.max(1, Math.round(Math.abs(params.amountCents) * 0.005));
+  const candidates: Array<{ entry: FinEntry; absDays: number; absAmountDiff: number }> = [];
+
+  for (const e of entries) {
+    if (e.of_removed_at) continue;
+    if (e.source === 'OPEN_FINANCE') continue;
+    if (e.account_id !== params.accountId) continue;
+    if (e.kind !== 'transfer_out') continue;
+    if (!e.linked_transaction_id || !e.transfer_group_id) continue;
+    if (!transferInGroupIds.has(e.transfer_group_id)) continue;
+
+    const dDays = diffDaysUtc(params.entryDate, e.due_date);
+    if (dDays < -2 || dDays > 10) continue;
+
+    const entryCents =
+      e.status === 'paid' ? (e.paid_amount_cents ?? e.amount_cents) : e.amount_cents;
+    const amountDiff = Math.abs(entryCents - params.amountCents);
+    if (amountDiff > tolerance) continue;
+
+    candidates.push({
+      entry: e,
+      absDays: Math.abs(dDays),
+      absAmountDiff: amountDiff,
+    });
+  }
+
+  if (candidates.length === 0) return null;
+  candidates.sort((a, b) => a.absDays - b.absDays || a.absAmountDiff - b.absAmountDiff);
+  return candidates[0].entry;
 }

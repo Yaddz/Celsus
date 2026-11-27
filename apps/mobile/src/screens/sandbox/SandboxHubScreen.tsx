@@ -70,7 +70,7 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
   }, []);
 
   useEffect(() => {
-    loadScenarios();
+    void Promise.resolve().then(() => loadScenarios());
   }, [loadScenarios]);
 
   const bg = isLight ? LIGHT_THEME_TOKENS.backgroundPrimary : colors.voidFloor;
@@ -306,7 +306,7 @@ export const SandboxHubScreen: React.FC<SandboxHubScreenProps> = ({
           {scenarios.length === 0 ? (
             <View style={[styles.emptySaved, { backgroundColor: surface, borderColor }]}>
               <Text style={[styles.emptySavedText, { color: mutedColor }]}>
-                Nenhum cenário salvo ainda. Simule na Máquina do tempo e toque em "Salvar cenário".
+                Nenhum cenário salvo ainda. Simule na Máquina do tempo e toque em &ldquo;Salvar cenário&rdquo;.
               </Text>
             </View>
           ) : (

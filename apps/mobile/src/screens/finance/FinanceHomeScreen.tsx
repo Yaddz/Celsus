@@ -40,6 +40,7 @@ import { openFinanceRepository } from '../../repositories/openFinanceRepository'
 import { formatUpdatedAgo } from '../../domain/openFinance';
 import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
+import { getInvestmentAccountIds } from '../../services/investmentAccountsService';
 import { patrimonyService } from '../../services/patrimonyService';
 import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
@@ -187,6 +188,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [budgets, setBudgets] = useState<FinBudget[]>([]);
   const [skips, setSkips] = useState<FinRecurrenceSkip[]>([]);
   const [bills, setBills] = useState<FinBill[]>([]);
+  const [investmentAccountIds, setInvestmentAccountIds] = useState<string[]>([]);
   const [isCashflowModalOpen, setIsCashflowModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -220,7 +222,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, monthCloseProposal] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, monthCloseProposal, invAccIds] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
@@ -231,6 +233,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         openFinanceRepository.listItems(),
         patrimonyService.getPatrimony(effectiveToday),
         monthCloseService.getProposal(effectiveMonth, { todayIso: effectiveToday }).catch(() => null),
+        getInvestmentAccountIds(),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
@@ -239,6 +242,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setBudgets(allBudgets);
       setSkips(allSkips);
       setBills(allBills);
+      setInvestmentAccountIds(invAccIds);
       setAccountsBalanceCents(pat.accountsCents);
       setCardsDebtCents(pat.cardsCents);
       setReserveMonths(monthCloseProposal?.reserve.months ?? null);
@@ -384,8 +388,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   );
 
   const monthR43 = useMemo(
-    () => monthSummary(entries, effectiveMonth, { todayIso: effectiveToday, accounts }),
-    [entries, effectiveMonth, effectiveToday, accounts]
+    () =>
+      monthSummary(entries, effectiveMonth, {
+        todayIso: effectiveToday,
+        accounts,
+        linkedAccountIds: investmentAccountIds,
+      }),
+    [entries, effectiveMonth, effectiveToday, accounts, investmentAccountIds]
   );
 
   const prevMonth = useMemo(() => addMonthsYearMonth(effectiveMonth, -1), [effectiveMonth]);
@@ -849,7 +858,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Enviado à corretora</Text>
-                    <Text style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>
+                    <Text testID="month-summary-contributions" style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>
                       {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.contributionCents)}
                     </Text>
                   </View>

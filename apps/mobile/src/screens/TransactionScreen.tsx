@@ -20,7 +20,7 @@ import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finRepository } from '../repositories/finRepository';
 import { appMetaRepository } from '../repositories/appMetaRepository';
-import { calculateAccountBalance, formatCentsBRL } from '../domain/financeFlow';
+import { calculateAccountBalance, formatCentsBRL, resolveDefaultCashSource } from '../domain/financeFlow';
 import { decimalToCents } from '../domain/money';
 import { Asset, FinAccount, FinEntry, Portfolio } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
@@ -452,25 +452,20 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     const brokerBal = brokerAcc
       ? calculateAccountBalance(brokerAcc.initial_balance_cents, finEntriesList, brokerAcc.id)
       : 0;
-    if (brokerBal >= opCents || opCents <= 0) {
-      setSelectedCashAccountId(linkedBrokerAccountId);
-      return;
+    const resolved = resolveDefaultCashSource({
+      brokerAccountId: linkedBrokerAccountId,
+      brokerBalanceCents: brokerBal,
+      totalCents: opCents,
+      accounts: eligibleCashAccounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        balanceCents: calculateAccountBalance(a.initial_balance_cents, finEntriesList, a.id),
+      })),
+    });
+    if (resolved.accountId) {
+      setSelectedCashAccountId(resolved.accountId);
     }
-    const nonBroker = eligibleCashAccounts.filter((a) => a.id !== linkedBrokerAccountId);
-    if (nonBroker.length === 0) {
-      setSelectedCashAccountId(linkedBrokerAccountId);
-      return;
-    }
-    let bestAcc = nonBroker[0];
-    let bestBal = calculateAccountBalance(bestAcc.initial_balance_cents, finEntriesList, bestAcc.id);
-    for (let i = 1; i < nonBroker.length; i++) {
-      const bal = calculateAccountBalance(nonBroker[i].initial_balance_cents, finEntriesList, nonBroker[i].id);
-      if (bal > bestBal) {
-        bestBal = bal;
-        bestAcc = nonBroker[i];
-      }
-    }
-    setSelectedCashAccountId(bestAcc.id);
   }, [linkedBrokerAccountId, eligibleCashAccounts, finEntriesList, type, quantity, unitPrice, fees]);
 
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);

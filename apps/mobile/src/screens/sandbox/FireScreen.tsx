@@ -67,7 +67,7 @@ export const FireScreen: React.FC<FireScreenProps> = ({
   }, [referenceDateIso]);
 
   useEffect(() => {
-    load();
+    void Promise.resolve().then(() => load());
   }, [load]);
 
   const targetCents = useMemo(

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Decimal from 'decimal.js';
 import { colors, typography, spacing, borders, layout, space, bento } from '../theme/tokens';
 import { calculateTwoPhaseContribution, planToRebalanceResult, RebalanceResult } from '../domain/finance';
+import { calculateAccountBalance, formatCentsBRL, resolveDefaultCashSource } from '../domain/financeFlow';
+import { decimalToCents } from '../domain/money';
 import { rebalanceExecutionService } from '../services/rebalanceExecution';
+import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { assetRepository } from '../repositories/assetRepository';
-import { Portfolio, Asset } from '../db/schema';
+import { Portfolio, Asset, FinAccount, FinEntry } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
 import { LedgerInput } from '../components/ui/LedgerInput';
 import { BentoRow, BentoTile } from '../components/ui/BentoGrid';
@@ -53,12 +56,7 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
 }) => {
   const isLight = themeMode === 'light';
   // Barra de navegação/gestos do sistema: o último item precisa ficar acima dela.
-  let bottomInset = 0;
-  try {
-    bottomInset = useSafeAreaInsets().bottom;
-  } catch {
-    // sem SafeAreaProvider (testes): sem inset
-  }
+  const bottomInset = useSafeAreaInsets()?.bottom ?? 0;
   const [portfolios, setPortfolios] = useState<Portfolio[]>([]);
   const [selectedPortfolioId, setSelectedPortfolioId] = useState<string>(initialPortfolioId || '');
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -74,49 +72,140 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
 
   useEffect(() => {
     if (initialAmount === undefined || initialAmount === null || initialAmount === '') return;
-    if (typeof initialAmount === 'number') {
-      if (Number.isFinite(initialAmount) && initialAmount > 0) {
-        setContributionAmountText(initialAmount.toFixed(2).replace('.', ','));
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      if (typeof initialAmount === 'number') {
+        if (Number.isFinite(initialAmount) && initialAmount > 0) {
+          setContributionAmountText(initialAmount.toFixed(2).replace('.', ','));
+        }
+      } else {
+        setContributionAmountText(String(initialAmount));
       }
-    } else {
-      setContributionAmountText(String(initialAmount));
-    }
+    });
+    return () => {
+      active = false;
+    };
   }, [initialAmount]);
 
   const [simulationResult, setSimulationResult] = useState<RebalanceResult | null>(null);
   const [extraShareTickers, setExtraShareTickers] = useState<string[]>([]);
   const [isExecuting, setIsExecuting] = useState(false);
+  const [finAccounts, setFinAccounts] = useState<FinAccount[]>([]);
+  const [finEntriesList, setFinEntriesList] = useState<FinEntry[]>([]);
+  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string>(sourceAccountId || '');
+  const [userPickedCashSource, setUserPickedCashSource] = useState(Boolean(sourceAccountId));
 
   useEffect(() => {
-    loadPortfolios();
+    let active = true;
+    const init = async () => {
+      try {
+        const [list, accs, ents] = await Promise.all([
+          portfolioRepository.getAllPortfolios(),
+          finRepository.listAccounts(false).catch(() => [] as FinAccount[]),
+          finRepository.listAllEntries().catch(() => [] as FinEntry[]),
+        ]);
+        if (!active) return;
+        setPortfolios(list);
+        setFinAccounts(accs);
+        setFinEntriesList(ents);
+        if (list.length > 0 && !selectedPortfolioId) {
+          setSelectedPortfolioId(list[0].id);
+        }
+      } catch {
+        if (active) setPortfolios([]);
+      }
+    };
+    void init();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
-    if (selectedPortfolioId) {
-      loadAssets(selectedPortfolioId);
-    }
+    if (!selectedPortfolioId) return;
+    let active = true;
+    assetRepository
+      .getAssetsByPortfolio(selectedPortfolioId)
+      .then((list) => {
+        if (active) setAssets(list);
+      })
+      .catch(() => {
+        if (active) setAssets([]);
+      });
+    return () => {
+      active = false;
+    };
   }, [selectedPortfolioId]);
 
-  const loadPortfolios = async () => {
-    try {
-      const list = await portfolioRepository.getAllPortfolios();
-      setPortfolios(list);
-      if (list.length > 0 && !selectedPortfolioId) {
-        setSelectedPortfolioId(list[0].id);
-      }
-    } catch {
-      setPortfolios([]);
-    }
-  };
+  const linkedBrokerAccountId = useMemo(() => {
+    const p = portfolios.find((item) => item.id === selectedPortfolioId);
+    return p?.fin_account_id ?? null;
+  }, [portfolios, selectedPortfolioId]);
 
-  const loadAssets = async (portId: string) => {
-    try {
-      const list = await assetRepository.getAssetsByPortfolio(portId);
-      setAssets(list);
-    } catch {
-      setAssets([]);
+  const eligibleCashAccounts = useMemo(() => {
+    if (!linkedBrokerAccountId) return [];
+    const broker = finAccounts.find((a) => a.id === linkedBrokerAccountId);
+    const others = finAccounts.filter(
+      (a) =>
+        a.archived === 0 &&
+        a.id !== linkedBrokerAccountId &&
+        (a.type === 'checking' || a.type === 'cash')
+    );
+    return broker ? [broker, ...others] : others;
+  }, [finAccounts, linkedBrokerAccountId]);
+
+  const effectiveTotalCents = useMemo(() => {
+    if (simulationResult) {
+      return decimalToCents(simulationResult.totalAllocated);
     }
-  };
+    const rawVal = contributionAmountText.replace(/\./g, '').replace(',', '.');
+    const numeric = parseFloat(rawVal);
+    return Number.isFinite(numeric) && numeric > 0 ? decimalToCents(numeric) : 0;
+  }, [simulationResult, contributionAmountText]);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      if (sourceAccountId) {
+        setSelectedCashAccountId(sourceAccountId);
+        setUserPickedCashSource(true);
+        return;
+      }
+      if (userPickedCashSource) return;
+      if (!linkedBrokerAccountId || eligibleCashAccounts.length === 0) return;
+
+      const brokerAcc = eligibleCashAccounts.find((a) => a.id === linkedBrokerAccountId);
+      const brokerBal = brokerAcc
+        ? calculateAccountBalance(brokerAcc.initial_balance_cents, finEntriesList, brokerAcc.id)
+        : 0;
+      const resolved = resolveDefaultCashSource({
+        brokerAccountId: linkedBrokerAccountId,
+        brokerBalanceCents: brokerBal,
+        totalCents: effectiveTotalCents,
+        accounts: eligibleCashAccounts.map((a) => ({
+          id: a.id,
+          name: a.name,
+          type: a.type,
+          balanceCents: calculateAccountBalance(a.initial_balance_cents, finEntriesList, a.id),
+        })),
+      });
+      if (resolved.accountId) {
+        setSelectedCashAccountId(resolved.accountId);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    sourceAccountId,
+    userPickedCashSource,
+    linkedBrokerAccountId,
+    eligibleCashAccounts,
+    finEntriesList,
+    effectiveTotalCents,
+  ]);
 
   const handleSimulate = async () => {
     const rawVal = contributionAmountText.replace(/\./g, '').replace(',', '.');
@@ -198,13 +287,14 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
       }
 
       const today = new Date().toISOString().slice(0, 10);
+      const effectiveCashAccountId = selectedCashAccountId || sourceAccountId || undefined;
       const res = await rebalanceExecutionService.executeFromSuggestions({
         portfolioId: selectedPortfolioId || 'default-portfolio',
         tradeDate: today,
         suggestions: simulationResult.suggestions,
         assetIdMap,
         notes: 'Simulador de Aporte Inteligente',
-        cashSource: sourceAccountId ? { accountId: sourceAccountId } : undefined,
+        cashSource: effectiveCashAccountId ? { accountId: effectiveCashAccountId } : undefined,
       });
 
       Alert.alert(
@@ -293,6 +383,63 @@ export const SimulatorScreen: React.FC<SimulatorScreenProps> = ({
             style={{ marginTop: spacing.xs }}
           />
         </View>
+
+        {/* Origem do dinheiro (V3a, mesma regra da compra avulsa) */}
+        {linkedBrokerAccountId && eligibleCashAccounts.length > 0 && (() => {
+          const activeAcc =
+            eligibleCashAccounts.find((a) => a.id === selectedCashAccountId) ??
+            eligibleCashAccounts[0];
+          const currentBalanceCents = activeAcc
+            ? calculateAccountBalance(activeAcc.initial_balance_cents, finEntriesList, activeAcc.id)
+            : 0;
+          const projectedBalanceCents = currentBalanceCents - effectiveTotalCents;
+          return (
+            <View
+              testID="sim-cash-source-block"
+              style={[styles.section, styles.cashSourceCard, isLight && styles.cashSourceCardLight]}
+            >
+              <Text style={[styles.sectionLabel, isLight && styles.sectionLabelLight]}>
+                Sai de
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                {eligibleCashAccounts.map((acc) => {
+                  const isSel = acc.id === activeAcc?.id;
+                  return (
+                    <TouchableOpacity
+                      key={acc.id}
+                      testID={`sim-cash-source-chip-${acc.id}`}
+                      onPress={() => {
+                        setUserPickedCashSource(true);
+                        setSelectedCashAccountId(acc.id);
+                      }}
+                      style={[styles.chip, isLight && styles.chipLight, isSel && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, isLight && styles.chipTextLight, isSel && styles.chipTextActive]}>
+                        {acc.name}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <View testID={activeAcc ? `sim-cash-account-${activeAcc.id}` : undefined}>
+                <Text
+                  testID="sim-cash-projected-balance"
+                  style={[styles.subDetailText, isLight && styles.subDetailTextLight, { marginTop: space.xs }]}
+                >
+                  {`Saldo ${formatCentsBRL(currentBalanceCents, isPrivacyMode)} → ${formatCentsBRL(projectedBalanceCents, isPrivacyMode)}`}
+                </Text>
+                {projectedBalanceCents < 0 && activeAcc ? (
+                  <Text
+                    testID="sim-cash-negative-warning"
+                    style={[styles.subDetailText, { color: colors.deficit, marginTop: 4 }]}
+                  >
+                    {`A conta ${activeAcc.name} ficará negativa`}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Resultados da Simulação */}
         {simulationResult ? (
@@ -427,6 +574,17 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: layout.screenPadding,
+  },
+  cashSourceCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: borders.radiusMd,
+    padding: space.sm,
+    borderWidth: borders.hairline,
+    borderColor: '#26292C',
+  },
+  cashSourceCardLight: {
+    backgroundColor: '#F3EFE6',
+    borderColor: '#E2DDD2',
   },
   section: {
     marginBottom: spacing.md,

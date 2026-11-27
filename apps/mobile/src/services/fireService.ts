@@ -17,6 +17,7 @@ import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { sandboxRepository } from '../repositories/sandboxRepository';
 import { finGoalsService } from './finGoalsService';
+import { getInvestmentAccountIds } from './investmentAccountsService';
 import { marketApiService } from './marketApi';
 import { patrimonyService } from './patrimonyService';
 
@@ -62,11 +63,12 @@ export const fireService = {
     const refYm = refIso.slice(0, 7);
     const db = getDatabase();
 
-    const [patrimony, entries, accounts, allAssets] = await Promise.all([
+    const [patrimony, entries, accounts, allAssets, linkedAccountIds] = await Promise.all([
       patrimonyService.getPatrimony(refIso),
       finRepository.listAllEntries(),
       finRepository.listAccounts(),
       db.select().from(assets),
+      getInvestmentAccountIds(),
     ]);
 
     // Últimos 12 meses fechados anteriores ao mês de referência
@@ -83,7 +85,7 @@ export const fireService = {
 
     const monthSummaries = closedMonths
       .filter((ym) => activeMonths.has(ym))
-      .map((ym) => monthSummary(entries, ym, { todayIso: refIso, accounts }));
+      .map((ym) => monthSummary(entries, ym, { todayIso: refIso, accounts, linkedAccountIds }));
 
     const averageExpenseCents = averageMonthlyExpense(monthSummaries, 12);
     const averageContributionCents = averageMonthlyContribution(monthSummaries, 12);

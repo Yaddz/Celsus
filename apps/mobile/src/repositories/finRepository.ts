@@ -166,6 +166,7 @@ export class FinRepository {
       due_day: number | null;
       credit_limit_cents: number | null;
       of_account_id: string | null;
+      of_item_id: string | null;
       source: 'MANUAL' | 'OPEN_FINANCE';
       reported_balance_cents: number | null;
       reported_balance_at: string | null;
@@ -489,7 +490,46 @@ export class FinRepository {
 
   async deleteEntriesByLinkedTransactionId(transactionId: string): Promise<void> {
     const db = getDatabase();
-    await db.delete(finEntries).where(eq(finEntries.linked_transaction_id, transactionId));
+    const linked = await this.listEntriesByLinkedTransactionId(transactionId);
+    for (const entry of linked) {
+      if (entry.source === 'OPEN_FINANCE') {
+        let restored: {
+          kind: string;
+          transfer_group_id: string | null;
+          of_class_reason: string | null;
+        } = {
+          kind: 'expense',
+          transfer_group_id: null,
+          of_class_reason: entry.of_class_reason ?? null,
+        };
+        if (entry.of_link_restore) {
+          try {
+            const parsed = JSON.parse(entry.of_link_restore);
+            if (parsed && typeof parsed.kind === 'string') {
+              restored = {
+                kind: parsed.kind,
+                transfer_group_id: parsed.transfer_group_id ?? null,
+                of_class_reason: parsed.of_class_reason ?? null,
+              };
+            }
+          } catch {
+            // fallback para o padrão seguro acima
+          }
+        }
+        await db
+          .update(finEntries)
+          .set({
+            linked_transaction_id: null,
+            kind: restored.kind,
+            transfer_group_id: restored.transfer_group_id,
+            of_class_reason: restored.of_class_reason,
+            of_link_restore: null,
+          })
+          .where(eq(finEntries.id, entry.id));
+      } else {
+        await db.delete(finEntries).where(eq(finEntries.id, entry.id));
+      }
+    }
   }
 
   async listEntriesByLinkedIncomeId(incomeId: string): Promise<FinEntry[]> {

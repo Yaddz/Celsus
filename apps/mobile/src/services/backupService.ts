@@ -672,6 +672,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'of_installment_number',
   'of_installment_total',
   'of_bill_month_source',
+  'of_link_restore',
   'created_at',
 ];
 
@@ -808,6 +809,7 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     of_installment_number: parseOptionalInt(r.of_installment_number),
     of_installment_total: parseOptionalInt(r.of_installment_total),
     of_bill_month_source: emptyToNull(r.of_bill_month_source),
+    of_link_restore: emptyToNull(r.of_link_restore),
     created_at: r.created_at || new Date().toISOString(),
   }));
 }

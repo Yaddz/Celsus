@@ -174,7 +174,9 @@ export const TimeMachineScreen: React.FC<TimeMachineScreenProps> = ({
 
   useEffect(() => {
     if (activeLeg?.ticker) {
-      loadChartSeries(activeLeg.ticker, activeLeg.assetClass, chartRange);
+      void Promise.resolve().then(() =>
+        loadChartSeries(activeLeg.ticker, activeLeg.assetClass, chartRange)
+      );
     }
   }, [activeLeg?.ticker, activeLeg?.assetClass, chartRange, loadChartSeries]);
 
@@ -202,7 +204,9 @@ export const TimeMachineScreen: React.FC<TimeMachineScreenProps> = ({
   // Recalcula automaticamente ao abrir um cenário salvo
   useEffect(() => {
     if (parsedInit) {
-      executeSimulation(parsedInit.legs, parsedInit.options);
+      void Promise.resolve().then(() =>
+        executeSimulation(parsedInit.legs, parsedInit.options)
+      );
     }
   }, [parsedInit, executeSimulation]);
 

@@ -73,8 +73,9 @@ describe('Sprint 115 — UI e Fluxos (V2, V3a, V7b, V7c)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('month-summary-contributions')).toBeTruthy();
-      expect(screen.getByText(/1\.000,00/)).toBeTruthy();
+      const contribEl = screen.getByTestId('month-summary-contributions');
+      expect(contribEl).toBeTruthy();
+      expect(String(contribEl.props.children)).toMatch(/1\.000,00/);
     });
   });
 
@@ -128,8 +129,8 @@ describe('Sprint 115 — UI e Fluxos (V2, V3a, V7b, V7c)', () => {
 
     // Cria 1ª conta
     fireEvent.press(screen.getByText('Nova conta'));
-    fireEvent.changeText(screen.getByTestId('account-name-input'), 'Conta 1');
-    fireEvent.press(screen.getByTestId('account-save-btn'));
+    fireEvent.changeText(screen.getByTestId('account-form-name-input'), 'Conta 1');
+    fireEvent.press(screen.getByTestId('account-form-save-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('Conta 1')).toBeTruthy();
@@ -138,8 +139,8 @@ describe('Sprint 115 — UI e Fluxos (V2, V3a, V7b, V7c)', () => {
     // Botão Nova conta continua acessível para criar a 2ª conta
     expect(screen.getByTestId('accounts-add-inline-btn')).toBeTruthy();
     fireEvent.press(screen.getByTestId('accounts-add-inline-btn'));
-    fireEvent.changeText(screen.getByTestId('account-name-input'), 'Conta 2');
-    fireEvent.press(screen.getByTestId('account-save-btn'));
+    fireEvent.changeText(screen.getByTestId('account-form-name-input'), 'Conta 2');
+    fireEvent.press(screen.getByTestId('account-form-save-btn'));
 
     await waitFor(() => {
       expect(screen.getByText('Conta 2')).toBeTruthy();

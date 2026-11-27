@@ -2,7 +2,9 @@ import Decimal from 'decimal.js';
 import { Transaction, Asset } from '../db/schema';
 import { runInTransaction } from '../db/client';
 import { decimalToCents } from '../domain/money';
+import { matchOpenFinanceInvestmentOutflow } from '../domain/financeFlow';
 import { RebalanceAssetSuggestion } from '../domain/finance/types';
+import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finService } from './finService';
 import { ITransactionService, transactionService } from './transactionService';
@@ -88,17 +90,6 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
     await runInTransaction(async () => {
       let itemCashSource: { accountId: string } | null | undefined = undefined;
       if (brokerAccountId && params.cashSource !== null) {
-        const sourceAccountId = params.cashSource?.accountId || brokerAccountId;
-        const totalCents = decimalToCents(totalInvested);
-        if (sourceAccountId !== brokerAccountId && totalCents > 0) {
-          await finService.createTransfer({
-            fromAccountId: sourceAccountId,
-            toAccountId: brokerAccountId,
-            amountCents: totalCents,
-            dateIso: params.tradeDate,
-            description: 'Aporte em lote',
-          });
-        }
         // Cada compra individual registra apenas investment_buy na corretora
         itemCashSource = { accountId: brokerAccountId };
       } else if (params.cashSource === null) {
@@ -120,6 +111,66 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
 
         transactions.push(execResult.transaction);
         updatedAssets.push(execResult.updatedAsset);
+      }
+
+      if (brokerAccountId && params.cashSource !== null && transactions.length > 0) {
+        const sourceAccountId = params.cashSource?.accountId || brokerAccountId;
+        const totalCents = decimalToCents(totalInvested);
+        const batchLinkedTxId = transactions[0].id;
+        if (sourceAccountId !== brokerAccountId && totalCents > 0) {
+          const allEntries = await finRepository.listAllEntries();
+          const matchedOf = matchOpenFinanceInvestmentOutflow(allEntries, {
+            accountId: sourceAccountId,
+            amountCents: totalCents,
+            tradeDate: params.tradeDate,
+            brokerAccountId,
+          });
+          if (matchedOf) {
+            const transferGroupId =
+              matchedOf.transfer_group_id ??
+              `tr-of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+            const restorePayload =
+              matchedOf.of_link_restore ??
+              JSON.stringify({
+                kind: matchedOf.kind,
+                transfer_group_id: matchedOf.transfer_group_id ?? null,
+                of_class_reason: matchedOf.of_class_reason ?? null,
+              });
+            const matchedCents =
+              matchedOf.status === 'paid'
+                ? (matchedOf.paid_amount_cents ?? matchedOf.amount_cents)
+                : matchedOf.amount_cents;
+            await finRepository.updateEntry(matchedOf.id, {
+              kind: 'transfer_out',
+              transfer_group_id: transferGroupId,
+              linked_transaction_id: batchLinkedTxId,
+              of_class_reason: matchedOf.of_class_reason ?? 'INVESTMENT_MOVE',
+              of_link_restore: restorePayload,
+            });
+            await finRepository.createEntry({
+              kind: 'transfer_in',
+              amount_cents: matchedCents,
+              due_date: params.tradeDate,
+              paid_date: params.tradeDate,
+              paid_amount_cents: matchedCents,
+              status: 'paid',
+              account_id: brokerAccountId,
+              category_id: 'cat-outros-receita',
+              description: 'Aporte em lote',
+              transfer_group_id: transferGroupId,
+              linked_transaction_id: batchLinkedTxId,
+            });
+          } else {
+            await finService.createTransfer({
+              fromAccountId: sourceAccountId,
+              toAccountId: brokerAccountId,
+              amountCents: totalCents,
+              dateIso: params.tradeDate,
+              description: 'Aporte em lote',
+              linkedTransactionId: batchLinkedTxId,
+            });
+          }
+        }
       }
     });
 

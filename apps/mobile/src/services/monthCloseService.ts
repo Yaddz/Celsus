@@ -15,6 +15,7 @@ import {
 import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
 import { pendingContributionStore } from '../stores/pendingContributionStore';
+import { getInvestmentAccountIds } from './investmentAccountsService';
 import { patrimonyService } from './patrimonyService';
 
 export const MONTH_CLOSE_META_PREFIX = 'month-close:';
@@ -54,17 +55,20 @@ export class MonthCloseService {
     const targetMonths = options?.targetMonths ?? DEFAULT_RESERVE_TARGET_MONTHS;
 
     const db = getDatabase();
-    const [patrimony, allEntries, activeAccounts, allAssets, closedFlag] = await Promise.all([
-      patrimonyService.getPatrimony(todayIso),
-      finRepository.listAllEntries(),
-      finRepository.listAccounts(false),
-      db.select().from(assets),
-      appMetaRepository.get(this.metaKey(yearMonth)),
-    ]);
+    const [patrimony, allEntries, activeAccounts, allAssets, closedFlag, linkedAccountIds] =
+      await Promise.all([
+        patrimonyService.getPatrimony(todayIso),
+        finRepository.listAllEntries(),
+        finRepository.listAccounts(false),
+        db.select().from(assets),
+        appMetaRepository.get(this.metaKey(yearMonth)),
+        getInvestmentAccountIds(),
+      ]);
 
     const summary = monthSummary(allEntries, yearMonth, {
       todayIso,
       accounts: activeAccounts,
+      linkedAccountIds,
     });
     const pendingList = filterPendingUntilDay(allEntries, yearMonth, cutoffDay);
     const surplus = availableSurplus(summary, pendingList);
