@@ -1,0 +1,17 @@
+{
+  "quotes": [
+    {
+      "symbol": "NVDA",
+      "shortname": "NVIDIA Corporation",
+      "longname": "NVIDIA Corporation",
+      "quoteType": "EQUITY",
+      "exchange": "NMS"
+    },
+    {
+      "symbol": "NVDA34.SA",
+      "shortname": "NVIDIA CORP DRN",
+      "quoteType": "EQUITY",
+      "exchange": "SAO"
+    }
+  ]
+}

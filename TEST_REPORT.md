@@ -851,3 +851,16 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - 5 diferenças de centavos (−0,01 a 0,02; −2,99 em 04/2026).
   - Nubank 06/2026: a Pluggy devolve `totalAmount` 0 para uma fatura com R$ 1.082,11 em itens.
   Candidatas a aparecer como informativas ("histórico incompleto" / "arredondamento do banco"), não como erro.
+
+
+## Sprint 107 — Motor de Mercado com EUA (US_STOCK), Câmbio (USDBRL/EURBRL) e Currency (Fase A)
+- **Branch:** `feat/sprint-107-market-us-fx` (a partir de `feat/sprint-103-money-broker-link`).
+- **Fase A (Red Phase & Lock):**
+  - Fixtures Yahoo gravadas em `services/market-api/internal/yahoo/testdata/`: `nvda_chart.json` (`USD`), `usdbrl_chart.json` (`BRL`), `eurbrl_chart.json` (`BRL`), `petr4_no_currency_chart.json` (sem campo `currency` -> default `BRL`), `us_search.json`.
+  - Testes Go criados e travados:
+    - `services/market-api/internal/yahoo/sprint107_us_fx_test.go`: `TestSprint107_SymbolMapping_US_FX_B3_Crypto`, `TestSprint107_CurrencyParsing_USD_BRL_AndMissing`.
+    - `services/market-api/internal/http/sprint107_us_fx_test.go`: `TestSprint107_Routes_US_FX_Currency_And_CatalogSearch` (`/v1/quotes`, `/v1/history`, `/v1/assets/{t}/history`, `/v1/assets/{t}/dividends`, `/v1/catalog/search`).
+    - `services/market-api/pkg/mobilebridge/sprint107_bridge_test.go`: `TestSprint107_MobileBridge_US_FX_And_Currency`.
+  - Testes App (Jest) criados e travados:
+    - `apps/mobile/src/services/__tests__/Sprint107MarketUsFx.test.ts`: `S107-T01..T05` (`getHistoricalPrice` com `currency: USD` no cache, `fetchQuotes` `USDBRL`, sem dado => `null`, paridade HTTP × ponte mock, `US_STOCK` restrito a `SandboxAssetClass`).
+  - `node scripts/test-lock.js lock` executado com 244 arquivos travados em `tests.lock.json`.

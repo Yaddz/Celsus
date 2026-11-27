@@ -1,0 +1,36 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "symbol": "PETR4.SA",
+          "exchangeName": "SAO",
+          "instrumentType": "EQUITY",
+          "regularMarketPrice": 38.50,
+          "chartPreviousClose": 38.00,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [37.50],
+              "high": [39.00],
+              "low": [37.00],
+              "close": [38.50],
+              "volume": [45000000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [34.10]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

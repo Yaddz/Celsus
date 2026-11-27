@@ -325,6 +325,11 @@ func resolveAssetClass(ctx context.Context, db *sql.DB, ticker string) string {
 	return "STOCK"
 }
 
+// FetchQuotesWithClassJSON fetches quotes for comma-separated tickers with explicit assetClass.
+func FetchQuotesWithClassJSON(tickersCSV string, assetClass string, forceRefresh bool) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
 // FetchQuotesJSON fetches quotes for comma-separated tickers, respecting the 15-minute SQLite cache TTL,
 // or returning stale cached quotes when offline.
 func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
@@ -443,6 +448,11 @@ type historicalPriceResponse struct {
 	ClosePrice float64 `json:"close_price"`
 	AdjClose   float64 `json:"adj_close"`
 	Source     string  `json:"source"`
+}
+
+// GetHistoricalPriceWithClassJSON queries local quotes and performs on-demand Yahoo sync with explicit assetClass.
+func GetHistoricalPriceWithClassJSON(ticker string, date string, assetClass string) (string, error) {
+	return "", fmt.Errorf("not implemented")
 }
 
 // GetHistoricalPriceJSON queries local quotes and performs on-demand Yahoo sync if missing,
@@ -850,6 +860,11 @@ func quoteOnlyProfile(ctx context.Context, eng *marketEngine, ticker, class stri
 	}
 }
 
+// GetPriceHistoryWithClassJSON returns historical chart points with explicit assetClass.
+func GetPriceHistoryWithClassJSON(ticker string, rangeParam string, assetClass string) (string, error) {
+	return "", fmt.Errorf("not implemented")
+}
+
 // GetPriceHistoryJSON returns historical chart points for the specified range.
 func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 	eng, err := getEngine()
@@ -905,6 +920,11 @@ func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+// GetDividendsWithClassJSON returns dividend events for ticker with explicit assetClass.
+func GetDividendsWithClassJSON(ticker string, assetClass string) (string, error) {
+	return "", fmt.Errorf("not implemented")
 }
 
 // GetDividendsJSON returns dividend events for ticker.

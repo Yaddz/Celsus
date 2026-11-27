@@ -1,0 +1,47 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "NVDA",
+          "exchangeName": "NMS",
+          "instrumentType": "EQUITY",
+          "regularMarketPrice": 135.40,
+          "chartPreviousClose": 132.00,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400,
+          1704286800,
+          1704373200
+        ],
+        "events": {
+          "dividends": {
+            "1704373200": {
+              "amount": 0.04,
+              "date": 1704373200
+            }
+          }
+        },
+        "indicators": {
+          "quote": [
+            {
+              "open": [49.00, 49.50, 50.10],
+              "high": [49.80, 50.20, 50.90],
+              "low": [48.50, 49.10, 49.90],
+              "close": [49.50, 50.00, 50.60],
+              "volume": [41000000, 39000000, 42000000]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [49.45, 49.95, 50.60]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "BRL",
+          "symbol": "BRL=X",
+          "exchangeName": "CCY",
+          "instrumentType": "CURRENCY",
+          "regularMarketPrice": 5.75,
+          "chartPreviousClose": 5.70,
+          "regularMarketTime": 1704222000
+        },
+        "timestamp": [
+          1704200400,
+          1704286800
+        ],
+        "indicators": {
+          "quote": [
+            {
+              "open": [4.95, 4.98],
+              "high": [5.01, 5.03],
+              "low": [4.93, 4.96],
+              "close": [4.99, 5.02],
+              "volume": [0, 0]
+            }
+          ],
+          "adjclose": [
+            {
+              "adjclose": [4.99, 5.02]
+            }
+          ]
+        }
+      }
+    ],
+    "error": null
+  }
+}

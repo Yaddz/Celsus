@@ -350,6 +350,16 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 	return results, nil
 }
 
+// FetchQuotesWithClass fetches quotes with an explicit asset class (e.g. "US_STOCK").
+func (c *Client) FetchQuotesWithClass(ctx context.Context, tickers []string, assetClass string) (map[string]quotes.Quote, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+// FetchChartHistoryWithClass fetches historical daily bars and corporate events with an explicit asset class.
+func (c *Client) FetchChartHistoryWithClass(ctx context.Context, ticker string, rangeParam string, assetClass string) ([]quotes.HistoricalBar, []quotes.CorporateEvent, error) {
+	return nil, nil, fmt.Errorf("not implemented")
+}
+
 // FetchCryptoQuotes fetches crypto quotes priced in BRL (delegates to FetchQuotes with -BRL normalization).
 func (c *Client) FetchCryptoQuotes(ctx context.Context, coins []string) (map[string]quotes.Quote, error) {
 	return c.FetchQuotes(ctx, coins)

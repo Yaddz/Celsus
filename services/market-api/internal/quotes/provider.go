@@ -5,11 +5,12 @@ import (
 	"time"
 )
 
-// Quote represents a standardized real-time or delayed asset quote in BRL.
+// Quote represents a standardized real-time or delayed asset quote.
 type Quote struct {
 	Ticker    string    `json:"ticker"`
 	Price     float64   `json:"price"`
 	Change24h float64   `json:"change_24h"`
+	Currency  string    `json:"currency"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Source    string    `json:"source,omitempty"`
 }
@@ -23,6 +24,7 @@ type HistoricalBar struct {
 	Close    float64 `json:"close"`     // Nominal close (indicators.quote[0].close)
 	AdjClose float64 `json:"adj_close"` // Adjusted close (indicators.adjclose[0].adjclose)
 	Volume   float64 `json:"volume"`
+	Currency string  `json:"currency"`
 }
 
 // CorporateEvent represents a stock split, inplit (reverse split), or cash dividend.
@@ -34,6 +36,7 @@ type CorporateEvent struct {
 	Denominator float64 `json:"denominator"` // For SPLIT/INPLIT
 	Ratio       string  `json:"ratio"`       // e.g. "2:1" or "1:10"
 	CashAmount  float64 `json:"cash_amount"` // For DIVIDEND
+	Currency    string  `json:"currency"`
 }
 
 // QuoteProvider defines the contract for market quote providers (Yahoo Finance primary, BRAPI fallback).
