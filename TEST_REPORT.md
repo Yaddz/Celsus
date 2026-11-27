@@ -12,6 +12,19 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (0 em `Sprint114*`/`Sprint115*`; 404 pré-existentes apenas em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **270 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 116 — Dinheiro real da corretora via Open Finance e aportes sem fantasmas (Fase A concluída)
+
+Especificação das correções W1–W6: W1 (conta vinculada Open Finance: o extrato manda; ligação opcional com a liquidação; texto do extrato nas telas; `migration:of-linked-cash-cleanup:v1`), W2 (aporte só de conta não de investimento para conta de investimento, `isAutomaticSweep`), W3 (`fin_entries.batch_id` no aporte em lote), W4 (restauração de casamentos antigos), W5 (casamento inverso só com movimento de investimento), W6 (lint em `TransactionScreen`). Fixtures reais em `apps/mobile/src/services/pluggy/__tests__/sprint116ExportFixture.ts`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint116OfBrokerCashDomain.test.ts` | S116-T01…T12 | `aa8053e6fc9570f48cf86a7e5328142c4f4fb1d84b987e723589bcdfb307c3b7` | 8 FAIL / 8 PASS (guardas) | — |
+| `apps/mobile/src/services/__tests__/Sprint116OfBrokerCashServices.test.ts` | S116-T13…T29 | `a97973e914c5543b16e8bafbcdd5a7634d5d7c15cf58a8254f71da8af3c91c89` | 15 FAIL / 2 PASS (guardas) | — |
+| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashUI.test.tsx` | S116-T30…T32 | `f5ee6f164fe429805dd72a681c8a365a5d478819bccf35b45536a7d092f4fa6f` | 2 FAIL / 1 PASS (guarda) | — |
+| `apps/mobile/src/screens/__tests__/Sprint116OfBrokerCashLint.test.ts` | S116-T33 | `8498196ed18f423158510736e6e72c1ef06f68e67755431c2e7893fa60beba1a` | 1 FAIL | — |
+
+Execução da Fase A (suíte completa): 251 suítes e 1585 testes PASS fora da Sprint 116; 26 testes S116 FALHAM pelo motivo certo (comportamento ainda não implementado) e 11 passam como guardas de regressão. `node scripts/test-lock.js verify`: 274 arquivos íntegros.
+
 ## Sprint 115 — Correções da validação da Sprint 114 (Fase B concluída)
 
 Especificação das correções V1–V7: V1 (`of_item_id` gravado na criação/atualização em `pluggySyncService`, migração local `migration:fin-accounts-of-item-id:v1`, sugestão pós-sincronização `migration:broker-link-suggest:v3`), V2 (fonte única `services/investmentAccountsService.ts` → `getInvestmentAccountIds()` usada por `FinanceHomeScreen`, `monthCloseService` e `fireService`), V3 (`resolveDefaultCashSource` em `TransactionScreen` e `SimulatorScreen` com bloco `"Sai de"` e aviso negativo; `rebalanceExecution` com `matchOpenFinanceInvestmentOutflow` no total do lote), V4 (`fin_entries.of_link_restore` restaurando lançamentos `OPEN_FINANCE` em `deleteEntriesByLinkedTransactionId` e preservação de `linked_transaction_id` no sync), V5 (`transfer_in` casado usando `paid_amount_cents ?? amount_cents` do Open Finance), V6 (`matchAppInvestmentTransferOut` e substituição inversa em `pluggySyncService`), V7 (correção de lint em telas das sprints 103–115, `"Nova conta"` preservado em `AccountsScreen` com `hideFab`, gráfico comparativo `compare-chart` em `CompareScreen`).

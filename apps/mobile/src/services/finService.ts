@@ -32,6 +32,7 @@ export const BROKER_ACCOUNTS_MIGRATION_META_KEY = 'migration:broker-accounts:v1'
 export const REMOVE_B3_IMPORT_CASH_ENTRIES_META_KEY = 'migration:remove-b3-import-cash-entries:v1';
 export const BROKER_LINK_SUGGEST_V2_META_KEY = 'migration:broker-link-suggest:v2';
 export const FIN_ACCOUNTS_OF_ITEM_ID_V1_META_KEY = 'migration:fin-accounts-of-item-id:v1';
+export const OF_LINKED_CASH_CLEANUP_V1_META_KEY = 'migration:of-linked-cash-cleanup:v1';
 
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
@@ -285,6 +286,11 @@ export class FinService {
    * (carteira vinculada com `of_item_id`, lançamento ligado a `income_events.item_id`, ou único item OF no banco).
    * Contas ambíguas ficam `null` até a próxima sincronização.
    */
+  /** W1d (Sprint 116) — STUB da Fase A. */
+  async migrateOfLinkedCashCleanupIfNeeded(): Promise<number> {
+    return 0;
+  }
+
   async migrateFinAccountsOfItemIdIfNeeded(): Promise<number> {
     const alreadyDone = await appMetaRepository.get(FIN_ACCOUNTS_OF_ITEM_ID_V1_META_KEY);
     if (alreadyDone) return 0;

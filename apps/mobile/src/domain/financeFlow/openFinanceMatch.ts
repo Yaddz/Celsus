@@ -126,3 +126,24 @@ export function matchAppInvestmentTransferOut(
   candidates.sort((a, b) => a.absDays - b.absDays || a.absAmountDiff - b.absAmountDiff);
   return candidates[0].entry;
 }
+
+export interface AppTransferMatchCandidateInput {
+  accountType: string | null | undefined;
+  kind: string;
+  classReason: string | null | undefined;
+  description?: string | null;
+  transferGroupId?: string | null;
+}
+
+/**
+ * W5 (Sprint 116): a saída OF pode substituir o `transfer_out` do app (V6) apenas quando é movimento de
+ * investimento ou transferência entre contas próprias, nunca aplicação automática.
+ * STUB da Fase A: ainda é o critério da Sprint 115.
+ */
+export function isAppTransferMatchCandidate(input: AppTransferMatchCandidateInput): boolean {
+  if (input.accountType === 'card') return false;
+  const isOut =
+    input.kind === 'transfer_out' ||
+    (input.kind === 'expense' && input.classReason === 'INVESTMENT_MOVE');
+  return isOut && (input.classReason === 'INVESTMENT_MOVE' || !input.transferGroupId);
+}
