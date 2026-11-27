@@ -10,7 +10,17 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **190/190 suítes PASS** (**1250/1250 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros** nos arquivos de produção (148 erros pré-existentes apenas em 41 arquivos `__tests__` antigos) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **206 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **243 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 104 — Compra, venda, proventos e transferências atômicas (Fase A concluída)
+
+Especificação das regras `R40` e `R41` (problemas `I2`, `I3`, `I6`): `fin_entries.linked_transaction_id`, novos `kind` (`investment_buy`, `investment_sell`, `investment_income`), `transactionService.executeTransaction` e `deleteTransaction` atômicos com `runInTransaction`, bloqueio de exclusão de `investment_*` em Finanças, aporte em lote em `rebalanceExecution`, proventos com `pluggyIncomeRelinkService`, exclusão de `investment_*` de despesas/orçamento, UI da `TransactionScreen` (artboard 9) e reclassificação de aportes antigos em `FinanceMoreScreen`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint104FinanceFlow.test.ts` | S104-T12 | `b87e3109ca68059833ae63e1ae8e9e2e90d2498771680b739b678477a624d2a2` | 1 FAIL | — |
+| `apps/mobile/src/services/__tests__/Sprint104BuySellIncome.test.ts` | S104-T01…T11, S104-BKP | `c741f273bec344c58321c4a6e860b1ba8d0ebb2787b295b71baeabecdaa08e26` | 11 FAIL / 1 PASS | — |
+| `apps/mobile/src/screens/__tests__/Sprint104TransactionAndMoreUI.test.tsx` | S104-T13…T16 | `b7cec77101738597eb10388d744e6028a0e46c558ad91a003d86d353c92db522` | 4 FAIL | — |
 
 ## Sprint 103 — Dinheiro único, conta corretora e vínculo carteira ↔ conta (Fase B concluída)
 
