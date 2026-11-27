@@ -26,6 +26,8 @@ import {
   formatCentsBRL,
   formatYearMonthPtBr,
   getTodayIsoLocal,
+  isBalanceCreditKind,
+  isInvestmentKind,
   isoToBr,
   parseBRLToCents,
   resolveBillMonth,
@@ -129,6 +131,7 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
 
   const [actionEntry, setActionEntry] = useState<FinEntry | null>(null);
   const [deleteConfirmEntry, setDeleteConfirmEntry] = useState<FinEntry | null>(null);
+  const [investmentBlockMessage, setInvestmentBlockMessage] = useState<string | null>(null);
   const [payingEntry, setPayingEntry] = useState<FinEntry | null>(null);
   const [payAmountText, setPayAmountText] = useState('');
   const [payDateText, setPayDateText] = useState(isoToBr(effectiveToday));
@@ -313,7 +316,14 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
     await loadData();
   };
 
-  const handleDeletePress = (entry: FinEntry) => {
+  const handleDeletePress = async (entry: FinEntry) => {
+    if (isInvestmentKind(entry.kind)) {
+      const portfolioName = await finService.resolveInvestmentEntryPortfolioName(entry);
+      setInvestmentBlockMessage(
+        `Esse lançamento vem da carteira ${portfolioName}. Exclua a movimentação por lá.`
+      );
+      return;
+    }
     if (entry.installment_group_id) {
       setScopePrompt({ action: 'delete', entry });
       return;
@@ -417,9 +427,8 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
       subtitle = `${formatTxDate(entry.paid_date ?? entry.due_date)} • Transferência • ${accountName}`;
     }
 
-    // Entrada de transferência soma no saldo da conta: sinal positivo, como uma receita
-    const kind: FinKind =
-      entry.kind === 'income' || entry.kind === 'transfer_in' ? 'income' : 'expense';
+    // Entrada de transferência ou investimento (venda/provento) soma no saldo da conta
+    const kind: FinKind = isBalanceCreditKind(entry.kind) ? 'income' : 'expense';
     const amountColor = kind === 'income' ? c.income : c.expense;
 
     return (
@@ -1016,6 +1025,18 @@ export const EntriesListScreen: React.FC<EntriesListScreenProps> = ({
         confirmTestID="entry-delete-confirm-btn"
         onCancel={() => setDeleteConfirmEntry(null)}
         onConfirm={() => void handleConfirmDeleteSingle()}
+      />
+
+      <ConfirmDialog
+        visible={Boolean(investmentBlockMessage)}
+        title="Lançamento da carteira"
+        message={investmentBlockMessage ?? ''}
+        confirmLabel="Entendi"
+        cancelLabel=""
+        themeMode={themeMode}
+        confirmTestID="entry-investment-block-ok-btn"
+        onCancel={() => setInvestmentBlockMessage(null)}
+        onConfirm={() => setInvestmentBlockMessage(null)}
       />
     </View>
   );

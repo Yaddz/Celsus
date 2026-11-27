@@ -1,8 +1,13 @@
 import Decimal from 'decimal.js';
 import { Transaction, Asset } from '../db/schema';
+import { runInTransaction } from '../db/client';
+import { decimalToCents } from '../domain/money';
 import { IMarketApiService, marketApiService } from './marketApi';
 import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
 import { AssetRepository, assetRepository } from '../repositories/assetRepository';
+import { portfolioRepository } from '../repositories/portfolioRepository';
+import { finRepository } from '../repositories/finRepository';
+import { finService } from './finService';
 import { calculateBuyOperation, calculateSellOperation } from '../domain/finance/averagePrice';
 
 export interface CreateTransactionInput {
@@ -17,6 +22,8 @@ export interface CreateTransactionInput {
   notes?: string | null;
   source?: 'MANUAL' | 'OPEN_FINANCE' | 'B3_IMPORT';
   externalId?: string | null;
+  /** R40: conta de origem (BUY) ou destino (SELL). Omitido usa a corretora vinculada; null não lança em Finanças. */
+  cashSource?: { accountId: string } | null;
 }
 
 export interface TransactionExecutionResult {
@@ -180,98 +187,168 @@ export class TransactionService implements ITransactionService {
 
     const currentQtyDec = new Decimal(asset.quantity || 0);
 
-    if (params.type === 'SELL') {
-      if (qtyDec.gt(currentQtyDec)) {
-        throw new Error(
-          `Saldo insuficiente para venda: quantidade atual é ${currentQtyDec.toString()}, mas tentou vender ${qtyDec.toString()}`
-        );
-      }
+    if (params.type === 'SELL' && qtyDec.gt(currentQtyDec)) {
+      throw new Error(
+        `Saldo insuficiente para venda: quantidade atual é ${currentQtyDec.toString()}, mas tentou vender ${qtyDec.toString()}`
+      );
+    }
 
-      // Calcula novo PM (inalterado) e Lucro Realizado
-      const sellResult = calculateSellOperation({
-        currentQuantity: asset.quantity,
-        currentAveragePrice: asset.average_price,
-        sellQuantity: params.quantity,
-        sellPrice: params.unitPrice,
-        fees: params.fees ?? 0,
-      });
+    const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
+    const brokerAccountId = portfolio?.fin_account_id ?? null;
+    const shouldPostCash =
+      Boolean(brokerAccountId) &&
+      params.cashSource !== null &&
+      params.source !== 'OPEN_FINANCE';
+    const selectedCashAccountId = params.cashSource?.accountId || brokerAccountId;
 
-      const totalAmount = qtyDec.mul(priceDec).minus(feesDec);
+    return runInTransaction(async () => {
+      if (params.type === 'SELL') {
+        const sellResult = calculateSellOperation({
+          currentQuantity: asset.quantity,
+          currentAveragePrice: asset.average_price,
+          sellQuantity: params.quantity,
+          sellPrice: params.unitPrice,
+          fees: params.fees ?? 0,
+        });
 
-      // Persiste transação
-      const transaction = await this.txRepo.createTransaction({
-        id: params.id,
-        portfolio_id: params.portfolioId,
-        asset_id: params.assetId,
-        type: 'SELL',
-        trade_date: params.tradeDate,
-        quantity: formatTxQuantity(qtyDec, params.quantity),
-        unit_price: formatMoney(priceDec),
-        fees: formatMoney(feesDec),
-        total_amount: totalAmount.toFixed(2),
-        notes: params.notes ?? null,
-        source: params.source ?? 'MANUAL',
-        external_id: params.externalId ?? null,
-      });
+        const totalAmount = qtyDec.mul(priceDec).minus(feesDec);
 
-      // Atualiza ativo atomicamente
-      const updatedAsset = await this.assetRepo.updateAsset(params.assetId, {
-        quantity: sellResult.quantity,
-        average_price: sellResult.averagePrice,
-      });
+        const transaction = await this.txRepo.createTransaction({
+          id: params.id,
+          portfolio_id: params.portfolioId,
+          asset_id: params.assetId,
+          type: 'SELL',
+          trade_date: params.tradeDate,
+          quantity: formatTxQuantity(qtyDec, params.quantity),
+          unit_price: formatMoney(priceDec),
+          fees: formatMoney(feesDec),
+          total_amount: totalAmount.toFixed(2),
+          notes: params.notes ?? null,
+          source: params.source ?? 'MANUAL',
+          external_id: params.externalId ?? null,
+        });
 
-      return {
-        transaction,
-        updatedAsset: updatedAsset ?? {
-          ...asset,
+        const updatedAsset = await this.assetRepo.updateAsset(params.assetId, {
           quantity: sellResult.quantity,
           average_price: sellResult.averagePrice,
-        },
-        realizedPnl: sellResult.realizedPnl,
-      };
-    } else {
-      // BUY Operation
-      const buyResult = calculateBuyOperation({
-        currentQuantity: asset.quantity,
-        currentAveragePrice: asset.average_price,
-        buyQuantity: params.quantity,
-        buyPrice: params.unitPrice,
-        fees: params.fees ?? 0,
-      });
+        });
 
-      const totalAmount = qtyDec.mul(priceDec).plus(feesDec);
+        if (shouldPostCash && brokerAccountId) {
+          const amountCents = decimalToCents(totalAmount);
+          if (amountCents > 0) {
+            await finRepository.createEntry({
+              kind: 'investment_sell',
+              amount_cents: amountCents,
+              due_date: params.tradeDate,
+              paid_date: params.tradeDate,
+              paid_amount_cents: amountCents,
+              status: 'paid',
+              account_id: brokerAccountId,
+              category_id: 'cat-outros-receita',
+              description: `Venda ${asset.ticker}`,
+              linked_transaction_id: transaction.id,
+            });
+            if (selectedCashAccountId && selectedCashAccountId !== brokerAccountId) {
+              await finService.createTransfer({
+                fromAccountId: brokerAccountId,
+                toAccountId: selectedCashAccountId,
+                amountCents,
+                dateIso: params.tradeDate,
+                description: `Resgate ${asset.ticker}`,
+                linkedTransactionId: transaction.id,
+              });
+            }
+          }
+        }
 
-      // Persiste transação
-      const transaction = await this.txRepo.createTransaction({
-        id: params.id,
-        portfolio_id: params.portfolioId,
-        asset_id: params.assetId,
-        type: 'BUY',
-        trade_date: params.tradeDate,
-        quantity: formatTxQuantity(qtyDec, params.quantity),
-        unit_price: formatMoney(priceDec),
-        fees: formatMoney(feesDec),
-        total_amount: totalAmount.toFixed(2),
-        notes: params.notes ?? null,
-        source: params.source ?? 'MANUAL',
-        external_id: params.externalId ?? null,
-      });
+        return {
+          transaction,
+          updatedAsset: updatedAsset ?? {
+            ...asset,
+            quantity: sellResult.quantity,
+            average_price: sellResult.averagePrice,
+          },
+          realizedPnl: sellResult.realizedPnl,
+        };
+      } else {
+        const buyResult = calculateBuyOperation({
+          currentQuantity: asset.quantity,
+          currentAveragePrice: asset.average_price,
+          buyQuantity: params.quantity,
+          buyPrice: params.unitPrice,
+          fees: params.fees ?? 0,
+        });
 
-      // Atualiza ativo atomicamente
-      const updatedAsset = await this.assetRepo.updateAsset(params.assetId, {
-        quantity: buyResult.quantity,
-        average_price: buyResult.averagePrice,
-      });
+        const totalAmount = qtyDec.mul(priceDec).plus(feesDec);
 
-      return {
-        transaction,
-        updatedAsset: updatedAsset ?? {
-          ...asset,
+        const transaction = await this.txRepo.createTransaction({
+          id: params.id,
+          portfolio_id: params.portfolioId,
+          asset_id: params.assetId,
+          type: 'BUY',
+          trade_date: params.tradeDate,
+          quantity: formatTxQuantity(qtyDec, params.quantity),
+          unit_price: formatMoney(priceDec),
+          fees: formatMoney(feesDec),
+          total_amount: totalAmount.toFixed(2),
+          notes: params.notes ?? null,
+          source: params.source ?? 'MANUAL',
+          external_id: params.externalId ?? null,
+        });
+
+        const updatedAsset = await this.assetRepo.updateAsset(params.assetId, {
           quantity: buyResult.quantity,
           average_price: buyResult.averagePrice,
-        },
-      };
-    }
+        });
+
+        if (shouldPostCash && brokerAccountId) {
+          const amountCents = decimalToCents(totalAmount);
+          if (amountCents > 0) {
+            if (selectedCashAccountId && selectedCashAccountId !== brokerAccountId) {
+              await finService.createTransfer({
+                fromAccountId: selectedCashAccountId,
+                toAccountId: brokerAccountId,
+                amountCents,
+                dateIso: params.tradeDate,
+                description: `Aporte ${asset.ticker}`,
+                linkedTransactionId: transaction.id,
+              });
+            }
+            await finRepository.createEntry({
+              kind: 'investment_buy',
+              amount_cents: amountCents,
+              due_date: params.tradeDate,
+              paid_date: params.tradeDate,
+              paid_amount_cents: amountCents,
+              status: 'paid',
+              account_id: brokerAccountId,
+              category_id: 'cat-outros-despesa',
+              description: `Compra ${asset.ticker}`,
+              linked_transaction_id: transaction.id,
+            });
+          }
+        }
+
+        return {
+          transaction,
+          updatedAsset: updatedAsset ?? {
+            ...asset,
+            quantity: buyResult.quantity,
+            average_price: buyResult.averagePrice,
+          },
+        };
+      }
+    });
+  }
+
+  /**
+   * Exclui movimentação e todos os lançamentos financeiros ligados na mesma transação.
+   */
+  async deleteTransaction(transactionId: string): Promise<void> {
+    await runInTransaction(async () => {
+      await finRepository.deleteEntriesByLinkedTransactionId(transactionId);
+      await this.txRepo.deleteTransaction(transactionId);
+    });
   }
 
   /**

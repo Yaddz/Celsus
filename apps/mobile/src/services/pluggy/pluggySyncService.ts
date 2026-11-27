@@ -706,6 +706,7 @@ export const pluggySyncService = {
             let linkedIncomeId: string;
             if (equiv && equiv.id) {
               linkedIncomeId = equiv.id;
+              await finRepository.deleteInvestmentIncomeByLinkedIncomeId(linkedIncomeId);
             } else {
               const createdInc = await incomeRepository.addIncome({
                 portfolioId: brokerPortfolioId,

@@ -645,6 +645,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'description_raw',
   'user_edited_fields',
   'linked_income_id',
+  'linked_transaction_id',
   'of_removed_at',
   'of_category_id',
   'of_class_reason',
@@ -779,6 +780,7 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     description_raw: r.description_raw === '' ? null : r.description_raw ?? null,
     user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
     linked_income_id: !r.linked_income_id || r.linked_income_id === '' ? null : r.linked_income_id,
+    linked_transaction_id: !r.linked_transaction_id || r.linked_transaction_id === '' ? null : r.linked_transaction_id,
     of_removed_at: !r.of_removed_at || r.of_removed_at === '' ? null : r.of_removed_at,
     of_category_id: !r.of_category_id || r.of_category_id === '' ? null : r.of_category_id,
     of_class_reason: !r.of_class_reason || r.of_class_reason === '' ? null : r.of_class_reason,
@@ -1953,3 +1955,17 @@ export class BackupService {
 }
 
 export const backupService = new BackupService();
+
+export const exportDossierArchive = (
+  snapshotOverride?: BackupDatabaseSnapshot,
+  exportDate?: Date
+) => backupService.exportDossierArchive(snapshotOverride, exportDate);
+
+export const importDossierArchive = (
+  input: Uint8Array | ExportArchiveResult,
+  mode: BackupImportMode = 'RESTORE'
+) =>
+  backupService.importDossierArchive(
+    input instanceof Uint8Array ? input : input.zipBytes,
+    mode
+  );

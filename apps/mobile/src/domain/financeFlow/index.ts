@@ -10,7 +10,31 @@ import {
 } from './cards';
 
 export type FinKind = 'income' | 'expense';
-export type FinEntryKind = 'income' | 'expense' | 'transfer_out' | 'transfer_in';
+export const FIN_ENTRY_KINDS = [
+  'income',
+  'expense',
+  'transfer_out',
+  'transfer_in',
+  'investment_buy',
+  'investment_sell',
+  'investment_income',
+] as const;
+export type FinEntryKind = (typeof FIN_ENTRY_KINDS)[number];
+export function isInvestmentKind(kind: string | null | undefined): boolean {
+  return (
+    kind === 'investment_buy' ||
+    kind === 'investment_sell' ||
+    kind === 'investment_income'
+  );
+}
+export function isBalanceCreditKind(kind: string | null | undefined): boolean {
+  return (
+    kind === 'income' ||
+    kind === 'transfer_in' ||
+    kind === 'investment_sell' ||
+    kind === 'investment_income'
+  );
+}
 export type FinEntryStatus = 'pending' | 'paid';
 export type FinAccountType = 'cash' | 'checking' | 'card' | 'broker';
 export type FinFrequency = 'weekly' | 'monthly' | 'yearly';
@@ -398,7 +422,7 @@ export function calculateAccountBalance(
     if (accountId !== undefined && entry.account_id !== accountId) continue;
     if (entry.status !== 'paid') continue;
     const realCents = entry.paid_amount_cents ?? entry.amount_cents;
-    if (entry.kind === 'income' || entry.kind === 'transfer_in') {
+    if (isBalanceCreditKind(entry.kind)) {
       balance += realCents;
     } else {
       balance -= realCents;
@@ -443,10 +467,10 @@ export function monthlyAccountFlows(
     if (e.of_removed_at) continue;
     if (e.status !== 'paid') continue;
     if (!e.due_date.startsWith(yearMonth)) continue;
-    if (e.kind === 'income' || e.kind === 'transfer_in') {
+    if (isBalanceCreditKind(e.kind)) {
       inflowCents += e.amount_cents;
       count += 1;
-    } else if (e.kind === 'expense' || e.kind === 'transfer_out') {
+    } else if (e.kind === 'expense' || e.kind === 'transfer_out' || e.kind === 'investment_buy') {
       outflowCents += e.amount_cents;
       count += 1;
     }
@@ -485,7 +509,7 @@ export function calculateMonthlySummary(entries: FinEntry[], yearMonth: string, 
     if (entry.of_removed_at) continue;
     if (entry.of_class_reason === 'CARD_DEBT_ROLLOVER') continue;
     if (!entry.due_date.startsWith(yearMonth)) continue;
-    if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
+    if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in' || isInvestmentKind(entry.kind)) continue;
     if (todayIso && isStaleOpenFinancePending(entry, todayIso)) continue;
 
     if (
@@ -791,7 +815,8 @@ export function detectOverdueAndDueSoonWithBills(
       e.of_class_reason !== 'PROCESSING' &&
       !cardAccountIds.has(e.account_id) &&
       e.kind !== 'transfer_out' &&
-      e.kind !== 'transfer_in'
+      e.kind !== 'transfer_in' &&
+      !isInvestmentKind(e.kind)
   );
   const base = detectOverdueAndDueSoon(nonCardEntries, todayIso, horizonDays);
 

@@ -195,6 +195,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   description_raw TEXT,
   user_edited_fields TEXT,
   linked_income_id TEXT,
+  linked_transaction_id TEXT,
   of_removed_at TEXT,
   of_category_id TEXT,
   of_class_reason TEXT,
@@ -358,6 +359,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_budgets_category_month ON fin_budgets(categor
 CREATE INDEX IF NOT EXISTS idx_fin_bills_account_month ON fin_bills(account_id, bill_month);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolios_of_item_id ON portfolios(of_item_id) WHERE of_item_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_portfolios_fin_account_id ON portfolios(fin_account_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_linked_transaction ON fin_entries(linked_transaction_id);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -622,6 +624,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'item_id', ddl: 'ALTER TABLE income_events ADD COLUMN item_id TEXT' },
   { table: 'income_events', column: 'asset_id', ddl: 'ALTER TABLE income_events ADD COLUMN asset_id TEXT' },
   { table: 'fin_entries', column: 'linked_income_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_income_id TEXT' },
+  { table: 'fin_entries', column: 'linked_transaction_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_transaction_id TEXT' },
   { table: 'fin_entries', column: 'of_removed_at', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_removed_at TEXT' },
   { table: 'fin_entries', column: 'of_category_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_category_id TEXT' },
   { table: 'fin_entries', column: 'of_class_reason', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_class_reason TEXT' },
@@ -1087,7 +1090,19 @@ export async function runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
     if (typeof db.transaction === 'function') {
       return await db.transaction(async () => fn());
     }
-    return await fn();
+    // Snapshot inMemoryStore para garantir atomicidade no ambiente Jest / ?memdb=1
+    const snapshot: Record<string, any[]> = {};
+    for (const [k, v] of Object.entries(inMemoryStore)) {
+      snapshot[k] = Array.isArray(v) ? v.map((row) => ({ ...row })) : [];
+    }
+    try {
+      return await fn();
+    } catch (err) {
+      for (const [k, v] of Object.entries(snapshot)) {
+        (inMemoryStore as any)[k] = v;
+      }
+      throw err;
+    }
   } finally {
     _inTransaction = false;
   }

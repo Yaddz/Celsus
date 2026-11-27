@@ -46,6 +46,7 @@ import { CardBillScreen } from './CardBillScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { CategoryRulesScreen } from './CategoryRulesScreen';
 import { StatementImportSheet } from '../../components/StatementImportSheet';
+import { ReclassifyAportesSheet } from './ReclassifyAportesSheet';
 import { EntriesListScreen } from './EntriesListScreen';
 import { EntryFormSheet } from './EntryFormSheet';
 import { ReceiptScannerSheet, type ReceiptScannerMode } from './ReceiptScannerSheet';
@@ -189,6 +190,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(Boolean(initialOpenStatementImport));
+  const [isReclassifyAportesOpen, setIsReclassifyAportesOpen] = useState(false);
 
   useEffect(() => {
     if (initialOpenStatementImport) {
@@ -503,6 +505,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onOpen={(route) => {
             if (route === 'statementImport') {
               setIsStatementImportOpen(true);
+            } else if (route === 'reclassifyAportes') {
+              setIsReclassifyAportesOpen(true);
             } else if (route in TAB_OF_ROUTE) {
               navigateTo(route as FinanceRoute);
             }
@@ -1060,6 +1064,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         visible={isStatementImportOpen}
         onClose={() => setIsStatementImportOpen(false)}
         onCompleted={() => void loadData()}
+        themeMode={themeMode}
+      />
+      <ReclassifyAportesSheet
+        visible={isReclassifyAportesOpen}
+        onClose={() => setIsReclassifyAportesOpen(false)}
+        onReclassified={() => void loadData()}
+        isPrivacyMode={isPrivacyMode}
         themeMode={themeMode}
       />
       <AnimatedModalSheet

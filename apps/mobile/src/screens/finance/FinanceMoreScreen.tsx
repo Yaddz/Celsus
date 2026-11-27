@@ -19,7 +19,8 @@ export type FinanceMoreRoute =
   | 'recurrences'
   | 'categories'
   | 'categoryRules'
-  | 'statementImport';
+  | 'statementImport'
+  | 'reclassifyAportes';
 
 export interface FinanceMoreScreenProps {
   onBack: () => void;
@@ -154,10 +155,20 @@ export const FinanceMoreScreen: React.FC<FinanceMoreScreenProps> = ({
             avatarColor="#D96628"
             title="Importar fatura ou extrato"
             subtitle="Arquivos OFX e CSV"
-            isLast
             themeMode={themeMode}
             rightAccessory={chevron}
             onPress={() => onOpen('statementImport')}
+          />
+          <FinListRow
+            testID="finance-more-reclassify-aportes"
+            icon="swap-horiz"
+            avatarColor="#5E9C76"
+            title="Reclassificar aportes antigos"
+            subtitle="Despesas que parecem aporte na corretora"
+            isLast
+            themeMode={themeMode}
+            rightAccessory={chevron}
+            onPress={() => onOpen('reclassifyAportes')}
           />
         </FinListCard>
       </ScrollView>

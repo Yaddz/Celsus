@@ -429,6 +429,7 @@ export class FinRepository {
       description_raw: item.description_raw ?? item.descriptionRaw ?? null,
       user_edited_fields: item.user_edited_fields ?? item.userEditedFields ?? null,
       linked_income_id: item.linked_income_id ?? item.linkedIncomeId ?? null,
+      linked_transaction_id: item.linked_transaction_id ?? item.linkedTransactionId ?? null,
       of_removed_at: item.of_removed_at ?? item.ofRemovedAt ?? null,
       of_category_id: item.of_category_id ?? item.ofCategoryId ?? null,
       of_class_reason: item.of_class_reason ?? item.ofClassReason ?? null,
@@ -474,6 +475,37 @@ export class FinRepository {
   async deleteEntriesByTransferGroup(transferGroupId: string): Promise<void> {
     const db = getDatabase();
     await db.delete(finEntries).where(eq(finEntries.transfer_group_id, transferGroupId));
+  }
+
+  async listEntriesByLinkedTransactionId(transactionId: string): Promise<FinEntry[]> {
+    const db = getDatabase();
+    return (await db
+      .select()
+      .from(finEntries)
+      .where(eq(finEntries.linked_transaction_id, transactionId))) as FinEntry[];
+  }
+
+  async deleteEntriesByLinkedTransactionId(transactionId: string): Promise<void> {
+    const db = getDatabase();
+    await db.delete(finEntries).where(eq(finEntries.linked_transaction_id, transactionId));
+  }
+
+  async listEntriesByLinkedIncomeId(incomeId: string): Promise<FinEntry[]> {
+    const db = getDatabase();
+    return (await db
+      .select()
+      .from(finEntries)
+      .where(eq(finEntries.linked_income_id, incomeId))) as FinEntry[];
+  }
+
+  async deleteInvestmentIncomeByLinkedIncomeId(incomeId: string): Promise<void> {
+    const db = getDatabase();
+    const linked = await this.listEntriesByLinkedIncomeId(incomeId);
+    for (const row of linked) {
+      if (row.kind === 'investment_income') {
+        await db.delete(finEntries).where(eq(finEntries.id, row.id));
+      }
+    }
   }
 
   async getEntryById(id: string): Promise<FinEntry | null> {
