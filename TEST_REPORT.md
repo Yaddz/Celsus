@@ -10,7 +10,17 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **230/230 suítes PASS** (**1453/1453 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **246 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **249 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 106 — Fechar o mês (Fase A — Red Phase & Lock)
+
+Especificação da regra `R45`: `domain/financeFlow/monthClose.ts` (`availableSurplus`, `emergencyReserve`, `filterPendingUntilDay`), `assets.rf_daily_liquidity`, `stores/pendingContributionStore.ts`, `services/monthCloseService.ts`, `services/finReminderService.ts` (lembrete dia 1º `"Feche <mês anterior>"`), `MonthCloseScreen.tsx` (artboard 8), `FinanceHomeScreen.tsx` (remoção da flag + tile Reserva), `SimulatorScreen.tsx` (`initialAmount`/`sourceAccountId`) e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint106MonthClose.test.ts` | S106-T01…T04 | `12e0da7c5586278e7b32b19f2b29fe6928942050129b5fcd0bc590ff233b94cc` | FAIL (módulo) | — |
+| `apps/mobile/src/services/__tests__/Sprint106MonthCloseService.test.tsx` | S106-T05…T07 | `acfe622bef3f104eeead5bd80254c7fcc0578796e52b0e052ed5ca8c94f2098e` | FAIL (módulo) | — |
+| `apps/mobile/src/screens/__tests__/Sprint106MonthCloseUI.test.tsx` | S106-T08…T09 | `41a1a9722ba112e8c968aed131940e41af7303a394da46a4176c6a020757c088` | FAIL (módulo) | — |
 
 ## Sprint 105 — Patrimônio único, mês em uma linha e metas unificadas (Fase B concluída)
 
