@@ -12,6 +12,23 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **264 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 114 — Correções da revisão das Sprints 103–113 (Fase A — testes bloqueados)
+
+Especificação das correções P1–P9: P1 (hub Simulador sem `"Em breve"`, todos os tiles navegando), P2 (importação B3 não lança em Finanças + migração `migration:remove-b3-import-cash-entries:v1` + undo), P3 (`TransactionScreen` origem padrão + aviso não-bloqueante, `matchOpenFinanceInvestmentOutflow`, `migration:broker-link-suggest:v2`, `patrimonyService` sem dupla contagem de `checking`), P4 (`monthSummary` sem contar aporte em dobro), P5 (`deleteTransaction` recalculando posição), P6 (`addIncome` atômico, `updateIncome` sem sobrescrever OF, `findMatchingOpenFinanceIncomeEntry` na conexão OF), P7 (`rf_daily_liquidity` UI + `monthCloseService` via `patrimonyService`), P8 (`backtest` `monthlySeries` com reinvestimento, JCP 15%, `CompareScreen`/`StressTestScreen` via `sandboxService` com USDBRL), P9 (`AccountsScreen` sem `ui.accent`).
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint114ReviewFixesDomain.test.ts` | S114-T01…T05 | `8a6d91d9e88e5df6156990a71a04895a1566ccfdf243db5f9e25597d0a7fc501` | 5 FAIL |
+| `apps/mobile/src/services/__tests__/Sprint114ReviewFixesServices.test.ts` | S114-T06…T10 | `3de6cea85e16d82207bde7cb8dacc061778fc623ac134c25862b658ea2018406` | 5 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint114ReviewFixesUI.test.tsx` | S114-T11…T14 | `87a6924a40ca7092d219d06f0264cef0c1aa972752a0af1b75f4b9d3adb05209` | 4 FAIL |
+
+**Teste atualizado com autorização explícita do usuário (P1):**
+- `apps/mobile/src/screens/__tests__/Sprint109SandboxAndTimeMachineUI.test.tsx` (`S109-T01`, SHA-256 `29076313c29c252d3d0b7ca4e95fd0d6a0e5f1994fee380c1efe78b47537c321`): removida a exigência do selo `"Em breve"` e verificada a navegação de todos os tiles do hub (`Máquina do tempo`, `Carteira fictícia`, `Meta de dividendos`, `Independência`, `Custo de oportunidade`, `Teste de estresse`, `Comparar`, `Aporte`).
+
+Execução da Fase A (suíte completa):
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **245/248 suítes PASS** (**1546/1560 testes PASS**; 14 FAIL esperados na Sprint 114)
+- `node scripts/test-lock.js verify`: **267 arquivos íntegros**
+
 ## Sprint 113 — Teste de estresse e Comparar (Fase B concluída)
 
 Especificação da Sprint 113 (tiles "Teste de estresse" e "Comparar" do artboard 1): `domain/sandbox/stressTest.ts` (`runStressTest`, `findWorstDrawdownWindow` via `extremes`), `domain/sandbox/compare.ts` (`buildComparisonSeries`, até 4 ativos + CDI + IPCA normalizados em 100), `screens/sandbox/StressTestScreen.tsx`, `screens/sandbox/CompareScreen.tsx`, ativação no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.

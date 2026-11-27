@@ -137,7 +137,7 @@ describe('Sprint 109 — SandboxHubScreen, TimeMachineScreen e Navegação (Artb
     jest.restoreAllMocks();
   });
 
-  test('S109-T01: Botão no header de Análises abre o hub Simulador; tiles corretos, "Em breve" não navega e "Aporte" abre SimulatorScreen', async () => {
+  test('S109-T01: Botão no header de Análises abre o hub Simulador; todos os tiles navegam para sua tela e "Aporte" abre SimulatorScreen', async () => {
     const onOpenSandboxHub = jest.fn();
     const stats = render(wrap(<StatisticsScreen onOpenSandboxHub={onOpenSandboxHub} />));
 
@@ -148,12 +148,24 @@ describe('Sprint 109 — SandboxHubScreen, TimeMachineScreen e Navegação (Artb
     expect(onOpenSandboxHub).toHaveBeenCalledTimes(1);
 
     const onOpenTimeMachine = jest.fn();
+    const onOpenPaperPortfolio = jest.fn();
+    const onOpenDividendGoal = jest.fn();
+    const onOpenFire = jest.fn();
+    const onOpenOpportunityCost = jest.fn();
+    const onOpenStressTest = jest.fn();
+    const onOpenCompare = jest.fn();
     const onOpenContributionSimulator = jest.fn();
     const hub = render(
       wrap(
         <SandboxHubScreen
           onBack={jest.fn()}
           onOpenTimeMachine={onOpenTimeMachine}
+          onOpenPaperPortfolio={onOpenPaperPortfolio}
+          onOpenDividendGoal={onOpenDividendGoal}
+          onOpenFire={onOpenFire}
+          onOpenOpportunityCost={onOpenOpportunityCost}
+          onOpenStressTest={onOpenStressTest}
+          onOpenCompare={onOpenCompare}
           onOpenContributionSimulator={onOpenContributionSimulator}
         />
       )
@@ -174,21 +186,24 @@ describe('Sprint 109 — SandboxHubScreen, TimeMachineScreen e Navegação (Artb
     fireEvent.press(hub.getByTestId('sandbox-tile-aporte'));
     expect(onOpenContributionSimulator).toHaveBeenCalledTimes(1);
 
-    // Tiles "Em breve" existem com selo "Em breve" e NÃO navegam
-    const comingSoonTiles = [
-      'sandbox-tile-carteira-ficticia',
-      'sandbox-tile-meta-dividendos',
-      'sandbox-tile-independencia',
-      'sandbox-tile-custo-oportunidade',
-      'sandbox-tile-teste-estresse',
-      'sandbox-tile-comparar',
-    ];
-    expect(hub.getAllByText('Em breve').length).toBeGreaterThanOrEqual(6);
-    for (const id of comingSoonTiles) {
-      fireEvent.press(hub.getByTestId(id));
-    }
-    expect(onOpenTimeMachine).toHaveBeenCalledTimes(1);
-    expect(onOpenContributionSimulator).toHaveBeenCalledTimes(1);
+    // Todos os demais tiles do hub navegam para a sua tela
+    fireEvent.press(hub.getByTestId('sandbox-tile-carteira-ficticia'));
+    expect(onOpenPaperPortfolio).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(hub.getByTestId('sandbox-tile-meta-dividendos'));
+    expect(onOpenDividendGoal).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(hub.getByTestId('sandbox-tile-independencia'));
+    expect(onOpenFire).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(hub.getByTestId('sandbox-tile-custo-oportunidade'));
+    expect(onOpenOpportunityCost).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(hub.getByTestId('sandbox-tile-teste-estresse'));
+    expect(onOpenStressTest).toHaveBeenCalledTimes(1);
+
+    fireEvent.press(hub.getByTestId('sandbox-tile-comparar'));
+    expect(onOpenCompare).toHaveBeenCalledTimes(1);
   });
 
   test('S109-T02: Speed dial "+" da FloatingBottomDock possui pílula "Simular" que aciona onSimularPress', async () => {

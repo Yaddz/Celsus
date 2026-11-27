@@ -11,6 +11,7 @@ export interface SandboxDividendPoint {
   date: string;
   amountPerUnit: number;
   currency?: string;
+  type?: string;
 }
 
 export interface SandboxLegInput {
