@@ -1,6 +1,7 @@
 import * as Crypto from 'expo-crypto';
-import { runInTransaction } from '../db/client';
-import type { FinEntry, FinRecurrence } from '../db/schema';
+import { eq } from 'drizzle-orm';
+import { getDatabase, runInTransaction } from '../db/client';
+import { incomeEvents, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
 import {
   addDaysIso,
   addMonthsYearMonth,
@@ -11,6 +12,7 @@ import {
   generateRecurrenceOccurrences,
   getMonthDateRange,
   getTodayIsoLocal,
+  isInvestmentKind,
   normalizeCardEntry,
   parseIsoDate,
   resolveBillMonth,
@@ -22,6 +24,7 @@ import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finReminderService } from './finReminderService';
+import { finGoalsService } from './finGoalsService';
 
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
@@ -34,6 +37,7 @@ export class FinService {
     await this.migrateOrphanRecordsIfNeeded();
     await this.migrateCardBillMonthsIfNeeded();
     await this.migrateBrokerAccountsIfNeeded();
+    await finGoalsService.migrateLegacyGoalsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
     const startMonth = addMonthsYearMonth(refMonth, -1);
@@ -593,12 +597,56 @@ export class FinService {
     });
   }
 
+  async resolveInvestmentEntryPortfolioName(entry: FinEntry): Promise<string> {
+    const db = getDatabase();
+    if (entry.linked_transaction_id) {
+      const rows = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.id, entry.linked_transaction_id));
+      if (rows[0]?.portfolio_id) {
+        const p = await portfolioRepository.getPortfolioById(rows[0].portfolio_id);
+        if (p?.name) return p.name;
+      }
+    }
+    if (entry.linked_income_id) {
+      const rows = await db
+        .select()
+        .from(incomeEvents)
+        .where(eq(incomeEvents.id, entry.linked_income_id));
+      if (rows[0]?.portfolio_id) {
+        const p = await portfolioRepository.getPortfolioById(rows[0].portfolio_id);
+        if (p?.name) return p.name;
+      }
+    }
+    const allPortfolios = await portfolioRepository.listPortfolios(true);
+    const linked = allPortfolios.find((p) => p.fin_account_id === entry.account_id);
+    return linked?.name || 'Investimentos';
+  }
+
+  async deleteEntry(entryId: string): Promise<void> {
+    const target = await finRepository.getEntryById(entryId);
+    if (!target) return;
+    if (isInvestmentKind(target.kind)) {
+      const portfolioName = await this.resolveInvestmentEntryPortfolioName(target);
+      throw new Error(
+        `Esse lançamento vem da carteira ${portfolioName}. Exclua a movimentação por lá.`
+      );
+    }
+    if (target.transfer_group_id) {
+      await this.deleteTransferGroup(target.transfer_group_id);
+      return;
+    }
+    await finRepository.deleteEntry(entryId);
+  }
+
   async createTransfer(params: {
     fromAccountId: string;
     toAccountId: string;
     amountCents: number;
     dateIso: string;
     description?: string;
+    linkedTransactionId?: string | null;
   }): Promise<{ transferGroupId: string; outEntry: FinEntry; inEntry: FinEntry }> {
     const amountCents = Math.round(params.amountCents);
     if (amountCents <= 0) {
@@ -624,6 +672,7 @@ export class FinService {
           category_id: 'cat-outros-despesa',
           description: desc,
           transfer_group_id: transferGroupId,
+          linked_transaction_id: params.linkedTransactionId ?? null,
         },
         {
           kind: 'transfer_in',
@@ -636,6 +685,7 @@ export class FinService {
           category_id: 'cat-outros-receita',
           description: desc,
           transfer_group_id: transferGroupId,
+          linked_transaction_id: params.linkedTransactionId ?? null,
         },
       ]);
       return { transferGroupId, outEntry, inEntry };

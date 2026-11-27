@@ -1,9 +1,11 @@
 import * as Notifications from 'expo-notifications';
 import {
   addDaysIso,
+  addMonthsYearMonth,
   calculateBudgetUsage,
   detectOverdueAndDueSoonWithBills,
   formatCentsBRL,
+  formatYearMonthPtBr,
   getTodayIsoLocal,
 } from '../domain/financeFlow';
 import { appMetaRepository } from '../repositories/appMetaRepository';
@@ -249,6 +251,42 @@ export class FinReminderService {
     }
 
     return sent;
+  }
+
+  /**
+   * R45 — Lembrete opcional no dia 1º: "Feche <mês anterior>" quando não houver marca `month-close:YYYY-MM`.
+   */
+  async checkAndNotifyMonthClose(
+    options: FinBudgetAlertOptions = {}
+  ): Promise<boolean> {
+    const prefs = options.preferences ?? (await this.getPreferences());
+    if (!prefs.enabled) return false;
+
+    const todayIso = options.todayIso ?? getTodayIsoLocal();
+    if (todayIso.slice(8, 10) !== '01') return false;
+
+    const prevMonth = addMonthsYearMonth(todayIso.slice(0, 7), -1);
+    const closedMark = await appMetaRepository.get(`month-close:${prevMonth}`);
+    if (closedMark) return false;
+
+    const notifiedKey = `fin:month_close_reminder:${prevMonth}`;
+    if (await appMetaRepository.get(notifiedKey)) return false;
+
+    const monthName = formatYearMonthPtBr(prevMonth).split(' ')[0].toLowerCase();
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `Feche ${monthName}`,
+        body: `O mês de ${monthName} terminou. Revise sua sobra e decida o aporte.`,
+        data: {
+          kind: 'fin_month_close_reminder',
+          route: 'monthClose',
+          yearMonth: prevMonth,
+        },
+      },
+      trigger: null,
+    });
+    await appMetaRepository.set(notifiedKey, new Date().toISOString());
+    return true;
   }
 
   handleNotificationResponse(response: {

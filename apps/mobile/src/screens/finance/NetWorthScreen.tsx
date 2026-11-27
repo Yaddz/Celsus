@@ -9,7 +9,7 @@ import type { NetWorthSnapshot } from '../../db/schema';
 import type { NetWorthResult } from '../../domain/finance/goal';
 import { formatCentsBRL, formatYearMonthPtBr } from '../../domain/financeFlow';
 import { finGoalsRepository } from '../../repositories/finGoalsRepository';
-import { finGoalsService } from '../../services/finGoalsService';
+import { patrimonyService } from '../../services/patrimonyService';
 import type { ThemeMode } from '../../theme/palettes';
 import { space, typography } from '../../theme/tokens';
 import { getFinUiColors, sharedStyles } from './finTheme';
@@ -47,11 +47,16 @@ export const NetWorthScreen: React.FC<NetWorthScreenProps> = ({
   const [snapshots, setSnapshots] = useState<NetWorthSnapshot[]>([]);
 
   const loadData = useCallback(async () => {
-    const [nw, snaps] = await Promise.all([
-      finGoalsService.computeCurrentNetWorth(referenceDateIso),
+    const [pat, snaps] = await Promise.all([
+      patrimonyService.getPatrimony(referenceDateIso),
       finGoalsRepository.listNetWorthSnapshots(),
     ]);
-    setNetWorth(nw);
+    setNetWorth({
+      accountsCents: pat.accountsCents,
+      investmentsCents: pat.investedCents,
+      cardDebtCents: pat.cardsCents,
+      totalCents: pat.totalCents,
+    });
     setSnapshots([...snaps].reverse());
   }, [referenceDateIso]);
 

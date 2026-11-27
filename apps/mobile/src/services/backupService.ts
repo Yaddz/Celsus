@@ -503,6 +503,7 @@ const ASSETS_COLUMNS: (keyof Asset)[] = [
   'rf_maturity_date',
   'rf_is_tax_exempt',
   'rf_issuer',
+  'rf_daily_liquidity',
   'source',
   'external_id',
   'institution_id',
@@ -645,6 +646,7 @@ const FIN_ENTRIES_COLUMNS: (keyof FinEntry)[] = [
   'description_raw',
   'user_edited_fields',
   'linked_income_id',
+  'linked_transaction_id',
   'of_removed_at',
   'of_category_id',
   'of_class_reason',
@@ -779,6 +781,7 @@ function parseFinEntriesFromCsv(csvText?: string): FinEntry[] {
     description_raw: r.description_raw === '' ? null : r.description_raw ?? null,
     user_edited_fields: r.user_edited_fields === '' ? null : r.user_edited_fields ?? null,
     linked_income_id: !r.linked_income_id || r.linked_income_id === '' ? null : r.linked_income_id,
+    linked_transaction_id: !r.linked_transaction_id || r.linked_transaction_id === '' ? null : r.linked_transaction_id,
     of_removed_at: !r.of_removed_at || r.of_removed_at === '' ? null : r.of_removed_at,
     of_category_id: !r.of_category_id || r.of_category_id === '' ? null : r.of_category_id,
     of_class_reason: !r.of_class_reason || r.of_class_reason === '' ? null : r.of_class_reason,
@@ -1113,6 +1116,10 @@ function parseAssetsFromCsv(csv: string): Asset[] {
     rf_maturity_date: r.rf_maturity_date === '' ? null : r.rf_maturity_date,
     rf_is_tax_exempt: Number(r.rf_is_tax_exempt || 0),
     rf_issuer: !r.rf_issuer || r.rf_issuer === '' ? null : r.rf_issuer,
+    rf_daily_liquidity:
+      r.rf_daily_liquidity === undefined || r.rf_daily_liquidity === ''
+        ? null
+        : Number(r.rf_daily_liquidity),
     source: r.source || 'MANUAL',
     external_id: r.external_id === '' ? null : r.external_id,
     institution_id: r.institution_id === '' ? null : r.institution_id,
@@ -1953,3 +1960,17 @@ export class BackupService {
 }
 
 export const backupService = new BackupService();
+
+export const exportDossierArchive = (
+  snapshotOverride?: BackupDatabaseSnapshot,
+  exportDate?: Date
+) => backupService.exportDossierArchive(snapshotOverride, exportDate);
+
+export const importDossierArchive = (
+  input: Uint8Array | ExportArchiveResult,
+  mode: BackupImportMode = 'RESTORE'
+) =>
+  backupService.importDossierArchive(
+    input instanceof Uint8Array ? input : input.zipBytes,
+    mode
+  );

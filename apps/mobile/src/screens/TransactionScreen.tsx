@@ -9,6 +9,7 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Switch,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import Decimal from 'decimal.js';
@@ -17,7 +18,11 @@ import { transactionService } from '../services/transactionService';
 import { marketApiService, STATIC_CATALOG_ASSETS } from '../services/marketApi';
 import { assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
-import { Asset, Portfolio } from '../db/schema';
+import { finRepository } from '../repositories/finRepository';
+import { appMetaRepository } from '../repositories/appMetaRepository';
+import { calculateAccountBalance, formatCentsBRL } from '../domain/financeFlow';
+import { decimalToCents } from '../domain/money';
+import { Asset, FinAccount, FinEntry, Portfolio } from '../db/schema';
 import { DirectiveButton } from '../components/ui/DirectiveButton';
 import { TextField } from '../components/ui/TextField';
 import { formatUnitPriceBRL } from '../utils/formatters';
@@ -133,6 +138,11 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
   const [isLoadingAutoFill, setIsLoadingAutoFill] = useState(false);
   const [autoFillMessage, setAutoFillMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [finAccounts, setFinAccounts] = useState<FinAccount[]>([]);
+  const [finEntriesList, setFinEntriesList] = useState<FinEntry[]>([]);
+  const [useCashAccount, setUseCashAccount] = useState<boolean>(true);
+  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string>('');
+  const [showLinkPrompt, setShowLinkPrompt] = useState<boolean>(false);
 
   const resetForm = () => {
     setQuantity('');
@@ -155,9 +165,15 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     let isMounted = true;
     const init = async () => {
       try {
-        const list = await portfolioRepository.getAllPortfolios();
+        const [list, accounts, allEntries] = await Promise.all([
+          portfolioRepository.getAllPortfolios(),
+          finRepository.listAccounts(false),
+          finRepository.listAllEntries(),
+        ]);
         if (!isMounted) return;
         setPortfolios(list);
+        setFinAccounts(accounts);
+        setFinEntriesList(allEntries);
         const portIdToUse = selectedPortfolioId || (list.length > 0 ? list[0].id : '');
         if (portIdToUse) {
           if (!selectedPortfolioId) setSelectedPortfolioId(portIdToUse);
@@ -380,6 +396,50 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     }
   }, [selectedAssetId, tradeDate, assets]);
 
+  const selectedPortfolio = portfolios.find((p) => p.id === selectedPortfolioId) ?? null;
+  const linkedBrokerAccountId = selectedPortfolio?.fin_account_id ?? null;
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedPortfolioId) {
+      setShowLinkPrompt(false);
+      return;
+    }
+    if (linkedBrokerAccountId) {
+      setUseCashAccount(true);
+      setSelectedCashAccountId(linkedBrokerAccountId);
+      setShowLinkPrompt(false);
+      return;
+    }
+    setSelectedCashAccountId('');
+    (async () => {
+      const metaKey = `link-prompt:${selectedPortfolioId}`;
+      const seen = await appMetaRepository.get(metaKey);
+      if (!active) return;
+      if (seen !== '1') {
+        setShowLinkPrompt(true);
+        await appMetaRepository.set(metaKey, '1');
+      } else {
+        setShowLinkPrompt(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [selectedPortfolioId, linkedBrokerAccountId]);
+
+  const eligibleCashAccounts = React.useMemo(() => {
+    if (!linkedBrokerAccountId) return [];
+    const broker = finAccounts.find((a) => a.id === linkedBrokerAccountId);
+    const others = finAccounts.filter(
+      (a) =>
+        a.archived === 0 &&
+        a.id !== linkedBrokerAccountId &&
+        (a.type === 'checking' || a.type === 'cash')
+    );
+    return broker ? [broker, ...others] : others;
+  }, [finAccounts, linkedBrokerAccountId]);
+
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);
 
   // Auto-fill preço manual via COTAHIST
@@ -440,6 +500,14 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         unitPrice,
         fees: fees || '0.00',
         notes: notes || undefined,
+        ...(linkedBrokerAccountId
+          ? {
+              cashSource:
+                useCashAccount && selectedCashAccountId
+                  ? { accountId: selectedCashAccountId }
+                  : null,
+            }
+          : {}),
       });
 
       if (selectedAsset?.ticker) {
@@ -835,6 +903,7 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
         <View style={styles.inputGroup}>
           <TextField
             label="Quantidade"
+            testID="transaction-quantity-input"
             themeMode={themeMode}
             value={quantity}
             onChangeText={setQuantity}
@@ -867,6 +936,75 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
             multiline
           />
         </View>
+
+        {/* Conta vinculada / Pagar com saldo de uma conta (artboard 9, R40) */}
+        {linkedBrokerAccountId ? (
+          <View style={[styles.inputGroup, styles.summaryCard, isLight && styles.summaryCardLight]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={[styles.chipText, isLight && styles.chipTextLight]}>
+                {type === 'BUY' ? 'Pagar com saldo de uma conta' : 'Receber saldo em uma conta'}
+              </Text>
+              <Switch
+                testID="tx-use-cash-toggle"
+                value={useCashAccount}
+                onValueChange={setUseCashAccount}
+              />
+            </View>
+            {useCashAccount && eligibleCashAccounts.length > 0 && (() => {
+              const activeAcc =
+                eligibleCashAccounts.find((a) => a.id === selectedCashAccountId) ??
+                eligibleCashAccounts[0];
+              const currentBalanceCents = activeAcc
+                ? calculateAccountBalance(activeAcc.initial_balance_cents, finEntriesList, activeAcc.id)
+                : 0;
+              const opCents = decimalToCents(calculateTotal());
+              const projectedBalanceCents =
+                type === 'BUY' ? currentBalanceCents - opCents : currentBalanceCents + opCents;
+              return (
+                <View style={{ marginTop: space.sm }}>
+                  <Text style={[styles.inputLabel, isLight && styles.inputLabelLight]}>
+                    {type === 'BUY' ? 'Sai de' : 'Vai para'}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsScroll}>
+                    {eligibleCashAccounts.map((acc) => {
+                      const isSel = acc.id === activeAcc?.id;
+                      return (
+                        <TouchableOpacity
+                          key={acc.id}
+                          testID={`cash-source-chip-${acc.id}`}
+                          onPress={() => setSelectedCashAccountId(acc.id)}
+                          style={[styles.chip, isLight && styles.chipLight, isSel && styles.chipActive]}
+                        >
+                          <Text style={[styles.chipText, isLight && styles.chipTextLight, isSel && styles.chipTextActive]}>
+                            {acc.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                  <Text
+                    testID="cash-projected-balance"
+                    style={[styles.summarySub, isLight && styles.summarySubLight, { marginTop: space.sm }]}
+                  >
+                    {`Saldo ${formatCentsBRL(currentBalanceCents, isPrivacyMode)} → ${formatCentsBRL(projectedBalanceCents, isPrivacyMode)}`}
+                  </Text>
+                </View>
+              );
+            })()}
+          </View>
+        ) : showLinkPrompt ? (
+          <View
+            testID="tx-link-account-prompt"
+            style={[styles.inputGroup, styles.emptyAssetsNotice, isLight && styles.emptyAssetsNoticeLight]}
+          >
+            <Text style={[styles.chipText, isLight && styles.chipTextLight]}>
+              Vincular uma conta?
+            </Text>
+            <Text style={[styles.emptyAssetsText, isLight && styles.emptyAssetsTextLight, { marginTop: space.xs }]}>
+              Vincule uma conta corretora nas configurações da carteira para atualizar o saldo automaticamente.
+            </Text>
+          </View>
+        ) : null}
 
         {/* Resumo Financeiro da Operação */}
         <View style={[styles.summaryCard, isLight && styles.summaryCardLight]}>

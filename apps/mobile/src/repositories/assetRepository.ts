@@ -50,6 +50,7 @@ export class AssetRepository {
       rf_maturity_date: params.rf_maturity_date ?? null,
       rf_is_tax_exempt: params.rf_is_tax_exempt ?? 0,
       rf_issuer: params.rf_issuer ?? null,
+      rf_daily_liquidity: params.rf_daily_liquidity ?? null,
       source: params.source ?? 'MANUAL',
       external_id: params.external_id ?? null,
       institution_id: params.institution_id ?? null,

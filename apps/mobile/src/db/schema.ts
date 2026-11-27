@@ -58,6 +58,7 @@ export const assets = sqliteTable('assets', {
   rf_maturity_date: text('rf_maturity_date'),
   rf_is_tax_exempt: integer('rf_is_tax_exempt').notNull().default(0),
   rf_issuer: text('rf_issuer'),
+  rf_daily_liquidity: integer('rf_daily_liquidity'), // 1 = liquidez diária, 0/NULL = não líquida
 
   // Open Finance integration fields
   source: text('source').notNull().default('MANUAL'), // MANUAL | OPEN_FINANCE
@@ -291,7 +292,7 @@ export const finCategories = sqliteTable('fin_categories', {
  */
 export const finEntries = sqliteTable('fin_entries', {
   id: text('id').primaryKey(),
-  kind: text('kind').notNull(), // 'income' | 'expense' | 'transfer_out' | 'transfer_in'
+  kind: text('kind').notNull(), // 'income' | 'expense' | 'transfer_out' | 'transfer_in' | 'investment_buy' | 'investment_sell' | 'investment_income'
   amount_cents: integer('amount_cents').notNull(),
   due_date: text('due_date').notNull(), // YYYY-MM-DD
   paid_date: text('paid_date'), // YYYY-MM-DD
@@ -313,6 +314,7 @@ export const finEntries = sqliteTable('fin_entries', {
   description_raw: text('description_raw'),
   user_edited_fields: text('user_edited_fields'),
   linked_income_id: text('linked_income_id'),
+  linked_transaction_id: text('linked_transaction_id'),
   of_removed_at: text('of_removed_at'),
   of_category_id: text('of_category_id'), // categoryId hierárquico da Pluggy (Sprint 91)
   of_class_reason: text('of_class_reason'), // INVESTMENT_MOVE | OWN_ACCOUNT_UNPAIRED | ... (Sprint 91)

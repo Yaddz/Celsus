@@ -184,7 +184,7 @@ movimentações e proventos).
 | `asset_profile_cache` | perfil/indicadores do ativo | `profile_json`, `updated_at` (12 h) |
 | `fin_accounts` | contas do módulo Finanças | `name`, `type` (`cash \| checking \| card`), `initial_balance_cents`, `color`, `archived`, `closing_day`, `due_day`, `credit_limit_cents` |
 | `fin_categories` | categorias de receitas/despesas | `name`, `kind`, `icon`, `color`, `parent_id`, `archived` |
-| `fin_entries` | lançamentos pessoais | `kind` (`income \| expense \| transfer_out \| transfer_in`), `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id`, `bill_month`, `transfer_group_id`, `linked_income_id` |
+| `fin_entries` | lançamentos pessoais | `kind` (`income \| expense \| transfer_out \| transfer_in \| investment_buy \| investment_sell \| investment_income`), `amount_cents`, `due_date`, `paid_date`, `paid_amount_cents`, `status`, `account_id`, `category_id`, `recurrence_id`, `recurrence_period`, `installment_group_id`, `bill_month`, `transfer_group_id`, `linked_income_id`, `linked_transaction_id` |
 | `fin_recurrences` | recorrências e assinaturas | `kind`, `amount_cents`, `frequency`, `day_of_month`, `start_date`, `end_date`, `is_subscription`, `active`, `variable_amount`, `generated_until` |
 | `fin_recurrence_skips` | ocorrências ignoradas | PK `(recurrence_id, period)` — impede recriação após exclusão `"só esta"` |
 
@@ -443,3 +443,25 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `repositories/portfolioRepository.ts` & `repositories/finRepository.ts`: `linkFinAccount`, `getLinkedAccount` e `listBrokerAccounts`.
 - `services/finService.ts` & `services/pluggy/pluggyPortfolioService.ts`: migração idempotente `migration:broker-accounts:v1` para carteiras Pluggy e criação automática da conta par para novas carteiras Pluggy.
 - `screens/finance/AccountsScreen.tsx` & `screens/PortfolioManagementScreen.tsx`: agrupamento `"CORRETORAS"` com carteiras vinculadas, opção `"Corretora"` no formulário de conta e seletor `"Conta da corretora: <nome> ›"` na gestão de carteiras.
+
+## Compra, Venda, Proventos e Transferências Atômicas (Sprint 104)
+
+- `db/schema.ts`, `db/client.ts` & `services/backupService.ts`: coluna `fin_entries.linked_transaction_id` (índice `idx_fin_entries_linked_transaction`) + suporte em backup retrocompatível (`exportDossierArchive`/`importDossierArchive`), e rollback em memória no `runInTransaction` para o ambiente Jest/`?memdb=1`.
+- `domain/financeFlow/index.ts` & `domain/financeFlow/budgetsAndCashflow.ts`: `FIN_ENTRY_KINDS` inclui `'investment_buy' | 'investment_sell' | 'investment_income'`; `isInvestmentKind` e `isBalanceCreditKind` garantem que `investment_*` fiquem fora de despesas, receitas mensais e orçamentos, mas entrem no saldo e no fluxo de caixa.
+- `services/transactionService.ts` & `services/rebalanceExecution.ts`: `executeTransaction` (com `cashSource?: { accountId } | null`) e `executeBatchContributions` gravam movimentação, ativo e lançamentos financeiros atomicamente em `runInTransaction` (`R40`); `deleteTransaction` remove os lançamentos ligados.
+- `services/finService.ts` & `screens/finance/EntriesListScreen.tsx`: `deleteEntry` e a exclusão na lista bloqueiam `investment_*` com `"Esse lançamento vem da carteira <nome>. Exclua a movimentação por lá."`.
+- `domain/finance/incomeDedup.ts`, `repositories/incomeRepository.ts` & `services/pluggy/pluggyIncomeRelinkService.ts`: criação de `investment_income` em carteiras vinculadas e casamento explícito com Open Finance (`valor`, `data ±3 dias`, `conta`) nos dois sentidos sem duplicação (`R41`).
+- `screens/TransactionScreen.tsx` & `screens/finance/ReclassifyAportesSheet.tsx`: seletor de conta/chips `"Sai de"` com saldo projetado (`Saldo … → …`), aviso único `"Vincular uma conta?"` (`app_meta` `link-prompt:<portfolioId>`) e reclassificação manual assistida em `FinanceMoreScreen`.
+
+## Patrimônio Único, Mês em uma Linha e Metas Unificadas (Sprint 105)
+
+- `services/patrimonyService.ts` (`R42`): fonte única de patrimônio (`getPatrimony`) consumida por `App.tsx/refreshAppData`, `NetWorthScreen` e `finGoalsService`.
+- `domain/financeFlow/monthSummary.ts` (`R43`): cálculo puro de receitas (com destaque de proventos), despesas, aportes (deduplicando transferência + `investment_buy`), sobra e taxa de poupança.
+- `services/finGoalsService.ts`, `App.tsx` & `screens/PortfolioManagementScreen.tsx` (`R44`): migração `migration:portfolio-goals-to-fin-goals:v1` e leitura/escrita unificada em `fin_goals` fonte `'portfolio'`.
+- `screens/finance/FinanceHomeScreen.tsx` (`DEC-5`, artboard 7): tiles `"Saldo em contas"`, `"O mês em uma linha"`, `"Reserva"` e `"Próximos 7 dias"`, sem nenhum bloco de Investimentos.
+
+## Fechar o Mês (Sprint 106)
+
+- `domain/financeFlow/monthClose.ts` (`R45`): `availableSurplus` (sobra do mês − pendentes até dia D), `averageMonthlyExpenses` e `emergencyReserve` (`checking`/`cash` + renda fixa com `rf_daily_liquidity === 1` ÷ média de despesas 6m).
+- `stores/pendingContributionStore.ts` & `services/monthCloseService.ts`: proposta de fechamento, gravação de `month-close:YYYY-MM` em `app_meta` e ponte de consumo único para Investimentos.
+- `screens/finance/MonthCloseScreen.tsx` (artboard 8), `FinanceHomeScreen.tsx`, `screens/SimulatorScreen.tsx` (`initialAmount`/`sourceAccountId`), `App.tsx`, `navigation/backNavigation.ts` & `services/finReminderService.ts` (`checkAndNotifyMonthClose` no dia 1º).

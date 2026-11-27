@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { getDatabase } from '../../db/client';
 import { assets, finEntries, incomeEvents } from '../../db/schema';
 import { incomeRepository } from '../../repositories/incomeRepository';
+import { finRepository } from '../../repositories/finRepository';
 import { findEquivalentIncome } from '../../domain/finance/incomeDedup';
 import { detectBankIncomeCandidate, type KnownIncomeAsset } from '../../domain/openFinance/income';
 import { normalizeInvestmentTicker } from '../../domain/openFinance/investments';
@@ -99,6 +100,8 @@ export async function relinkStoredBankIncomes(): Promise<RelinkBankIncomesResult
     let incomeId: string;
     if (equiv && equiv.id) {
       incomeId = equiv.id;
+      // R41: lançamento do Open Finance prevalece como valor pago; remove investment_income sintético para não duplicar
+      await finRepository.deleteInvestmentIncomeByLinkedIncomeId(incomeId);
       result.matched += 1;
     } else {
       const created = await incomeRepository.addIncome({

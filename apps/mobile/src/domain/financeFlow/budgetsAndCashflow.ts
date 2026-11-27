@@ -2,6 +2,7 @@ import type { FinAccount, FinBill, FinBudget, FinEntry, FinRecurrence, FinRecurr
 import { summarizeOpenFinanceBill } from '../openFinance/cardBills';
 import { isStaleOpenFinancePending } from '../openFinance/stalePending';
 import { billDueDate, resolveBillMonth, summarizeBill } from './cards';
+import { isBalanceCreditKind, isInvestmentKind } from './index';
 
 export type BudgetStatus = 'ok' | 'atencao' | 'estourado';
 
@@ -303,7 +304,7 @@ export function projectCashflow(
       if (entry.of_removed_at) continue;
       if (entry.account_id !== acc.id || entry.status !== 'paid') continue;
       const real = entry.paid_amount_cents ?? entry.amount_cents;
-      if (entry.kind === 'income' || entry.kind === 'transfer_in') bal += real;
+      if (isBalanceCreditKind(entry.kind)) bal += real;
       else bal -= real;
     }
     startingBalanceCents += bal;
@@ -322,7 +323,7 @@ export function projectCashflow(
     if (entry.of_class_reason === 'PROCESSING') continue;
     if (isStaleOpenFinancePending(entry, todayIso)) continue;
     if (cardAccountIds.has(entry.account_id)) continue;
-    if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in') continue;
+    if (entry.kind === 'transfer_out' || entry.kind === 'transfer_in' || isInvestmentKind(entry.kind)) continue;
     if (entry.due_date > untilIso) continue;
     const signed = entry.kind === 'income' ? entry.amount_cents : -entry.amount_cents;
     // Atrasado continua devido: entra na previsão como se fosse quitado hoje

@@ -31,13 +31,17 @@ import {
   formatYearMonthPtBr,
   getMonthDateRange,
   getTodayIsoLocal,
+  monthSummary,
   projectCashflow,
 } from '../../domain/financeFlow';
+import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { finRepository } from '../../repositories/finRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { formatUpdatedAgo } from '../../domain/openFinance';
 import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
+import { patrimonyService } from '../../services/patrimonyService';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
 import { bento, dock, layout, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
@@ -46,6 +50,7 @@ import { CardBillScreen } from './CardBillScreen';
 import { CategoriesScreen } from './CategoriesScreen';
 import { CategoryRulesScreen } from './CategoryRulesScreen';
 import { StatementImportSheet } from '../../components/StatementImportSheet';
+import { ReclassifyAportesSheet } from './ReclassifyAportesSheet';
 import { EntriesListScreen } from './EntriesListScreen';
 import { EntryFormSheet } from './EntryFormSheet';
 import { ReceiptScannerSheet, type ReceiptScannerMode } from './ReceiptScannerSheet';
@@ -55,6 +60,8 @@ import { FinanceMoreScreen } from './FinanceMoreScreen';
 import { BudgetScreen } from './BudgetScreen';
 import { GoalsScreen } from './GoalsScreen';
 import { NetWorthScreen } from './NetWorthScreen';
+import { MonthCloseScreen } from './MonthCloseScreen';
+import { monthCloseService } from '../../services/monthCloseService';
 import { finGoalsService } from '../../services/finGoalsService';
 import {
   formatSignedCentsBRL,
@@ -76,6 +83,7 @@ export type FinanceRoute =
   | 'cardBill'
   | 'categories'
   | 'categoryRules'
+  | 'monthClose'
   | 'more';
 
 export interface FinanceHomeScreenProps {
@@ -111,6 +119,7 @@ const TAB_OF_ROUTE: Record<FinanceRoute, FinanceTab> = {
   recurrences: 'more',
   categories: 'more',
   categoryRules: 'more',
+  monthClose: 'home',
 };
 
 /** Para onde o voltar leva a partir de cada rota (home = sair do módulo). */
@@ -127,6 +136,7 @@ const PARENT_OF_ROUTE: Record<FinanceRoute, FinanceRoute | null> = {
   recurrences: 'more',
   categories: 'more',
   categoryRules: 'more',
+  monthClose: 'home',
 };
 
 export type FinanceTab = 'home' | 'entries' | 'accounts' | 'more';
@@ -189,6 +199,10 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [scannerMode, setScannerMode] = useState<ReceiptScannerMode | null>(null);
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(Boolean(initialOpenStatementImport));
+  const [isReclassifyAportesOpen, setIsReclassifyAportesOpen] = useState(false);
+  const [accountsBalanceCents, setAccountsBalanceCents] = useState(0);
+  const [cardsDebtCents, setCardsDebtCents] = useState(0);
+  const [reserveMonths, setReserveMonths] = useState<number | null>(null);
 
   useEffect(() => {
     if (initialOpenStatementImport) {
@@ -204,7 +218,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, monthCloseProposal] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
@@ -213,6 +227,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         finRepository.listAllRecurrenceSkips(),
         finRepository.listAllBills(),
         openFinanceRepository.listItems(),
+        patrimonyService.getPatrimony(effectiveToday),
+        monthCloseService.getProposal(effectiveMonth, { todayIso: effectiveToday }).catch(() => null),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
@@ -221,6 +237,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setBudgets(allBudgets);
       setSkips(allSkips);
       setBills(allBills);
+      setAccountsBalanceCents(pat.accountsCents);
+      setCardsDebtCents(pat.cardsCents);
+      setReserveMonths(monthCloseProposal?.reserve.months ?? null);
       setHasOfItems(ofItems.length > 0);
       const latestSynced = ofItems
         .map((it) => it.last_synced_at)
@@ -360,6 +379,11 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(entries, effectiveMonth, effectiveToday),
     [entries, effectiveMonth, effectiveToday]
+  );
+
+  const monthR43 = useMemo(
+    () => monthSummary(entries, effectiveMonth, { todayIso: effectiveToday, accounts }),
+    [entries, effectiveMonth, effectiveToday, accounts]
   );
 
   const prevMonth = useMemo(() => addMonthsYearMonth(effectiveMonth, -1), [effectiveMonth]);
@@ -503,6 +527,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onOpen={(route) => {
             if (route === 'statementImport') {
               setIsStatementImportOpen(true);
+            } else if (route === 'reclassifyAportes') {
+              setIsReclassifyAportesOpen(true);
             } else if (route in TAB_OF_ROUTE) {
               navigateTo(route as FinanceRoute);
             }
@@ -523,6 +549,24 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
           onTogglePrivacy={onTogglePrivacy}
           themeMode={themeMode}
           referenceDateIso={effectiveToday}
+        />
+      );
+    }
+    if (activeRoute === 'monthClose') {
+      return (
+        <MonthCloseScreen
+          yearMonth={effectiveMonth}
+          referenceDateIso={effectiveToday}
+          onBack={() => {
+            setActiveRoute(PARENT_OF_ROUTE[activeRoute] ?? 'home');
+            void loadData();
+          }}
+          onClosedAndContribute={() => {
+            setActiveRoute('home');
+            onSwitchModule?.();
+          }}
+          isPrivacyMode={isPrivacyMode}
+          themeMode={themeMode}
         />
       );
     }
@@ -750,6 +794,99 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             </>
           ) : (
             <BentoGrid>
+              {/* Saldo em contas (artboard 7, R42) */}
+              <BentoTile
+                variant={tileVariant}
+                title="SALDO EM CONTAS"
+                testID="finance-accounts-balance-tile"
+                onPress={() => navigateTo('accounts')}
+              >
+                <Text
+                  testID="finance-accounts-net-balance"
+                  style={[styles.pairValue, { color: c.text }]}
+                  numberOfLines={1}
+                >
+                  {isPrivacyMode
+                    ? PRIVACY_CURRENCY_MASK
+                    : formatCentsBRL(accountsBalanceCents - cardsDebtCents)}
+                </Text>
+                <Text style={[styles.pairCaption, { color: c.muted }]}>
+                  {isPrivacyMode
+                    ? `Contas ${PRIVACY_CURRENCY_MASK} · Cartões ${PRIVACY_CURRENCY_MASK} · Poupança ${monthR43.savingsRateLabel}`
+                    : `Contas ${formatCentsBRL(accountsBalanceCents)} · Cartões ${formatCentsBRL(cardsDebtCents)} · Poupança ${monthR43.savingsRateLabel}`}
+                </Text>
+              </BentoTile>
+
+              {/* O mês em uma linha (artboard 7, R43) */}
+              <BentoTile
+                variant={tileVariant}
+                title="O MÊS EM UMA LINHA"
+                testID="finance-month-one-line-tile"
+              >
+                <View style={{ gap: space.xs }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Receitas</Text>
+                    <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.incomeCents)}
+                    </Text>
+                  </View>
+                  {monthR43.dividendIncomeCents > 0 ? (
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>
+                      {isPrivacyMode
+                        ? `dos quais proventos ${PRIVACY_CURRENCY_MASK}`
+                        : `dos quais proventos ${formatCentsBRL(monthR43.dividendIncomeCents)}`}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Despesas</Text>
+                    <Text style={[styles.pairCaption, { color: c.expense, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.expenseCents)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Enviado à corretora</Text>
+                    <Text style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.contributionCents)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>Sobra</Text>
+                    <Text
+                      style={[
+                        styles.pairCaption,
+                        { color: monthR43.netCents >= 0 ? c.income : c.expense, marginTop: 0 },
+                      ]}
+                    >
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.netCents)}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    testID="finance-close-month-btn"
+                    accessibilityRole="button"
+                    onPress={() => setActiveRoute('monthClose')}
+                    style={{ marginTop: space.xs }}
+                  >
+                    <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
+                      Fechar o mês ›
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </BentoTile>
+
+              {/* Reserva (artboard 7, R45) */}
+              <BentoTile
+                variant={tileVariant}
+                title="RESERVA"
+                testID="finance-reserve-tile"
+              >
+                <Text style={[styles.pairValue, { color: c.text }]}>
+                  {reserveMonths === null
+                    ? '—'
+                    : `${reserveMonths.toFixed(1).replace('.', ',')} meses`}
+                </Text>
+                <Text style={[styles.pairCaption, { color: c.muted }]}>Fundo de emergência</Text>
+              </BentoTile>
+
               {/* Saldo do mês em carrossel + indicador em pílulas */}
               <MonthBalanceCarousel
                 month={effectiveMonth}
@@ -1060,6 +1197,13 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         visible={isStatementImportOpen}
         onClose={() => setIsStatementImportOpen(false)}
         onCompleted={() => void loadData()}
+        themeMode={themeMode}
+      />
+      <ReclassifyAportesSheet
+        visible={isReclassifyAportesOpen}
+        onClose={() => setIsReclassifyAportesOpen(false)}
+        onReclassified={() => void loadData()}
+        isPrivacyMode={isPrivacyMode}
         themeMode={themeMode}
       />
       <AnimatedModalSheet

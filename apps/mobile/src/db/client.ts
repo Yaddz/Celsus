@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS assets (
   rf_maturity_date TEXT,
   rf_is_tax_exempt INTEGER NOT NULL DEFAULT 0,
   rf_issuer TEXT,
+  rf_daily_liquidity INTEGER,
   source TEXT NOT NULL DEFAULT 'MANUAL',
   external_id TEXT,
   institution_id TEXT,
@@ -197,6 +198,7 @@ CREATE TABLE IF NOT EXISTS fin_entries (
   description_raw TEXT,
   user_edited_fields TEXT,
   linked_income_id TEXT,
+  linked_transaction_id TEXT,
   of_removed_at TEXT,
   of_category_id TEXT,
   of_class_reason TEXT,
@@ -360,6 +362,7 @@ CREATE INDEX IF NOT EXISTS idx_fin_budgets_category_month ON fin_budgets(categor
 CREATE INDEX IF NOT EXISTS idx_fin_bills_account_month ON fin_bills(account_id, bill_month);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_portfolios_of_item_id ON portfolios(of_item_id) WHERE of_item_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_portfolios_fin_account_id ON portfolios(fin_account_id);
+CREATE INDEX IF NOT EXISTS idx_fin_entries_linked_transaction ON fin_entries(linked_transaction_id);
 `;
 
 const inMemoryStore: Record<string, any[]> = {
@@ -604,6 +607,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'fin_entries', column: 'user_edited_fields', ddl: 'ALTER TABLE fin_entries ADD COLUMN user_edited_fields TEXT' },
   { table: 'assets', column: 'manual_position_value', ddl: 'ALTER TABLE assets ADD COLUMN manual_position_value TEXT' },
   { table: 'assets', column: 'rf_issuer', ddl: 'ALTER TABLE assets ADD COLUMN rf_issuer TEXT' },
+  { table: 'assets', column: 'rf_daily_liquidity', ddl: 'ALTER TABLE assets ADD COLUMN rf_daily_liquidity INTEGER' },
   { table: 'assets', column: 'isin', ddl: 'ALTER TABLE assets ADD COLUMN isin TEXT' },
   { table: 'assets', column: 'gross_amount', ddl: 'ALTER TABLE assets ADD COLUMN gross_amount TEXT' },
   { table: 'assets', column: 'cost_basis_source', ddl: 'ALTER TABLE assets ADD COLUMN cost_basis_source TEXT' },
@@ -624,6 +628,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'income_events', column: 'item_id', ddl: 'ALTER TABLE income_events ADD COLUMN item_id TEXT' },
   { table: 'income_events', column: 'asset_id', ddl: 'ALTER TABLE income_events ADD COLUMN asset_id TEXT' },
   { table: 'fin_entries', column: 'linked_income_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_income_id TEXT' },
+  { table: 'fin_entries', column: 'linked_transaction_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN linked_transaction_id TEXT' },
   { table: 'fin_entries', column: 'of_removed_at', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_removed_at TEXT' },
   { table: 'fin_entries', column: 'of_category_id', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_category_id TEXT' },
   { table: 'fin_entries', column: 'of_class_reason', ddl: 'ALTER TABLE fin_entries ADD COLUMN of_class_reason TEXT' },
@@ -1032,7 +1037,7 @@ export function getRawSqliteDatabase(dbName: string = DATABASE_NAME): SQLiteData
               'id', 'portfolio_id', 'asset_class', 'ticker', 'name',
               'target_percentage_in_class', 'quantity', 'average_price',
               'manual_price_override', 'manual_position_value',
-              'rf_indexer', 'rf_rate', 'rf_indexer_pct', 'rf_maturity_date', 'rf_is_tax_exempt', 'rf_issuer',
+              'rf_indexer', 'rf_rate', 'rf_indexer_pct', 'rf_maturity_date', 'rf_is_tax_exempt', 'rf_issuer', 'rf_daily_liquidity',
               'source', 'external_id', 'institution_id', 'last_synced_at',
               'isin', 'gross_amount', 'cost_basis_source', 'missing_since',
               'is_etf', 'of_status', 'issuer_cnpj', 'issue_date', 'purchase_date',
@@ -1091,7 +1096,19 @@ export async function runInTransaction<T>(fn: () => Promise<T>): Promise<T> {
     if (typeof db.transaction === 'function') {
       return await db.transaction(async () => fn());
     }
-    return await fn();
+    // Snapshot inMemoryStore para garantir atomicidade no ambiente Jest / ?memdb=1
+    const snapshot: Record<string, any[]> = {};
+    for (const [k, v] of Object.entries(inMemoryStore)) {
+      snapshot[k] = Array.isArray(v) ? v.map((row) => ({ ...row })) : [];
+    }
+    try {
+      return await fn();
+    } catch (err) {
+      for (const [k, v] of Object.entries(snapshot)) {
+        (inMemoryStore as any)[k] = v;
+      }
+      throw err;
+    }
   } finally {
     _inTransaction = false;
   }

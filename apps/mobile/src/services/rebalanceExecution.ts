@@ -1,6 +1,10 @@
 import Decimal from 'decimal.js';
 import { Transaction, Asset } from '../db/schema';
+import { runInTransaction } from '../db/client';
+import { decimalToCents } from '../domain/money';
 import { RebalanceAssetSuggestion } from '../domain/finance/types';
+import { portfolioRepository } from '../repositories/portfolioRepository';
+import { finService } from './finService';
 import { ITransactionService, transactionService } from './transactionService';
 
 export interface BatchContributionItem {
@@ -17,6 +21,7 @@ export interface BatchContributionInput {
   tradeDate: string;
   items: BatchContributionItem[];
   defaultNotes?: string;
+  cashSource?: { accountId: string } | null;
 }
 
 export interface BatchContributionFromSuggestionsInput {
@@ -25,6 +30,7 @@ export interface BatchContributionFromSuggestionsInput {
   suggestions: RebalanceAssetSuggestion[];
   assetIdMap: Record<string, string>; // ticker -> assetId
   notes?: string;
+  cashSource?: { accountId: string } | null;
 }
 
 export interface BatchContributionResult {
@@ -69,27 +75,53 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
     const transactions: Transaction[] = [];
     const updatedAssets: Asset[] = [];
     let totalInvested = new Decimal(0);
-
     for (const item of activeItems) {
-      const execResult = await this.txService.executeTransaction({
-        portfolioId: params.portfolioId,
-        assetId: item.assetId,
-        type: 'BUY',
-        tradeDate: params.tradeDate,
-        quantity: item.suggestedQuantity,
-        unitPrice: item.unitPrice,
-        fees: item.fees ?? '0.00',
-        notes: item.notes ?? params.defaultNotes ?? 'Simulador de Aporte',
-      });
-
-      transactions.push(execResult.transaction);
-      updatedAssets.push(execResult.updatedAsset);
-
       const qty = new Decimal(item.suggestedQuantity);
       const price = new Decimal(item.unitPrice);
       const fees = new Decimal(item.fees ?? 0);
       totalInvested = totalInvested.plus(qty.mul(price).plus(fees));
     }
+
+    const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
+    const brokerAccountId = portfolio?.fin_account_id ?? null;
+
+    await runInTransaction(async () => {
+      let itemCashSource: { accountId: string } | null | undefined = undefined;
+      if (brokerAccountId && params.cashSource !== null) {
+        const sourceAccountId = params.cashSource?.accountId || brokerAccountId;
+        const totalCents = decimalToCents(totalInvested);
+        if (sourceAccountId !== brokerAccountId && totalCents > 0) {
+          await finService.createTransfer({
+            fromAccountId: sourceAccountId,
+            toAccountId: brokerAccountId,
+            amountCents: totalCents,
+            dateIso: params.tradeDate,
+            description: 'Aporte em lote',
+          });
+        }
+        // Cada compra individual registra apenas investment_buy na corretora
+        itemCashSource = { accountId: brokerAccountId };
+      } else if (params.cashSource === null) {
+        itemCashSource = null;
+      }
+
+      for (const item of activeItems) {
+        const execResult = await this.txService.executeTransaction({
+          portfolioId: params.portfolioId,
+          assetId: item.assetId,
+          type: 'BUY',
+          tradeDate: params.tradeDate,
+          quantity: item.suggestedQuantity,
+          unitPrice: item.unitPrice,
+          fees: item.fees ?? '0.00',
+          notes: item.notes ?? params.defaultNotes ?? 'Simulador de Aporte',
+          ...(itemCashSource !== undefined ? { cashSource: itemCashSource } : {}),
+        });
+
+        transactions.push(execResult.transaction);
+        updatedAssets.push(execResult.updatedAsset);
+      }
+    });
 
     return {
       totalExecuted: transactions.length,
@@ -130,6 +162,7 @@ export class RebalanceExecutionService implements IRebalanceExecutionService {
       tradeDate: params.tradeDate,
       items,
       defaultNotes: params.notes,
+      ...(params.cashSource !== undefined ? { cashSource: params.cashSource } : {}),
     });
   }
 }
