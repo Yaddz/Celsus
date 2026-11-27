@@ -10,7 +10,16 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **237/237 suítes PASS** (**1502/1502 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **256 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **264 arquivos protegidos**, SHA-256 íntegros |
+
+## Sprint 113 — Teste de estresse e Comparar (Fase A — testes bloqueados)
+
+Especificação da Sprint 113 (tiles "Teste de estresse" e "Comparar" do artboard 1): `domain/sandbox/stressTest.ts` (`runStressTest`, `findWorstDrawdownWindow` via `extremes`), `domain/sandbox/compare.ts` (`buildComparisonSeries`, até 4 ativos + CDI + IPCA normalizados em 100), `screens/sandbox/StressTestScreen.tsx`, `screens/sandbox/CompareScreen.tsx`, ativação no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint113StressAndCompareDomain.test.ts` | S113-T01…T07 | `508893d9b3b6e65cd269407bd1e3bd09b66230e6dce41a1e3fc72d2d3ec23cb8` | 7 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint113StressAndCompareUI.test.tsx` | S113-T08…T11 | `b97b366de7fbfa1ccd2aecd2e3267230b653c63e5af7d25ab6b6a4e3cd0bdf33` | 4 FAIL |
 
 ## Sprint 112 — Independência financeira e Custo de oportunidade (Fase B concluída)
 
