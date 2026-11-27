@@ -64,6 +64,8 @@ export function resolveBackAction(state: BackState): BackAction {
   if (state.isFinanceOpen) return 'close-finance';
   if (state.isTransactionModalOpen) return 'close-transaction-modal';
   if (state.isSimulatorOpen) return 'close-simulator';
+  if (state.isTimeMachineOpen) return 'close-time-machine';
+  if (state.isSandboxHubOpen) return 'close-sandbox-hub';
   if (state.isPortfolioManagerOpen) return 'close-portfolio-manager';
   if (state.isTransactionDetailOpen) return 'close-transaction-detail';
   if (state.isAssetDetailOpen) return 'close-asset-detail';

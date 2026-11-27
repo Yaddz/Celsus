@@ -126,6 +126,7 @@ const MENU_ITEMS: DockActionItem[] = [
   { id: 'nova-carteira', testID: 'fab-action-nova-carteira', icon: 'account-balance-wallet', label: 'Nova carteira', sub: 'Criar uma carteira vazia', tint: 'tertiary' },
   { id: 'adicionar-ativo', testID: 'fab-action-adicionar-ativo', icon: 'playlist-add', label: 'Adicionar ativo', sub: 'Incluir um ativo em uma carteira', tint: 'stock' },
   { id: 'novo-aporte', testID: 'fab-action-novo-aporte', icon: 'north-east', label: 'Nova movimentação', sub: 'Registrar compra ou venda', tint: 'primary' },
+  { id: 'simular', testID: 'fab-action-simular', icon: 'science', label: 'Simular', sub: 'Abrir o hub do simulador', tint: 'tertiary' },
 ];
 
 const FloatingBottomDockBase = <T extends string = DockTab>({
@@ -139,6 +140,7 @@ const FloatingBottomDockBase = <T extends string = DockTab>({
   onNovoAportePress,
   onNovaCarteiraPress,
   onAdicionarAtivoPress,
+  onSimularPress,
   forceClose = false,
   style,
   testID = 'floating-bottom-dock',
@@ -319,7 +321,7 @@ const FloatingBottomDockBase = <T extends string = DockTab>({
     animateSheet(nextState);
 
     // Se não houver callbacks específicos de opções nem ações customizadas, delega para onActionPress
-    if (!actions && !onNovoAportePress && !onNovaCarteiraPress && !onAdicionarAtivoPress) {
+    if (!actions && !onNovoAportePress && !onNovaCarteiraPress && !onAdicionarAtivoPress && !onSimularPress) {
       onActionPress?.();
     }
   };
@@ -349,6 +351,7 @@ const FloatingBottomDockBase = <T extends string = DockTab>({
     'nova-carteira': () => onNovaCarteiraPress?.(),
     'adicionar-ativo': () => onAdicionarAtivoPress?.(),
     'novo-aporte': () => (onNovoAportePress || onActionPress)?.(),
+    'simular': () => onSimularPress?.(),
   };
   const tintColor = (t: string) =>
     t === 'tertiary' ? colors.tertiary : t === 'stock' ? colors.stock : colors.primary;

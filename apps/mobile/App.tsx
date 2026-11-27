@@ -72,6 +72,9 @@ import { B3ImportScreen } from './src/screens/B3ImportScreen';
 import { B3ImportSheet } from './src/components/B3ImportSheet';
 import { IncomeHistoryScreen } from './src/screens/IncomeHistoryScreen';
 import { FinanceHomeScreen, type FinanceRoute } from './src/screens/finance';
+import { SandboxHubScreen } from './src/screens/sandbox/SandboxHubScreen';
+import { TimeMachineScreen } from './src/screens/sandbox/TimeMachineScreen';
+import type { SandboxScenarioRecord } from './src/repositories/sandboxRepository';
 import {
   redactCurrencyValue,
   redactPercentageValue,
@@ -300,6 +303,9 @@ function AppContent(props: {
   const [transactionModalKey, setTransactionModalKey] = useState(0);
   const [isSimulatorModalOpen, setIsSimulatorModalOpen] = useState(false);
   const [simulatorPrefill, setSimulatorPrefill] = useState<PendingContributionPayload | null>(null);
+  const [isSandboxHubOpen, setIsSandboxHubOpen] = useState(false);
+  const [isTimeMachineOpen, setIsTimeMachineOpen] = useState(false);
+  const [selectedSandboxScenario, setSelectedSandboxScenario] = useState<SandboxScenarioRecord | null>(null);
   const pendingContribution = usePendingContributionStore();
   const [isSettingsBackupModalOpen, setIsSettingsBackupModalOpen] = useState(false);
   const [isOpenFinanceOpen, setIsOpenFinanceOpen] = useState(false);
@@ -877,6 +883,8 @@ function AppContent(props: {
     isTransactionModalOpen,
     isPortfolioManagerOpen: isPortfolioManagerModalOpen,
     isSimulatorOpen: isSimulatorModalOpen,
+    isSandboxHubOpen,
+    isTimeMachineOpen,
   };
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -902,6 +910,13 @@ function AppContent(props: {
           return true;
         case 'close-simulator':
           setIsSimulatorModalOpen(false);
+          return true;
+        case 'close-time-machine':
+          setIsTimeMachineOpen(false);
+          setSelectedSandboxScenario(null);
+          return true;
+        case 'close-sandbox-hub':
+          setIsSandboxHubOpen(false);
           return true;
         case 'close-portfolio-manager':
           setIsPortfolioManagerModalOpen(false);
@@ -1765,6 +1780,98 @@ function AppContent(props: {
     );
   }
 
+  // 8a. Camadas do Sandbox (Máquina do tempo e Hub Simulador) dentro de Investimentos (dock com Análises ativa)
+  if (isTimeMachineOpen || isSandboxHubOpen) {
+    return (
+      <SafeAreaView
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: isLight
+              ? LIGHT_THEME_TOKENS.backgroundPrimary
+              : colors.voidFloor,
+          },
+        ]}
+        edges={['top', 'left', 'right']}
+      >
+        <StatusBar style={isLight ? 'dark' : 'light'} />
+        {isTimeMachineOpen ? (
+          <TimeMachineScreen
+            initialScenario={selectedSandboxScenario}
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onBack={() => {
+              setIsTimeMachineOpen(false);
+              setSelectedSandboxScenario(null);
+            }}
+          />
+        ) : (
+          <SandboxHubScreen
+            isPrivacyMode={isPrivacyMode}
+            onTogglePrivacy={() => {
+              const next = privacyAndAuthService.togglePrivacyMode();
+              setIsPrivacyMode(next.isPrivacyModeEnabled);
+            }}
+            onProfilePress={() => setIsSettingsBackupModalOpen(true)}
+            onSwitchModule={switchModule}
+            themeMode={themeMode}
+            onBack={() => setIsSandboxHubOpen(false)}
+            onOpenTimeMachine={(scenario) => {
+              setSelectedSandboxScenario(scenario ?? null);
+              setIsTimeMachineOpen(true);
+            }}
+            onOpenContributionSimulator={() => setIsSimulatorModalOpen(true)}
+          />
+        )}
+        <FloatingBottomDock
+          activeTab="stats"
+          forceClose={isTransactionModalOpen || isPortfolioManagerModalOpen || isSimulatorModalOpen}
+          onTabChange={(tab) => {
+            setIsTimeMachineOpen(false);
+            setIsSandboxHubOpen(false);
+            setSelectedSandboxScenario(null);
+            setActiveTab(tab);
+          }}
+          onActionPress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            openTransactionModal();
+          }}
+          onNovoAportePress={() => {
+            setIsPortfolioManagerModalOpen(false);
+            setOpenCreatePortfolioModal(false);
+            setOpenAddAssetModal(false);
+            openTransactionModal();
+          }}
+          onNovaCarteiraPress={() => {
+            setOpenCreatePortfolioModal(true);
+            setIsPortfolioManagerModalOpen(true);
+          }}
+          onAdicionarAtivoPress={() => {
+            setOpenAddAssetModal(true);
+            setIsPortfolioManagerModalOpen(true);
+          }}
+          onSimularPress={() => {
+            setIsTimeMachineOpen(false);
+            setSelectedSandboxScenario(null);
+            setActiveTab('stats');
+            setIsSandboxHubOpen(true);
+          }}
+          themeMode={themeMode}
+        />
+        {renderTransactionModal()}
+        {renderPortfolioManagerModal()}
+        {renderSimulatorModal()}
+      </SafeAreaView>
+    );
+  }
+
   // 8. Tela/Aba: Análises & Estatísticas
   if (activeTab === 'stats') {
     return (
@@ -1788,6 +1895,7 @@ function AppContent(props: {
           }}
           themeMode={themeMode}
           onOpenIncomeHistory={() => setIsIncomeHistoryOpen(true)}
+          onOpenSandboxHub={() => setIsSandboxHubOpen(true)}
           onProfilePress={() => setIsSettingsBackupModalOpen(true)}
           onSwitchModule={switchModule}
           onClassPress={(cls) => setSelectedClassDetail(cls)}
@@ -1815,6 +1923,10 @@ function AppContent(props: {
           onAdicionarAtivoPress={() => {
             setOpenAddAssetModal(true);
             setIsPortfolioManagerModalOpen(true);
+          }}
+          onSimularPress={() => {
+            setActiveTab('stats');
+            setIsSandboxHubOpen(true);
           }}
           themeMode={themeMode}
         />
@@ -2164,6 +2276,10 @@ function AppContent(props: {
         onNovoAportePress={openTransactionModal}
         onNovaCarteiraPress={homeOpenCreatePortfolio}
         onAdicionarAtivoPress={homeOpenAddAsset}
+        onSimularPress={() => {
+          setActiveTab('stats');
+          setIsSandboxHubOpen(true);
+        }}
         themeMode={themeMode}
       />
       {renderTransactionModal()}

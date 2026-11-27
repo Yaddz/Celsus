@@ -7,18 +7,23 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **233/233 suítes PASS** (**1466/1466 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **237/237 suítes PASS** (**1502/1502 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **249 arquivos protegidos**, SHA-256 íntegros |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **256 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 109 — Hub Simulador e Máquina do tempo (Fase A — testes bloqueados)
+## Sprint 109 — Hub Simulador e Máquina do tempo (Fase B concluída)
 
-Especificação das regras `DEC-1` e `R48` (artboards 1 e 2): `screens/sandbox/SandboxHubScreen.tsx`, `screens/sandbox/TimeMachineScreen.tsx`, entrada pelo header de `StatisticsScreen`, item `"Simular"` no speed dial de `FloatingBottomDock`, camadas em `App.tsx` e `BackState`.
+Especificação das regras `DEC-1` e `R48` (artboards 1 e 2): `screens/sandbox/SandboxHubScreen.tsx` (título `"Simulador"`, selo `"SANDBOX"`, `"Nada aqui mexe nas suas carteiras."`, tile `"Máquina do tempo"`, tile `"Aporte"` abrindo `SimulatorScreen`, tiles `"Em breve"` sem navegação, lista `"Cenários salvos"`), `screens/sandbox/TimeMachineScreen.tsx` (busca B3/FII/cripto/US_STOCK/Dólar/Euro, gráfico `PriceAreaChart` com marcadores e toque, chips `"Na mínima"`/`"Na máxima"`/`"Tocar no gráfico"`/`"Data exata"`, `"+ Adicionar operação"`, barras `Cenário × CDI × IPCA` + poupança, interruptor de IR estimado, `"dividendos reinvestidos: sim/não"`, `"Salvar cenário"`, `"Ver mês a mês"`, estados skeleton / sem dado `"—"` / offline), botão no header de `StatisticsScreen`, pílula `"Simular"` em `FloatingBottomDock`, camadas em `App.tsx` e `BackState`.
 
-| Arquivo de teste | Casos | SHA-256 | Fase A |
-| :--- | :--- | :--- | :--- |
-| `apps/mobile/src/screens/__tests__/Sprint109SandboxAndTimeMachineUI.test.tsx` | S109-T01…T10 | `472aeea730eddd0e9039a21ebd6a8e95b9a18e338fd618294792a08089f53d71` | 10 FAIL |
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/screens/__tests__/Sprint109SandboxAndTimeMachineUI.test.tsx` | S109-T01…T10 | `472aeea730eddd0e9039a21ebd6a8e95b9a18e338fd618294792a08089f53d71` | 10 FAIL | 10 PASS |
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **237/237 suítes PASS** (**1502/1502 testes PASS**, 43.91 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros novos** em produção
+- `node scripts/test-lock.js verify`: **256 arquivos íntegros**
 
 ## Sprint 106 — Fechar o mês (Fase B concluída)
 

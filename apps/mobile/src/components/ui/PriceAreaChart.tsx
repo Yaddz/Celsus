@@ -6,10 +6,18 @@ import { colors, typography, borders } from '../../theme/tokens';
 
 export type ChartRange = '7D' | '30D' | '6M' | '1A' | '5A' | 'MAX';
 
+export interface PriceChartMarker {
+  date: string;
+  type: 'buy' | 'sell';
+  label?: string;
+}
+
 export interface PriceAreaChartProps {
   points?: PricePoint[];
   activeRange?: ChartRange;
   onRangeChange?: (range: ChartRange) => void;
+  markers?: PriceChartMarker[];
+  onSelectPoint?: (point: PricePoint) => void;
   accentColor?: string;
   themeMode?: 'dark' | 'light';
   testID?: string;
@@ -23,6 +31,8 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
   points = [],
   activeRange = '1A',
   onRangeChange,
+  markers = [],
+  onSelectPoint,
   accentColor = colors.primary,
   themeMode = 'dark',
   testID = 'price-area-chart-container',
@@ -61,20 +71,46 @@ export const PriceAreaChart: React.FC<PriceAreaChartProps> = ({
           <View style={styles.curveContainer}>
             {bars.map((pt, idx) => {
               const normalizedHeight = Math.max(10, ((pt.close - minVal) / rangeVal) * 90 + 10);
+              const marker = markers.find((m) => m.date === pt.date);
+              const markerColor = marker?.type === 'buy' ? colors.tertiary : colors.primary;
+              const BarWrapper = onSelectPoint ? TouchableOpacity : View;
               return (
-                <View key={`${pt.date}-${idx}`} style={styles.curveCol}>
+                <BarWrapper
+                  key={`${pt.date}-${idx}`}
+                  {...(onSelectPoint
+                    ? {
+                        onPress: () => onSelectPoint(pt),
+                        activeOpacity: 0.7,
+                        testID: `price-chart-point-${pt.date}`,
+                      }
+                    : {})}
+                  style={styles.curveCol}
+                >
+                  {marker ? (
+                    <View
+                      testID={`price-chart-marker-${marker.type}`}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: markerColor,
+                        alignSelf: 'center',
+                        marginBottom: 2,
+                      }}
+                    />
+                  ) : null}
                   <View
                     style={[
                       styles.curveBar,
                       {
                         height: normalizedHeight,
                         backgroundColor: isLight ? 'rgba(217, 102, 40, 0.48)' : 'rgba(217, 102, 40, 0.22)',
-                        borderTopColor: isLight ? '#C45517' : accentColor,
+                        borderTopColor: marker ? markerColor : isLight ? '#C45517' : accentColor,
                         borderTopWidth: isLight ? 2.5 : 2,
                       },
                     ]}
                   />
-                </View>
+                </BarWrapper>
               );
             })}
           </View>

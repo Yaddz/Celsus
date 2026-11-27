@@ -61,6 +61,7 @@ export interface StatisticsScreenProps {
 export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
   onClose,
   onOpenIncomeHistory,
+  onOpenSandboxHub,
   isPrivacyMode = false,
   onTogglePrivacy,
   onProfilePress,
@@ -309,6 +310,27 @@ export const StatisticsScreen: React.FC<StatisticsScreenProps> = ({
         onSwitchModule={onSwitchModule}
         isPrivacyModeEnabled={isPrivacyMode}
         onTogglePrivacy={onTogglePrivacy}
+        rightAccessory={
+          <TouchableOpacity
+            testID="stats-open-sandbox-btn"
+            accessibilityRole="button"
+            accessibilityLabel="Abrir Simulador"
+            onPress={onOpenSandboxHub}
+            activeOpacity={0.7}
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: isLight ? '#FFFFFF' : '#191B1D',
+              borderColor: isLight ? '#EAE4D7' : '#26292C',
+              borderWidth: 1,
+            }}
+          >
+            <MaterialIcons name="science" size={20} color={isLight ? '#111315' : '#D5CAA8'} />
+          </TouchableOpacity>
+        }
         themeMode={themeMode}
         scrollY={scrollY}
       />
