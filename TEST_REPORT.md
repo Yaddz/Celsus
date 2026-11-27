@@ -864,3 +864,27 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - Testes App (Jest) criados e travados:
     - `apps/mobile/src/services/__tests__/Sprint107MarketUsFx.test.ts`: `S107-T01..T05` (`getHistoricalPrice` com `currency: USD` no cache, `fetchQuotes` `USDBRL`, sem dado => `null`, paridade HTTP × ponte mock, `US_STOCK` restrito a `SandboxAssetClass`).
   - `node scripts/test-lock.js lock` executado com 244 arquivos travados em `tests.lock.json`.
+
+### Sprint 107 — Fase B (Green Phase & Report)
+- **Implementação (Go — `services/market-api`):**
+  - `internal/yahoo/client.go`: `ToYahooSymbol` e `FromYahooSymbol` com suporte a `US_STOCK` (ticker puro), `USDBRL` (`BRL=X`), `EURBRL` (`EURBRL=X`), mantendo B3 e cripto inalterados; `FetchQuotesWithClass`, `FetchChartHistoryWithClass` e `SearchUS` (busca `/v1/finance/search` com fallback para validação por cotação real); `Currency` extraído de `meta.currency` (ausente = `"BRL"`).
+  - `internal/quotes/provider.go`, `internal/cotahist/cotahist.go`, `internal/cotahist/repository.go`: campo `Currency` em `Quote`, `HistoricalBar`, `CorporateEvent` e coluna `currency TEXT NOT NULL DEFAULT 'BRL'` em `historical_quotes`.
+  - `internal/http/handlers.go` e `internal/http/fundamentals_handlers.go`: `currency` e suporte a `?class=US_STOCK` nas rotas `/v1/quotes`, `/v1/history`, `/v1/assets/{t}/history`, `/v1/assets/{t}/dividends` e `/v1/catalog/search`.
+  - `pkg/mobilebridge/bridge.go`: funções `*WithClassJSON` equivalentes (`FetchQuotesWithClassJSON`, `GetHistoricalPriceWithClassJSON`, `GetPriceHistoryWithClassJSON`, `GetDividendsWithClassJSON`), `SearchCatalogJSON` com suporte a `US_STOCK`, e `currency` em todos os JSONs e em `market_price_cache`.
+- **Implementação (App — `apps/mobile`):**
+  - `modules/celsus-market/index.ts` e `CelsusMarketModule.kt`: métodos `*WithClass` (`fetchQuotesWithClass`, `getHistoricalPriceWithClass`, `getPriceHistoryWithClass`, `getDividendsWithClass`).
+  - `src/db/schema.ts` e `src/db/client.ts`: coluna `currency TEXT NOT NULL DEFAULT 'BRL'` em `historical_prices_local` (PK mantida `(ticker, price_date)`) e `market_price_cache`, com migração `ALTER TABLE`.
+  - `src/domain/finance/types.ts` e `assetCatalogValidation.ts`: `SandboxAssetClass = AssetClass | 'US_STOCK'`; criação de ativo `US_STOCK` em carteira real bloqueada em `validateTickerForAssetClass`.
+  - `src/domain/finance/assetProfile.ts` e `src/services/marketApi.ts`: `currency` em `MarketQuote`, `PricePoint`, `Dividend`, `getHistoricalPrice(ticker, date, { assetClass })` e `getHistoricalPriceWithCurrency(...)`; retorno `null` quando sem dado (nunca `0`).
+- **Build Nativo:**
+  - `npm run build:native` executado com sucesso (`celsusmarket.jar`, `celsusmarket-sources.jar`, `libgojni.so` atualizados para `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+- **Execução de Testes (após edição final):**
+  - `node scripts/test-lock.js verify`: **PASS** (244 arquivos verificados via SHA-256).
+  - `cd services/market-api && go test ./...`: **PASS** (todos os pacotes verdes: `brapi`, `cotahist`, `fundamentals`, `http`, `macro`, `yahoo`, `mobilebridge`).
+  - `npm --prefix apps/mobile test -- src/services/__tests__/Sprint107MarketUsFx.test.ts src/services/__tests__/marketApiIntegration.test.ts src/services/__tests__/Sprint23NativeMarketBridgeAndTTL.test.ts src/db/__tests__/schema.test.ts src/services/__tests__/transactionService.test.ts`: **PASS** (5 suites, 45/45 testes verdes).
+- **Pendência de Produto:**
+  - A classe `US_STOCK` foi adicionada apenas em `SandboxAssetClass` (para o Simulador); o app não permite criar ativo `US_STOCK` em carteira real nesta sprint.
+- **Roteiro para Build/Instalação Android (não executado nesta sprint):**
+  ```bash
+  cd apps/mobile && npx expo run:android
+  ```

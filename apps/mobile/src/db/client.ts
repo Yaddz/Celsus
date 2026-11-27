@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS market_price_cache (
   asset_class TEXT NOT NULL,
   current_price TEXT NOT NULL,
   change_percent_24h REAL,
+  currency TEXT NOT NULL DEFAULT 'BRL',
   updated_at TEXT NOT NULL
 );
 
@@ -125,6 +126,7 @@ CREATE TABLE IF NOT EXISTS historical_prices_local (
   ticker TEXT NOT NULL,
   price_date TEXT NOT NULL,
   close_price TEXT NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'BRL',
   PRIMARY KEY (ticker, price_date)
 );
 
@@ -661,6 +663,8 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'of_items', column: 'status_detail_json', ddl: 'ALTER TABLE of_items ADD COLUMN status_detail_json TEXT' },
   { table: 'of_items', column: 'error_code', ddl: 'ALTER TABLE of_items ADD COLUMN error_code TEXT' },
   { table: 'fin_accounts', column: 'calendar_source', ddl: 'ALTER TABLE fin_accounts ADD COLUMN calendar_source TEXT' },
+  { table: 'historical_prices_local', column: 'currency', ddl: "ALTER TABLE historical_prices_local ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
+  { table: 'market_price_cache', column: 'currency', ddl: "ALTER TABLE market_price_cache ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
 ];
 
 const VALID_LEDGER_TYPES = new Set(['BUY', 'SELL', 'SPLIT', 'INPLIT']);

@@ -59,6 +59,32 @@ func (s *Server) handleCatalogSearch() http.HandlerFunc {
 		}
 
 		assetClass := strings.TrimSpace(r.URL.Query().Get("class"))
+		if strings.EqualFold(assetClass, "US_STOCK") {
+			if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
+				usResults, err := yClient.SearchUS(r.Context(), query)
+				if err != nil {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusInternalServerError)
+					_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+					return
+				}
+				items := make([]catalogItem, 0, len(usResults))
+				for _, r := range usResults {
+					items = append(items, catalogItem{
+						Ticker: r.Ticker,
+						Name:   r.Name,
+						Class:  r.Class,
+					})
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"results": items,
+				})
+				return
+			}
+		}
+
 		quotes, err := s.cotahistRepo.SearchCatalog(r.Context(), query, assetClass)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
@@ -133,35 +159,63 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 			}
 		}
 
+		assetClass := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("class")))
+
 		quotesMap := make(map[string]interface{})
 		var firstErr error
 
-		if len(stockTickers) > 0 && s.quoteProvider != nil {
-			stkQuotes, err := s.quoteProvider.FetchQuotes(r.Context(), stockTickers)
-			if err != nil {
-				firstErr = err
-			} else {
-				for k, v := range stkQuotes {
-					if v.Source == "" {
-						v.Source = "YAHOO"
+		if assetClass == "US_STOCK" {
+			if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
+				allTickers := append(stockTickers, cryptoCoins...)
+				usQuotes, err := yClient.FetchQuotesWithClass(r.Context(), allTickers, assetClass)
+				if err != nil {
+					firstErr = err
+				} else {
+					for k, v := range usQuotes {
+						if v.Source == "" {
+							v.Source = "YAHOO"
+						}
+						if v.Currency == "" {
+							v.Currency = "BRL"
+						}
+						quotesMap[k] = v
 					}
-					quotesMap[k] = v
 				}
 			}
-		}
-
-		if len(cryptoCoins) > 0 && s.quoteProvider != nil {
-			cryptoQuotes, err := s.quoteProvider.FetchCryptoQuotes(r.Context(), cryptoCoins)
-			if err != nil {
-				if firstErr == nil {
+		} else {
+			if len(stockTickers) > 0 && s.quoteProvider != nil {
+				stkQuotes, err := s.quoteProvider.FetchQuotes(r.Context(), stockTickers)
+				if err != nil {
 					firstErr = err
-				}
-			} else {
-				for k, v := range cryptoQuotes {
-					if v.Source == "" {
-						v.Source = "YAHOO"
+				} else {
+					for k, v := range stkQuotes {
+						if v.Source == "" {
+							v.Source = "YAHOO"
+						}
+						if v.Currency == "" {
+							v.Currency = "BRL"
+						}
+						quotesMap[k] = v
 					}
-					quotesMap[k] = v
+				}
+			}
+
+			if len(cryptoCoins) > 0 && s.quoteProvider != nil {
+				cryptoQuotes, err := s.quoteProvider.FetchCryptoQuotes(r.Context(), cryptoCoins)
+				if err != nil {
+					if firstErr == nil {
+						firstErr = err
+					}
+				} else {
+					for k, v := range cryptoQuotes {
+						if v.Source == "" {
+							v.Source = "YAHOO"
+						}
+						if v.Currency == "" {
+							v.Currency = "BRL"
+						}
+						quotesMap[k] = v
+					}
 				}
 			}
 		}
@@ -182,8 +236,9 @@ func (s *Server) handleQuotes() http.HandlerFunc {
 }
 
 type historyPoint struct {
-	Date  string  `json:"date"`
-	Close float64 `json:"close"`
+	Date     string  `json:"date"`
+	Close    float64 `json:"close"`
+	Currency string  `json:"currency"`
 }
 
 // handleHistory returns historical closing prices for given tickers.
@@ -214,6 +269,7 @@ func (s *Server) handleHistory() http.HandlerFunc {
 			to = "9999-12-31"
 		}
 
+		assetClass := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("class")))
 		historyMap := make(map[string][]historyPoint)
 
 		for _, item := range rawTickers {
@@ -222,25 +278,40 @@ func (s *Server) handleHistory() http.HandlerFunc {
 				continue
 			}
 
-			quotes, err := s.cotahistRepo.GetQuotes(r.Context(), ticker, from, to)
 			points := make([]historyPoint, 0)
-			if err == nil && len(quotes) > 0 {
-				for _, q := range quotes {
-					points = append(points, historyPoint{
-						Date:  q.Date,
-						Close: q.Close,
-					})
+			skipCotahist := assetClass == "US_STOCK" || ticker == "USDBRL" || ticker == "EURBRL"
+			if !skipCotahist && s.cotahistRepo != nil {
+				quotes, err := s.cotahistRepo.GetQuotes(r.Context(), ticker, from, to)
+				if err == nil && len(quotes) > 0 {
+					for _, q := range quotes {
+						curr := q.Currency
+						if curr == "" {
+							curr = "BRL"
+						}
+						points = append(points, historyPoint{
+							Date:     q.Date,
+							Close:    q.Close,
+							Currency: curr,
+						})
+					}
 				}
-			} else if yClient, ok := s.quoteProvider.(*yahoo.Client); ok {
-				// Fallback para Yahoo quando COTAHIST não contiver o ticker
-				bars, _, errFallback := yClient.FetchChartHistory(r.Context(), ticker, "1y")
-				if errFallback == nil {
-					for _, b := range bars {
-						if (from == "" || b.Date >= from) && (to == "" || b.Date <= to) {
-							points = append(points, historyPoint{
-								Date:  b.Date,
-								Close: b.Close,
-							})
+			}
+			if len(points) == 0 {
+				if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
+					bars, _, errFallback := yClient.FetchChartHistoryWithClass(r.Context(), ticker, "1y", assetClass)
+					if errFallback == nil {
+						for _, b := range bars {
+							if (from == "" || b.Date >= from) && (to == "" || b.Date <= to) {
+								curr := b.Currency
+								if curr == "" {
+									curr = "BRL"
+								}
+								points = append(points, historyPoint{
+									Date:     b.Date,
+									Close:    b.Close,
+									Currency: curr,
+								})
+							}
 						}
 					}
 				}

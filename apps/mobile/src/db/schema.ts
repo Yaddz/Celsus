@@ -156,12 +156,13 @@ export const marketPriceCache = sqliteTable('market_price_cache', {
   asset_class: text('asset_class').notNull(),
   current_price: text('current_price').notNull(),
   change_percent_24h: real('change_percent_24h'),
+  currency: text('currency').notNull().default('BRL'),
   updated_at: text('updated_at').notNull(),
 });
 
 /**
  * HISTORICAL_PRICES_LOCAL
- * Cache local de fechamentos históricos importados do COTAHIST ou BRAPI.
+ * Cache local de fechamentos históricos importados do COTAHIST ou Yahoo.
  */
 export const historicalPricesLocal = sqliteTable(
   'historical_prices_local',
@@ -169,6 +170,7 @@ export const historicalPricesLocal = sqliteTable(
     ticker: text('ticker').notNull(),
     price_date: text('price_date').notNull(), // YYYY-MM-DD
     close_price: text('close_price').notNull(),
+    currency: text('currency').notNull().default('BRL'),
   },
   (table) => [
     primaryKey({ columns: [table.ticker, table.price_date] }),

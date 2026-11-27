@@ -23,6 +23,7 @@ type Quote struct {
 	AdjClose   float64 `json:"adj_close,omitempty"` // Preço ajustado opcional
 	Volume     float64 `json:"volume"`              // Volume financeiro em R$
 	Source     string  `json:"source,omitempty"`    // Origem do dado: 'COTAHIST' ou 'YAHOO'
+	Currency   string  `json:"currency,omitempty"`  // Moeda da cotação: 'BRL' ou 'USD'
 }
 
 // CorporateEvent represents a stock split, inplit (reverse split), or cash dividend.

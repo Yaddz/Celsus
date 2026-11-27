@@ -67,6 +67,7 @@ func (r *SQLiteRepository) InitSchema(ctx context.Context) error {
 	// Idempotent migration for existing tables
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE historical_quotes ADD COLUMN adj_close REAL;")
 	_, _ = r.db.ExecContext(ctx, "ALTER TABLE historical_quotes ADD COLUMN source TEXT NOT NULL DEFAULT 'COTAHIST';")
+	_, _ = r.db.ExecContext(ctx, "ALTER TABLE historical_quotes ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL';")
 
 	return nil
 }
@@ -85,8 +86,8 @@ func (r *SQLiteRepository) UpsertQuotes(ctx context.Context, quotes []Quote) err
 
 	query := `
 	INSERT INTO historical_quotes (
-		ticker, trade_date, asset_class, name, open, high, low, close_price, adj_close, volume, source
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ticker, trade_date, asset_class, name, open, high, low, close_price, adj_close, volume, source, currency
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(ticker, trade_date) DO UPDATE SET
 		asset_class = excluded.asset_class,
 		name = excluded.name,
@@ -117,6 +118,10 @@ func (r *SQLiteRepository) UpsertQuotes(ctx context.Context, quotes []Quote) err
 		source = CASE 
 			WHEN historical_quotes.source = 'COTAHIST' AND excluded.source != 'COTAHIST' THEN historical_quotes.source
 			ELSE excluded.source
+		END,
+		currency = CASE
+			WHEN historical_quotes.source = 'COTAHIST' AND excluded.source != 'COTAHIST' THEN historical_quotes.currency
+			ELSE excluded.currency
 		END;
 	`
 	stmt, err := tx.PrepareContext(ctx, query)
@@ -129,6 +134,10 @@ func (r *SQLiteRepository) UpsertQuotes(ctx context.Context, quotes []Quote) err
 		src := q.Source
 		if src == "" {
 			src = "COTAHIST"
+		}
+		curr := q.Currency
+		if curr == "" {
+			curr = "BRL"
 		}
 		adj := q.AdjClose
 		if adj == 0 && src == "COTAHIST" {
@@ -148,6 +157,7 @@ func (r *SQLiteRepository) UpsertQuotes(ctx context.Context, quotes []Quote) err
 			adj,
 			q.Volume,
 			src,
+			curr,
 		)
 		if err != nil {
 			return fmt.Errorf("falha ao inserir cotação %s na data %s: %w", q.Ticker, q.Date, err)
@@ -164,7 +174,7 @@ func (r *SQLiteRepository) UpsertQuotes(ctx context.Context, quotes []Quote) err
 // GetQuotes queries quotes for a ticker within a date range [from, to].
 func (r *SQLiteRepository) GetQuotes(ctx context.Context, ticker string, from, to string) ([]Quote, error) {
 	query := `
-	SELECT ticker, trade_date, asset_class, name, open, high, low, close_price, COALESCE(adj_close, close_price), volume, source
+	SELECT ticker, trade_date, asset_class, name, open, high, low, close_price, COALESCE(adj_close, close_price), volume, source, COALESCE(currency, 'BRL')
 	FROM historical_quotes
 	WHERE ticker = ? AND trade_date >= ? AND trade_date <= ?
 	ORDER BY trade_date ASC;
@@ -180,6 +190,7 @@ func (r *SQLiteRepository) GetQuotes(ctx context.Context, ticker string, from, t
 		var q Quote
 		var adjClose sql.NullFloat64
 		var source sql.NullString
+		var currency sql.NullString
 		if err := rows.Scan(
 			&q.Ticker,
 			&q.Date,
@@ -192,6 +203,7 @@ func (r *SQLiteRepository) GetQuotes(ctx context.Context, ticker string, from, t
 			&adjClose,
 			&q.Volume,
 			&source,
+			&currency,
 		); err != nil {
 			return nil, fmt.Errorf("falha no scan de cotação: %w", err)
 		}
@@ -204,6 +216,11 @@ func (r *SQLiteRepository) GetQuotes(ctx context.Context, ticker string, from, t
 			q.Source = source.String
 		} else {
 			q.Source = "COTAHIST"
+		}
+		if currency.Valid && currency.String != "" {
+			q.Currency = currency.String
+		} else {
+			q.Currency = "BRL"
 		}
 		results = append(results, q)
 	}
@@ -385,4 +402,3 @@ func (r *SQLiteRepository) UpsertCatalogAssets(ctx context.Context, assets []Cat
 
 	return tx.Commit()
 }
-

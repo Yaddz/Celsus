@@ -136,27 +136,39 @@ func (s *Server) handleAssetPriceHistory() http.HandlerFunc {
 		yahooRange := map[string]string{"7d": "1mo", "30d": "1mo", "6m": "6mo", "1mo": "1mo", "6mo": "6mo", "1y": "1y", "5y": "5y", "max": "max"}[rangeParam]
 		cutoffDays := map[string]int{"7d": 7, "30d": 30}[rangeParam]
 
+		assetClass := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("class")))
+
 		type pricePoint struct {
-			Date  string  `json:"date"`
-			Close float64 `json:"close"`
+			Date     string  `json:"date"`
+			Close    float64 `json:"close"`
+			Currency string  `json:"currency"`
 		}
 
 		points := make([]pricePoint, 0)
+		currency := "BRL"
 
 		if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
-			bars, _, err := yClient.FetchChartHistory(r.Context(), ticker, yahooRange)
+			bars, _, err := yClient.FetchChartHistoryWithClass(r.Context(), ticker, yahooRange, assetClass)
 			if err == nil {
 				cutoff := ""
 				if cutoffDays > 0 {
 					cutoff = time.Now().AddDate(0, 0, -cutoffDays).Format("2006-01-02")
 				}
 				for _, b := range bars {
+					if b.Currency != "" {
+						currency = b.Currency
+					}
 					if cutoff != "" && b.Date < cutoff {
 						continue
 					}
+					curr := b.Currency
+					if curr == "" {
+						curr = "BRL"
+					}
 					points = append(points, pricePoint{
-						Date:  b.Date,
-						Close: b.Close,
+						Date:     b.Date,
+						Close:    b.Close,
+						Currency: curr,
 					})
 				}
 			}
@@ -165,9 +177,10 @@ func (s *Server) handleAssetPriceHistory() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"ticker":  ticker,
-			"range":   rangeParam,
-			"history": points,
+			"ticker":   ticker,
+			"range":    rangeParam,
+			"currency": currency,
+			"history":  points,
 		})
 	}
 }
@@ -182,23 +195,35 @@ func (s *Server) handleAssetDividends() http.HandlerFunc {
 			return
 		}
 
+		assetClass := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("class")))
+
 		type dividendItem struct {
-			Date   string  `json:"date"`
-			Type   string  `json:"type"`
-			Amount float64 `json:"amount"`
+			Date     string  `json:"date"`
+			Type     string  `json:"type"`
+			Amount   float64 `json:"amount"`
+			Currency string  `json:"currency"`
 		}
 
 		divs := make([]dividendItem, 0)
+		currency := "BRL"
 
 		if yClient, ok := s.quoteProvider.(*yahoo.Client); ok && yClient != nil {
-			_, events, err := yClient.FetchChartHistory(r.Context(), ticker, "5y")
+			bars, events, err := yClient.FetchChartHistoryWithClass(r.Context(), ticker, "5y", assetClass)
 			if err == nil {
+				if len(bars) > 0 && bars[0].Currency != "" {
+					currency = bars[0].Currency
+				}
 				for _, ev := range events {
 					if ev.Type == "DIVIDEND" {
+						curr := ev.Currency
+						if curr == "" {
+							curr = currency
+						}
 						divs = append(divs, dividendItem{
-							Date:   ev.Date,
-							Type:   "DIVIDEND",
-							Amount: ev.CashAmount,
+							Date:     ev.Date,
+							Type:     "DIVIDEND",
+							Amount:   ev.CashAmount,
+							Currency: curr,
 						})
 					}
 				}
@@ -209,6 +234,7 @@ func (s *Server) handleAssetDividends() http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"ticker":    ticker,
+			"currency":  currency,
 			"dividends": divs,
 		})
 	}

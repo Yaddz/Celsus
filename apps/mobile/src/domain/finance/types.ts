@@ -1,4 +1,5 @@
 export type AssetClass = 'FIXED_INCOME' | 'FII' | 'STOCK' | 'CRYPTO' | 'FUNDS';
+export type SandboxAssetClass = AssetClass | 'US_STOCK';
 
 export interface ClassTarget {
   assetClass: AssetClass;

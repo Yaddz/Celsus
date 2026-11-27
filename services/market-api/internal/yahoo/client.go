@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"golang.org/x/sync/singleflight"
 	"github.com/pedro/celsus/services/market-api/internal/quotes"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -69,28 +70,52 @@ func isKnownCryptoTicker(t string) bool {
 	}
 }
 
-// ToYahooSymbol converts a clean Celsus ticker (e.g. "PETR4", "HGLG11", "BTC") into a Yahoo Finance symbol ("PETR4.SA", "HGLG11.SA", "BTC-BRL").
+// ToYahooSymbol converts a clean Celsus ticker (e.g. "PETR4", "HGLG11", "BTC", "NVDA" with US_STOCK, "USDBRL", "EURBRL")
+// into a Yahoo Finance symbol ("PETR4.SA", "HGLG11.SA", "BTC-BRL", "NVDA", "BRL=X", "EURBRL=X").
 func ToYahooSymbol(ticker, assetClass string) string {
 	t := strings.ToUpper(strings.TrimSpace(ticker))
 	if t == "" {
 		return ""
 	}
-	if strings.HasSuffix(t, ".SA") || strings.HasSuffix(t, "-BRL") {
+	if t == "USDBRL" || t == "BRL=X" {
+		return "BRL=X"
+	}
+	if t == "EURBRL" || t == "EURBRL=X" {
+		return "EURBRL=X"
+	}
+	if strings.HasSuffix(t, ".SA") || strings.HasSuffix(t, "-BRL") || strings.HasSuffix(t, "=X") {
 		return t
 	}
 	cls := strings.ToUpper(strings.TrimSpace(assetClass))
+	if cls == "US_STOCK" {
+		return t
+	}
 	if cls == "CRYPTO" || isKnownCryptoTicker(t) {
 		return t + "-BRL"
 	}
 	return t + ".SA"
 }
 
-// FromYahooSymbol strips Yahoo Finance suffixes (".SA", "-BRL") and returns the clean uppercase ticker ("PETR4", "HGLG11", "BTC").
+// FromYahooSymbol converts a Yahoo Finance symbol back to the clean uppercase Celsus ticker.
 func FromYahooSymbol(symbol string) string {
 	s := strings.ToUpper(strings.TrimSpace(symbol))
+	if s == "BRL=X" {
+		return "USDBRL"
+	}
+	if s == "EURBRL=X" {
+		return "EURBRL"
+	}
 	s = strings.TrimSuffix(s, ".SA")
 	s = strings.TrimSuffix(s, "-BRL")
 	return s
+}
+
+func resolveCurrency(raw string) string {
+	c := strings.ToUpper(strings.TrimSpace(raw))
+	if c == "" {
+		return "BRL"
+	}
+	return c
 }
 
 type yahooChartResponse struct {
@@ -197,11 +222,17 @@ func (c *Client) fetchChartWithFailover(ctx context.Context, yahooSymbol, rangeP
 	return nil, err
 }
 
-func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quotes.Quote, error) {
-	val, err, _ := c.requestGroup.Do(cleanTicker, func() (interface{}, error) {
+func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string, assetClass string) (quotes.Quote, error) {
+	yahooSym := ToYahooSymbol(cleanTicker, assetClass)
+	cacheKey := yahooSym
+	if cacheKey == "" {
+		cacheKey = cleanTicker
+	}
+
+	val, err, _ := c.requestGroup.Do(cacheKey, func() (interface{}, error) {
 		now := time.Now()
 		c.mu.RLock()
-		if cached, ok := c.cache[cleanTicker]; ok && now.Before(cached.expiresAt) {
+		if cached, ok := c.cache[cacheKey]; ok && now.Before(cached.expiresAt) {
 			if cached.isNegative {
 				c.mu.RUnlock()
 				return quotes.Quote{}, cached.err
@@ -211,13 +242,12 @@ func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quot
 		}
 		c.mu.RUnlock()
 
-		yahooSym := ToYahooSymbol(cleanTicker, "")
 		chartRes, err := c.fetchChartWithFailover(ctx, yahooSym, "5d", "1d", false)
 		if err != nil {
-			if isKnownCryptoTicker(cleanTicker) {
+			if assetClass == "" && isKnownCryptoTicker(cleanTicker) {
 				if qCrypto, errCrypto := c.fetchCryptoFallback(ctx, cleanTicker); errCrypto == nil {
 					c.mu.Lock()
-					c.cache[cleanTicker] = cachedQuote{
+					c.cache[cacheKey] = cachedQuote{
 						quote:     qCrypto,
 						expiresAt: time.Now().Add(c.cacheTTL),
 					}
@@ -227,7 +257,7 @@ func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quot
 			}
 			if strings.Contains(err.Error(), "429") {
 				c.mu.Lock()
-				c.cache[cleanTicker] = cachedQuote{
+				c.cache[cacheKey] = cachedQuote{
 					isNegative: true,
 					err:        err,
 					expiresAt:  time.Now().Add(60 * time.Second),
@@ -260,12 +290,13 @@ func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quot
 			Ticker:    clean,
 			Price:     price,
 			Change24h: change24h,
+			Currency:  resolveCurrency(chartRes.Meta.Currency),
 			UpdatedAt: updatedAt,
 			Source:    "YAHOO",
 		}
 
 		c.mu.Lock()
-		c.cache[cleanTicker] = cachedQuote{
+		c.cache[cacheKey] = cachedQuote{
 			quote:     q,
 			expiresAt: time.Now().Add(c.cacheTTL),
 		}
@@ -279,8 +310,13 @@ func (c *Client) fetchSingleQuote(ctx context.Context, cleanTicker string) (quot
 	return val.(quotes.Quote), nil
 }
 
-// FetchQuotes fetches quotes for B3 stocks, FIIs, and crypto in batch with TTL caching, singleflight and query1->query2 failover.
+// FetchQuotes fetches quotes for B3 stocks, FIIs, FX, and crypto in batch with TTL caching, singleflight and query1->query2 failover.
 func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]quotes.Quote, error) {
+	return c.FetchQuotesWithClass(ctx, tickers, "")
+}
+
+// FetchQuotesWithClass fetches quotes with an explicit asset class (e.g. "US_STOCK").
+func (c *Client) FetchQuotesWithClass(ctx context.Context, tickers []string, assetClass string) (map[string]quotes.Quote, error) {
 	if len(tickers) == 0 {
 		return map[string]quotes.Quote{}, nil
 	}
@@ -294,8 +330,9 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 		if clean == "" {
 			continue
 		}
+		cacheKey := ToYahooSymbol(clean, assetClass)
 		c.mu.RLock()
-		cached, ok := c.cache[clean]
+		cached, ok := c.cache[cacheKey]
 		c.mu.RUnlock()
 		if ok && now.Before(cached.expiresAt) {
 			if cached.isNegative {
@@ -324,7 +361,7 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 		wg.Add(1)
 		go func(tkr string) {
 			defer wg.Done()
-			q, err := c.fetchSingleQuote(ctx, tkr)
+			q, err := c.fetchSingleQuote(ctx, tkr, assetClass)
 			outcomes <- fetchOutcome{cleanTicker: tkr, quote: q, err: err}
 		}(cleanTicker)
 	}
@@ -350,24 +387,9 @@ func (c *Client) FetchQuotes(ctx context.Context, tickers []string) (map[string]
 	return results, nil
 }
 
-// FetchQuotesWithClass fetches quotes with an explicit asset class (e.g. "US_STOCK").
-func (c *Client) FetchQuotesWithClass(ctx context.Context, tickers []string, assetClass string) (map[string]quotes.Quote, error) {
-	return nil, fmt.Errorf("not implemented")
-}
-
 // FetchChartHistoryWithClass fetches historical daily bars and corporate events with an explicit asset class.
 func (c *Client) FetchChartHistoryWithClass(ctx context.Context, ticker string, rangeParam string, assetClass string) ([]quotes.HistoricalBar, []quotes.CorporateEvent, error) {
-	return nil, nil, fmt.Errorf("not implemented")
-}
-
-// FetchCryptoQuotes fetches crypto quotes priced in BRL (delegates to FetchQuotes with -BRL normalization).
-func (c *Client) FetchCryptoQuotes(ctx context.Context, coins []string) (map[string]quotes.Quote, error) {
-	return c.FetchQuotes(ctx, coins)
-}
-
-// FetchChartHistory fetches historical daily bars (nominal close + adjclose) and corporate events (splits, dividends) for a ticker.
-func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangeParam string) ([]quotes.HistoricalBar, []quotes.CorporateEvent, error) {
-	yahooSym := ToYahooSymbol(ticker, "")
+	yahooSym := ToYahooSymbol(ticker, assetClass)
 	cleanTicker := FromYahooSymbol(yahooSym)
 	if rangeParam == "" {
 		rangeParam = "1mo"
@@ -377,6 +399,8 @@ func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangePara
 	if err != nil {
 		return nil, nil, err
 	}
+
+	currency := resolveCurrency(chartRes.Meta.Currency)
 
 	var bars []quotes.HistoricalBar
 	if len(chartRes.Indicators.Quote) > 0 {
@@ -421,6 +445,7 @@ func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangePara
 				Close:    closeVal,
 				AdjClose: adjVal,
 				Volume:   volVal,
+				Currency: currency,
 			})
 		}
 	}
@@ -439,6 +464,7 @@ func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangePara
 				Numerator:   sp.Numerator,
 				Denominator: sp.Denominator,
 				Ratio:       ratio,
+				Currency:    currency,
 			})
 		}
 		for _, div := range chartRes.Events.Dividends {
@@ -447,6 +473,7 @@ func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangePara
 				Type:       "DIVIDEND",
 				Date:       time.Unix(div.Date, 0).UTC().Format("2006-01-02"),
 				CashAmount: div.Amount,
+				Currency:   currency,
 			})
 		}
 		sort.Slice(events, func(i, j int) bool {
@@ -458,6 +485,118 @@ func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangePara
 	}
 
 	return bars, events, nil
+}
+
+// SearchResultItem represents a symbol found via Yahoo search or quote validation.
+type SearchResultItem struct {
+	Ticker string `json:"ticker"`
+	Name   string `json:"name"`
+	Class  string `json:"class"`
+}
+
+// SearchUS searches Yahoo Finance for US_STOCK symbols and falls back to validating the typed ticker with a real quote.
+func (c *Client) SearchUS(ctx context.Context, query string) ([]SearchResultItem, error) {
+	qTrim := strings.TrimSpace(query)
+	if qTrim == "" {
+		return []SearchResultItem{}, nil
+	}
+
+	var items []SearchResultItem
+	doSearch := func(baseURL string) ([]SearchResultItem, int, error) {
+		c.sem <- struct{}{}
+		defer func() { <-c.sem }()
+
+		endpoint := fmt.Sprintf("%s/v1/finance/search?q=%s&quotesCount=10&newsCount=0", baseURL, url.QueryEscape(qTrim))
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+		if err != nil {
+			return nil, 0, err
+		}
+		req.Header.Set("User-Agent", c.userAgent)
+		req.Header.Set("Accept", "application/json")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, resp.StatusCode, fmt.Errorf("yahoo search status %d", resp.StatusCode)
+		}
+
+		var parsed struct {
+			Quotes []struct {
+				Symbol    string `json:"symbol"`
+				ShortName string `json:"shortname"`
+				LongName  string `json:"longname"`
+				QuoteType string `json:"quoteType"`
+			} `json:"quotes"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+			return nil, resp.StatusCode, err
+		}
+
+		var out []SearchResultItem
+		for _, q := range parsed.Quotes {
+			sym := strings.ToUpper(strings.TrimSpace(q.Symbol))
+			if sym == "" || strings.Contains(sym, ".") || strings.Contains(sym, "=") || strings.Contains(sym, "-") {
+				continue
+			}
+			qt := strings.ToUpper(strings.TrimSpace(q.QuoteType))
+			if qt != "" && qt != "EQUITY" && qt != "ETF" {
+				continue
+			}
+			name := strings.TrimSpace(q.ShortName)
+			if name == "" {
+				name = strings.TrimSpace(q.LongName)
+			}
+			if name == "" {
+				name = sym
+			}
+			out = append(out, SearchResultItem{
+				Ticker: sym,
+				Name:   name,
+				Class:  "US_STOCK",
+			})
+		}
+		return out, resp.StatusCode, nil
+	}
+
+	res, status, err := doSearch(c.primaryBaseURL)
+	if err != nil && (status == 0 || status == http.StatusTooManyRequests || status >= 500) && c.fallbackBaseURL != "" && c.fallbackBaseURL != c.primaryBaseURL {
+		res, _, err = doSearch(c.fallbackBaseURL)
+	}
+	if err == nil && len(res) > 0 {
+		items = res
+	}
+
+	// Sem resultado no search: valida o ticker digitado com uma cotação real
+	if len(items) == 0 {
+		clean := strings.ToUpper(qTrim)
+		if !strings.ContainsAny(clean, " .=") {
+			if yQuotes, qErr := c.FetchQuotesWithClass(ctx, []string{clean}, "US_STOCK"); qErr == nil {
+				if yq, ok := yQuotes[clean]; ok && yq.Price > 0 {
+					items = append(items, SearchResultItem{
+						Ticker: clean,
+						Name:   clean,
+						Class:  "US_STOCK",
+					})
+				}
+			}
+		}
+	}
+
+	return items, nil
+}
+
+// FetchCryptoQuotes fetches crypto quotes priced in BRL (delegates to FetchQuotes with -BRL normalization).
+func (c *Client) FetchCryptoQuotes(ctx context.Context, coins []string) (map[string]quotes.Quote, error) {
+	return c.FetchQuotes(ctx, coins)
+}
+
+// FetchChartHistory fetches historical daily bars (nominal close + adjclose) and corporate events (splits, dividends) for a ticker.
+func (c *Client) FetchChartHistory(ctx context.Context, ticker string, rangeParam string) ([]quotes.HistoricalBar, []quotes.CorporateEvent, error) {
+	return c.FetchChartHistoryWithClass(ctx, ticker, rangeParam, "")
 }
 
 // CheckHealth verifies Yahoo client configuration.

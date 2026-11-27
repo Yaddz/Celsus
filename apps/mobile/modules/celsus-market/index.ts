@@ -3,14 +3,18 @@ import { requireNativeModule } from 'expo-modules-core';
 export interface INativeMarketBridge {
   checkHealth(): Promise<string>;
   fetchQuotes(tickersCsv: string, forceRefresh: boolean): Promise<string>;
+  fetchQuotesWithClass?(tickersCsv: string, assetClass: string, forceRefresh: boolean): Promise<string>;
   getHistoricalPrice(ticker: string, date: string): Promise<string>;
+  getHistoricalPriceWithClass?(ticker: string, date: string, assetClass: string): Promise<string>;
   searchCatalog(query: string, assetClass: string): Promise<string>;
   fetchMacroRates(fromDate: string): Promise<string>;
   getCorporateEvents(tickersCsv: string, fromDate: string): Promise<string>;
   ingestCotahistZip(zipPath: string, allowedTickersCsv: string): Promise<string>;
   getAssetProfile?(ticker: string): Promise<string>;
   getPriceHistory?(ticker: string, rangeParam: string): Promise<string>;
+  getPriceHistoryWithClass?(ticker: string, rangeParam: string, assetClass: string): Promise<string>;
   getDividends?(ticker: string): Promise<string>;
+  getDividendsWithClass?(ticker: string, assetClass: string): Promise<string>;
   getRanking?(assetClass: string, by: string, limit: number): Promise<string>;
 }
 

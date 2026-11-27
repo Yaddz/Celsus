@@ -122,6 +122,12 @@ export function validateTickerForAssetClass(
   ticker: string,
   selectedClass: AssetClass
 ): AssetValidationResult {
+  if ((selectedClass as string) === 'US_STOCK') {
+    return {
+      valid: false,
+      reason: 'Ações dos EUA (US_STOCK) estão disponíveis apenas no Simulador (sandbox).',
+    };
+  }
   if (!ticker || !ticker.trim()) {
     return {
       valid: false,

@@ -71,6 +71,7 @@ func InitEngine(dbPath string, isProd bool) error {
 		asset_class TEXT NOT NULL,
 		current_price REAL NOT NULL,
 		change_percent_24h REAL NOT NULL,
+		currency TEXT NOT NULL DEFAULT 'BRL',
 		updated_at TEXT NOT NULL
 	);
 	CREATE INDEX IF NOT EXISTS idx_mpc_updated ON market_price_cache(updated_at);
@@ -84,6 +85,7 @@ func InitEngine(dbPath string, isProd bool) error {
 		_ = db.Close()
 		return fmt.Errorf("failed to create market_price_cache table: %w", err)
 	}
+	_, _ = db.ExecContext(ctx, "ALTER TABLE market_price_cache ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL';")
 
 	cRepo := cotahist.NewSQLiteRepository(db)
 	if err := cRepo.InitSchema(ctx); err != nil {
@@ -238,8 +240,30 @@ func SearchCatalogJSON(query string, assetClass string) (string, error) {
 		return "", err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	if strings.EqualFold(strings.TrimSpace(assetClass), "US_STOCK") {
+		items := make([]catalogResultItem, 0)
+		if eng.yahooClient != nil {
+			usResults, err := eng.yahooClient.SearchUS(ctx, query)
+			if err == nil {
+				for _, r := range usResults {
+					items = append(items, catalogResultItem{
+						Ticker:     r.Ticker,
+						Name:       r.Name,
+						AssetClass: "US_STOCK",
+					})
+				}
+			}
+		}
+		resp := searchCatalogResponse{Results: items}
+		bytes, err := json.Marshal(resp)
+		if err != nil {
+			return "", err
+		}
+		return string(bytes), nil
+	}
 
 	quotes, err := eng.cotahistRepo.SearchCatalog(ctx, query, assetClass)
 	if err != nil {
@@ -290,6 +314,7 @@ type quoteJSONItem struct {
 	AssetClass       string  `json:"asset_class"`
 	CurrentPrice     float64 `json:"current_price"`
 	ChangePercent24h float64 `json:"change_percent_24h"`
+	Currency         string  `json:"currency"`
 	UpdatedAt        string  `json:"updated_at"`
 	IsStale          bool    `json:"is_stale"`
 }
@@ -327,12 +352,6 @@ func resolveAssetClass(ctx context.Context, db *sql.DB, ticker string) string {
 
 // FetchQuotesWithClassJSON fetches quotes for comma-separated tickers with explicit assetClass.
 func FetchQuotesWithClassJSON(tickersCSV string, assetClass string, forceRefresh bool) (string, error) {
-	return "", fmt.Errorf("not implemented")
-}
-
-// FetchQuotesJSON fetches quotes for comma-separated tickers, respecting the 15-minute SQLite cache TTL,
-// or returning stale cached quotes when offline.
-func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 	eng, err := getEngine()
 	if err != nil {
 		return "", err
@@ -353,6 +372,7 @@ func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 		return `{"quotes":[]}`, nil
 	}
 
+	cleanClass := strings.ToUpper(strings.TrimSpace(assetClass))
 	quotesMap := make(map[string]quoteJSONItem)
 	var needFetch []string
 
@@ -361,9 +381,9 @@ func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 			var item quoteJSONItem
 			var updatedAtStr string
 			err := eng.db.QueryRowContext(ctx,
-				"SELECT ticker, asset_class, current_price, change_percent_24h, updated_at FROM market_price_cache WHERE ticker = ?",
+				"SELECT ticker, asset_class, current_price, change_percent_24h, COALESCE(currency, 'BRL'), updated_at FROM market_price_cache WHERE ticker = ?",
 				ticker,
-			).Scan(&item.Ticker, &item.AssetClass, &item.CurrentPrice, &item.ChangePercent24h, &updatedAtStr)
+			).Scan(&item.Ticker, &item.AssetClass, &item.CurrentPrice, &item.ChangePercent24h, &item.Currency, &updatedAtStr)
 
 			if err == nil {
 				parsedTime, err := time.Parse(time.RFC3339, updatedAtStr)
@@ -381,30 +401,39 @@ func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 	}
 
 	if len(needFetch) > 0 {
-		fetchedQuotes, err := eng.yahooClient.FetchQuotes(ctx, needFetch)
+		fetchedQuotes, err := eng.yahooClient.FetchQuotesWithClass(ctx, needFetch, cleanClass)
 		if err == nil && len(fetchedQuotes) > 0 {
 			nowStr := time.Now().UTC().Format(time.RFC3339)
 			for _, q := range fetchedQuotes {
-				cls := resolveAssetClass(ctx, eng.db, q.Ticker)
+				cls := cleanClass
+				if cls == "" {
+					cls = resolveAssetClass(ctx, eng.db, q.Ticker)
+				}
+				curr := q.Currency
+				if curr == "" {
+					curr = "BRL"
+				}
 				item := quoteJSONItem{
 					Ticker:           q.Ticker,
 					AssetClass:       cls,
 					CurrentPrice:     q.Price,
 					ChangePercent24h: q.Change24h,
+					Currency:         curr,
 					UpdatedAt:        nowStr,
 					IsStale:          false,
 				}
 				quotesMap[q.Ticker] = item
 
 				_, _ = eng.db.ExecContext(ctx, `
-					INSERT INTO market_price_cache (ticker, asset_class, current_price, change_percent_24h, updated_at)
-					VALUES (?, ?, ?, ?, ?)
+					INSERT INTO market_price_cache (ticker, asset_class, current_price, change_percent_24h, currency, updated_at)
+					VALUES (?, ?, ?, ?, ?, ?)
 					ON CONFLICT(ticker) DO UPDATE SET
 						asset_class = excluded.asset_class,
 						current_price = excluded.current_price,
 						change_percent_24h = excluded.change_percent_24h,
+						currency = excluded.currency,
 						updated_at = excluded.updated_at;
-				`, item.Ticker, item.AssetClass, item.CurrentPrice, item.ChangePercent24h, item.UpdatedAt)
+				`, item.Ticker, item.AssetClass, item.CurrentPrice, item.ChangePercent24h, item.Currency, item.UpdatedAt)
 			}
 		} else {
 			for _, ticker := range needFetch {
@@ -414,9 +443,9 @@ func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 				var item quoteJSONItem
 				var updatedAtStr string
 				err := eng.db.QueryRowContext(ctx,
-					"SELECT ticker, asset_class, current_price, change_percent_24h, updated_at FROM market_price_cache WHERE ticker = ?",
+					"SELECT ticker, asset_class, current_price, change_percent_24h, COALESCE(currency, 'BRL'), updated_at FROM market_price_cache WHERE ticker = ?",
 					ticker,
-				).Scan(&item.Ticker, &item.AssetClass, &item.CurrentPrice, &item.ChangePercent24h, &updatedAtStr)
+				).Scan(&item.Ticker, &item.AssetClass, &item.CurrentPrice, &item.ChangePercent24h, &item.Currency, &updatedAtStr)
 
 				if err == nil {
 					item.UpdatedAt = updatedAtStr
@@ -442,22 +471,23 @@ func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
 	return string(bytes), nil
 }
 
+// FetchQuotesJSON fetches quotes for comma-separated tickers, respecting the 15-minute SQLite cache TTL,
+// or returning stale cached quotes when offline.
+func FetchQuotesJSON(tickersCSV string, forceRefresh bool) (string, error) {
+	return FetchQuotesWithClassJSON(tickersCSV, "", forceRefresh)
+}
+
 type historicalPriceResponse struct {
 	Ticker     string  `json:"ticker"`
 	Date       string  `json:"date"`
 	ClosePrice float64 `json:"close_price"`
 	AdjClose   float64 `json:"adj_close"`
+	Currency   string  `json:"currency"`
 	Source     string  `json:"source"`
 }
 
 // GetHistoricalPriceWithClassJSON queries local quotes and performs on-demand Yahoo sync with explicit assetClass.
 func GetHistoricalPriceWithClassJSON(ticker string, date string, assetClass string) (string, error) {
-	return "", fmt.Errorf("not implemented")
-}
-
-// GetHistoricalPriceJSON queries local quotes and performs on-demand Yahoo sync if missing,
-// returning the nominal close price and adjusted close in JSON format.
-func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 	eng, err := getEngine()
 	if err != nil {
 		return "", err
@@ -468,37 +498,52 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 
 	cleanTicker := strings.ToUpper(strings.TrimSpace(ticker))
 	cleanDate := strings.TrimSpace(date)
+	cleanClass := strings.ToUpper(strings.TrimSpace(assetClass))
 
 	quotes, err := eng.cotahistRepo.GetQuotes(ctx, cleanTicker, cleanDate, cleanDate)
 	if err == nil && len(quotes) > 0 {
 		q := quotes[0]
-		adj := q.AdjClose
-		if adj == 0 {
-			adj = q.Close
+		if cleanClass == "" || strings.EqualFold(q.AssetClass, cleanClass) {
+			adj := q.AdjClose
+			if adj == 0 {
+				adj = q.Close
+			}
+			curr := q.Currency
+			if curr == "" {
+				curr = "BRL"
+			}
+			resp := historicalPriceResponse{
+				Ticker:     cleanTicker,
+				Date:       q.Date,
+				ClosePrice: q.Close,
+				AdjClose:   adj,
+				Currency:   curr,
+				Source:     q.Source,
+			}
+			bytes, err := json.Marshal(resp)
+			if err != nil {
+				return "", err
+			}
+			return string(bytes), nil
 		}
-		resp := historicalPriceResponse{
-			Ticker:     cleanTicker,
-			Date:       q.Date,
-			ClosePrice: q.Close,
-			AdjClose:   adj,
-			Source:     q.Source,
-		}
-		bytes, err := json.Marshal(resp)
-		if err != nil {
-			return "", err
-		}
-		return string(bytes), nil
 	}
 
 	if eng.yahooClient != nil {
-		bars, events, err := eng.yahooClient.FetchChartHistory(ctx, cleanTicker, "max")
+		bars, events, err := eng.yahooClient.FetchChartHistoryWithClass(ctx, cleanTicker, "max", cleanClass)
 		if err == nil && len(bars) > 0 {
-			cls := resolveAssetClass(ctx, eng.db, cleanTicker)
+			cls := cleanClass
+			if cls == "" {
+				cls = resolveAssetClass(ctx, eng.db, cleanTicker)
+			}
 			quotesToSave := make([]cotahist.Quote, 0, len(bars))
 			for _, bar := range bars {
 				adj := bar.AdjClose
 				if adj == 0 {
 					adj = bar.Close
+				}
+				curr := bar.Currency
+				if curr == "" {
+					curr = "BRL"
 				}
 				quotesToSave = append(quotesToSave, cotahist.Quote{
 					Ticker:     cleanTicker,
@@ -512,6 +557,7 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 					AdjClose:   adj,
 					Volume:     bar.Volume,
 					Source:     "YAHOO",
+					Currency:   curr,
 				})
 			}
 			_ = eng.cotahistRepo.UpsertQuotes(ctx, quotesToSave)
@@ -539,11 +585,16 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 				if adj == 0 {
 					adj = q.Close
 				}
+				curr := q.Currency
+				if curr == "" {
+					curr = "BRL"
+				}
 				resp := historicalPriceResponse{
 					Ticker:     cleanTicker,
 					Date:       q.Date,
 					ClosePrice: q.Close,
 					AdjClose:   adj,
+					Currency:   curr,
 					Source:     q.Source,
 				}
 				bytes, err := json.Marshal(resp)
@@ -561,11 +612,16 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 				if adj == 0 {
 					adj = q.Close
 				}
+				curr := q.Currency
+				if curr == "" {
+					curr = "BRL"
+				}
 				resp := historicalPriceResponse{
 					Ticker:     cleanTicker,
 					Date:       q.Date,
 					ClosePrice: q.Close,
 					AdjClose:   adj,
+					Currency:   curr,
 					Source:     q.Source,
 				}
 				bytes, err := json.Marshal(resp)
@@ -578,6 +634,12 @@ func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
 	}
 
 	return "", fmt.Errorf("historical quote not found for %s on %s", cleanTicker, cleanDate)
+}
+
+// GetHistoricalPriceJSON queries local quotes and performs on-demand Yahoo sync if missing,
+// returning the nominal close price and adjusted close in JSON format.
+func GetHistoricalPriceJSON(ticker string, date string) (string, error) {
+	return GetHistoricalPriceWithClassJSON(ticker, date, "")
 }
 
 type macroRateItem struct {
@@ -862,17 +924,13 @@ func quoteOnlyProfile(ctx context.Context, eng *marketEngine, ticker, class stri
 
 // GetPriceHistoryWithClassJSON returns historical chart points with explicit assetClass.
 func GetPriceHistoryWithClassJSON(ticker string, rangeParam string, assetClass string) (string, error) {
-	return "", fmt.Errorf("not implemented")
-}
-
-// GetPriceHistoryJSON returns historical chart points for the specified range.
-func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 	eng, err := getEngine()
 	if err != nil {
 		return "", err
 	}
 
 	clean := strings.ToUpper(strings.TrimSpace(ticker))
+	cleanClass := strings.ToUpper(strings.TrimSpace(assetClass))
 	rangeParam = strings.ToLower(strings.TrimSpace(rangeParam))
 	// Siglas do app e do serviço → intervalos válidos no Yahoo.
 	switch rangeParam {
@@ -893,27 +951,36 @@ func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 	defer cancel()
 
 	type pricePoint struct {
-		Date  string  `json:"date"`
-		Close float64 `json:"close"`
+		Date     string  `json:"date"`
+		Close    float64 `json:"close"`
+		Currency string  `json:"currency"`
 	}
 
 	points := make([]pricePoint, 0)
+	currency := "BRL"
 	if eng.yahooClient != nil {
-		bars, _, err := eng.yahooClient.FetchChartHistory(ctx, clean, rangeParam)
+		bars, _, err := eng.yahooClient.FetchChartHistoryWithClass(ctx, clean, rangeParam, cleanClass)
 		if err == nil {
 			for _, b := range bars {
+				curr := b.Currency
+				if curr == "" {
+					curr = "BRL"
+				}
+				currency = curr
 				points = append(points, pricePoint{
-					Date:  b.Date,
-					Close: b.Close,
+					Date:     b.Date,
+					Close:    b.Close,
+					Currency: curr,
 				})
 			}
 		}
 	}
 
 	resp := map[string]interface{}{
-		"ticker":  clean,
-		"range":   rangeParam,
-		"history": points,
+		"ticker":   clean,
+		"range":    rangeParam,
+		"currency": currency,
+		"history":  points,
 	}
 	bytes, err := json.Marshal(resp)
 	if err != nil {
@@ -922,38 +989,49 @@ func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
 	return string(bytes), nil
 }
 
-// GetDividendsWithClassJSON returns dividend events for ticker with explicit assetClass.
-func GetDividendsWithClassJSON(ticker string, assetClass string) (string, error) {
-	return "", fmt.Errorf("not implemented")
+// GetPriceHistoryJSON returns historical chart points for the specified range.
+func GetPriceHistoryJSON(ticker string, rangeParam string) (string, error) {
+	return GetPriceHistoryWithClassJSON(ticker, rangeParam, "")
 }
 
-// GetDividendsJSON returns dividend events for ticker.
-func GetDividendsJSON(ticker string) (string, error) {
+// GetDividendsWithClassJSON returns dividend events for ticker with explicit assetClass.
+func GetDividendsWithClassJSON(ticker string, assetClass string) (string, error) {
 	eng, err := getEngine()
 	if err != nil {
 		return "", err
 	}
 
 	clean := strings.ToUpper(strings.TrimSpace(ticker))
+	cleanClass := strings.ToUpper(strings.TrimSpace(assetClass))
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
 	type dividendItem struct {
-		Date   string  `json:"date"`
-		Type   string  `json:"type"`
-		Amount float64 `json:"amount"`
+		Date     string  `json:"date"`
+		Type     string  `json:"type"`
+		Amount   float64 `json:"amount"`
+		Currency string  `json:"currency"`
 	}
 
 	divs := make([]dividendItem, 0)
+	currency := "BRL"
 	if eng.yahooClient != nil {
-		_, events, err := eng.yahooClient.FetchChartHistory(ctx, clean, "5y")
+		bars, events, err := eng.yahooClient.FetchChartHistoryWithClass(ctx, clean, "5y", cleanClass)
 		if err == nil {
+			if len(bars) > 0 && bars[0].Currency != "" {
+				currency = bars[0].Currency
+			}
 			for _, ev := range events {
 				if ev.Type == "DIVIDEND" {
+					curr := ev.Currency
+					if curr == "" {
+						curr = currency
+					}
 					divs = append(divs, dividendItem{
-						Date:   ev.Date,
-						Type:   "DIVIDEND",
-						Amount: ev.CashAmount,
+						Date:     ev.Date,
+						Type:     "DIVIDEND",
+						Amount:   ev.CashAmount,
+						Currency: curr,
 					})
 				}
 			}
@@ -962,6 +1040,7 @@ func GetDividendsJSON(ticker string) (string, error) {
 
 	resp := map[string]interface{}{
 		"ticker":    clean,
+		"currency":  currency,
 		"dividends": divs,
 	}
 	bytes, err := json.Marshal(resp)
@@ -969,6 +1048,11 @@ func GetDividendsJSON(ticker string) (string, error) {
 		return "", err
 	}
 	return string(bytes), nil
+}
+
+// GetDividendsJSON returns dividend events for ticker.
+func GetDividendsJSON(ticker string) (string, error) {
+	return GetDividendsWithClassJSON(ticker, "")
 }
 
 // GetRankingJSON returns top ranked assets for given class and metric.

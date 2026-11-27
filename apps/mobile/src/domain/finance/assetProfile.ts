@@ -3,12 +3,14 @@ import { AssetClass } from '../../components/ui/AttributeStatBar';
 export interface PricePoint {
   date: string;
   close: number;
+  currency?: string;
 }
 
 export interface Dividend {
   date: string; // YYYY-MM-DD
   type: string; // 'DIVIDEND' | 'JCP' | 'RENDIMENTO'
-  amount: number; // R$ per share
+  amount: number; // per share
+  currency?: string;
   notes?: string;
 }
 

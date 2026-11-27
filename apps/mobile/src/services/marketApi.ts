@@ -75,15 +75,22 @@ export interface MarketQuote {
   assetClass: string;
   currentPrice: string;
   changePercent24h: number;
+  currency?: string;
   updatedAt: string;
   isStale?: boolean;
   source?: string;
+}
+
+export interface HistoricalPriceResult {
+  closePrice: string;
+  currency: string;
 }
 
 export interface HistoricalPriceData {
   ticker: string;
   tradeDate: string; // YYYY-MM-DD
   closePrice: string;
+  currency?: string;
 }
 
 export interface MacroRateData {
@@ -102,22 +109,28 @@ export interface HealthStatus {
 
 export interface FetchQuotesOptions {
   forceRefresh?: boolean;
+  assetClass?: string;
+}
+
+export interface HistoricalPriceOptions {
+  assetClass?: string;
 }
 
 export interface IMarketApiService {
   checkHealth?(): Promise<HealthStatus | null>;
-  getHistoricalPrice(ticker: string, date: string): Promise<string | null>;
+  getHistoricalPrice(ticker: string, date: string, options?: HistoricalPriceOptions): Promise<string | null>;
+  getHistoricalPriceWithCurrency?(ticker: string, date: string, options?: HistoricalPriceOptions): Promise<HistoricalPriceResult | null>;
   fetchQuotes(tickers: string[], options?: FetchQuotesOptions): Promise<MarketQuote[]>;
   getCachedQuote(ticker: string): Promise<MarketQuote | null>;
-  saveHistoricalPrice(ticker: string, date: string, closePrice: string): Promise<void>;
+  saveHistoricalPrice(ticker: string, date: string, closePrice: string, currency?: string): Promise<void>;
   searchCatalog(query: string, assetClass?: string): Promise<any[]>;
   fetchMacroRates(from: string): Promise<MacroRateData[]>;
   getCorporateEvents?(tickers: string[], fromDate: string): Promise<any[]>;
   ingestCotahistZip?(zipPath: string, allowedTickers?: string[]): Promise<any>;
   isNativeBridgeAvailable?(): boolean;
   getAssetProfile?(ticker: string): Promise<AssetProfile>;
-  getPriceHistory?(ticker: string, range?: string): Promise<PricePoint[]>;
-  getDividends?(ticker: string): Promise<Dividend[]>;
+  getPriceHistory?(ticker: string, range?: string, options?: HistoricalPriceOptions): Promise<PricePoint[]>;
+  getDividends?(ticker: string, options?: HistoricalPriceOptions): Promise<Dividend[]>;
   getRanking?(assetClass?: string, by?: string, limit?: number): Promise<RankingItem[]>;
 }
 
@@ -188,11 +201,25 @@ export class MarketApiService implements IMarketApiService {
    * Consulta primeiro a base local COTAHIST (historical_prices_local).
    * Se não encontrar localmente, consulta a bridge nativa Go ou o backend Go (/v1/history) e efetua o cache local.
    */
-  async getHistoricalPrice(ticker: string, date: string): Promise<string | null> {
+  async getHistoricalPrice(
+    ticker: string,
+    date: string,
+    options?: HistoricalPriceOptions
+  ): Promise<string | null> {
+    const res = await this.getHistoricalPriceWithCurrency(ticker, date, options);
+    return res ? res.closePrice : null;
+  }
+
+  async getHistoricalPriceWithCurrency(
+    ticker: string,
+    date: string,
+    options?: HistoricalPriceOptions
+  ): Promise<HistoricalPriceResult | null> {
     const normalizedTicker = cleanTicker(ticker);
+    const assetClass = options?.assetClass ? options.assetClass.trim().toUpperCase() : '';
 
     try {
-      // 1. Busca no cache / banco local COTAHIST
+      // 1. Busca no cache / banco local (historical_prices_local)
       if (this.db && typeof this.db.select === 'function') {
         const rows = await this.db
           .select()
@@ -204,8 +231,16 @@ export class MarketApiService implements IMarketApiService {
             )
           );
 
-        if (rows && rows.length > 0 && rows[0].close_price) {
-          return rows[0].close_price;
+        const match = Array.isArray(rows)
+          ? rows.find((r: any) => cleanTicker(r.ticker) === normalizedTicker && r.price_date === date) ||
+            (rows.length === 1 && !rows[0].ticker ? rows[0] : undefined)
+          : undefined;
+
+        if (match && match.close_price && Number(match.close_price) > 0) {
+          return {
+            closePrice: match.close_price,
+            currency: match.currency || 'BRL',
+          };
         }
       }
     } catch (e) {
@@ -215,13 +250,18 @@ export class MarketApiService implements IMarketApiService {
     // 2. Consulta via NativeBridge se disponível
     if (this.nativeBridge) {
       try {
-        const jsonStr = await this.nativeBridge.getHistoricalPrice(normalizedTicker, date);
+        const jsonStr =
+          assetClass && this.nativeBridge.getHistoricalPriceWithClass
+            ? await this.nativeBridge.getHistoricalPriceWithClass(normalizedTicker, date, assetClass)
+            : await this.nativeBridge.getHistoricalPrice(normalizedTicker, date);
         if (jsonStr) {
           const item = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
-          if (item && (item.close_price !== undefined || item.close !== undefined)) {
-            const closePrice = String(item.close_price !== undefined ? item.close_price : item.close);
-            await this.saveHistoricalPrice(normalizedTicker, date, closePrice);
-            return closePrice;
+          const rawVal = item?.close_price !== undefined ? item.close_price : item?.close;
+          if (item && rawVal !== undefined && rawVal !== null && Number(rawVal) > 0) {
+            const closePrice = String(rawVal);
+            const currency = item.currency || 'BRL';
+            await this.saveHistoricalPrice(normalizedTicker, date, closePrice, currency);
+            return { closePrice, currency };
           }
         }
       } catch {
@@ -232,7 +272,10 @@ export class MarketApiService implements IMarketApiService {
 
     // 3. Fallback: Consulta o backend HTTP /v1/history
     try {
-      const url = `${this.apiBaseUrl}/v1/history?tickers=${normalizedTicker}&from=${date}&to=${date}`;
+      let url = `${this.apiBaseUrl}/v1/history?tickers=${normalizedTicker}&from=${date}&to=${date}`;
+      if (assetClass) {
+        url += `&class=${encodeURIComponent(assetClass)}`;
+      }
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -248,24 +291,39 @@ export class MarketApiService implements IMarketApiService {
           }
         }
 
-        if (item && (item.close_price !== undefined || item.close !== undefined)) {
-          const closePrice = String(item.close_price !== undefined ? item.close_price : item.close);
-          await this.saveHistoricalPrice(normalizedTicker, date, closePrice);
-          return closePrice;
+        const rawVal = item?.close_price !== undefined ? item.close_price : item?.close;
+        if (item && rawVal !== undefined && rawVal !== null && Number(rawVal) > 0) {
+          const closePrice = String(rawVal);
+          const currency = item.currency || 'BRL';
+          await this.saveHistoricalPrice(normalizedTicker, date, closePrice, currency);
+          return { closePrice, currency };
         }
       }
     } catch (e) {
       // Falha de rede ou servidor offline
     }
 
-    // 4. Fallback Direto Yahoo / Crypto para datas passadas (quando backend offline)
+    // 4. Fallback Direto Yahoo / Crypto / US / FX para datas passadas (quando backend offline)
     try {
       const isCrypto = ['BTC', 'ETH', 'SOL', 'USDT', 'BNB'].includes(normalizedTicker);
-      const yahooSymbol = isCrypto ? `${normalizedTicker}-USD` : (normalizedTicker.includes('.') ? normalizedTicker : `${normalizedTicker}.SA`);
+      let yahooSymbol = normalizedTicker;
+      if (normalizedTicker === 'USDBRL') {
+        yahooSymbol = 'BRL=X';
+      } else if (normalizedTicker === 'EURBRL') {
+        yahooSymbol = 'EURBRL=X';
+      } else if (assetClass === 'US_STOCK') {
+        yahooSymbol = normalizedTicker;
+      } else if (isCrypto) {
+        yahooSymbol = `${normalizedTicker}-USD`;
+      } else if (!normalizedTicker.includes('.')) {
+        yahooSymbol = `${normalizedTicker}.SA`;
+      }
+
       const yRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${yahooSymbol}?range=2y&interval=1d`);
       if (yRes.ok) {
         const yData = await yRes.json();
         const result = yData?.chart?.result?.[0];
+        const currency = result?.meta?.currency || 'BRL';
         const timestamps = result?.timestamp || [];
         const closes = result?.indicators?.quote?.[0]?.close || [];
         let foundPrice: number | null = null;
@@ -287,8 +345,8 @@ export class MarketApiService implements IMarketApiService {
         }
         if (foundPrice !== null && foundPrice > 0) {
           const finalPrice = foundPrice.toFixed(2);
-          await this.saveHistoricalPrice(normalizedTicker, date, finalPrice);
-          return finalPrice;
+          await this.saveHistoricalPrice(normalizedTicker, date, finalPrice, currency);
+          return { closePrice: finalPrice, currency };
         }
       }
     } catch {}
@@ -299,8 +357,14 @@ export class MarketApiService implements IMarketApiService {
   /**
    * Salva ou atualiza uma cotação histórica no banco local.
    */
-  async saveHistoricalPrice(ticker: string, date: string, closePrice: string): Promise<void> {
+  async saveHistoricalPrice(
+    ticker: string,
+    date: string,
+    closePrice: string,
+    currency: string = 'BRL'
+  ): Promise<void> {
     const normalizedTicker = cleanTicker(ticker);
+    const resolvedCurrency = currency || 'BRL';
     try {
       if (this.db && typeof this.db.insert === 'function') {
         await this.db
@@ -309,10 +373,11 @@ export class MarketApiService implements IMarketApiService {
             ticker: normalizedTicker,
             price_date: date,
             close_price: closePrice,
+            currency: resolvedCurrency,
           })
           .onConflictDoUpdate({
             target: [historicalPricesLocal.ticker, historicalPricesLocal.price_date],
-            set: { close_price: closePrice },
+            set: { close_price: closePrice, currency: resolvedCurrency },
           });
       }
     } catch (e) {
@@ -357,17 +422,22 @@ export class MarketApiService implements IMarketApiService {
       }));
     }
 
+    const assetClass = options?.assetClass ? options.assetClass.trim().toUpperCase() : '';
+
     // 2. Se houver NativeBridge Go configurada, busca cotações nela
     if (this.nativeBridge) {
       try {
         const csv = normalizedTickers.join(',');
-        const jsonStr = await this.nativeBridge.fetchQuotes(csv, forceRefresh);
+        const jsonStr =
+          assetClass && this.nativeBridge.fetchQuotesWithClass
+            ? await this.nativeBridge.fetchQuotesWithClass(csv, assetClass, forceRefresh)
+            : await this.nativeBridge.fetchQuotes(csv, forceRefresh);
         if (jsonStr) {
           const parsed = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
           const rawQuotes = parsed?.quotes || (Array.isArray(parsed) ? parsed : []);
           const quotes: MarketQuote[] = rawQuotes.map((q: any) => ({
             ticker: cleanTicker(q.ticker || q.symbol || q.coin || ''),
-            assetClass: q.asset_class || q.assetClass || (q.coin ? 'CRYPTO' : 'STOCK'),
+            assetClass: q.asset_class || q.assetClass || assetClass || (q.coin ? 'CRYPTO' : 'STOCK'),
             currentPrice: String(
               q.current_price !== undefined
                 ? q.current_price
@@ -378,6 +448,7 @@ export class MarketApiService implements IMarketApiService {
             changePercent24h: Number(
               q.change_percent_24h ?? q.changePercent24h ?? q.regularMarketChangePercent ?? 0
             ),
+            currency: q.currency || 'BRL',
             updatedAt: q.updated_at || q.updatedAt || new Date().toISOString(),
             isStale: Boolean(q.is_stale ?? q.isStale ?? false),
             source: q.source || (q.provider ? q.provider : 'YAHOO'),
@@ -394,6 +465,7 @@ export class MarketApiService implements IMarketApiService {
                     asset_class: q.assetClass,
                     current_price: q.currentPrice,
                     change_percent_24h: q.changePercent24h,
+                    currency: q.currency || 'BRL',
                     updated_at: q.updatedAt,
                   })
                   .onConflictDoUpdate({
@@ -401,6 +473,7 @@ export class MarketApiService implements IMarketApiService {
                     set: {
                       current_price: q.currentPrice,
                       change_percent_24h: q.changePercent24h,
+                      currency: q.currency || 'BRL',
                       updated_at: q.updatedAt,
                     },
                   });
@@ -430,7 +503,10 @@ export class MarketApiService implements IMarketApiService {
 
     // 3. Fallback Legado HTTP (/v1/quotes)
     try {
-      const url = `${this.apiBaseUrl}/v1/quotes?tickers=${normalizedTickers.join(',')}`;
+      let url = `${this.apiBaseUrl}/v1/quotes?tickers=${normalizedTickers.join(',')}`;
+      if (assetClass) {
+        url += `&class=${encodeURIComponent(assetClass)}`;
+      }
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -444,13 +520,14 @@ export class MarketApiService implements IMarketApiService {
 
         const quotes: MarketQuote[] = quotesList.map((q: any) => ({
           ticker: cleanTicker(q.ticker || q.symbol || q.coin || ''),
-          assetClass: q.asset_class || q.assetClass || (q.coin ? 'CRYPTO' : 'STOCK'),
+          assetClass: q.asset_class || q.assetClass || assetClass || (q.coin ? 'CRYPTO' : 'STOCK'),
           currentPrice: String(
             q.current_price || q.currentPrice || q.regularMarketPrice || q.price || '0.00'
           ),
           changePercent24h: Number(
-            q.change_percent_24h || q.changePercent24h || q.regularMarketChangePercent || 0
+            q.change_percent_24h ?? q.changePercent24h ?? q.change_24h ?? q.regularMarketChangePercent ?? 0
           ),
+          currency: q.currency || 'BRL',
           updatedAt: q.updated_at || q.updatedAt || new Date().toISOString(),
           isStale: false,
           source: q.source || (q.provider ? q.provider : 'YAHOO'),
@@ -467,6 +544,7 @@ export class MarketApiService implements IMarketApiService {
                   asset_class: q.assetClass,
                   current_price: q.currentPrice,
                   change_percent_24h: q.changePercent24h,
+                  currency: q.currency || 'BRL',
                   updated_at: q.updatedAt,
                 })
                 .onConflictDoUpdate({
@@ -474,6 +552,7 @@ export class MarketApiService implements IMarketApiService {
                   set: {
                     current_price: q.currentPrice,
                     change_percent_24h: q.changePercent24h,
+                    currency: q.currency || 'BRL',
                     updated_at: q.updatedAt,
                   },
                 });
@@ -514,12 +593,14 @@ export class MarketApiService implements IMarketApiService {
           .from(marketPriceCache)
           .where(eq(marketPriceCache.ticker, normalized));
         if (rows && rows.length > 0) {
+          const match = rows.find((r: any) => cleanTicker(r.ticker) === normalized) || rows[0];
           return {
-            ticker: cleanTicker(rows[0].ticker),
-            assetClass: rows[0].asset_class,
-            currentPrice: rows[0].current_price,
-            changePercent24h: rows[0].change_percent_24h ?? 0,
-            updatedAt: rows[0].updated_at,
+            ticker: cleanTicker(match.ticker),
+            assetClass: match.asset_class,
+            currentPrice: match.current_price,
+            changePercent24h: match.change_percent_24h ?? 0,
+            currency: match.currency || 'BRL',
+            updatedAt: match.updated_at,
           };
         }
       }
@@ -787,18 +868,28 @@ export class MarketApiService implements IMarketApiService {
     };
   }
 
-  async getPriceHistory(ticker: string, range: string = '1y'): Promise<PricePoint[]> {
+  async getPriceHistory(
+    ticker: string,
+    range: string = '1y',
+    options?: HistoricalPriceOptions
+  ): Promise<PricePoint[]> {
     const clean = cleanTicker(ticker);
+    const assetClass = options?.assetClass ? options.assetClass.trim().toUpperCase() : '';
 
     if (this.nativeBridge?.getPriceHistory) {
       try {
-        const jsonStr = await this.nativeBridge.getPriceHistory(clean, range);
+        const jsonStr =
+          assetClass && this.nativeBridge.getPriceHistoryWithClass
+            ? await this.nativeBridge.getPriceHistoryWithClass(clean, range, assetClass)
+            : await this.nativeBridge.getPriceHistory(clean, range);
         if (jsonStr) {
           const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
           const points = data?.history || [];
+          const topCurrency = data?.currency || 'BRL';
           return points.map((p: any) => ({
             date: p.date,
             close: typeof p.close === 'number' ? p.close : parseFloat(p.close) || 0,
+            currency: p.currency || topCurrency,
           }));
         }
       } catch {
@@ -807,13 +898,19 @@ export class MarketApiService implements IMarketApiService {
     }
 
     try {
-      const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/history?range=${range}`);
+      let url = `${this.apiBaseUrl}/v1/assets/${clean}/history?range=${range}`;
+      if (assetClass) {
+        url += `&class=${encodeURIComponent(assetClass)}`;
+      }
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         const points = data?.history || [];
+        const topCurrency = data?.currency || 'BRL';
         return points.map((p: any) => ({
           date: p.date,
           close: typeof p.close === 'number' ? p.close : parseFloat(p.close) || 0,
+          currency: p.currency || topCurrency,
         }));
       }
     } catch {
@@ -823,19 +920,25 @@ export class MarketApiService implements IMarketApiService {
     return [];
   }
 
-  async getDividends(ticker: string): Promise<Dividend[]> {
+  async getDividends(ticker: string, options?: HistoricalPriceOptions): Promise<Dividend[]> {
     const clean = cleanTicker(ticker);
+    const assetClass = options?.assetClass ? options.assetClass.trim().toUpperCase() : '';
 
     if (this.nativeBridge?.getDividends) {
       try {
-        const jsonStr = await this.nativeBridge.getDividends(clean);
+        const jsonStr =
+          assetClass && this.nativeBridge.getDividendsWithClass
+            ? await this.nativeBridge.getDividendsWithClass(clean, assetClass)
+            : await this.nativeBridge.getDividends(clean);
         if (jsonStr) {
           const data = typeof jsonStr === 'string' ? JSON.parse(jsonStr) : jsonStr;
           const divs = data?.dividends || [];
+          const topCurrency = data?.currency || 'BRL';
           return divs.map((d: any) => ({
             date: d.date,
             type: d.type || 'DIVIDEND',
             amount: typeof d.amount === 'number' ? d.amount : parseFloat(d.amount) || 0,
+            currency: d.currency || topCurrency,
             notes: d.notes,
           }));
         }
@@ -845,14 +948,20 @@ export class MarketApiService implements IMarketApiService {
     }
 
     try {
-      const res = await fetch(`${this.apiBaseUrl}/v1/assets/${clean}/dividends`);
+      let url = `${this.apiBaseUrl}/v1/assets/${clean}/dividends`;
+      if (assetClass) {
+        url += `?class=${encodeURIComponent(assetClass)}`;
+      }
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         const divs = data?.dividends || [];
+        const topCurrency = data?.currency || 'BRL';
         return divs.map((d: any) => ({
           date: d.date,
           type: d.type || 'DIVIDEND',
           amount: typeof d.amount === 'number' ? d.amount : parseFloat(d.amount) || 0,
+          currency: d.currency || topCurrency,
           notes: d.notes,
         }));
       }

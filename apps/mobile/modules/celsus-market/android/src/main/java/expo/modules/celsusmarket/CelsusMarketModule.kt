@@ -37,8 +37,16 @@ class CelsusMarketModule : Module() {
       Mobilebridge.fetchQuotesJSON(tickersCsv, forceRefresh)
     }
 
+    AsyncFunction("fetchQuotesWithClass") { tickersCsv: String, assetClass: String, forceRefresh: Boolean ->
+      Mobilebridge.fetchQuotesWithClassJSON(tickersCsv, assetClass, forceRefresh)
+    }
+
     AsyncFunction("getHistoricalPrice") { ticker: String, date: String ->
       Mobilebridge.getHistoricalPriceJSON(ticker, date)
+    }
+
+    AsyncFunction("getHistoricalPriceWithClass") { ticker: String, date: String, assetClass: String ->
+      Mobilebridge.getHistoricalPriceWithClassJSON(ticker, date, assetClass)
     }
 
     AsyncFunction("searchCatalog") { query: String, assetClass: String ->
@@ -65,8 +73,16 @@ class CelsusMarketModule : Module() {
       Mobilebridge.getPriceHistoryJSON(ticker, rangeParam)
     }
 
+    AsyncFunction("getPriceHistoryWithClass") { ticker: String, rangeParam: String, assetClass: String ->
+      Mobilebridge.getPriceHistoryWithClassJSON(ticker, rangeParam, assetClass)
+    }
+
     AsyncFunction("getDividends") { ticker: String ->
       Mobilebridge.getDividendsJSON(ticker)
+    }
+
+    AsyncFunction("getDividendsWithClass") { ticker: String, assetClass: String ->
+      Mobilebridge.getDividendsWithClassJSON(ticker, assetClass)
     }
 
     AsyncFunction("getRanking") { assetClass: String, by: String, limit: Int ->
