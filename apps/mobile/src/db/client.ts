@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS fin_accounts (
   due_day INTEGER,
   credit_limit_cents INTEGER,
   of_account_id TEXT,
+  of_item_id TEXT,
   source TEXT NOT NULL DEFAULT 'MANUAL',
   reported_balance_cents INTEGER,
   reported_balance_at TEXT,
@@ -701,6 +702,7 @@ export const SCHEMA_UPGRADES: Array<{ table: string; column: string; ddl: string
   { table: 'of_items', column: 'status_detail_json', ddl: 'ALTER TABLE of_items ADD COLUMN status_detail_json TEXT' },
   { table: 'of_items', column: 'error_code', ddl: 'ALTER TABLE of_items ADD COLUMN error_code TEXT' },
   { table: 'fin_accounts', column: 'calendar_source', ddl: 'ALTER TABLE fin_accounts ADD COLUMN calendar_source TEXT' },
+  { table: 'fin_accounts', column: 'of_item_id', ddl: 'ALTER TABLE fin_accounts ADD COLUMN of_item_id TEXT' },
   { table: 'historical_prices_local', column: 'currency', ddl: "ALTER TABLE historical_prices_local ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
   { table: 'market_price_cache', column: 'currency', ddl: "ALTER TABLE market_price_cache ADD COLUMN currency TEXT NOT NULL DEFAULT 'BRL'" },
 ];
@@ -1016,6 +1018,10 @@ export function resetDatabase() {
       // Ignora erro em listener
     }
   }
+}
+
+export async function initializeDatabase(dbName: string = DATABASE_NAME): Promise<void> {
+  getDatabase(dbName);
 }
 
 export function getDatabase(dbName: string = DATABASE_NAME): ReturnType<typeof drizzle> {

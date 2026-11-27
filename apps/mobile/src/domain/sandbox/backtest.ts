@@ -1,7 +1,7 @@
 import { parseIsoDateDays, priceAt, type PriceSeriesPoint } from './priceAt';
 import {
   estimateTax,
-  getTaxRulesVersion,
+  getDividendWithholdingRate,
   regressiveFixedIncomeRate,
   type SandboxTaxAssetClass,
   type TaxEstimateResult,
@@ -240,15 +240,14 @@ function computeLegDraft(
     };
   }
 
-  const rulesVersion = getTaxRulesVersion(leg.sellDate);
-  const withholdingRate = rulesVersion.rules[leg.assetClass].dividendWithholdingRate;
-
   let quantity = initialQty;
   let dividendsGrossBRL = 0;
   let dividendsWithheldBRL = 0;
   let dividendsNetBRL = 0;
   let dividendsCashBRL = 0;
   let dividendsNetUSD = 0;
+  let hasJcpWithheld = false;
+  const divSnapshots: Array<{ date: string; quantity: number; dividendsCashBRL: number }> = [];
 
   const sortedDividends = (leg.dividends ?? [])
     .filter((d) => d.date > leg.buyDate && d.date <= leg.sellDate && d.amountPerUnit > 0)
@@ -266,6 +265,11 @@ function computeLegDraft(
         };
       }
       divFxRate = fxDiv.price;
+    }
+
+    const withholdingRate = getDividendWithholdingRate(leg.assetClass, div.type, leg.sellDate);
+    if (withholdingRate > 0 && leg.assetClass !== 'US_STOCK') {
+      hasJcpWithheld = true;
     }
 
     const grossAsset = div.amountPerUnit * quantity;
@@ -291,6 +295,8 @@ function computeLegDraft(
     } else {
       dividendsCashBRL += netAsset * divFxRate;
     }
+
+    divSnapshots.push({ date: div.date, quantity, dividendsCashBRL });
   }
 
   const finalSharesValueBRL = quantity * sellPriceBRL;
@@ -330,9 +336,19 @@ function computeLegDraft(
       if (!pFx) continue;
       fx = pFx.price;
     }
+    let qtyAtRef = initialQty;
+    let cashAtRef = 0;
+    for (const snap of divSnapshots) {
+      if (snap.date <= refDate) {
+        qtyAtRef = snap.quantity;
+        cashAtRef = snap.dividendsCashBRL;
+      } else {
+        break;
+      }
+    }
     monthlySeries.push({
       month: ym,
-      valueBRL: initialQty * pAsset.price * fx,
+      valueBRL: qtyAtRef * pAsset.price * fx + cashAtRef,
     });
   }
 
@@ -625,9 +641,11 @@ export function runScenario(input: SandboxScenarioInput): SandboxScenarioResult 
     .sort((a, b) => a[0].localeCompare(b[0]))
     .map(([month, valueBRL]) => ({ month, valueBRL }));
 
-  const taxLabel = input.options.taxEnabled
+  const hasAnyJcpWithheld = legResults.some((l) => l.dividendsWithheldBRL > 0 && l.assetClass !== 'US_STOCK');
+  const baseTaxLabel = input.options.taxEnabled
     ? `Estimativa de IR total: R$ ${totalTaxBRL.toFixed(2).replace('.', ',')}`
     : 'Estimativa de IR desligada (R$ 0,00)';
+  const taxLabel = hasAnyJcpWithheld ? `${baseTaxLabel} (JCP líquido de 15%)` : baseTaxLabel;
 
   return {
     status: 'ok',
@@ -650,3 +668,5 @@ export function runScenario(input: SandboxScenarioInput): SandboxScenarioResult 
     benchmarks,
   };
 }
+
+export const runBacktest = runScenario;

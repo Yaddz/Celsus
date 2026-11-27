@@ -1,14 +1,20 @@
 import Decimal from 'decimal.js';
-import { Transaction, Asset } from '../db/schema';
-import { runInTransaction } from '../db/client';
+import { eq } from 'drizzle-orm';
+import { Transaction, Asset, transactions } from '../db/schema';
+import { getDatabase, runInTransaction } from '../db/client';
 import { decimalToCents } from '../domain/money';
+import { matchOpenFinanceInvestmentOutflow } from '../domain/financeFlow';
 import { IMarketApiService, marketApiService } from './marketApi';
 import { TransactionRepository, transactionRepository } from '../repositories/transactionRepository';
 import { AssetRepository, assetRepository } from '../repositories/assetRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finRepository } from '../repositories/finRepository';
 import { finService } from './finService';
-import { calculateBuyOperation, calculateSellOperation } from '../domain/finance/averagePrice';
+import {
+  calculateBuyOperation,
+  calculatePositionFromTransactions,
+  calculateSellOperation,
+} from '../domain/finance/averagePrice';
 
 export interface CreateTransactionInput {
   id?: string;
@@ -195,10 +201,11 @@ export class TransactionService implements ITransactionService {
 
     const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
     const brokerAccountId = portfolio?.fin_account_id ?? null;
+    const isManualSource = !params.source || params.source === 'MANUAL';
     const shouldPostCash =
       Boolean(brokerAccountId) &&
       params.cashSource !== null &&
-      params.source !== 'OPEN_FINANCE';
+      isManualSource;
     const selectedCashAccountId = params.cashSource?.accountId || brokerAccountId;
 
     return runInTransaction(async () => {
@@ -305,14 +312,46 @@ export class TransactionService implements ITransactionService {
           const amountCents = decimalToCents(totalAmount);
           if (amountCents > 0) {
             if (selectedCashAccountId && selectedCashAccountId !== brokerAccountId) {
-              await finService.createTransfer({
-                fromAccountId: selectedCashAccountId,
-                toAccountId: brokerAccountId,
+              const allEntries = await finRepository.listAllEntries();
+              const matchedOf = matchOpenFinanceInvestmentOutflow(allEntries, {
+                accountId: selectedCashAccountId,
                 amountCents,
-                dateIso: params.tradeDate,
-                description: `Aporte ${asset.ticker}`,
-                linkedTransactionId: transaction.id,
+                tradeDate: params.tradeDate,
+                brokerAccountId,
               });
+              if (matchedOf) {
+                const transferGroupId =
+                  matchedOf.transfer_group_id ??
+                  `tr-of-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+                await finRepository.updateEntry(matchedOf.id, {
+                  kind: 'transfer_out',
+                  transfer_group_id: transferGroupId,
+                  linked_transaction_id: transaction.id,
+                  of_class_reason: matchedOf.of_class_reason ?? 'INVESTMENT_MOVE',
+                });
+                await finRepository.createEntry({
+                  kind: 'transfer_in',
+                  amount_cents: amountCents,
+                  due_date: params.tradeDate,
+                  paid_date: params.tradeDate,
+                  paid_amount_cents: amountCents,
+                  status: 'paid',
+                  account_id: brokerAccountId,
+                  category_id: 'cat-outros-receita',
+                  description: `Aporte ${asset.ticker}`,
+                  transfer_group_id: transferGroupId,
+                  linked_transaction_id: transaction.id,
+                });
+              } else {
+                await finService.createTransfer({
+                  fromAccountId: selectedCashAccountId,
+                  toAccountId: brokerAccountId,
+                  amountCents,
+                  dateIso: params.tradeDate,
+                  description: `Aporte ${asset.ticker}`,
+                  linkedTransactionId: transaction.id,
+                });
+              }
             }
             await finRepository.createEntry({
               kind: 'investment_buy',
@@ -342,12 +381,36 @@ export class TransactionService implements ITransactionService {
   }
 
   /**
-   * Exclui movimentação e todos os lançamentos financeiros ligados na mesma transação.
+   * Exclui movimentação e todos os lançamentos financeiros ligados na mesma transação,
+   * recalculando a posição do ativo a partir das movimentações restantes.
    */
   async deleteTransaction(transactionId: string): Promise<void> {
     await runInTransaction(async () => {
+      const db = getDatabase();
+      const [targetTx] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.id, transactionId));
+
       await finRepository.deleteEntriesByLinkedTransactionId(transactionId);
       await this.txRepo.deleteTransaction(transactionId);
+
+      if (targetTx) {
+        const remaining = await this.txRepo.getTransactionsByAsset(targetTx.asset_id);
+        const pos = calculatePositionFromTransactions(
+          remaining.map((r) => ({
+            type: r.type as 'BUY' | 'SELL',
+            quantity: r.quantity,
+            unitPrice: r.unit_price,
+            fees: r.fees,
+            tradeDate: r.trade_date,
+          }))
+        );
+        await this.assetRepo.updateAsset(targetTx.asset_id, {
+          quantity: pos.quantity,
+          average_price: pos.averagePrice,
+        });
+      }
     });
   }
 

@@ -132,6 +132,29 @@ export function getTaxRulesVersion(asOfDate?: string): TaxRulesVersion {
 }
 
 /**
+ * Retenção na fonte por tipo de provento:
+ * - JCP em ativos B3: 15% na fonte
+ * - US_STOCK: 30% na fonte
+ * - Demais proventos B3: 0%
+ */
+export function getDividendWithholdingRate(
+  assetClass: SandboxTaxAssetClass,
+  dividendType?: string | null,
+  referenceDate?: string
+): number {
+  const normalizedType = (dividendType ?? '').trim().toUpperCase();
+  if (
+    assetClass !== 'US_STOCK' &&
+    (normalizedType === 'JCP' ||
+      normalizedType === 'JSCP' ||
+      normalizedType.includes('JUROS SOBRE CAPITAL'))
+  ) {
+    return 0.15;
+  }
+  return getTaxRulesVersion(referenceDate).rules[assetClass].dividendWithholdingRate;
+}
+
+/**
  * Tabela regressiva de renda fixa / CDI (RFB).
  */
 export function regressiveFixedIncomeRate(holdingDays: number): number {

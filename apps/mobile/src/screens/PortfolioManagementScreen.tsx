@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
+  Switch,
   useWindowDimensions,
 } from 'react-native';
 import { useHeaderScrollFade } from '../hooks/useHeaderScrollFade';
@@ -33,6 +34,7 @@ import { buildClassSummary } from '../domain/finance/classSummary';
 import { isUnknownCost } from '../domain/finance/averagePrice';
 import { marketApiService } from '../services/marketApi';
 import { portfolioRepository } from '../repositories/portfolioRepository';
+import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
 import type { FinAccount } from '../db/schema';
 import { assetRepository } from '../repositories/assetRepository';
@@ -123,6 +125,7 @@ interface AssetRowProps {
   themeMode: 'dark' | 'light';
   portfolioMode: 'percent' | 'weight';
   onWizard: (asset: AssetItem) => void;
+  onEditRf?: (asset: AssetItem) => void;
   onDelete: (id: string) => void;
   onToggleLock: (id: string) => void;
   onChangePct: (id: string, text: string) => void;
@@ -220,6 +223,7 @@ const AssetRow = React.memo(function AssetRow({
   themeMode,
   portfolioMode,
   onWizard,
+  onEditRf,
   onDelete,
   onToggleLock,
   onChangePct,
@@ -271,6 +275,18 @@ const AssetRow = React.memo(function AssetRow({
           max={isPercent ? 100 : undefined}
           onCommit={handleCommit}
         />
+        {asset.assetClass === 'FIXED_INCOME' && onEditRf ? (
+          <TouchableOpacity
+            testID={`asset-edit-btn-${asset.id}`}
+            onPress={() => onEditRf(asset)}
+            style={styles.deleteAssetBtn}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`Editar liquidez de ${asset.ticker}`}
+          >
+            <MaterialIcons name="tune" size={18} color={colors.subtleText} />
+          </TouchableOpacity>
+        ) : null}
         <TouchableOpacity
           testID={`delete-asset-${asset.id}`}
           onPress={() => onDelete(asset.id)}
@@ -398,6 +414,8 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
   const [linkedBrokerAccount, setLinkedBrokerAccount] = useState<FinAccount | null>(null);
   const [brokerAccounts, setBrokerAccounts] = useState<FinAccount[]>([]);
   const [isBrokerLinkSheetOpen, setIsBrokerLinkSheetOpen] = useState(false);
+  const [editingRfAsset, setEditingRfAsset] = useState<AssetItem | null>(null);
+  const [rfDailyLiquidity, setRfDailyLiquidity] = useState<boolean>(false);
   const [linkedPortfolioGoals, setLinkedPortfolioGoals] = useState<LinkedGoalSummary[]>([]);
   const [isGoalEditorOpen, setIsGoalEditorOpen] = useState(false);
   const [isWeightHelpOpen, setIsWeightHelpOpen] = useState(false);
@@ -1510,8 +1528,23 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               testID="portfolio-broker-link-row"
               accessibilityRole="button"
               onPress={async () => {
-                const brokers = await finRepository.listBrokerAccounts();
-                setBrokerAccounts(brokers);
+                const allActive = await finRepository.listAccounts(false);
+                const eligible = allActive.filter(
+                  (a) => a.type === 'broker' || a.type === 'checking' || a.type === 'cash'
+                );
+                const activeP = activePortfolioId
+                  ? await portfolioRepository.getPortfolioById(activePortfolioId)
+                  : null;
+                const itemId = activeP?.of_item_id;
+                eligible.sort((a, b) => {
+                  const aMatch = itemId && a.source === 'OPEN_FINANCE' && a.of_item_id === itemId ? 0 : 1;
+                  const bMatch = itemId && b.source === 'OPEN_FINANCE' && b.of_item_id === itemId ? 0 : 1;
+                  if (aMatch !== bMatch) return aMatch - bMatch;
+                  if (a.type === 'broker' && b.type !== 'broker') return -1;
+                  if (a.type !== 'broker' && b.type === 'broker') return 1;
+                  return a.name.localeCompare(b.name);
+                });
+                setBrokerAccounts(eligible);
                 setIsBrokerLinkSheetOpen(true);
               }}
               style={{
@@ -1566,6 +1599,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                       setLinkedBrokerAccount(acc);
                       setIsBrokerLinkSheetOpen(false);
                       await portfolioRepository.linkFinAccount(activePortfolioId, acc.id);
+                      await appMetaRepository.set(`broker-link:manual:${activePortfolioId}`, '1');
                     }}
                     style={{
                       flexDirection: 'row',
@@ -1683,6 +1717,7 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
               return (
                 <TouchableOpacity
                   key={c}
+                  testID={`class-tab-${c}`}
                   activeOpacity={0.8}
                   onPress={() => setSelectedClassTab(c)}
                   style={[
@@ -1737,6 +1772,11 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
                   themeMode={themeMode}
                   portfolioMode={portfolioMode}
                   onWizard={setSelectedGlobalWizardAsset}
+                  onEditRf={async (item) => {
+                    const dbAsset = await assetRepository.getAssetById(item.id);
+                    setRfDailyLiquidity(dbAsset?.rf_daily_liquidity === 1);
+                    setEditingRfAsset(item);
+                  }}
                   onDelete={rowHandlers.onDelete}
                   onToggleLock={rowHandlers.onToggleLock}
                   onChangePct={rowHandlers.onChangePct}
@@ -2409,6 +2449,74 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           </SafeAreaView>
         </Modal>
       )}
+
+      <AnimatedModalSheet
+        visible={editingRfAsset !== null}
+        onClose={() => setEditingRfAsset(null)}
+        themeMode={themeMode}
+      >
+        <BentoSheetHeader
+          title={editingRfAsset ? `EDITAR ${editingRfAsset.ticker}` : 'EDITAR RENDA FIXA'}
+          onClose={() => setEditingRfAsset(null)}
+          themeMode={themeMode}
+        />
+        <View style={{ gap: space.md, paddingBottom: space.lg }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingVertical: space.sm,
+            }}
+          >
+            <View style={{ flex: 1, paddingRight: space.md }}>
+              <Text
+                style={{
+                  color: isLight ? colors.voidFloor : colors.parchmentPale,
+                  fontSize: typography.sizes.body,
+                  fontWeight: typography.weights.semibold,
+                }}
+              >
+                Liquidez diária
+              </Text>
+              <Text style={{ color: colors.subtleText, fontSize: typography.sizes.caption, marginTop: 2 }}>
+                Incluir este título na reserva de emergência
+              </Text>
+            </View>
+            <Switch
+              testID="rf-daily-liquidity-switch"
+              value={rfDailyLiquidity}
+              onValueChange={setRfDailyLiquidity}
+            />
+          </View>
+          <TouchableOpacity
+            testID="save-asset-edit-btn"
+            onPress={async () => {
+              if (!editingRfAsset) return;
+              await assetRepository.updateAsset(editingRfAsset.id, {
+                rf_daily_liquidity: rfDailyLiquidity ? 1 : 0,
+              });
+              setEditingRfAsset(null);
+            }}
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: bento.innerRadius,
+              paddingVertical: space.md,
+              alignItems: 'center',
+            }}
+          >
+            <Text
+              style={{
+                color: bento.variants.primary.foreground,
+                fontSize: typography.sizes.body,
+                fontWeight: typography.weights.bold,
+              }}
+            >
+              Salvar
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </AnimatedModalSheet>
     </View>
   );
 };

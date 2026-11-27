@@ -465,3 +465,13 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `domain/financeFlow/monthClose.ts` (`R45`): `availableSurplus` (sobra do mês − pendentes até dia D), `averageMonthlyExpenses` e `emergencyReserve` (`checking`/`cash` + renda fixa com `rf_daily_liquidity === 1` ÷ média de despesas 6m).
 - `stores/pendingContributionStore.ts` & `services/monthCloseService.ts`: proposta de fechamento, gravação de `month-close:YYYY-MM` em `app_meta` e ponte de consumo único para Investimentos.
 - `screens/finance/MonthCloseScreen.tsx` (artboard 8), `FinanceHomeScreen.tsx`, `screens/SimulatorScreen.tsx` (`initialAmount`/`sourceAccountId`), `App.tsx`, `navigation/backNavigation.ts` & `services/finReminderService.ts` (`checkAndNotifyMonthClose` no dia 1º).
+
+## Correções da Revisão (Sprint 114)
+
+- `domain/financeFlow/openFinanceMatch.ts` (`matchOpenFinanceInvestmentOutflow`), `TransactionScreen.tsx` & `services/transactionService.ts`: origem padrão da compra escolhe conta `checking`/`cash` com maior saldo quando a corretora vinculada não cobre o total (com aviso não-bloqueante se negativa); casamento automático com saídas Open Finance `INVESTMENT_MOVE` sem duplicar `transfer_out`; `B3_IMPORT` e `OPEN_FINANCE` não lançam em Finanças (`migration:remove-b3-import-cash-entries:v1`).
+- `services/finService.ts`, `AccountsScreen.tsx` & `PortfolioManagementScreen.tsx`: seletor de conta vinculada aceita `checking`/`cash` com prioridade para contas Open Finance da mesma conexão (`fin_accounts.of_item_id`, `migration:broker-link-suggest:v2`, marca manual `broker-link:manual:<portfolioId>`).
+- `domain/financeFlow/monthSummary.ts` (`R43`): aportes contabilizam apenas fluxos entre fora e contas de investimento + saídas OF `INVESTMENT_MOVE` sem par − resgates (`investment_buy`/`investment_sell` nunca entram).
+- `services/transactionService.ts` (`deleteTransaction`) & `services/b3ImportService.ts` (`undoB3Import`/`undoLastImport`): exclusão recalcula posição (`calculatePositionFromTransactions`) dentro do `runInTransaction`.
+- `repositories/incomeRepository.ts` & `domain/finance/incomeDedup.ts` (`R41`): `addIncome` atômico, `updateIncome` preserva valor Open Finance e casamento busca contas da mesma conexão `of_item_id`.
+- `services/patrimonyService.ts` (`byAsset`), `services/monthCloseService.ts` & `PortfolioManagementScreen.tsx`: `rf_daily_liquidity` editável na UI e reserva lendo valor dos ativos exclusivamente de `patrimonyService`.
+- `domain/sandbox/backtest.ts`, `taxRules.ts`, `dividendGoal.ts`, `CompareScreen.tsx` & `StressTestScreen.tsx`: `monthlySeries` com reinvestimento e caixa, retenção de 15% em JCP B3 (`"JCP líquido de 15%"`), consumo de `sandboxService` com conversão `USDBRL` em `CompareScreen`.

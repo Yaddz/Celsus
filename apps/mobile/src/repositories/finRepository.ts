@@ -100,6 +100,7 @@ export class FinRepository {
     dueDay?: number | null;
     creditLimitCents?: number | null;
     ofAccountId?: string | null;
+    ofItemId?: string | null;
     source?: 'MANUAL' | 'OPEN_FINANCE';
     reportedBalanceCents?: number | null;
     reportedBalanceAt?: string | null;
@@ -130,6 +131,7 @@ export class FinRepository {
       due_day: isCard ? (params.dueDay ?? null) : null,
       credit_limit_cents: isCard ? (params.creditLimitCents ?? null) : null,
       of_account_id: params.ofAccountId ?? null,
+      of_item_id: params.ofItemId ?? null,
       source: params.source ?? 'MANUAL',
       reported_balance_cents: params.reportedBalanceCents ?? null,
       reported_balance_at: params.reportedBalanceAt ?? null,

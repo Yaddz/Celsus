@@ -440,6 +440,39 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
     return broker ? [broker, ...others] : others;
   }, [finAccounts, linkedBrokerAccountId]);
 
+  // P3a: se a corretora vinculada não cobre o total da compra, padrão = conta corrente/dinheiro com maior saldo
+  useEffect(() => {
+    if (!linkedBrokerAccountId || eligibleCashAccounts.length === 0) return;
+    if (type !== 'BUY') {
+      setSelectedCashAccountId(linkedBrokerAccountId);
+      return;
+    }
+    const opCents = decimalToCents(calculateTotal());
+    const brokerAcc = eligibleCashAccounts.find((a) => a.id === linkedBrokerAccountId);
+    const brokerBal = brokerAcc
+      ? calculateAccountBalance(brokerAcc.initial_balance_cents, finEntriesList, brokerAcc.id)
+      : 0;
+    if (brokerBal >= opCents || opCents <= 0) {
+      setSelectedCashAccountId(linkedBrokerAccountId);
+      return;
+    }
+    const nonBroker = eligibleCashAccounts.filter((a) => a.id !== linkedBrokerAccountId);
+    if (nonBroker.length === 0) {
+      setSelectedCashAccountId(linkedBrokerAccountId);
+      return;
+    }
+    let bestAcc = nonBroker[0];
+    let bestBal = calculateAccountBalance(bestAcc.initial_balance_cents, finEntriesList, bestAcc.id);
+    for (let i = 1; i < nonBroker.length; i++) {
+      const bal = calculateAccountBalance(nonBroker[i].initial_balance_cents, finEntriesList, nonBroker[i].id);
+      if (bal > bestBal) {
+        bestBal = bal;
+        bestAcc = nonBroker[i];
+      }
+    }
+    setSelectedCashAccountId(bestAcc.id);
+  }, [linkedBrokerAccountId, eligibleCashAccounts, finEntriesList, type, quantity, unitPrice, fees]);
+
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);
 
   // Auto-fill preço manual via COTAHIST
@@ -982,12 +1015,22 @@ export const TransactionScreen: React.FC<TransactionScreenProps> = ({
                       );
                     })}
                   </ScrollView>
-                  <Text
-                    testID="cash-projected-balance"
-                    style={[styles.summarySub, isLight && styles.summarySubLight, { marginTop: space.sm }]}
-                  >
-                    {`Saldo ${formatCentsBRL(currentBalanceCents, isPrivacyMode)} → ${formatCentsBRL(projectedBalanceCents, isPrivacyMode)}`}
-                  </Text>
+                  <View testID={activeAcc ? `tx-cash-account-${activeAcc.id}` : undefined}>
+                    <Text
+                      testID="cash-projected-balance"
+                      style={[styles.summarySub, isLight && styles.summarySubLight, { marginTop: space.sm }]}
+                    >
+                      {`Saldo ${formatCentsBRL(currentBalanceCents, isPrivacyMode)} → ${formatCentsBRL(projectedBalanceCents, isPrivacyMode)}`}
+                    </Text>
+                    {type === 'BUY' && projectedBalanceCents < 0 && activeAcc ? (
+                      <Text
+                        testID="cash-negative-warning"
+                        style={[styles.summarySub, { color: colors.deficit, marginTop: 4 }]}
+                      >
+                        {`A conta ${activeAcc.name} ficará negativa`}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
               );
             })()}

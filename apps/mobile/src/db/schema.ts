@@ -230,6 +230,7 @@ export const finAccounts = sqliteTable('fin_accounts', {
   due_day: integer('due_day'),
   credit_limit_cents: integer('credit_limit_cents'),
   of_account_id: text('of_account_id'),
+  of_item_id: text('of_item_id'),
   source: text('source').notNull().default('MANUAL'), // 'MANUAL' | 'OPEN_FINANCE'
   reported_balance_cents: integer('reported_balance_cents'),
   reported_balance_at: text('reported_balance_at'),
@@ -381,7 +382,9 @@ export const finRecurrenceSkips = sqliteTable(
   ]
 );
 
-export type FinAccount = typeof finAccounts.$inferSelect;
+export type FinAccount = Omit<typeof finAccounts.$inferSelect, 'of_item_id'> & {
+  of_item_id?: string | null;
+};
 export type NewFinAccount = typeof finAccounts.$inferInsert;
 
 export type FinBill = typeof finBills.$inferSelect;

@@ -29,7 +29,11 @@ function entryRealCents(entry: FinEntry): number {
 export function monthSummary(
   entries: FinEntry[],
   yearMonth: string,
-  options?: { todayIso?: string; accounts?: Array<Pick<FinAccount, 'id' | 'type'>> }
+  options?: {
+    todayIso?: string;
+    accounts?: Array<Pick<FinAccount, 'id' | 'type'>>;
+    linkedAccountIds?: string[];
+  }
 ): MonthSummaryR43 {
   const monthEntries = entries.filter((entry) => {
     if (entry.of_removed_at) return false;
@@ -38,42 +42,23 @@ export function monthSummary(
     return true;
   });
 
-  const brokerIds = new Set(
-    (options?.accounts ?? []).filter((a) => a.type === 'broker').map((a) => a.id)
-  );
+  const investmentAccountIds = new Set<string>([
+    ...(options?.accounts ?? []).filter((a) => a.type === 'broker').map((a) => a.id),
+    ...(options?.linkedAccountIds ?? []),
+  ]);
 
-  // Grupos de transferência cuja perna de entrada (transfer_in) caiu numa conta corretora
-  const transferGroupsToBroker = new Set<string>();
-  const buyTxIds = new Set<string>();
-  const sellTxIds = new Set<string>();
+  const transferInByGroup = new Map<string, FinEntry[]>();
+  const transferOutByGroup = new Map<string, FinEntry[]>();
   for (const e of monthEntries) {
-    if (e.kind === 'transfer_in' && e.transfer_group_id && brokerIds.has(e.account_id)) {
-      transferGroupsToBroker.add(e.transfer_group_id);
-    }
-    if (e.kind === 'investment_buy' && e.linked_transaction_id) {
-      buyTxIds.add(e.linked_transaction_id);
-    }
-    if (e.kind === 'investment_sell' && e.linked_transaction_id) {
-      sellTxIds.add(e.linked_transaction_id);
-    }
-  }
-
-  const buyTxIdsCoveredByTransfer = new Set<string>();
-  const sellTxIdsWithOutflowTransfer = new Set<string>();
-  for (const e of monthEntries) {
-    if (e.kind !== 'transfer_out') continue;
-    const isToBroker =
-      (e.transfer_group_id && transferGroupsToBroker.has(e.transfer_group_id)) ||
-      e.of_class_reason === 'INVESTMENT_MOVE' ||
-      (e.linked_transaction_id && buyTxIds.has(e.linked_transaction_id));
-    if (isToBroker && e.linked_transaction_id) {
-      buyTxIdsCoveredByTransfer.add(e.linked_transaction_id);
-    }
-    const isFromBroker =
-      brokerIds.has(e.account_id) ||
-      (e.linked_transaction_id && sellTxIds.has(e.linked_transaction_id));
-    if (isFromBroker && e.linked_transaction_id) {
-      sellTxIdsWithOutflowTransfer.add(e.linked_transaction_id);
+    if (!e.transfer_group_id) continue;
+    if (e.kind === 'transfer_in') {
+      const list = transferInByGroup.get(e.transfer_group_id) ?? [];
+      list.push(e);
+      transferInByGroup.set(e.transfer_group_id, list);
+    } else if (e.kind === 'transfer_out') {
+      const list = transferOutByGroup.get(e.transfer_group_id) ?? [];
+      list.push(e);
+      transferOutByGroup.set(e.transfer_group_id, list);
     }
   }
 
@@ -110,32 +95,56 @@ export function monthSummary(
     }
 
     if (entry.kind === 'expense') {
+      // Saída OF classificada INVESTMENT_MOVE sem par transfer_in em conta de investimento conta como aporte
+      if (entry.source === 'OPEN_FINANCE' && entry.of_class_reason === 'INVESTMENT_MOVE') {
+        const hasBrokerPair =
+          Boolean(entry.transfer_group_id) &&
+          (transferInByGroup.get(entry.transfer_group_id!) ?? []).some((ti) =>
+            investmentAccountIds.has(ti.account_id)
+          );
+        if (!hasBrokerPair) {
+          contributionCents += real;
+        }
+        continue;
+      }
       expenseCents += real;
       continue;
     }
 
+    // R43 (Sprint 114 P4):
+    // Aportes = Σ transfer_in em conta de investimento vinda de fora
+    //         + Σ saídas OF INVESTMENT_MOVE sem par no app
+    //         - Σ transfer_out de conta de investimento para fora
+    // investment_buy / investment_sell NUNCA entram em aportes.
+    if (entry.kind === 'transfer_in') {
+      if (entry.transfer_group_id && investmentAccountIds.has(entry.account_id)) {
+        const outs = transferOutByGroup.get(entry.transfer_group_id) ?? [];
+        const fromOutside = outs.some((o) => !investmentAccountIds.has(o.account_id));
+        if (fromOutside) {
+          contributionCents += real;
+        }
+      }
+      continue;
+    }
+
     if (entry.kind === 'transfer_out') {
-      const isAporteTransfer =
-        (entry.transfer_group_id && transferGroupsToBroker.has(entry.transfer_group_id)) ||
-        entry.of_class_reason === 'INVESTMENT_MOVE' ||
-        (entry.linked_transaction_id && buyTxIds.has(entry.linked_transaction_id));
-      if (isAporteTransfer) {
-        contributionCents += real;
+      if (entry.transfer_group_id && investmentAccountIds.has(entry.account_id)) {
+        const ins = transferInByGroup.get(entry.transfer_group_id) ?? [];
+        const toOutside = ins.some((i) => !investmentAccountIds.has(i.account_id));
+        if (toOutside) {
+          contributionCents -= real;
+        }
+      } else if (entry.source === 'OPEN_FINANCE' && entry.of_class_reason === 'INVESTMENT_MOVE') {
+        const hasBrokerPair =
+          Boolean(entry.transfer_group_id) &&
+          (transferInByGroup.get(entry.transfer_group_id!) ?? []).some((ti) =>
+            investmentAccountIds.has(ti.account_id)
+          );
+        if (!hasBrokerPair) {
+          contributionCents += real;
+        }
       }
       continue;
-    }
-
-    if (entry.kind === 'investment_buy') {
-      if (!entry.linked_transaction_id || !buyTxIdsCoveredByTransfer.has(entry.linked_transaction_id)) {
-        contributionCents += real;
-      }
-      continue;
-    }
-
-    if (entry.kind === 'investment_sell') {
-      if (entry.linked_transaction_id && sellTxIdsWithOutflowTransfer.has(entry.linked_transaction_id)) {
-        contributionCents -= real;
-      }
     }
   }
 

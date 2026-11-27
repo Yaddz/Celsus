@@ -60,12 +60,12 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('tx-cash-source-toggle')).toBeTruthy();
+      expect(screen.getByTestId('tx-use-cash-toggle')).toBeTruthy();
     });
 
     // Compra de 20 cotas * R$ 30 = R$ 600 (> 0 da corretora e > 500 do Itaú)
-    fireEvent.changeText(screen.getByTestId('tx-quantity-input'), '20');
-    fireEvent.changeText(screen.getByTestId('tx-price-input'), '30.00');
+    fireEvent.changeText(screen.getByTestId('transaction-quantity-input'), '20');
+    fireEvent.changeText(screen.getByTestId('transaction-unit-price-input'), '30.00');
 
     await waitFor(() => {
       // Conta padrão escolhida: Itaú (maior saldo)
@@ -96,6 +96,11 @@ describe('Sprint 114 — UI e Fluxos (P3a, P7, P8c, P9)', () => {
         onBack={jest.fn()}
       />
     );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('class-tab-FIXED_INCOME')).toBeTruthy();
+    });
+    fireEvent.press(screen.getByTestId('class-tab-FIXED_INCOME'));
 
     await waitFor(() => {
       expect(screen.getByText('CDB BANCO X')).toBeTruthy();

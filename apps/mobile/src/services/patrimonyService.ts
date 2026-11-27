@@ -36,6 +36,14 @@ export interface PatrimonyAccountItem {
   balanceCents: number;
 }
 
+export interface PatrimonyAssetItem {
+  assetId: string;
+  portfolioId: string;
+  ticker: string;
+  assetClass: string;
+  marketValueCents: number;
+}
+
 export interface PatrimonyResult {
   investedCents: number;
   accountsCents: number;
@@ -43,6 +51,7 @@ export interface PatrimonyResult {
   totalCents: number;
   byPortfolio: PatrimonyPortfolioItem[];
   byAccount: PatrimonyAccountItem[];
+  byAsset: PatrimonyAssetItem[];
 }
 
 /**
@@ -179,6 +188,7 @@ export async function getPatrimony(
   }
 
   const byPortfolio: PatrimonyPortfolioItem[] = [];
+  const byAsset: PatrimonyAssetItem[] = [];
   let assetsTotalCents = 0;
 
   for (const p of allPortfolios) {
@@ -222,6 +232,13 @@ export async function getPatrimony(
       }
       const clsCents = decimalToCents(valReais);
       byClassCents[a.asset_class] = (byClassCents[a.asset_class] ?? 0) + clsCents;
+      byAsset.push({
+        assetId: a.id,
+        portfolioId: p.id,
+        ticker: a.ticker,
+        assetClass: a.asset_class,
+        marketValueCents: clsCents,
+      });
     }
 
     const marketValueCents = decimalToCents(totalReais);
@@ -249,6 +266,7 @@ export async function getPatrimony(
     totalCents,
     byPortfolio,
     byAccount,
+    byAsset,
   };
 }
 

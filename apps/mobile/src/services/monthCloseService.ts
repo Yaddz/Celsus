@@ -1,9 +1,6 @@
 import { Alert } from 'react-native';
-import Decimal from 'decimal.js';
 import { getDatabase } from '../db/client';
-import { assets, type Asset, type FinAccount } from '../db/schema';
-import { isUnknownCost } from '../domain/finance/averagePrice';
-import { decimalToCents } from '../domain/money';
+import { assets, type FinAccount } from '../db/schema';
 import {
   availableSurplus,
   averageMonthlyExpenses,
@@ -36,27 +33,6 @@ export interface MonthCloseProposal {
   suggestedToInvestCents: number;
   sourceAccounts: Array<FinAccount & { balanceCents: number }>;
   defaultSourceAccountId: string | null;
-}
-
-function assetValueCents(asset: Asset): number {
-  if (asset.of_reported_value && asset.cost_basis_source === 'INSTITUTION') {
-    const val = Number.parseFloat(asset.of_reported_value);
-    if (Number.isFinite(val) && val > 0) return decimalToCents(val);
-  }
-  if (asset.manual_position_value) {
-    const val = Number.parseFloat(asset.manual_position_value);
-    if (Number.isFinite(val) && val > 0) return decimalToCents(val);
-  }
-  const qty = new Decimal(asset.quantity || '0');
-  if (qty.lte(0)) return 0;
-
-  if (asset.manual_price_override) {
-    const p = new Decimal(asset.manual_price_override);
-    if (p.gt(0)) return decimalToCents(qty.mul(p));
-  }
-  if (isUnknownCost(asset)) return 0;
-  const avg = new Decimal(asset.average_price || '0');
-  return avg.gt(0) ? decimalToCents(qty.mul(avg)) : 0;
 }
 
 export class MonthCloseService {
@@ -94,10 +70,14 @@ export class MonthCloseService {
     const surplus = availableSurplus(summary, pendingList);
 
     // R45: Renda fixa líquida = apenas assets FIXED_INCOME com rf_daily_liquidity === 1 (NULL = não líquida)
+    // R42: Valor por ativo vem exclusivamente de patrimonyService.getPatrimony().byAsset
+    const valueByAssetId = new Map(
+      (patrimony.byAsset ?? []).map((item) => [item.assetId, item.marketValueCents])
+    );
     const liquidFixedIncomeCents = allAssets.reduce((sum, asset) => {
       if (asset.asset_class !== 'FIXED_INCOME') return sum;
       if (asset.rf_daily_liquidity !== 1) return sum;
-      return sum + assetValueCents(asset);
+      return sum + (valueByAssetId.get(asset.id) ?? 0);
     }, 0);
 
     const balanceById = new Map(patrimony.byAccount.map((a) => [a.accountId, a.balanceCents]));

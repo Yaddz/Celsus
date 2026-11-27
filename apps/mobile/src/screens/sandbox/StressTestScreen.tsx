@@ -18,7 +18,7 @@ import {
 } from '../../domain/sandbox/stressTest';
 import { assetRepository } from '../../repositories/assetRepository';
 import { portfolioRepository } from '../../repositories/portfolioRepository';
-import { marketApiService } from '../../services/marketApi';
+import { sandboxService } from '../../services/sandboxService';
 import { patrimonyService } from '../../services/patrimonyService';
 import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { walletStore } from '../../stores/walletStore';
@@ -110,9 +110,18 @@ export const StressTestScreen: React.FC<StressTestScreenProps> = ({
         new Set(assets.map((a) => a.ticker.toUpperCase()).filter(Boolean))
       );
 
+      const classByTicker = new Map<string, string>();
+      for (const a of assets) {
+        if (a.ticker) classByTicker.set(a.ticker.toUpperCase(), a.asset_class);
+      }
+
       const historyEntries = await Promise.all(
         uniqueTickers.map(async (ticker) => {
-          const pts = await marketApiService.getPriceHistory(ticker, 'max');
+          const pts = await sandboxService.getHistory(
+            ticker,
+            classByTicker.get(ticker) ?? 'STOCK',
+            'max'
+          );
           return [ticker, pts] as const;
         })
       );
@@ -120,7 +129,7 @@ export const StressTestScreen: React.FC<StressTestScreenProps> = ({
 
       const bova =
         historyMap.get('BOVA11') ??
-        (await marketApiService.getPriceHistory('BOVA11', 'max'));
+        (await sandboxService.getHistory('BOVA11', 'ETF', 'max'));
       setBovaSeries(bova);
 
       const builtPositions: StressTestPositionInput[] = rawValues.map(({ asset, val }) => {

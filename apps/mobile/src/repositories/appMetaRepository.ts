@@ -26,6 +26,10 @@ export class AppMetaRepository {
     }
   }
 
+  async delete(key: string): Promise<void> {
+    await this.db.delete(appMeta).where(eq(appMeta.key, key));
+  }
+
   async getRecentSearches(): Promise<string[]> {
     const raw = await this.get('recent_searches');
     if (!raw) return [];

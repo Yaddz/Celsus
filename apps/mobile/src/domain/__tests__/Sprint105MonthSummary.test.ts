@@ -144,12 +144,12 @@ describe('Sprint 105 — monthSummary (R43)', () => {
       }),
     ];
 
-    // Conta à mão:
-    // aportes = 100000 (transfer_out para corretora, NÃO soma buy-1 de novo!) + 50000 (buy-2 sem transferência) = 150000
-    // sobra = 1000000 - 0 - 150000 = 850000
+    // Conta à mão (R43 atualizada na Sprint 114 P4):
+    // aportes = 100000 (transfer_out para corretora; buy-1 e buy-2 nunca entram em aportes)
+    // sobra = 1000000 - 0 - 100000 = 900000
     const res = monthSummary(entries, '2026-11', { accounts: [broker] });
-    expect(res.contributionCents).toBe(150000);
-    expect(res.netCents).toBe(850000);
+    expect(res.contributionCents).toBe(100000);
+    expect(res.netCents).toBe(900000);
   });
 
   test('S105-T08: receitas incluem proventos, separa "dos quais proventos" e calcula taxa de poupança', () => {
@@ -197,19 +197,19 @@ describe('Sprint 105 — monthSummary (R43)', () => {
       }),
     ];
 
-    // Conta à mão:
+    // Conta à mão (R43 atualizada na Sprint 114 P4):
     // receitas = 400000 + 50000 + 50000 = 500000 (R$ 5.000,00)
     // proventos = 50000 + 50000 = 100000 (R$ 1.000,00)
     // despesas = 300000 (R$ 3.000,00)
-    // aportes = 100000 (R$ 1.000,00)
-    // sobra = 500000 - 300000 - 100000 = 100000 (R$ 1.000,00)
+    // aportes = 0 (compra pela corretora com saldo = 0 de aporte)
+    // sobra = 500000 - 300000 - 0 = 200000 (R$ 2.000,00)
     // taxa de poupança = (500000 - 300000) / 500000 = 200000 / 500000 = 40.0%
     const res = monthSummary(entries, '2026-11');
     expect(res.incomeCents).toBe(500000);
     expect(res.dividendIncomeCents).toBe(100000);
     expect(res.expenseCents).toBe(300000);
-    expect(res.contributionCents).toBe(100000);
-    expect(res.netCents).toBe(100000);
+    expect(res.contributionCents).toBe(0);
+    expect(res.netCents).toBe(200000);
     expect(res.savingsRatePercent).toBe(40);
     expect(res.savingsRateLabel).toBe('40,0%');
   });

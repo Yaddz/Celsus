@@ -18,17 +18,45 @@ export class SandboxService {
     this.macroCache.clear();
   }
 
+  async getHistory(
+    ticker: string,
+    assetClass: string,
+    range: '1y' | '2y' | '5y' | 'max' | string = 'max'
+  ): Promise<PriceSeriesPoint[]> {
+    const allowedRange =
+      range === '1y' || range === '2y' || range === '5y' || range === 'max' ? range : 'max';
+    return this.fetchSeriesCached(ticker, assetClass, allowedRange, [], process.env.NODE_ENV === 'test');
+  }
+
+  async getMacroSeries(fromDate: string): Promise<{
+    cdi: MacroSeriesPoint[];
+    ipca: MacroSeriesPoint[];
+    poupanca: MacroSeriesPoint[];
+  }> {
+    const macro = await this.fetchMacroCached(fromDate);
+    return {
+      cdi: macro
+        .filter((r) => typeof r.cdi === 'number')
+        .map((r) => ({ date: r.date, ratePct: r.cdi as number })),
+      ipca: macro
+        .filter((r) => typeof r.ipca === 'number')
+        .map((r) => ({ date: r.date, ratePct: r.ipca as number })),
+      poupanca: [],
+    };
+  }
+
   private async fetchSeriesCached(
     ticker: string,
     assetClass: string,
     range: string,
-    datesToEnsure: string[]
+    datesToEnsure: string[],
+    bypassCache = false
   ): Promise<PriceSeriesPoint[]> {
     const clean = ticker.trim().toUpperCase();
     const cls = assetClass.trim().toUpperCase();
     const key = `${clean}:${cls}:${range}`;
 
-    let series = this.seriesCache.get(key);
+    let series = bypassCache ? undefined : this.seriesCache.get(key);
     if (!series) {
       if (this.marketApi.getPriceHistory) {
         const points = await this.marketApi.getPriceHistory(clean, range, { assetClass: cls });

@@ -128,7 +128,10 @@ export function trailingYield(
 
   const oneYearAgo = subtractOneYearIso(refDate);
   const divs12m = valid.filter((d) => d.date > oneYearAgo && d.date <= refDate);
-  const total12m = divs12m.reduce((acc, d) => acc + d.amount, 0);
+  const total12m = divs12m.reduce((acc, d) => {
+    const isJcp = (d.type ?? '').trim().toUpperCase() === 'JCP';
+    return acc + (isJcp ? d.amount * 0.85 : d.amount);
+  }, 0);
 
   const earliestDate = valid.reduce(
     (min, d) => (d.date < min ? d.date : min),

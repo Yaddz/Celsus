@@ -119,18 +119,24 @@ export interface OpenFinanceIncomeEntryCandidate {
 export function findMatchingOpenFinanceIncomeEntry<T extends OpenFinanceIncomeEntryCandidate>(
   income: { ticker: string; payDate: string; amount: string; kind?: string | null },
   linkedAccountId: string,
-  entries: T[]
+  entries: T[],
+  options?: { candidateAccountIds?: string[] }
 ): T | null {
   const candAmount = new Decimal(income.amount || 0).abs();
   const candKind = normalizeIncomeKindForDedup(income.kind);
   const normTicker = normalizeTickerForIncomeDedup(income.ticker);
+  const allowedAccountIds = new Set(
+    options?.candidateAccountIds && options.candidateAccountIds.length > 0
+      ? options.candidateAccountIds
+      : [linkedAccountId]
+  );
 
   const matches: T[] = [];
   for (const e of entries) {
     if (e.source !== 'OPEN_FINANCE') continue;
     if (e.of_removed_at || e.linked_income_id || e.transfer_group_id) continue;
     if (e.kind !== 'income' && e.kind !== 'transfer_in') continue;
-    if (e.account_id !== linkedAccountId) continue;
+    if (!allowedAccountIds.has(e.account_id)) continue;
     if (!(e.amount_cents > 0)) continue;
     if (diffDaysIso(e.due_date, income.payDate) > 3) continue;
 

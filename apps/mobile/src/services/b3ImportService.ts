@@ -737,7 +737,7 @@ export class B3ImportService {
     for (const tx of allTxs) {
       if (tx.notes && tx.notes.includes(batchId)) {
         affectedAssetIds.add(tx.asset_id);
-        await transactionRepository.deleteTransaction(tx.id);
+        await transactionService.deleteTransaction(tx.id);
       }
     }
 
@@ -778,6 +778,40 @@ export class B3ImportService {
     walletsStore.requestRefresh();
 
     return { undone: true, batchId, message: 'Importação desfeita com sucesso.' };
+  }
+
+  /**
+   * Desfaz importações da B3 de uma carteira específica (remove transações B3_IMPORT,
+   * seus fin_entries ligados e recalcula a posição dos ativos afetados).
+   */
+  async undoB3Import(portfolioId: string): Promise<{ undone: boolean; message: string }> {
+    const raw = await appMetaRepository.get('b3:last_batch');
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed?.portfolioId === portfolioId) {
+          return this.undoLastImport();
+        }
+      } catch {}
+    }
+
+    const allTxs = await transactionRepository.listByPortfolio(portfolioId);
+    let removed = 0;
+    for (const tx of allTxs) {
+      if (tx.source === 'B3_IMPORT') {
+        await transactionService.deleteTransaction(tx.id);
+        removed += 1;
+      }
+    }
+
+    walletsStore.requestRefresh();
+    return {
+      undone: removed > 0,
+      message:
+        removed > 0
+          ? 'Importação da B3 desfeita com sucesso.'
+          : 'Nenhuma movimentação da B3 encontrada para desfazer.',
+    };
   }
 }
 

@@ -37,6 +37,7 @@ import {
   formatReportedBalanceDate,
 } from '../../domain/openFinance';
 import { finRepository } from '../../repositories/finRepository';
+import { appMetaRepository } from '../../repositories/appMetaRepository';
 import type { ThemeMode } from '../../theme/palettes';
 import { space, typography } from '../../theme/tokens';
 import {
@@ -308,12 +309,13 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
         savedAccountId = created.id;
       }
 
-      if (accountType === 'broker') {
+      if (accountType === 'broker' || accountType === 'checking' || accountType === 'cash') {
         const selectedSet = new Set(linkedPortfolioIds);
         for (const p of portfolios) {
           const isSelected = selectedSet.has(p.id);
           if (isSelected && p.fin_account_id !== savedAccountId) {
             await portfolioRepository.linkFinAccount(p.id, savedAccountId);
+            await appMetaRepository.set(`broker-link:manual:${p.id}`, '1');
           } else if (!isSelected && p.fin_account_id === savedAccountId) {
             await portfolioRepository.linkFinAccount(p.id, null);
           }
@@ -818,7 +820,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
             />
           </BentoSection>
 
-          {accountType === 'broker' ? (
+          {accountType === 'broker' || accountType === 'checking' || accountType === 'cash' ? (
             <BentoSection title="CARTEIRAS VINCULADAS" themeMode={themeMode}>
               {portfolios.length === 0 ? (
                 <Text style={{ color: ui.muted, fontSize: typography.sizes.body }}>
@@ -850,7 +852,7 @@ export const AccountsScreen: React.FC<AccountsScreenProps> = ({
                       <MaterialIcons
                         name={selected ? 'check-box' : 'check-box-outline-blank'}
                         size={20}
-                        color={selected ? ui.accent : ui.muted}
+                        color={selected ? ui.primary : ui.muted}
                       />
                       <Text style={{ color: ui.text, fontSize: typography.sizes.body }}>
                         {p.name}

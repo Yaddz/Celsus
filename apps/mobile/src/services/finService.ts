@@ -1,7 +1,7 @@
 import * as Crypto from 'expo-crypto';
 import { eq } from 'drizzle-orm';
 import { getDatabase, runInTransaction } from '../db/client';
-import { incomeEvents, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
+import { finAccounts, finEntries, incomeEvents, transactions, type FinEntry, type FinRecurrence } from '../db/schema';
 import {
   addDaysIso,
   addMonthsYearMonth,
@@ -29,6 +29,8 @@ import { finGoalsService } from './finGoalsService';
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
 export const BROKER_ACCOUNTS_MIGRATION_META_KEY = 'migration:broker-accounts:v1';
+export const REMOVE_B3_IMPORT_CASH_ENTRIES_META_KEY = 'migration:remove-b3-import-cash-entries:v1';
+export const BROKER_LINK_SUGGEST_V2_META_KEY = 'migration:broker-link-suggest:v2';
 
 export class FinService {
   async initializeFinanceModule(referenceDateIso?: string): Promise<void> {
@@ -37,6 +39,8 @@ export class FinService {
     await this.migrateOrphanRecordsIfNeeded();
     await this.migrateCardBillMonthsIfNeeded();
     await this.migrateBrokerAccountsIfNeeded();
+    await this.migrateBrokerLinkSuggestV2IfNeeded();
+    await this.migrateRemoveB3ImportCashEntriesIfNeeded();
     await finGoalsService.migrateLegacyGoalsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
@@ -177,6 +181,102 @@ export class FinService {
 
     await appMetaRepository.set(BROKER_ACCOUNTS_MIGRATION_META_KEY, '1');
     return createdCount;
+  }
+
+  /**
+   * P2 (Sprint 114): Remove fin_entries de investimento/transferência criados por importação B3 antiga.
+   * Preserva lançamentos manuais e outros vínculos. Idempotente.
+   */
+  async migrateRemoveB3ImportCashEntriesIfNeeded(): Promise<number> {
+    const alreadyDone = await appMetaRepository.get(REMOVE_B3_IMPORT_CASH_ENTRIES_META_KEY);
+    if (alreadyDone) return 0;
+
+    const db = getDatabase();
+    const b3Txs = await db
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.source, 'B3_IMPORT'));
+
+    const b3TxIdSet = new Set(b3Txs.map((t) => t.id));
+    let removedCount = 0;
+
+    if (b3TxIdSet.size > 0) {
+      const allEntries = await db
+        .select({ id: finEntries.id, kind: finEntries.kind, linked_transaction_id: finEntries.linked_transaction_id })
+        .from(finEntries);
+
+      const targetIds = allEntries
+        .filter(
+          (e) =>
+            e.linked_transaction_id &&
+            b3TxIdSet.has(e.linked_transaction_id) &&
+            ['investment_buy', 'investment_sell', 'transfer_in', 'transfer_out'].includes(e.kind)
+        )
+        .map((e) => e.id);
+
+      for (const id of targetIds) {
+        await db.delete(finEntries).where(eq(finEntries.id, id));
+      }
+      removedCount = targetIds.length;
+    }
+
+    await appMetaRepository.set(REMOVE_B3_IMPORT_CASH_ENTRIES_META_KEY, '1');
+    return removedCount;
+  }
+
+  /**
+   * P3c (Sprint 114): Para carteiras Pluggy vinculadas a uma conta 'broker' vazia criada pela v1,
+   * troca o vínculo para a conta Open Finance da mesma conexão (se única) e arquiva a 'broker' vazia.
+   * Não toca vínculos escolhidos manualmente pelo usuário (`broker-link:manual:<portfolioId>`).
+   */
+  async migrateBrokerLinkSuggestV2IfNeeded(): Promise<number> {
+    const alreadyDone = await appMetaRepository.get(BROKER_LINK_SUGGEST_V2_META_KEY);
+    if (alreadyDone) return 0;
+
+    const db = getDatabase();
+    const [portfolios, allAccounts, allEntries] = await Promise.all([
+      portfolioRepository.listPortfolios(true),
+      finRepository.listAccounts(true),
+      finRepository.listAllEntries(),
+    ]);
+
+    const accountById = new Map(allAccounts.map((a) => [a.id, a]));
+    const accountsWithEntries = new Set(allEntries.map((e) => e.account_id));
+    let migratedCount = 0;
+
+    for (const p of portfolios) {
+      if (!p.of_item_id || !p.fin_account_id) continue;
+      const manualChoice = await appMetaRepository.get(`broker-link:manual:${p.id}`);
+      if (manualChoice === '1') continue;
+
+      const linkedAcc = accountById.get(p.fin_account_id);
+      if (!linkedAcc) continue;
+      if (linkedAcc.type !== 'broker' || linkedAcc.source === 'OPEN_FINANCE') continue;
+      if (accountsWithEntries.has(linkedAcc.id)) continue;
+
+      const ofCandidates = allAccounts.filter(
+        (a) =>
+          a.archived === 0 &&
+          a.id !== linkedAcc.id &&
+          a.source === 'OPEN_FINANCE' &&
+          a.of_item_id === p.of_item_id &&
+          (a.type === 'checking' || a.type === 'cash' || a.type === 'broker')
+      );
+
+      if (ofCandidates.length === 1) {
+        await runInTransaction(async () => {
+          await portfolioRepository.linkFinAccount(p.id, ofCandidates[0].id);
+          await db
+            .update(finAccounts)
+            .set({ archived: 1 })
+            .where(eq(finAccounts.id, linkedAcc.id));
+        });
+        migratedCount += 1;
+      }
+    }
+
+    await appMetaRepository.set(BROKER_LINK_SUGGEST_V2_META_KEY, '1');
+    return migratedCount;
   }
 
   async ensureMonthGenerated(yearMonth: string, referenceDateIso?: string): Promise<void> {

@@ -7,26 +7,30 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **237/237 suítes PASS** (**1502/1502 testes PASS**) |
-| Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
-| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
-| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **264 arquivos protegidos**, SHA-256 íntegros |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **248/248 suítes PASS** (**1560/1560 testes PASS**) |
+| Motor de mercado (Go) | `cd services/market-api && go test ./...` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
+| Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros em produção** (424 erros pré-existentes apenas em `__tests__`) |
+| Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **267 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 114 — Correções da revisão das Sprints 103–113 (Fase A — testes bloqueados)
+## Sprint 114 — Correções da revisão das Sprints 103–113 (Fase B concluída)
 
 Especificação das correções P1–P9: P1 (hub Simulador sem `"Em breve"`, todos os tiles navegando), P2 (importação B3 não lança em Finanças + migração `migration:remove-b3-import-cash-entries:v1` + undo), P3 (`TransactionScreen` origem padrão + aviso não-bloqueante, `matchOpenFinanceInvestmentOutflow`, `migration:broker-link-suggest:v2`, `patrimonyService` sem dupla contagem de `checking`), P4 (`monthSummary` sem contar aporte em dobro), P5 (`deleteTransaction` recalculando posição), P6 (`addIncome` atômico, `updateIncome` sem sobrescrever OF, `findMatchingOpenFinanceIncomeEntry` na conexão OF), P7 (`rf_daily_liquidity` UI + `monthCloseService` via `patrimonyService`), P8 (`backtest` `monthlySeries` com reinvestimento, JCP 15%, `CompareScreen`/`StressTestScreen` via `sandboxService` com USDBRL), P9 (`AccountsScreen` sem `ui.accent`).
 
-| Arquivo de teste | Casos | SHA-256 | Fase A |
-| :--- | :--- | :--- | :--- |
-| `apps/mobile/src/domain/__tests__/Sprint114ReviewFixesDomain.test.ts` | S114-T01…T05 | `8a6d91d9e88e5df6156990a71a04895a1566ccfdf243db5f9e25597d0a7fc501` | 5 FAIL |
-| `apps/mobile/src/services/__tests__/Sprint114ReviewFixesServices.test.ts` | S114-T06…T10 | `3de6cea85e16d82207bde7cb8dacc061778fc623ac134c25862b658ea2018406` | 5 FAIL |
-| `apps/mobile/src/screens/__tests__/Sprint114ReviewFixesUI.test.tsx` | S114-T11…T14 | `87a6924a40ca7092d219d06f0264cef0c1aa972752a0af1b75f4b9d3adb05209` | 4 FAIL |
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint114ReviewFixesDomain.test.ts` | S114-T01…T05 | `8a6d91d9e88e5df6156990a71a04895a1566ccfdf243db5f9e25597d0a7fc501` | 5 FAIL | 5 PASS |
+| `apps/mobile/src/services/__tests__/Sprint114ReviewFixesServices.test.ts` | S114-T06…T10 | `3de6cea85e16d82207bde7cb8dacc061778fc623ac134c25862b658ea2018406` | 5 FAIL | 5 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint114ReviewFixesUI.test.tsx` | S114-T11…T14 | `bb33bb4a44927a5b25dfe5921275e7e84d1a250c4068f2868a52595ebfad93a5` | 4 FAIL | 4 PASS |
 
-**Teste atualizado com autorização explícita do usuário (P1):**
+**Testes atualizados com autorização explícita do usuário:**
 - `apps/mobile/src/screens/__tests__/Sprint109SandboxAndTimeMachineUI.test.tsx` (`S109-T01`, SHA-256 `29076313c29c252d3d0b7ca4e95fd0d6a0e5f1994fee380c1efe78b47537c321`): removida a exigência do selo `"Em breve"` e verificada a navegação de todos os tiles do hub (`Máquina do tempo`, `Carteira fictícia`, `Meta de dividendos`, `Independência`, `Custo de oportunidade`, `Teste de estresse`, `Comparar`, `Aporte`).
+- `apps/mobile/src/domain/__tests__/Sprint105MonthSummary.test.ts` (`S105-T07`, `S105-T08`, SHA-256 `4211baaa5d4afab057c4f7b20127409f87fcaa66fd333c1869a1a278e6a08eda`): ajustadas as expectativas de `contributionCents` e `netCents` conforme a nova regra R43 (P4), onde `investment_buy` sem transferência externa não entra em aportes (`S105-T07`: `150000 -> 100000`, `netCents: 850000 -> 900000`; `S105-T08`: `100000 -> 0`, `netCents: 100000 -> 200000`).
+- `apps/mobile/src/screens/__tests__/Sprint114ReviewFixesUI.test.tsx` (`S114-T11`, `S114-T12`, SHA-256 `bb33bb4a44927a5b25dfe5921275e7e84d1a250c4068f2868a52595ebfad93a5`): alinhados os `testID`s reais de `TransactionScreen` (`tx-use-cash-toggle`, `transaction-quantity-input`, `transaction-unit-price-input`) e seleção da aba `class-tab-FIXED_INCOME` em `PortfolioManagementScreen`.
 
-Execução da Fase A (suíte completa):
-- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **245/248 suítes PASS** (**1546/1560 testes PASS**; 14 FAIL esperados na Sprint 114)
+Execução da Fase B (suíte completa):
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **248/248 suítes PASS** (**1560/1560 testes PASS**, 54.191 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros em produção** (424 pré-existentes apenas em `__tests__`)
+- `cd services/market-api && go test ./...`: todos os 7 pacotes testáveis `ok`
 - `node scripts/test-lock.js verify`: **267 arquivos íntegros**
 
 ## Sprint 113 — Teste de estresse e Comparar (Fase B concluída)

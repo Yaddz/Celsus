@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { getDatabase } from '../db/client';
-import { finEntries, incomeEvents, IncomeEvent } from '../db/schema';
+import { getDatabase, runInTransaction } from '../db/client';
+import { finAccounts, finEntries, incomeEvents, IncomeEvent } from '../db/schema';
 import { decimalToCents } from '../domain/money';
 import { findMatchingOpenFinanceIncomeEntry } from '../domain/finance/incomeDedup';
 import { portfolioRepository } from './portfolioRepository';
@@ -49,52 +49,68 @@ export class IncomeRepository {
       asset_id: params.assetId ?? null,
       created_at: new Date().toISOString(),
     };
-    await this.db.insert(incomeEvents).values(row);
+    await runInTransaction(async () => {
+      await this.db.insert(incomeEvents).values(row);
 
-    // R41: em carteira com conta vinculada, cria investment_income ou casa com lançamento Open Finance existente
-    if (row.source !== 'OPEN_FINANCE_BANK') {
-      const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
-      const brokerAccountId = portfolio?.fin_account_id ?? null;
-      if (brokerAccountId) {
-        const accountEntries = await this.db
-          .select()
-          .from(finEntries)
-          .where(eq(finEntries.account_id, brokerAccountId));
-        const matchedOf = findMatchingOpenFinanceIncomeEntry(
-          {
-            ticker: row.ticker,
-            payDate: row.pay_date,
-            amount: row.amount,
-            kind: row.kind,
-          },
-          brokerAccountId,
-          accountEntries as any[]
-        );
-        if (matchedOf) {
-          await finRepository.updateEntry(matchedOf.id, {
-            linked_income_id: row.id,
-            kind: 'income',
-            of_class_reason: 'INCOME_LINKED',
-          });
-        } else {
-          const amountCents = decimalToCents(row.amount);
-          if (amountCents > 0) {
-            await finRepository.createEntry({
-              kind: 'investment_income',
-              amount_cents: amountCents,
-              due_date: row.pay_date,
-              paid_date: row.pay_date,
-              paid_amount_cents: amountCents,
-              status: 'paid',
-              account_id: brokerAccountId,
-              category_id: 'cat-outros-receita',
-              description: `Provento ${row.ticker}`,
+      // R41: em carteira com conta vinculada, cria investment_income ou casa com lançamento Open Finance existente
+      if (row.source !== 'OPEN_FINANCE_BANK') {
+        const portfolio = await portfolioRepository.getPortfolioById(params.portfolioId);
+        const brokerAccountId = portfolio?.fin_account_id ?? null;
+        if (brokerAccountId) {
+          const linkedAccount = await finRepository.getAccountById(brokerAccountId);
+          const ofItemId = portfolio?.of_item_id ?? linkedAccount?.of_item_id ?? null;
+
+          let candidateAccountIds = [brokerAccountId];
+          if (ofItemId) {
+            const itemAccounts = await this.db
+              .select({ id: finAccounts.id })
+              .from(finAccounts)
+              .where(eq(finAccounts.of_item_id, ofItemId));
+            candidateAccountIds = Array.from(
+              new Set([brokerAccountId, ...itemAccounts.map((a) => a.id)])
+            );
+          }
+
+          const candidateSet = new Set(candidateAccountIds);
+          const allFinEntries = await this.db.select().from(finEntries);
+          const accountEntries = allFinEntries.filter((e) => candidateSet.has(e.account_id));
+          const matchedOf = findMatchingOpenFinanceIncomeEntry(
+            {
+              ticker: row.ticker,
+              payDate: row.pay_date,
+              amount: row.amount,
+              kind: row.kind,
+            },
+            brokerAccountId,
+            accountEntries as any[],
+            { candidateAccountIds }
+          );
+          if (matchedOf) {
+            await finRepository.updateEntry(matchedOf.id, {
               linked_income_id: row.id,
+              kind: 'income',
+              of_class_reason: 'INCOME_LINKED',
             });
+          } else {
+            const amountCents = decimalToCents(row.amount);
+            if (amountCents > 0) {
+              await finRepository.createEntry({
+                kind: 'investment_income',
+                amount_cents: amountCents,
+                due_date: row.pay_date,
+                paid_date: row.pay_date,
+                paid_amount_cents: amountCents,
+                status: 'paid',
+                account_id: brokerAccountId,
+                category_id: 'cat-outros-receita',
+                description: `Provento ${row.ticker}`,
+                linked_income_id: row.id,
+              });
+            }
           }
         }
       }
-    }
+    });
 
     return row;
   }
@@ -155,7 +171,39 @@ export class IncomeRepository {
     if (updates.unitAmount !== undefined) rowUpdates.unit_amount = updates.unitAmount;
     if (updates.portfolioId !== undefined) rowUpdates.portfolio_id = updates.portfolioId;
 
-    await this.db.update(incomeEvents).set(rowUpdates).where(eq(incomeEvents.id, id));
+    await runInTransaction(async () => {
+      await this.db.update(incomeEvents).set(rowUpdates).where(eq(incomeEvents.id, id));
+
+      const linkedEntries = await this.db
+        .select()
+        .from(finEntries)
+        .where(eq(finEntries.linked_income_id, id));
+
+      for (const entry of linkedEntries) {
+        if (entry.source === 'OPEN_FINANCE') {
+          // Crédito Open Finance prevalece como fonte do valor pago; mantém apenas a ligação
+          continue;
+        }
+        if (entry.kind === 'investment_income') {
+          const entryUpdates: Partial<typeof finEntries.$inferInsert> = {};
+          if (updates.amount !== undefined) {
+            const cents = decimalToCents(updates.amount);
+            entryUpdates.amount_cents = cents;
+            entryUpdates.paid_amount_cents = cents;
+          }
+          if (updates.payDate !== undefined) {
+            entryUpdates.due_date = updates.payDate;
+            entryUpdates.paid_date = updates.payDate;
+          }
+          if (updates.ticker !== undefined) {
+            entryUpdates.description = `Provento ${updates.ticker.trim().toUpperCase()}`;
+          }
+          if (Object.keys(entryUpdates).length > 0) {
+            await finRepository.updateEntry(entry.id, entryUpdates);
+          }
+        }
+      }
+    });
     return (await this.getById(id))!;
   }
 

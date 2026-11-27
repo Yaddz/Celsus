@@ -16,7 +16,8 @@ import {
   MAX_COMPARE_ASSETS,
   type CompareAssetInput,
 } from '../../domain/sandbox/compare';
-import { marketApiService } from '../../services/marketApi';
+import { sandboxService } from '../../services/sandboxService';
+import { priceAt, type PriceSeriesPoint } from '../../domain/sandbox/priceAt';
 import { bento, borders, colors, space, typography } from '../../theme/tokens';
 import { LIGHT_THEME_TOKENS } from '../../theme/palettes';
 
@@ -36,6 +37,15 @@ function subtractMonths(iso: string, months: number): string {
   const [y, m, d] = iso.split('-').map(Number);
   const dt = new Date(Date.UTC(y, (m || 1) - 1 - months, d || 1));
   return dt.toISOString().slice(0, 10);
+}
+
+function inferCompareAssetClass(ticker: string): string {
+  const up = ticker.trim().toUpperCase();
+  if (up === 'USDBRL' || up === 'EURBRL') return 'FX';
+  if (/^[A-Z]{4}11F?$/.test(up)) return 'FII';
+  if (/^[A-Z]{4}\d{1,2}F?$/.test(up)) return 'STOCK';
+  if (up === 'BTC' || up === 'ETH' || up === 'SOL') return 'CRYPTO';
+  return 'US_STOCK';
 }
 
 export const CompareScreen: React.FC<CompareScreenProps> = ({
@@ -69,27 +79,35 @@ export const CompareScreen: React.FC<CompareScreenProps> = ({
     setLoading(true);
     try {
       const range = monthsWindow <= 12 ? '1y' : monthsWindow <= 24 ? '2y' : '5y';
-      const [histories, macro] = await Promise.all([
-        Promise.all(
-          selectedTickers.slice(0, MAX_COMPARE_ASSETS).map(async (ticker) => {
-            const pts = await marketApiService.getPriceHistory(ticker, range);
-            return { ticker, priceSeries: pts } satisfies CompareAssetInput;
-          })
-        ),
-        marketApiService.fetchMacroRates(startDate),
+      const tickersToLoad = selectedTickers.slice(0, MAX_COMPARE_ASSETS);
+      const hasUsStock = tickersToLoad.some((t) => inferCompareAssetClass(t) === 'US_STOCK');
+      const [usdBrlSeries, macro, ...rawHistories] = await Promise.all([
+        hasUsStock ? sandboxService.getHistory('USDBRL', 'FX', range) : Promise.resolve([] as PriceSeriesPoint[]),
+        sandboxService.getMacroSeries(startDate),
+        ...tickersToLoad.map(async (ticker) => {
+          const assetClass = inferCompareAssetClass(ticker);
+          const pts = await sandboxService.getHistory(ticker, assetClass, range);
+          return { ticker, assetClass, pts };
+        }),
       ]);
 
+      const histories: CompareAssetInput[] = rawHistories.map(({ ticker, assetClass, pts }) => {
+        if (assetClass === 'US_STOCK' && usdBrlSeries.length > 0) {
+          const converted = pts
+            .map((pt) => {
+              const fx = priceAt(usdBrlSeries, pt.date);
+              if (!fx) return null;
+              return { date: pt.date, close: pt.close * fx.price };
+            })
+            .filter((x): x is PriceSeriesPoint => x !== null);
+          return { ticker, priceSeries: converted };
+        }
+        return { ticker, priceSeries: pts };
+      });
+
       setAssetData(histories);
-      setCdiRates(
-        (macro ?? [])
-          .filter((m) => typeof m.cdi === 'number')
-          .map((m) => ({ date: m.date, ratePct: m.cdi as number }))
-      );
-      setIpcaRates(
-        (macro ?? [])
-          .filter((m) => typeof m.ipca === 'number')
-          .map((m) => ({ date: m.date, ratePct: m.ipca as number }))
-      );
+      setCdiRates(macro.cdi ?? []);
+      setIpcaRates(macro.ipca ?? []);
     } catch {
       setAssetData([]);
       setCdiRates([]);

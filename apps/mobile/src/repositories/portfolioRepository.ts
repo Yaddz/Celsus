@@ -40,8 +40,10 @@ export class PortfolioRepository {
   async createPortfolio(params: {
     name: string;
     description?: string;
-    docket_code: string;
+    docket_code?: string;
+    targetReturn?: string;
     of_item_id?: string | null;
+    ofItemId?: string | null;
     classTargets?: Array<{ asset_class: string; target_percentage: number }>;
   }): Promise<Portfolio> {
     const now = new Date().toISOString();
@@ -51,10 +53,10 @@ export class PortfolioRepository {
       id,
       name: params.name,
       description: params.description || null,
-      docket_code: params.docket_code,
+      docket_code: params.docket_code || 'CELSUS',
       patrimony_goal: null,
       monthly_contribution: null,
-      of_item_id: params.of_item_id ?? null,
+      of_item_id: params.of_item_id ?? params.ofItemId ?? null,
       fin_account_id: null,
       is_archived: 0,
       created_at: now,
