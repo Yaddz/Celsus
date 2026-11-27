@@ -79,7 +79,10 @@ describe('Sprint 110 — Domínio paperPortfolio.simulate (R50)', () => {
   test('S110-T03: aporte mensal on_contribution reutiliza calculateTwoPhaseContribution e direciona para o ativo mais abaixo do peso', () => {
     const spy = jest.spyOn(contributionPlan, 'calculateTwoPhaseContribution');
 
-    // A sobe para 20 em fev, B cai para 10 -> aporte de R$ 1.000 em fev deve ir todo para B!
+    // A sobe para 20 (50 cotas × 20 = 1.000) e B fica em 10 (50 cotas × 10 = 500).
+    // Pelo §6.1, aporte de R$ 1.000: valor final 2.500, alvo 1.250 cada, déficits A = 250 / B = 750.
+    // Fase 1: A +12 cotas (240), B +75 cotas (750); troco 10 -> +1 cota em B.
+    // Resultado: A = 1.240, B = 1.260, troco 0.
     const res = simulate({
       items: [
         { ticker: 'AAAA3', class: 'STOCK', weight: 50 },
@@ -104,9 +107,11 @@ describe('Sprint 110 — Domínio paperPortfolio.simulate (R50)', () => {
 
     expect(spy).toHaveBeenCalled();
     expect(res.investedBRL).toBeCloseTo(2000, 2);
+    const assetA = res.byAsset.find((a) => a.ticker === 'AAAA3');
     const assetB = res.byAsset.find((a) => a.ticker === 'BBBB3');
-    // B recebeu o aporte de R$ 1.000 além dos R$ 500 iniciais -> R$ 1.500
-    expect(assetB?.finalValueBRL).toBeCloseTo(1500, 2);
+    expect(assetA?.finalValueBRL).toBeCloseTo(1240, 2);
+    expect(assetB?.finalValueBRL).toBeCloseTo(1260, 2);
+    expect(res.finalValueBRL).toBeCloseTo(2500, 2);
   });
 
   test('S110-T04: drawdown conhecido numa série sintética (pico 120 -> vale 90 = 25%)', () => {

@@ -15,6 +15,8 @@ import {
   FinGoalSource,
   NetWorthSnapshot,
   SandboxScenario,
+  SandboxPortfolio,
+  SandboxPortfolioItem,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -33,6 +35,8 @@ import {
   finGoalSources as finGoalSourcesTable,
   netWorthSnapshots as netWorthSnapshotsTable,
   sandboxScenarios as sandboxScenariosTable,
+  sandboxPortfolios as sandboxPortfoliosTable,
+  sandboxPortfolioItems as sandboxPortfolioItemsTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
@@ -84,6 +88,8 @@ export interface BackupDatabaseSnapshot {
   finGoalSources?: FinGoalSource[];
   netWorthSnapshots?: NetWorthSnapshot[];
   sandboxScenarios?: SandboxScenario[];
+  sandboxPortfolios?: SandboxPortfolio[];
+  sandboxPortfolioItems?: SandboxPortfolioItem[];
 }
 
 export interface ExportArchiveResult {
@@ -834,6 +840,7 @@ function parseFinRecurrencesFromCsv(csvText?: string): FinRecurrence[] {
     description: r.description ?? '',
     account_id: r.account_id,
     category_id: r.category_id,
+    target_account_id: r.target_account_id === '' ? null : r.target_account_id ?? null,
     frequency: r.frequency,
     day_of_month: parseRequiredInt(r.day_of_month, 1),
     start_date: r.start_date,
@@ -951,6 +958,26 @@ const SANDBOX_SCENARIOS_COLUMNS: (keyof SandboxScenario)[] = [
   'updated_at',
 ];
 
+const SANDBOX_PORTFOLIOS_COLUMNS: (keyof SandboxPortfolio)[] = [
+  'id',
+  'name',
+  'start_date',
+  'initial_cents',
+  'monthly_cents',
+  'rebalance',
+  'created_at',
+  'updated_at',
+];
+
+const SANDBOX_PORTFOLIO_ITEMS_COLUMNS: (keyof SandboxPortfolioItem)[] = [
+  'id',
+  'sandbox_portfolio_id',
+  'ticker',
+  'asset_class',
+  'weight',
+  'created_at',
+];
+
 function parseSandboxScenariosFromCsv(csvText?: string): SandboxScenario[] {
   if (!csvText || !csvText.trim()) return [];
   return parseCsvRecords(csvText).map((r) => ({
@@ -960,6 +987,32 @@ function parseSandboxScenariosFromCsv(csvText?: string): SandboxScenario[] {
     spec_json: r.spec_json || '{"legs":[],"options":{"reinvestDividends":true,"taxEnabled":true}}',
     created_at: r.created_at || new Date().toISOString(),
     updated_at: r.updated_at || new Date().toISOString(),
+  }));
+}
+
+function parseSandboxPortfoliosFromCsv(csvText?: string): SandboxPortfolio[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    name: r.name ?? '',
+    start_date: r.start_date || new Date().toISOString().slice(0, 10),
+    initial_cents: parseInt(r.initial_cents || '0', 10) || 0,
+    monthly_cents: parseInt(r.monthly_cents || '0', 10) || 0,
+    rebalance: r.rebalance || 'never',
+    created_at: r.created_at || new Date().toISOString(),
+    updated_at: r.updated_at || new Date().toISOString(),
+  }));
+}
+
+function parseSandboxPortfolioItemsFromCsv(csvText?: string): SandboxPortfolioItem[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    sandbox_portfolio_id: r.sandbox_portfolio_id ?? '',
+    ticker: r.ticker ?? '',
+    asset_class: r.asset_class || 'STOCK',
+    weight: parseFloat(r.weight || '0') || 0,
+    created_at: r.created_at || new Date().toISOString(),
   }));
 }
 
@@ -1230,6 +1283,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const finGoalSources = db ? await db.select().from(finGoalSourcesTable) : [];
       const netWorthSnapshots = db ? await db.select().from(netWorthSnapshotsTable) : [];
       const sandboxScenarios = db ? await db.select().from(sandboxScenariosTable) : [];
+      const sandboxPortfolios = db ? await db.select().from(sandboxPortfoliosTable) : [];
+      const sandboxPortfolioItems = db ? await db.select().from(sandboxPortfolioItemsTable) : [];
       return {
         portfolios,
         classTargets,
@@ -1249,6 +1304,8 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finGoalSources,
         netWorthSnapshots,
         sandboxScenarios,
+        sandboxPortfolios,
+        sandboxPortfolioItems,
       };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
@@ -1289,6 +1346,12 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     if (snapshot.sandboxScenarios) {
       await db.delete(sandboxScenariosTable);
+    }
+    if (snapshot.sandboxPortfolioItems) {
+      await db.delete(sandboxPortfolioItemsTable);
+    }
+    if (snapshot.sandboxPortfolios) {
+      await db.delete(sandboxPortfoliosTable);
     }
     if (snapshot.finRecurrences) {
       await db.delete(finRecurrencesTable);
@@ -1385,6 +1448,16 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.sandboxScenarios) {
       for (const sc of snapshot.sandboxScenarios) {
         await db.insert(sandboxScenariosTable).values(sc);
+      }
+    }
+    if (snapshot.sandboxPortfolios) {
+      for (const sp of snapshot.sandboxPortfolios) {
+        await db.insert(sandboxPortfoliosTable).values(sp);
+      }
+    }
+    if (snapshot.sandboxPortfolioItems) {
+      for (const spi of snapshot.sandboxPortfolioItems) {
+        await db.insert(sandboxPortfolioItemsTable).values(spi);
       }
     }
     if (snapshot.netWorthSnapshots) {
@@ -1528,6 +1601,14 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       sandboxScenarios:
         incoming.sandboxScenarios || (current.sandboxScenarios?.length ?? 0) > 0
           ? mergeById(current.sandboxScenarios, incoming.sandboxScenarios)
+          : undefined,
+      sandboxPortfolios:
+        incoming.sandboxPortfolios || (current.sandboxPortfolios?.length ?? 0) > 0
+          ? mergeById(current.sandboxPortfolios, incoming.sandboxPortfolios)
+          : undefined,
+      sandboxPortfolioItems:
+        incoming.sandboxPortfolioItems || (current.sandboxPortfolioItems?.length ?? 0) > 0
+          ? mergeById(current.sandboxPortfolioItems, incoming.sandboxPortfolioItems)
           : undefined,
       netWorthSnapshots:
         incoming.netWorthSnapshots || (current.netWorthSnapshots?.length ?? 0) > 0
@@ -1812,6 +1893,24 @@ export class BackupService {
       };
       files['sandbox_scenarios.csv'] = csv;
     }
+    const sandboxPortfolios = snapshot.sandboxPortfolios ?? [];
+    if (sandboxPortfolios.length > 0) {
+      const csv = serializeToCsv(sandboxPortfolios, SANDBOX_PORTFOLIOS_COLUMNS);
+      manifestFiles['sandbox_portfolios.csv'] = {
+        rows: sandboxPortfolios.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['sandbox_portfolios.csv'] = csv;
+    }
+    const sandboxPortfolioItems = snapshot.sandboxPortfolioItems ?? [];
+    if (sandboxPortfolioItems.length > 0) {
+      const csv = serializeToCsv(sandboxPortfolioItems, SANDBOX_PORTFOLIO_ITEMS_COLUMNS);
+      manifestFiles['sandbox_portfolio_items.csv'] = {
+        rows: sandboxPortfolioItems.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['sandbox_portfolio_items.csv'] = csv;
+    }
     if (netWorthSnapshots.length > 0) {
       const csv = serializeToCsv(netWorthSnapshots, NET_WORTH_SNAPSHOTS_COLUMNS);
       manifestFiles['net_worth_snapshots.csv'] = {
@@ -1923,6 +2022,8 @@ export class BackupService {
       'fin_goal_sources.csv',
       'net_worth_snapshots.csv',
       'sandbox_scenarios.csv',
+      'sandbox_portfolios.csv',
+      'sandbox_portfolio_items.csv',
     ] as const;
 
     for (const csvName of optionalCsvs) {
@@ -1984,6 +2085,12 @@ export class BackupService {
         : undefined,
       sandboxScenarios: extracted['sandbox_scenarios.csv']
         ? parseSandboxScenariosFromCsv(extracted['sandbox_scenarios.csv'])
+        : undefined,
+      sandboxPortfolios: extracted['sandbox_portfolios.csv']
+        ? parseSandboxPortfoliosFromCsv(extracted['sandbox_portfolios.csv'])
+        : undefined,
+      sandboxPortfolioItems: extracted['sandbox_portfolio_items.csv']
+        ? parseSandboxPortfolioItemsFromCsv(extracted['sandbox_portfolio_items.csv'])
         : undefined,
     };
 

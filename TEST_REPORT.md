@@ -54,14 +54,22 @@ Execução da Fase B:
 - `cd apps/mobile && npx tsc --noEmit`: **0 erros novos** em produção
 - `node scripts/test-lock.js verify`: **260 arquivos íntegros**
 
-## Sprint 110 — Carteira fictícia (Fase A — testes bloqueados)
+## Sprint 110 — Carteira fictícia (Fase B concluída tardiamente na Sprint 114)
 
-Especificação da regra `R50` (artboard 3): `domain/sandbox/paperPortfolio.ts` (`simulate`), tabelas `sandbox_portfolios` / `sandbox_portfolio_items` + repositório + backup, `screens/sandbox/PaperPortfolioScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
+Especificação da regra `R50` (artboard 3): `domain/sandbox/paperPortfolio.ts` (`simulate`, preservando troco como `cashBRL` no modo `on_contribution`), tabelas `sandbox_portfolios` / `sandbox_portfolio_items` + repositório + backup, `screens/sandbox/PaperPortfolioScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
 
-| Arquivo de teste | Casos | SHA-256 | Fase A |
-| :--- | :--- | :--- | :--- |
-| `apps/mobile/src/domain/__tests__/Sprint110PaperPortfolioDomain.test.ts` | S110-T01…T06 | `3d003ef645d47f06c0d6470c3f4bd8220eaa9a443c10ffe8586cd8beaa803f00` | 6 FAIL |
-| `apps/mobile/src/screens/__tests__/Sprint110PaperPortfolioPersistenceAndUI.test.tsx` | S110-T07…T10 | `109b66af7b8a5c1a69072b6dea6090d28110940400e4a06bc45cc14e4aeb72e9` | 4 FAIL |
+| Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
+| :--- | :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint110PaperPortfolioDomain.test.ts` | S110-T01…T06 | `31f1f384de9306d3182ea442fe9d907ab7ee28f6d79756bbb90285f84bbab28c` | 6 FAIL | 6 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint110PaperPortfolioPersistenceAndUI.test.tsx` | S110-T07…T10 | `109b66af7b8a5c1a69072b6dea6090d28110940400e4a06bc45cc14e4aeb72e9` | 4 FAIL | 4 PASS |
+
+**Teste atualizado com autorização explícita do usuário (Sprint 114 Passo 0):**
+- `Sprint110PaperPortfolioDomain.test.ts` (`S110-T03`): ajustada a expectativa de valor final após aporte `on_contribution` conforme regra §6.1 (`A = 1.240`, `B = 1.260`, total `2.500`, troco `0`).
+
+Execução da Fase B (tardia):
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **244/245 suítes PASS** (**1545/1546 testes PASS**; única falha esperada: `Sprint109SandboxAndTimeMachineUI.test.tsx` S109-T01, tratado na Sprint 114)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853`)
+- `node scripts/test-lock.js verify`: **264 arquivos íntegros**
 
 ## Sprint 109 — Hub Simulador e Máquina do tempo (Fase B concluída)
 
