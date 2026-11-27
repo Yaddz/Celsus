@@ -966,3 +966,19 @@ editar, `npm run test:lock` e `npm run test:verify`. Detalhes em `.agents/rules/
   - `apps/mobile/src/services/__tests__/Sprint108SandboxPersistenceAndService.test.ts` (`S108-T20` a `S108-T21`): CRUD, migração e backup/restore de `sandbox_scenarios` (sem gravar resultado calculado) e `sandboxService` (busca em lote com `class`, `USDBRL`, `fetchMacroRates` e cache local).
 - **Execução Red Phase:** `npm --prefix apps/mobile test -- --watchAll=false Sprint108Sandbox` → **2 suites, 21/21 testes falhando** (`Not implemented`).
 - **Lock:** `node scripts/test-lock.js lock` executado — **255 arquivos** travados em `tests.lock.json`.
+
+### Sprint 108 — Fase B (Green Phase & Report)
+- **Implementação (Domínio puro — `apps/mobile/src/domain/sandbox/`):**
+  - `priceAt.ts` (R47): `priceAt(series, date, maxLookbackDays=7)` retorna `{ price, effectiveDate, currency }` do último pregão `≤ D` dentro de até 7 dias corridos (sem interpolação; `null` se lacuna > 7 dias); `valueInBRL(assetSeries, fxSeries, date)` converte via `USDBRL` no calendário de cada série.
+  - `extremes.ts`: `minInRange(series, from, to)` e `maxInRange(series, from, to)` retornando `{ date, price }` com desempate pela primeira ocorrência cronológica.
+  - `taxRules.ts` (R49): `TAX_RULES_VERSIONS` versionado por `validFrom` (`2024-01-01`), `getTaxRulesVersion`, `regressiveFixedIncomeRate` (22,5% / 20% / 17,5% / 15%) e `estimateTax(leg, monthlySalesContext)` com isenções de ação B3 (≤ R$ 20 mil/mês), cripto nacional (≤ R$ 35 mil/mês), câmbio em espécie (≤ US$ 5 mil/ano) / conta não remunerada, FII (20%), ETF B3 (15%), `US_STOCK` (15% + 30% retenção em dividendos), poupança (isenta) e `taxEnabled=false` sempre rotulado "estimativa".
+  - `backtest.ts` (R48): `runScenario({ legs, macro, options })` calcula por perna e total (investido, valor final, ganho R$/%, proventos reinvestidos ou em caixa com retenção 30% em `US_STOCK`, IR estimado, série mensal), benchmarks CDI (regressivo quando `taxEnabled`), IPCA e poupança (isenta), e propaga `status: 'missing_data'` com total `null` quando qualquer perna não tem dado.
+- **Persistência, Backup e Serviço:**
+  - `apps/mobile/src/db/schema.ts` e `apps/mobile/src/db/client.ts`: tabela `sandbox_scenarios (id, name, kind, spec_json, created_at, updated_at)`.
+  - `apps/mobile/src/repositories/sandboxRepository.ts`: CRUD (`listScenarios`, `getScenarioById`, `saveScenario`, `deleteScenario`) persistindo apenas `spec_json` (resultado nunca gravado).
+  - `apps/mobile/src/services/backupService.ts`: inclusão de `sandbox_scenarios.csv` em `exportDossierArchive`, `importDossierArchive`, `mergeByUuid`, `createBackupZip`/`restoreFromZip` e aliases `exportBackup`/`importBackup`.
+  - `apps/mobile/src/services/sandboxService.ts`: busca em lote (`getPriceHistory` com `class`, fallback `getHistoricalPrice`, `USDBRL` quando há `US_STOCK`, `fetchMacroRates`) com cache local em memória, delegando ao domínio.
+- **Execução de Testes (após edição final):**
+  - `node scripts/test-lock.js verify`: **PASS** (255 arquivos verificados via SHA-256).
+  - `npm --prefix apps/mobile test -- --watchAll=false Sprint108Sandbox apps/mobile/src/db/__tests__/schema.test.ts`: **PASS** (3 suites, 28/28 testes verdes — `Sprint108SandboxDomain.test.ts`, `Sprint108SandboxPersistenceAndService.test.ts`, `schema.test.ts`).
+  - `npm --prefix apps/mobile test -- --watchAll=false backupService`: **PASS** (1 suite, 8/8 testes verdes).

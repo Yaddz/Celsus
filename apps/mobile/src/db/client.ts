@@ -329,6 +329,14 @@ CREATE TABLE IF NOT EXISTS fin_bills (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sandbox_scenarios (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'time_machine',
+  spec_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
 `;
 
 export const SCHEMA_SQL = INITIAL_SCHEMA_SQL;

@@ -5,18 +5,59 @@ export interface ExtremePoint {
   price: number;
 }
 
-export function minInRange(
-  _series: PriceSeriesPoint[],
-  _from: string,
-  _to: string
+function findExtremeInRange(
+  series: PriceSeriesPoint[],
+  from: string,
+  to: string,
+  mode: 'min' | 'max'
 ): ExtremePoint | null {
-  throw new Error('Not implemented');
+  if (!Array.isArray(series) || series.length === 0 || !from || !to || from > to) {
+    return null;
+  }
+
+  const inRange = series
+    .filter(
+      (p) =>
+        p &&
+        p.date >= from &&
+        p.date <= to &&
+        Number.isFinite(p.close) &&
+        p.close > 0
+    )
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (inRange.length === 0) return null;
+
+  let best = inRange[0];
+  for (let i = 1; i < inRange.length; i++) {
+    const curr = inRange[i];
+    if (mode === 'min' ? curr.close < best.close : curr.close > best.close) {
+      best = curr;
+    }
+  }
+
+  return { date: best.date, price: best.close };
 }
 
-export function maxInRange(
-  _series: PriceSeriesPoint[],
-  _from: string,
-  _to: string
+/**
+ * Retorna a primeira ocorrência da menor cotação no intervalo [from, to].
+ */
+export function minInRange(
+  series: PriceSeriesPoint[],
+  from: string,
+  to: string
 ): ExtremePoint | null {
-  throw new Error('Not implemented');
+  return findExtremeInRange(series, from, to, 'min');
+}
+
+/**
+ * Retorna a primeira ocorrência da maior cotação no intervalo [from, to].
+ */
+export function maxInRange(
+  series: PriceSeriesPoint[],
+  from: string,
+  to: string
+): ExtremePoint | null {
+  return findExtremeInRange(series, from, to, 'max');
 }

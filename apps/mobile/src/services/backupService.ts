@@ -14,6 +14,7 @@ import {
   FinGoalContribution,
   FinGoalSource,
   NetWorthSnapshot,
+  SandboxScenario,
   portfolios as portfoliosTable,
   portfolioClassTargets as classTargetsTable,
   assets as assetsTable,
@@ -31,6 +32,7 @@ import {
   finGoalContributions as finGoalContributionsTable,
   finGoalSources as finGoalSourcesTable,
   netWorthSnapshots as netWorthSnapshotsTable,
+  sandboxScenarios as sandboxScenariosTable,
 } from '../db/schema';
 import { getDatabase } from '../db/client';
 import { PortfolioRepository, portfolioRepository } from '../repositories/portfolioRepository';
@@ -81,6 +83,7 @@ export interface BackupDatabaseSnapshot {
   finGoalContributions?: FinGoalContribution[];
   finGoalSources?: FinGoalSource[];
   netWorthSnapshots?: NetWorthSnapshot[];
+  sandboxScenarios?: SandboxScenario[];
 }
 
 export interface ExportArchiveResult {
@@ -939,6 +942,27 @@ const NET_WORTH_SNAPSHOTS_COLUMNS: (keyof NetWorthSnapshot)[] = [
   'total_cents',
 ];
 
+const SANDBOX_SCENARIOS_COLUMNS: (keyof SandboxScenario)[] = [
+  'id',
+  'name',
+  'kind',
+  'spec_json',
+  'created_at',
+  'updated_at',
+];
+
+function parseSandboxScenariosFromCsv(csvText?: string): SandboxScenario[] {
+  if (!csvText || !csvText.trim()) return [];
+  return parseCsvRecords(csvText).map((r) => ({
+    id: r.id,
+    name: r.name ?? '',
+    kind: r.kind || 'time_machine',
+    spec_json: r.spec_json || '{"legs":[],"options":{"reinvestDividends":true,"taxEnabled":true}}',
+    created_at: r.created_at || new Date().toISOString(),
+    updated_at: r.updated_at || new Date().toISOString(),
+  }));
+}
+
 function parseFinGoalsFromCsv(csvText?: string): FinGoal[] {
   if (!csvText || !csvText.trim()) return [];
   return parseCsvRecords(csvText).map((r) => ({
@@ -1205,6 +1229,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       const finGoalContributions = db ? await db.select().from(finGoalContributionsTable) : [];
       const finGoalSources = db ? await db.select().from(finGoalSourcesTable) : [];
       const netWorthSnapshots = db ? await db.select().from(netWorthSnapshotsTable) : [];
+      const sandboxScenarios = db ? await db.select().from(sandboxScenariosTable) : [];
       return {
         portfolios,
         classTargets,
@@ -1223,6 +1248,7 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
         finGoalContributions,
         finGoalSources,
         netWorthSnapshots,
+        sandboxScenarios,
       };
     } catch (err) {
       // Não devolve snapshot vazio: um backup/restore baseado em dados vazios apagaria o usuário.
@@ -1260,6 +1286,9 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     }
     if (snapshot.netWorthSnapshots) {
       await db.delete(netWorthSnapshotsTable);
+    }
+    if (snapshot.sandboxScenarios) {
+      await db.delete(sandboxScenariosTable);
     }
     if (snapshot.finRecurrences) {
       await db.delete(finRecurrencesTable);
@@ -1351,6 +1380,11 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
     if (snapshot.finGoalSources) {
       for (const s of snapshot.finGoalSources) {
         await db.insert(finGoalSourcesTable).values(s);
+      }
+    }
+    if (snapshot.sandboxScenarios) {
+      for (const sc of snapshot.sandboxScenarios) {
+        await db.insert(sandboxScenariosTable).values(sc);
       }
     }
     if (snapshot.netWorthSnapshots) {
@@ -1490,6 +1524,10 @@ class SqliteBackupStorageAdapter implements IBackupStorageAdapter {
       finGoalSources:
         incoming.finGoalSources || (current.finGoalSources?.length ?? 0) > 0
           ? mergeById(current.finGoalSources, incoming.finGoalSources)
+          : undefined,
+      sandboxScenarios:
+        incoming.sandboxScenarios || (current.sandboxScenarios?.length ?? 0) > 0
+          ? mergeById(current.sandboxScenarios, incoming.sandboxScenarios)
           : undefined,
       netWorthSnapshots:
         incoming.netWorthSnapshots || (current.netWorthSnapshots?.length ?? 0) > 0
@@ -1634,6 +1672,14 @@ export class BackupService {
             const db = getDatabase();
             return db ? db.select().from(netWorthSnapshotsTable) : [];
           })());
+    const sandboxScenarios =
+      snapshot.sandboxScenarios ??
+      (snapshotOverride
+        ? []
+        : await (async () => {
+            const db = getDatabase();
+            return db ? db.select().from(sandboxScenariosTable) : [];
+          })());
 
     const manifestFiles: Record<string, ManifestFileEntry> = {
       'portfolios.csv': {
@@ -1758,6 +1804,14 @@ export class BackupService {
       };
       files['fin_goal_sources.csv'] = csv;
     }
+    if (sandboxScenarios.length > 0) {
+      const csv = serializeToCsv(sandboxScenarios, SANDBOX_SCENARIOS_COLUMNS);
+      manifestFiles['sandbox_scenarios.csv'] = {
+        rows: sandboxScenarios.length,
+        sha256: BackupService.computeSha256(csv),
+      };
+      files['sandbox_scenarios.csv'] = csv;
+    }
     if (netWorthSnapshots.length > 0) {
       const csv = serializeToCsv(netWorthSnapshots, NET_WORTH_SNAPSHOTS_COLUMNS);
       manifestFiles['net_worth_snapshots.csv'] = {
@@ -1868,6 +1922,7 @@ export class BackupService {
       'fin_goal_contributions.csv',
       'fin_goal_sources.csv',
       'net_worth_snapshots.csv',
+      'sandbox_scenarios.csv',
     ] as const;
 
     for (const csvName of optionalCsvs) {
@@ -1927,6 +1982,9 @@ export class BackupService {
       netWorthSnapshots: extracted['net_worth_snapshots.csv']
         ? parseNetWorthSnapshotsFromCsv(extracted['net_worth_snapshots.csv'])
         : undefined,
+      sandboxScenarios: extracted['sandbox_scenarios.csv']
+        ? parseSandboxScenariosFromCsv(extracted['sandbox_scenarios.csv'])
+        : undefined,
     };
 
     // 5. Execute transactional import (RESTORE or MERGE)
@@ -1956,6 +2014,14 @@ export class BackupService {
 
   async restoreFromZip(zipBytes: Uint8Array): Promise<void> {
     await this.importDossierArchive(zipBytes, 'RESTORE');
+  }
+
+  async exportBackup(): Promise<Uint8Array> {
+    return this.createBackupZip();
+  }
+
+  async importBackup(zipBytes: Uint8Array): Promise<void> {
+    return this.restoreFromZip(zipBytes);
   }
 }
 
