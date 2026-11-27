@@ -7,20 +7,25 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 
 | Suíte | Comando | Resultado |
 | :--- | :--- | :--- |
-| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **227/227 suítes PASS** (**1444/1444 testes PASS**) |
+| App mobile (Jest + Testing Library) | `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB` | **230/230 suítes PASS** (**1453/1453 testes PASS**) |
 | Motor de mercado (Go) | `npm run test:market` | Todos os 7 pacotes testáveis `ok` (0 falhas, 2 testes "live" pulados por padrão) |
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **246 arquivos protegidos**, SHA-256 íntegros |
 
-## Sprint 105 — Patrimônio único, mês em uma linha e metas unificadas (Fase A concluída)
+## Sprint 105 — Patrimônio único, mês em uma linha e metas unificadas (Fase B concluída)
 
 Especificação das regras `R42`, `R43` e `R44` (problemas `I4`, `I5`, `I9`): `services/patrimonyService.ts` como fonte única de patrimônio (precedência manual → cotação → PM, conta `'broker'` em investido, cartão como passivo, igualdade entre Home de Investimentos, `NetWorthScreen` e `finGoalsService`), `domain/financeFlow.monthSummary` (receitas, dos quais proventos, despesas, aportes sem duplicar transferência + `investment_buy`, sobra e taxa de poupança), migração idempotente `migration:portfolio-goals-to-fin-goals:v1` + `GoalEditorSheet`/`GoalProgressTile` lendo/gravando `fin_goals`, e `FinanceHomeScreen` (artboard 7) com `"Saldo em contas"`, `"O mês em uma linha"`, `"Reserva"` (`"—"`) e `"Próximos 7 dias"` sem nenhum bloco de Investimentos (`DEC-5`).
 
 | Arquivo de teste | Casos | SHA-256 | Fase A | Fase B |
 | :--- | :--- | :--- | :--- | :--- |
-| `apps/mobile/src/domain/__tests__/Sprint105MonthSummary.test.ts` | S105-T06…T09 | `20a2241625c8bc4bc3db15f6fb720298c8d38235d8dd84e2f7146ba9b4c9073d` | 3 FAIL | — |
-| `apps/mobile/src/services/__tests__/Sprint105PatrimonyAndGoals.test.tsx` | S105-T01…T05, S105-T10…T11 | `87b4eacc8571fa62a3544f71f0cc83696dd78a146a1a8c2ff3b9a88bbe3cc6a3` | FAIL (módulo) | — |
-| `apps/mobile/src/screens/__tests__/Sprint105FinanceHomeSummaryUI.test.tsx` | S105-T12…T14 | `4d2288d89c8ba03baa1c098cdfc93f560f970a2cd2f98fae791a4fcd2c61c042` | 3 FAIL | — |
+| `apps/mobile/src/domain/__tests__/Sprint105MonthSummary.test.ts` | S105-T06…T09 | `20a2241625c8bc4bc3db15f6fb720298c8d38235d8dd84e2f7146ba9b4c9073d` | 3 FAIL | 3 PASS |
+| `apps/mobile/src/services/__tests__/Sprint105PatrimonyAndGoals.test.tsx` | S105-T01…T05, S105-T10…T11 | `87b4eacc8571fa62a3544f71f0cc83696dd78a146a1a8c2ff3b9a88bbe3cc6a3` | FAIL (módulo) | 3 PASS |
+| `apps/mobile/src/screens/__tests__/Sprint105FinanceHomeSummaryUI.test.tsx` | S105-T12…T14 | `4d2288d89c8ba03baa1c098cdfc93f560f970a2cd2f98fae791a4fcd2c61c042` | 3 FAIL | 3 PASS |
+
+Execução da Fase B:
+- `cd apps/mobile && npx jest --maxWorkers=2 --workerIdleMemoryLimit=700MB`: **230/230 suítes PASS** (**1453/1453 testes PASS**, 47.982 s)
+- `cd apps/mobile && npx tsc --noEmit`: **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853`)
+- `node scripts/test-lock.js verify`: **246 arquivos íntegros**
 
 ## Sprint 104 — Compra, venda, proventos e transferências atômicas (Fase B concluída)
 

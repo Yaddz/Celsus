@@ -452,3 +452,10 @@ memória, não persiste). `EXPO_PUBLIC_MARKET_API_URL` aponta o app para o servi
 - `services/finService.ts` & `screens/finance/EntriesListScreen.tsx`: `deleteEntry` e a exclusão na lista bloqueiam `investment_*` com `"Esse lançamento vem da carteira <nome>. Exclua a movimentação por lá."`.
 - `domain/finance/incomeDedup.ts`, `repositories/incomeRepository.ts` & `services/pluggy/pluggyIncomeRelinkService.ts`: criação de `investment_income` em carteiras vinculadas e casamento explícito com Open Finance (`valor`, `data ±3 dias`, `conta`) nos dois sentidos sem duplicação (`R41`).
 - `screens/TransactionScreen.tsx` & `screens/finance/ReclassifyAportesSheet.tsx`: seletor de conta/chips `"Sai de"` com saldo projetado (`Saldo … → …`), aviso único `"Vincular uma conta?"` (`app_meta` `link-prompt:<portfolioId>`) e reclassificação manual assistida em `FinanceMoreScreen`.
+
+## Patrimônio Único, Mês em uma Linha e Metas Unificadas (Sprint 105)
+
+- `services/patrimonyService.ts` (`R42`): fonte única de patrimônio (`getPatrimony`) consumida por `App.tsx/refreshAppData`, `NetWorthScreen` e `finGoalsService`.
+- `domain/financeFlow/monthSummary.ts` (`R43`): cálculo puro de receitas (com destaque de proventos), despesas, aportes (deduplicando transferência + `investment_buy`), sobra e taxa de poupança.
+- `services/finGoalsService.ts`, `App.tsx` & `screens/PortfolioManagementScreen.tsx` (`R44`): migração `migration:portfolio-goals-to-fin-goals:v1` e leitura/escrita unificada em `fin_goals` fonte `'portfolio'`.
+- `screens/finance/FinanceHomeScreen.tsx` (`DEC-5`, artboard 7): tiles `"Saldo em contas"`, `"O mês em uma linha"`, `"Reserva"` e `"Próximos 7 dias"`, sem nenhum bloco de Investimentos.

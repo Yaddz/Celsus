@@ -24,6 +24,7 @@ import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finRepository } from '../repositories/finRepository';
 import { portfolioRepository } from '../repositories/portfolioRepository';
 import { finReminderService } from './finReminderService';
+import { finGoalsService } from './finGoalsService';
 
 const MAX_RECURRENCE_MONTHS_AHEAD = 24;
 const BILL_MONTH_DUE_SHIFT_META_KEY = 'fin:bill_month_due_shift_v1';
@@ -36,6 +37,7 @@ export class FinService {
     await this.migrateOrphanRecordsIfNeeded();
     await this.migrateCardBillMonthsIfNeeded();
     await this.migrateBrokerAccountsIfNeeded();
+    await finGoalsService.migrateLegacyGoalsIfNeeded();
     const refIso = referenceDateIso ?? getTodayIsoLocal();
     const refMonth = refIso.slice(0, 7);
     const startMonth = addMonthsYearMonth(refMonth, -1);

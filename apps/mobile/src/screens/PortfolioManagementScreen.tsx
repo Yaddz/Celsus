@@ -25,6 +25,7 @@ import {
 import { parseDecimalInput, formatDecimalInput } from '../utils/decimalInput';
 import { StackedWalletDeck, StackedWalletItem, XpMinimalHeader, ASSET_CLASS_ATTRIBUTE_MAP, AnimatedModalSheet, GoalProgressTile, GoalEditorSheet, BentoGrid, BentoRow, BentoSection, BentoSheetHeader, ConfirmDialog, TransactionRow, LedgerInput, TextField, Skeleton, SkeletonSwap, type LinkedGoalSummary } from '../components/ui';
 import { finGoalsService } from '../services/finGoalsService';
+import { centsToDecimal } from '../domain/money';
 import { formatCentsBRL } from '../domain/financeFlow';
 import { parseMoneyInput } from '../components/ui/GoalProgressTile';
 import { waitRemaining } from '../utils/minLoading';
@@ -585,7 +586,15 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
         if (cancelled) return;
 
         apply.push(() => {
-          setGoalInfo({ goal: portfolio?.patrimony_goal ?? null, monthly: portfolio?.monthly_contribution ?? null });
+          // R44: meta da carteira lida de fin_goals (colunas legadas de portfolios ficam apenas para backup antigo)
+          const primaryGoal =
+            linkedGoals.find((g) => g.goal.source_type === 'portfolio') ?? linkedGoals[0];
+          setGoalInfo({
+            goal: primaryGoal ? centsToDecimal(primaryGoal.goal.target_cents).toFixed(2) : null,
+            monthly: primaryGoal?.goal.monthly_contribution_cents
+              ? centsToDecimal(primaryGoal.goal.monthly_contribution_cents).toFixed(2)
+              : null,
+          });
           setLinkedBrokerAccount(linkedAcc);
           setBrokerAccounts(allBrokers);
           setLinkedPortfolioGoals(
@@ -1482,7 +1491,12 @@ export const PortfolioManagementScreen: React.FC<PortfolioManagementScreenProps>
           themeMode={themeMode}
           onSave={async (goal, monthly) => {
             if (activePortfolioId) {
-              await portfolioRepository.setGoal(activePortfolioId, { patrimonyGoal: goal, monthlyContribution: monthly });
+              const pName = portfolios.find((p) => p.id === activePortfolioId)?.name ?? 'Carteira';
+              await finGoalsService.savePortfolioGoal(activePortfolioId, {
+                portfolioName: pName,
+                patrimonyGoal: goal,
+                monthlyContribution: monthly,
+              });
               setGoalInfo({ goal, monthly });
             }
             setIsGoalEditorOpen(false);

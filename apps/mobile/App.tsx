@@ -33,6 +33,9 @@ import {
   BentoRow,
 } from './src/components/ui';
 import { finGoalsService } from './src/services/finGoalsService';
+import { patrimonyService } from './src/services/patrimonyService';
+import { formatCentsBRL } from './src/domain/financeFlow';
+import { centsToDecimal } from './src/domain/money';
 import { finGoalsRepository } from './src/repositories/finGoalsRepository';
 import type { NetWorthResult } from './src/domain/finance/goal';
 import type { NetWorthSnapshot } from './src/db/schema';
@@ -453,6 +456,11 @@ function AppContent(props: {
         }));
         setCachedQuotes(quoteCacheMap);
 
+        const quoteOverrides: Record<string, string> = {};
+        for (const [k, q] of Object.entries(quoteCacheMap)) {
+          if (q?.currentPrice) quoteOverrides[k] = q.currentPrice;
+        }
+        const pat = await patrimonyService.getPatrimony(undefined, { quoteOverrides });
         const dossier = consolidatePortfolios(inputs);
         const breakdownMap = new Map((dossier.portfolioBreakdown || []).map((b) => [b.portfolioId, b]));
 
@@ -460,8 +468,10 @@ function AppContent(props: {
         const activeInput = inputs.find((i) => i.id === activePortId) || inputs[0];
         const homeDossier = consolidatePortfolios(activeInput ? [activeInput] : []);
 
-        const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
-        const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        const activePatCents =
+          pat.byPortfolio.find((p) => p.portfolioId === activePortId)?.marketValueCents ??
+          pat.investedCents;
+        const formattedTotal = formatCentsBRL(activePatCents);
         const formattedProfit =
           homeDossier.totalProfitPercentage === '—'
             ? '—'
@@ -723,9 +733,17 @@ function AppContent(props: {
               targetPercentage: ct.target_percentage,
             })),
           };
+          const quoteOverrides2: Record<string, string> = {};
+          for (const [k, q] of Object.entries(cachedQuotes)) {
+            if (q?.currentPrice) quoteOverrides2[k] = q.currentPrice;
+          }
+          const pat = await patrimonyService.getPatrimony(undefined, { quoteOverrides: quoteOverrides2 });
           const homeDossier = consolidatePortfolios([activeInput]);
           const mvNum = parseFloat(homeDossier.totalMarketValue || '0');
-          const formattedTotal = `R$ ${mvNum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+          const activePatCents =
+            pat.byPortfolio.find((p) => p.portfolioId === activePort.id)?.marketValueCents ??
+            pat.investedCents;
+          const formattedTotal = formatCentsBRL(activePatCents);
           const formattedProfit =
             homeDossier.totalProfitPercentage === '—'
               ? '—'
@@ -734,9 +752,14 @@ function AppContent(props: {
           apply.push(() => setProfitSummary(formattedProfit));
           apply.push(() => setActivePortfolioId(activePort.id));
           apply.push(() => setHomeMarketValue(String(mvNum)));
+          // R44: metas lidas de fin_goals (colunas legadas em portfolios ficam apenas para backup antigo)
+          const portGoals = await finGoalsService.listGoalsForPortfolio(activePort.id);
+          const primaryGoal = portGoals.find((g) => g.goal.source_type === 'portfolio') ?? portGoals[0];
           apply.push(() => setGoalInfo({
-            goal: (activePort as any).patrimony_goal ?? null,
-            monthly: (activePort as any).monthly_contribution ?? null,
+            goal: primaryGoal ? centsToDecimal(primaryGoal.goal.target_cents).toFixed(2) : null,
+            monthly: primaryGoal?.goal.monthly_contribution_cents
+              ? centsToDecimal(primaryGoal.goal.monthly_contribution_cents).toFixed(2)
+              : null,
           }));
 
           apply.push(() => setCategoryAllocations([
@@ -2098,7 +2121,12 @@ function AppContent(props: {
         themeMode={themeMode}
         onSave={async (goal, monthly) => {
           if (activePortfolioId) {
-            await portfolioRepository.setGoal(activePortfolioId, { patrimonyGoal: goal, monthlyContribution: monthly });
+            const activeName = walletsList.find((w) => w.id === activePortfolioId)?.name ?? 'Carteira';
+            await finGoalsService.savePortfolioGoal(activePortfolioId, {
+              portfolioName: activeName,
+              patrimonyGoal: goal,
+              monthlyContribution: monthly,
+            });
             setGoalInfo({ goal, monthly });
           }
           setIsGoalEditorOpen(false);

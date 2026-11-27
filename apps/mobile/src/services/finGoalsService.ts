@@ -1,20 +1,5 @@
-import Decimal from 'decimal.js';
-import { isUnknownCost } from '../domain/finance/averagePrice';
-import { getDatabase } from '../db/client';
+import type { FinGoal, NetWorthSnapshot } from '../db/schema';
 import {
-  assets,
-  finAccounts,
-  finBills,
-  finEntries,
-  marketPriceCache,
-  portfolios,
-  type FinGoal,
-  type NetWorthSnapshot,
-} from '../db/schema';
-import { summarizeOpenFinanceBill } from '../domain/openFinance/cardBills';
-import {
-  calculateNetWorth,
-  decimalReaisToCents,
   evaluateGoal,
   validatePortfolioShareSlices,
   type FinGoalSourceInput,
@@ -23,15 +8,13 @@ import {
   type GoalPortfolioContext,
   type NetWorthResult,
 } from '../domain/finance/goal';
-import {
-  resolveAccountBalance,
-  getTodayIsoLocal,
-  resolveBillMonth,
-  summarizeBill,
-} from '../domain/financeFlow';
-
-type DomainFinEntry = Parameters<typeof summarizeBill>[0][number];
+import { decimalToCents } from '../domain/money';
+import { getTodayIsoLocal } from '../domain/financeFlow';
+import { appMetaRepository } from '../repositories/appMetaRepository';
 import { finGoalsRepository, type SaveGoalInput } from '../repositories/finGoalsRepository';
+import { patrimonyService } from './patrimonyService';
+
+export const PORTFOLIO_GOALS_MIGRATION_META_KEY = 'migration:portfolio-goals-to-fin-goals:v1';
 
 export interface EvaluatedGoalItem {
   goal: FinGoal;
@@ -44,160 +27,33 @@ async function buildGoalsContext(referenceDateIso?: string): Promise<{
   contributions: Awaited<ReturnType<typeof finGoalsRepository.listContributions>>;
   netWorth: NetWorthResult;
 }> {
-  const db = getDatabase();
   const refIso = referenceDateIso ?? getTodayIsoLocal();
+  const [patrimony, contributions] = await Promise.all([
+    patrimonyService.getPatrimony(refIso),
+    finGoalsRepository.listContributions(),
+  ]);
 
-  const [allAccounts, allEntries, allBills, allPortfolios, allAssets, allPrices, contributions] =
-    await Promise.all([
-      db.select().from(finAccounts),
-      db.select().from(finEntries),
-      db.select().from(finBills),
-      db.select().from(portfolios),
-      db.select().from(assets),
-      db.select().from(marketPriceCache),
-      finGoalsRepository.listContributions(),
-    ]);
+  const accountContexts: GoalAccountContext[] = patrimony.byAccount.map((a) => ({
+    id: a.accountId,
+    name: a.name,
+    type: a.type,
+    balance_cents: a.balanceCents,
+  }));
 
-  const priceMap = new Map(allPrices.map((p) => [p.ticker, p.current_price]));
-  const normalizedEntries = allEntries.map((e) => ({
-    ...e,
-    kind: e.kind as DomainFinEntry['kind'],
-    status: e.status as DomainFinEntry['status'],
-  })) as DomainFinEntry[];
+  const portfolioContexts: GoalPortfolioContext[] = patrimony.byPortfolio.map((p) => ({
+    id: p.portfolioId,
+    name: p.name,
+    total_cents: p.marketValueCents,
+    by_class_cents: p.byClassCents,
+    annual_return_percent: p.annualReturnPercent,
+  }));
 
-  const accountContexts: GoalAccountContext[] = allAccounts
-    .filter((a) => !a.archived)
-    .map((a) => ({
-      id: a.id,
-      name: a.name,
-      type: a.type,
-      balance_cents: resolveAccountBalance(a, normalizedEntries),
-    }));
-
-  // Dívida de cartão: soma do saldo em aberto de todas as faturas não quitadas
-  let openCardBillsCents = 0;
-  const cardAccounts = allAccounts.filter((a) => !a.archived && a.type === 'card');
-  for (const card of cardAccounts) {
-    // Lançamento sem mês de fatura gravado (recorrência no cartão) entra pela regra de fechamento
-    const cardEntries = normalizedEntries
-      .filter((e) => e.account_id === card.id)
-      .map((e) =>
-        e.bill_month
-          ? e
-          : {
-              ...e,
-              bill_month: resolveBillMonth(e.due_date, card.closing_day ?? 1, card.due_day),
-            }
-      );
-    const cardBills = allBills
-      .filter((b) => b.account_id === card.id)
-      .sort((a, b) => a.due_date.localeCompare(b.due_date));
-    const billByMonth = new Map(cardBills.map((b, idx) => [b.bill_month, { bill: b, idx }]));
-    const months = new Set([
-      ...cardEntries.map((e) => e.bill_month).filter((m): m is string => Boolean(m)),
-      ...cardBills.map((b) => b.bill_month),
-    ]);
-    for (const bm of months) {
-      const ofBillInfo = billByMonth.get(bm);
-      if (card.source === 'OPEN_FINANCE' && ofBillInfo) {
-        const nextBill =
-          ofBillInfo.idx + 1 < cardBills.length ? cardBills[ofBillInfo.idx + 1] : null;
-        const ofSummary = summarizeOpenFinanceBill(
-          ofBillInfo.bill,
-          nextBill,
-          cardEntries,
-          refIso,
-          { firstSyncIso: card.of_linked_at }
-        );
-        if (
-          ofSummary.status !== 'paga' &&
-          ofSummary.status !== 'sem saldo' &&
-          ofSummary.status !== 'sem dados de pagamento'
-        ) {
-          openCardBillsCents += Math.max(0, ofSummary.totalCents - ofSummary.paidCents);
-        }
-        continue;
-      }
-      const summary = summarizeBill(cardEntries, bm, {
-        closingDay: card.closing_day ?? 1,
-        todayIso: refIso,
-      });
-      if (summary.status !== 'paga' && summary.openCents > 0) {
-        openCardBillsCents += summary.openCents;
-      }
-    }
-  }
-
-  const portfolioContexts: GoalPortfolioContext[] = [];
-  const nwPortfolios: Array<{ id: string; totalValueReais: Decimal; is_archived: number }> = [];
-
-  for (const p of allPortfolios) {
-    if (p.is_archived) continue;
-    const pAssets = allAssets.filter((a) => a.portfolio_id === p.id);
-    let totalReais = new Decimal(0);
-    let profitMarketReais = new Decimal(0);
-    let totalCostReais = new Decimal(0);
-    const byClass: Record<string, number> = {};
-
-    for (const a of pAssets) {
-      const qty = new Decimal(a.quantity || 0);
-      const unknownCost = isUnknownCost(a);
-      const fallbackAvg = unknownCost ? 0 : a.average_price || 0;
-      const unitPrice = new Decimal(
-        a.manual_price_override ?? priceMap.get(a.ticker) ?? fallbackAvg
-      );
-      // Valor de posição informado (Open Finance / manual) vence quantidade × preço, como na carteira
-      const hasPositionValue =
-        a.value_source === 'INSTITUTION' &&
-        a.of_reported_value !== null &&
-        a.of_reported_value !== undefined &&
-        a.of_reported_value !== ''
-          ? true
-          : a.manual_position_value !== null &&
-            a.manual_position_value !== undefined &&
-            a.manual_position_value !== '';
-      const rawPosVal =
-        a.value_source === 'INSTITUTION' && a.of_reported_value
-          ? a.of_reported_value
-          : a.manual_position_value;
-      const valReais = hasPositionValue
-        ? new Decimal(rawPosVal as string)
-        : qty.mul(unitPrice);
-      totalReais = totalReais.plus(valReais);
-      if (!unknownCost) {
-        const costReais = qty.mul(new Decimal(a.average_price || 0));
-        totalCostReais = totalCostReais.plus(costReais);
-        profitMarketReais = profitMarketReais.plus(valReais);
-      }
-      const clsCents = decimalReaisToCents(valReais);
-      byClass[a.asset_class] = (byClass[a.asset_class] ?? 0) + clsCents;
-    }
-
-    const totalCents = decimalReaisToCents(totalReais);
-    const annualReturnPercent = totalCostReais.gt(0)
-      ? profitMarketReais.minus(totalCostReais).div(totalCostReais).mul(100).toNumber()
-      : 0;
-
-    portfolioContexts.push({
-      id: p.id,
-      name: p.name,
-      total_cents: totalCents,
-      by_class_cents: byClass,
-      annual_return_percent: annualReturnPercent,
-    });
-    nwPortfolios.push({ id: p.id, totalValueReais: totalReais, is_archived: p.is_archived });
-  }
-
-  const netWorth = calculateNetWorth(
-    accountContexts.map((a) => ({
-      id: a.id,
-      type: a.type ?? 'checking',
-      balance_cents: a.balance_cents,
-      archived: 0,
-    })),
-    nwPortfolios,
-    openCardBillsCents
-  );
+  const netWorth: NetWorthResult = {
+    accountsCents: patrimony.accountsCents,
+    investmentsCents: patrimony.investedCents,
+    cardDebtCents: patrimony.cardsCents,
+    totalCents: patrimony.totalCents,
+  };
 
   return {
     accounts: accountContexts,
@@ -333,6 +189,48 @@ export const finGoalsService = {
   },
 
   async migrateLegacyGoalsIfNeeded(): Promise<number> {
-    return finGoalsRepository.migrateLegacyPortfolioGoals();
+    const done = await appMetaRepository.get(PORTFOLIO_GOALS_MIGRATION_META_KEY);
+    if (done === '1') return 0;
+    const count = await finGoalsRepository.migrateLegacyPortfolioGoals();
+    await appMetaRepository.set(PORTFOLIO_GOALS_MIGRATION_META_KEY, '1');
+    return count;
+  },
+
+  /**
+   * R44: Grava/atualiza a meta da carteira diretamente em `fin_goals` (fonte `'portfolio'`).
+   * As colunas legadas `portfolios.patrimony_goal` e `monthly_contribution` não são mais lidas.
+   */
+  async savePortfolioGoal(
+    portfolioId: string,
+    params: {
+      portfolioName: string;
+      patrimonyGoal: string | null;
+      monthlyContribution: string | null;
+    }
+  ): Promise<FinGoal | null> {
+    const existing = await this.listGoalsForPortfolio(portfolioId);
+    const primary = existing.find((item) => item.goal.source_type === 'portfolio') ?? existing[0];
+    if (!params.patrimonyGoal || Number(params.patrimonyGoal) <= 0) {
+      if (primary) {
+        await finGoalsRepository.archiveGoal(primary.goal.id, true);
+      }
+      return null;
+    }
+    const targetCents = decimalToCents(params.patrimonyGoal);
+    const monthlyCents =
+      params.monthlyContribution && Number(params.monthlyContribution) > 0
+        ? decimalToCents(params.monthlyContribution)
+        : 0;
+
+    return this.saveGoalWithSources({
+      id: primary?.goal.id,
+      name: primary?.goal.name ?? `Meta · ${params.portfolioName}`,
+      icon: primary?.goal.icon ?? 'flag',
+      color: primary?.goal.color ?? '#4F9A65',
+      target_cents: targetCents,
+      monthly_contribution_cents: monthlyCents,
+      source_type: 'portfolio',
+      sources: [{ ref_type: 'portfolio', ref_id: portfolioId, share_percent: 100 }],
+    });
   },
 };

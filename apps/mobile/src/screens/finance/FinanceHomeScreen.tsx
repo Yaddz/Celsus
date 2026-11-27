@@ -31,13 +31,17 @@ import {
   formatYearMonthPtBr,
   getMonthDateRange,
   getTodayIsoLocal,
+  monthSummary,
   projectCashflow,
 } from '../../domain/financeFlow';
+import { appMetaRepository } from '../../repositories/appMetaRepository';
 import { finRepository } from '../../repositories/finRepository';
 import { openFinanceRepository } from '../../repositories/openFinanceRepository';
 import { formatUpdatedAgo } from '../../domain/openFinance';
 import { pluggySyncService } from '../../services/pluggy/pluggySyncService';
 import { finService } from '../../services/finService';
+import { patrimonyService } from '../../services/patrimonyService';
+import { PRIVACY_CURRENCY_MASK } from '../../services/privacyAndAuth';
 import { finStore, useFinStore, type FinFilters } from '../../stores/finStore';
 import { bento, dock, layout, space, typography } from '../../theme/tokens';
 import type { ThemeMode } from '../../theme/palettes';
@@ -191,6 +195,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const [receiptDraft, setReceiptDraft] = useState<ReceiptDraft | null>(null);
   const [isStatementImportOpen, setIsStatementImportOpen] = useState(Boolean(initialOpenStatementImport));
   const [isReclassifyAportesOpen, setIsReclassifyAportesOpen] = useState(false);
+  const [accountsBalanceCents, setAccountsBalanceCents] = useState(0);
+  const [cardsDebtCents, setCardsDebtCents] = useState(0);
+  const [showCloseMonthButton, setShowCloseMonthButton] = useState(false);
 
   useEffect(() => {
     if (initialOpenStatementImport) {
@@ -206,7 +213,7 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
     try {
       await finService.initializeFinanceModule(effectiveToday);
       await finService.ensureMonthGenerated(effectiveMonth, effectiveToday);
-      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems] = await Promise.all([
+      const [allEntries, allCategories, activeAccounts, allRecurrences, allBudgets, allSkips, allBills, ofItems, pat, closeMonthFlag] = await Promise.all([
         finRepository.listAllEntries(),
         finRepository.listCategories(false),
         finRepository.listAccounts(false),
@@ -215,6 +222,8 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
         finRepository.listAllRecurrenceSkips(),
         finRepository.listAllBills(),
         openFinanceRepository.listItems(),
+        patrimonyService.getPatrimony(effectiveToday),
+        appMetaRepository.get('feature:month-close:v1'),
       ]);
       setEntries(allEntries);
       setCategories(allCategories);
@@ -223,6 +232,9 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
       setBudgets(allBudgets);
       setSkips(allSkips);
       setBills(allBills);
+      setAccountsBalanceCents(pat.accountsCents);
+      setCardsDebtCents(pat.cardsCents);
+      setShowCloseMonthButton(closeMonthFlag === '1');
       setHasOfItems(ofItems.length > 0);
       const latestSynced = ofItems
         .map((it) => it.last_synced_at)
@@ -362,6 +374,11 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
   const monthlySummary = useMemo(
     () => calculateMonthlySummary(entries, effectiveMonth, effectiveToday),
     [entries, effectiveMonth, effectiveToday]
+  );
+
+  const monthR43 = useMemo(
+    () => monthSummary(entries, effectiveMonth, { todayIso: effectiveToday, accounts }),
+    [entries, effectiveMonth, effectiveToday, accounts]
   );
 
   const prevMonth = useMemo(() => addMonthsYearMonth(effectiveMonth, -1), [effectiveMonth]);
@@ -754,6 +771,96 @@ export const FinanceHomeScreen: React.FC<FinanceHomeScreenProps> = ({
             </>
           ) : (
             <BentoGrid>
+              {/* Saldo em contas (artboard 7, R42) */}
+              <BentoTile
+                variant={tileVariant}
+                title="SALDO EM CONTAS"
+                testID="finance-accounts-balance-tile"
+                onPress={() => navigateTo('accounts')}
+              >
+                <Text
+                  testID="finance-accounts-net-balance"
+                  style={[styles.pairValue, { color: c.text }]}
+                  numberOfLines={1}
+                >
+                  {isPrivacyMode
+                    ? PRIVACY_CURRENCY_MASK
+                    : formatCentsBRL(accountsBalanceCents - cardsDebtCents)}
+                </Text>
+                <Text style={[styles.pairCaption, { color: c.muted }]}>
+                  {isPrivacyMode
+                    ? `Contas ${PRIVACY_CURRENCY_MASK} · Cartões ${PRIVACY_CURRENCY_MASK} · Poupança ${monthR43.savingsRateLabel}`
+                    : `Contas ${formatCentsBRL(accountsBalanceCents)} · Cartões ${formatCentsBRL(cardsDebtCents)} · Poupança ${monthR43.savingsRateLabel}`}
+                </Text>
+              </BentoTile>
+
+              {/* O mês em uma linha (artboard 7, R43) */}
+              <BentoTile
+                variant={tileVariant}
+                title="O MÊS EM UMA LINHA"
+                testID="finance-month-one-line-tile"
+              >
+                <View style={{ gap: space.xs }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Receitas</Text>
+                    <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.incomeCents)}
+                    </Text>
+                  </View>
+                  {monthR43.dividendIncomeCents > 0 ? (
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>
+                      {isPrivacyMode
+                        ? `dos quais proventos ${PRIVACY_CURRENCY_MASK}`
+                        : `dos quais proventos ${formatCentsBRL(monthR43.dividendIncomeCents)}`}
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Despesas</Text>
+                    <Text style={[styles.pairCaption, { color: c.expense, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.expenseCents)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.muted, marginTop: 0 }]}>Enviado à corretora</Text>
+                    <Text style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.contributionCents)}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={[styles.pairCaption, { color: c.text, marginTop: 0 }]}>Sobra</Text>
+                    <Text
+                      style={[
+                        styles.pairCaption,
+                        { color: monthR43.netCents >= 0 ? c.income : c.expense, marginTop: 0 },
+                      ]}
+                    >
+                      {isPrivacyMode ? PRIVACY_CURRENCY_MASK : formatCentsBRL(monthR43.netCents)}
+                    </Text>
+                  </View>
+                  {showCloseMonthButton ? (
+                    <TouchableOpacity
+                      testID="finance-close-month-btn"
+                      accessibilityRole="button"
+                      style={{ marginTop: space.xs }}
+                    >
+                      <Text style={[styles.pairCaption, { color: c.income, marginTop: 0 }]}>
+                        Fechar o mês ›
+                      </Text>
+                    </TouchableOpacity>
+                  ) : null}
+                </View>
+              </BentoTile>
+
+              {/* Reserva (artboard 7, R45 — placeholder "—" até Sprint 106) */}
+              <BentoTile
+                variant={tileVariant}
+                title="RESERVA"
+                testID="finance-reserve-tile"
+              >
+                <Text style={[styles.pairValue, { color: c.text }]}>—</Text>
+                <Text style={[styles.pairCaption, { color: c.muted }]}>Fundo de emergência</Text>
+              </BentoTile>
+
               {/* Saldo do mês em carrossel + indicador em pílulas */}
               <MonthBalanceCarousel
                 month={effectiveMonth}
