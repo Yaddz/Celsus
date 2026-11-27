@@ -55,6 +55,7 @@ export interface FloatingBottomDockProps<T extends string = DockTab> {
   onNovoAportePress?: () => void;
   onNovaCarteiraPress?: () => void;
   onAdicionarAtivoPress?: () => void;
+  onSimularPress?: () => void;
   forceClose?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;

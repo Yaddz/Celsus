@@ -27,6 +27,8 @@ export interface BackState {
   isTransactionModalOpen: boolean;
   isPortfolioManagerOpen: boolean;
   isSimulatorOpen: boolean;
+  isSandboxHubOpen?: boolean;
+  isTimeMachineOpen?: boolean;
 }
 
 export type BackAction =
@@ -44,6 +46,8 @@ export type BackAction =
   | 'close-transaction-modal'
   | 'close-portfolio-manager'
   | 'close-simulator'
+  | 'close-sandbox-hub'
+  | 'close-time-machine'
   | 'go-home'
   | 'exit';
 

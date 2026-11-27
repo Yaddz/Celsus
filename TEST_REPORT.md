@@ -12,6 +12,14 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **249 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 109 — Hub Simulador e Máquina do tempo (Fase A — testes bloqueados)
+
+Especificação das regras `DEC-1` e `R48` (artboards 1 e 2): `screens/sandbox/SandboxHubScreen.tsx`, `screens/sandbox/TimeMachineScreen.tsx`, entrada pelo header de `StatisticsScreen`, item `"Simular"` no speed dial de `FloatingBottomDock`, camadas em `App.tsx` e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/screens/__tests__/Sprint109SandboxAndTimeMachineUI.test.tsx` | S109-T01…T10 | `472aeea730eddd0e9039a21ebd6a8e95b9a18e338fd618294792a08089f53d71` | 10 FAIL |
+
 ## Sprint 106 — Fechar o mês (Fase B concluída)
 
 Especificação da regra `R45`: `domain/financeFlow/monthClose.ts` (`availableSurplus`, `emergencyReserve`, `filterPendingUntilDay`, `averageMonthlyExpenses`), `assets.rf_daily_liquidity` (NULL = não líquida), `stores/pendingContributionStore.ts` (consumo único), `services/monthCloseService.ts` (`month-close:YYYY-MM`), `services/finReminderService.ts` (`checkAndNotifyMonthClose` no dia 1º), `MonthCloseScreen.tsx` (artboard 8), `FinanceHomeScreen.tsx` (botão `"Fechar o mês ›"` sem flag + tile `"RESERVA"`), `SimulatorScreen.tsx` (`initialAmount`/`sourceAccountId`), `App.tsx` e `BackState`.
