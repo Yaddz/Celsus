@@ -31,6 +31,8 @@ export interface BackState {
   isTimeMachineOpen?: boolean;
   isPaperPortfolioOpen?: boolean;
   isDividendGoalOpen?: boolean;
+  isFireOpen?: boolean;
+  isOpportunityCostOpen?: boolean;
 }
 
 export type BackAction =
@@ -52,6 +54,8 @@ export type BackAction =
   | 'close-time-machine'
   | 'close-paper-portfolio'
   | 'close-dividend-goal'
+  | 'close-fire'
+  | 'close-opportunity-cost'
   | 'go-home'
   | 'exit';
 

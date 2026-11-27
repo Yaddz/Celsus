@@ -17,6 +17,8 @@ export interface SandboxHubScreenProps {
   onOpenTimeMachine?: (scenario?: SandboxScenarioRecord) => void;
   onOpenPaperPortfolio?: () => void;
   onOpenDividendGoal?: (scenario?: SandboxScenarioRecord) => void;
+  onOpenFire?: () => void;
+  onOpenOpportunityCost?: () => void;
   onOpenContributionSimulator?: () => void;
   onProfilePress?: () => void;
   onSwitchModule?: () => void;

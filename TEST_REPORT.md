@@ -12,6 +12,15 @@ Estado atual da suíte. O histórico sprint a sprint (relatórios antigos, com h
 | Tipos (TypeScript) | `cd apps/mobile && npx tsc --noEmit` | **0 erros novos** em produção (1 pré-existente em `AccountsScreen.tsx:853` + erros pré-existentes em `__tests__`) |
 | Integridade dos testes (TDD Lock) | `node scripts/test-lock.js verify` | **256 arquivos protegidos**, SHA-256 íntegros |
 
+## Sprint 112 — Independência financeira e Custo de oportunidade (Fase A — testes bloqueados)
+
+Especificação das regras `R52` e `R53` (artboards 5 e 6): `domain/sandbox/fire.ts` (`averageMonthlyExpense`, `averageMonthlyContribution`, `fireNumber`, `projectToFire`), `domain/sandbox/opportunityCost.ts` (`futureValueOfSeries`, `futureValueOfLumpSum`, `annualizeCdi12m`), `services/fireService.ts`, `screens/sandbox/FireScreen.tsx`, `screens/sandbox/OpportunityCostScreen.tsx`, atalhos em `FinanceMoreScreen.tsx`, ativação no `SandboxHubScreen.tsx`, `App.tsx` e `BackState`.
+
+| Arquivo de teste | Casos | SHA-256 | Fase A |
+| :--- | :--- | :--- | :--- |
+| `apps/mobile/src/domain/__tests__/Sprint112FireAndOpportunityDomain.test.ts` | S112-T01…T08 | `cadf18e513558b5d975f42419e8d5fd9430ee341da3afe80c709aa203fb7c45b` | 8 FAIL |
+| `apps/mobile/src/screens/__tests__/Sprint112FireAndOpportunityUI.test.tsx` | S112-T09…T12 | `369fafc269336b766827d904459973f50b600cc6326d9f35dda71bfa8d0654b4` | 4 FAIL |
+
 ## Sprint 111 — Meta de dividendos (Fase B concluída)
 
 Especificação da regra `R51` (artboard 4): `domain/sandbox/dividendGoal.ts` (`trailingYield`, `requiredCapital`, `currentMonthlyIncome`, `suggestPositions`, `incomeCalendar`, `snowball`), `services/dividendGoalService.ts` (gastos fixos via `fin_recurrences`, proventos reais, IPCA 12m, cache de `getDividends`, candidatos `"Seguir minhas metas"` / `"Livre"`), `screens/sandbox/DividendGoalScreen.tsx`, ativação do tile no `SandboxHubScreen.tsx`, cenários `dividend_goal` em `sandboxRepository.ts`, `App.tsx` e `BackState`.

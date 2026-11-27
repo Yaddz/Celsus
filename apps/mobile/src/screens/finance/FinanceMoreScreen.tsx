@@ -20,7 +20,9 @@ export type FinanceMoreRoute =
   | 'categories'
   | 'categoryRules'
   | 'statementImport'
-  | 'reclassifyAportes';
+  | 'reclassifyAportes'
+  | 'fire'
+  | 'opportunityCost';
 
 export interface FinanceMoreScreenProps {
   onBack: () => void;
